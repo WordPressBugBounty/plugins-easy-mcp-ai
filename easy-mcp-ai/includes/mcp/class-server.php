@@ -1,0 +1,399 @@
+<?php
+namespace Easy_MCP_AI\MCP;
+
+use Easy_MCP_AI\Auth\Token_Manager;
+use Easy_MCP_AI\Auth\Permission_Guard;
+use Easy_MCP_AI\Tools\Tool_Registry;
+use Easy_MCP_AI\Resources\Resource_Registry;
+
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+class Server {
+    const PROTOCOL_VERSION = '2025-11-25';
+    const SERVER_NAME      = 'easy-mcp-ai';
+
+    private $tool_registry;
+    private $resource_registry;
+    private $token_manager;
+    private $session_manager;
+    private $permission_guard;
+    private $disabled_tools;
+    private $audit_log_enabled;
+    private $allowed_tool_patterns;
+    private $last_negotiated_version;
+
+    public function __construct( Tool_Registry $tool_registry, Resource_Registry $resource_registry, Token_Manager $token_manager ) {
+        $this->tool_registry     = $tool_registry;
+        $this->resource_registry = $resource_registry;
+        $this->token_manager     = $token_manager;
+        $this->session_manager   = new Session();
+        $this->permission_guard  = new Permission_Guard( $token_manager );
+        $this->disabled_tools       = (array) get_option( 'easy_mcp_ai_disabled_tools', array() );
+        $this->audit_log_enabled    = (bool)  get_option( 'easy_mcp_ai_audit_log_enabled', true );
+        $this->allowed_tool_patterns = (array) get_option( 'easy_mcp_ai_allowed_tool_patterns', array() );
+    }
+
+    public function handle_message( $message, $token_id = null, $allowed_tools = null ) {
+        $method = isset( $message['method'] ) ? $message['method'] : '';
+        $params = isset( $message['params'] ) ? $message['params'] : array();
+        $id     = isset( $message['id'] ) ? $message['id'] : null;
+
+        if ( JSON_RPC::is_notification( $message ) ) {
+            return null;
+        }
+
+        switch ( $method ) {
+            case 'initialize':
+                return $this->handle_initialize( $id, $params, $token_id );
+            case 'ping':
+                return JSON_RPC::success_response( $id, new \stdClass() );
+            case 'tools/list':
+                return $this->handle_tools_list( $id, $params, $token_id, $allowed_tools );
+            case 'tools/call':
+                return $this->handle_tools_call( $id, $params, $token_id, $allowed_tools );
+            case 'resources/list':
+                return $this->handle_resources_list( $id, $params, $token_id );
+            case 'resources/read':
+                return $this->handle_resources_read( $id, $params, $token_id );
+            case 'prompts/list':
+                return JSON_RPC::success_response( $id, array( 'prompts' => array() ) );
+            case 'prompts/get':
+                return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'No prompts available' );
+            default:
+                return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Method not found' );
+        }
+    }
+
+    
+    const SUPPORTED_PROTOCOL_VERSIONS = array( '2025-11-25', '2025-06-18', '2025-03-26' );
+
+    private function handle_initialize( $id, $params, $token_id ) {
+        
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+
+        
+        
+        
+        
+        $client_version = isset( $params['protocolVersion'] ) ? $params['protocolVersion'] : null;
+        if ( $client_version && in_array( $client_version, self::SUPPORTED_PROTOCOL_VERSIONS, true ) ) {
+            $negotiated_version = $client_version;
+        } else {
+            
+            $negotiated_version = self::PROTOCOL_VERSION;
+        }
+
+        
+        $this->last_negotiated_version = $negotiated_version;
+
+        return JSON_RPC::success_response( $id, array(
+            'protocolVersion' => $negotiated_version,
+            'capabilities'    => array(
+                'tools'     => new \stdClass(),
+                'resources' => new \stdClass(),
+            ),
+            'serverInfo'      => array( 'name' => self::SERVER_NAME, 'version' => EASY_MCP_AI_VERSION ),
+            'instructions'    => 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.',
+        ) );
+    }
+
+    
+
+
+
+
+    public function get_last_negotiated_version() {
+        return isset( $this->last_negotiated_version ) ? $this->last_negotiated_version : null;
+    }
+
+    private function handle_tools_list( $id, $params, $token_id, $allowed_tools = null ) {
+        if ( null === $token_id ) {
+            return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+
+        $all_tools = $this->tool_registry->get_all_definitions();
+        
+        $allowed = null !== $allowed_tools ? $allowed_tools : $this->permission_guard->get_allowed_tools( $token_id );
+        if ( ! in_array( '*', $allowed, true ) ) {
+            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) use ( $allowed ) {
+                $name = $tool['name'];
+                if ( in_array( $name, $allowed, true ) ) {
+                    return true;
+                }
+                
+                foreach ( $allowed as $pattern ) {
+                    if ( false !== strpos( $pattern, '*' ) && fnmatch( $pattern, $name ) ) {
+                        return true;
+                    }
+                }
+                return false;
+            } ) );
+        }
+        if ( ! empty( $this->disabled_tools ) ) {
+            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
+                return ! in_array( $tool['name'], $this->disabled_tools, true );
+            } ) );
+        }
+        if ( ! empty( $this->allowed_tool_patterns ) ) {
+            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
+                return $this->tool_matches_pattern_filter( $tool['name'] );
+            } ) );
+        }
+        return JSON_RPC::success_response( $id, array( 'tools' => $all_tools ) );
+    }
+
+    private function handle_tools_call( $id, $params, $token_id, $allowed_tools = null ) {
+        $tool_name = isset( $params['name'] ) ? $params['name'] : '';
+        $arguments = isset( $params['arguments'] ) ? $params['arguments'] : array();
+
+        if ( empty( $tool_name ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Missing tool name' );
+        }
+
+        
+        if ( null === $token_id ) {
+            return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        
+        if ( null !== $allowed_tools ) {
+            if ( ! $this->permission_guard->can_use_tool_with_scope( $allowed_tools, $tool_name ) ) {
+                return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
+            }
+        } elseif ( ! $this->permission_guard->can_use_tool( $token_id, $tool_name ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
+        }
+
+        
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+
+        $tool = $this->tool_registry->get_tool( $tool_name );
+        if ( null === $tool ) {
+            
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Unknown tool' );
+        }
+
+        $required_cap = $tool->get_required_capability();
+        if ( $required_cap && ! \current_user_can( $required_cap ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient WordPress permissions for this tool' );
+        }
+
+        if ( ! empty( $this->disabled_tools ) && in_array( $tool_name, $this->disabled_tools, true ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
+        }
+
+        if ( ! $this->tool_matches_pattern_filter( $tool_name ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
+        }
+
+        try {
+            $result = $tool->execute( $arguments );
+            $this->log_tool_call( $token_id, $tool_name, $arguments, 'success' );
+            return JSON_RPC::success_response( $id, array(
+                'content' => array( array(
+                    'type' => 'text',
+                    'text' => is_string( $result ) ? $result : wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                ) ),
+            ) );
+        } catch ( \Exception $e ) {
+            
+            
+            $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+            return JSON_RPC::success_response( $id, array(
+                'content' => array( array( 'type' => 'text', 'text' => 'Error: ' . $e->getMessage() ) ),
+                'isError' => true,
+            ) );
+        } catch ( \Error $e ) {
+            
+            
+            $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'WP MCP Server tool error [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
+            return JSON_RPC::success_response( $id, array(
+                'content' => array( array( 'type' => 'text', 'text' => 'Tool execution failed. Check server error logs for details.' ) ),
+                'isError' => true,
+            ) );
+        }
+    }
+
+    private function handle_resources_list( $id, $params, $token_id ) {
+        if ( null === $token_id ) {
+            return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+        
+        
+        
+        if ( ! \current_user_can( 'read' ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient permissions to list resources' );
+        }
+        return JSON_RPC::success_response( $id, array( 'resources' => $this->resource_registry->get_all_definitions() ) );
+    }
+
+    private function handle_resources_read( $id, $params, $token_id ) {
+        if ( null === $token_id ) {
+            return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+
+        
+        if ( ! \current_user_can( 'read' ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient permissions to read resources' );
+        }
+
+        $uri = isset( $params['uri'] ) ? $params['uri'] : '';
+        if ( empty( $uri ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Missing resource URI' );
+        }
+        $resource = $this->resource_registry->get_resource( $uri );
+        if ( null === $resource ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RESOURCE_NOT_FOUND, 'Resource not found' );
+        }
+        try {
+            $content = $resource->read();
+            return JSON_RPC::success_response( $id, array(
+                'contents' => array( array(
+                    'uri'      => $uri,
+                    'mimeType' => $resource->get_mime_type(),
+                    'text'     => is_string( $content ) ? $content : wp_json_encode( $content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                ) ),
+            ) );
+        } catch ( \Throwable $e ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INTERNAL_ERROR, 'Failed to read resource' );
+        }
+    }
+
+    private function check_rate_limit( $token_id ) {
+        if ( null === $token_id ) {
+            return true; 
+        }
+        $limit     = (int) get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $cache_key = 'easy_mcp_ai_rate_' . (int) $token_id;
+
+        
+        
+        
+        if ( \wp_using_ext_object_cache() ) {
+            \wp_cache_add( $cache_key, 0, 'easy_mcp_ai', 60 );
+            $new_count = \wp_cache_incr( $cache_key, 1, 'easy_mcp_ai' );
+            return $new_count <= $limit;
+        }
+
+        
+        
+        
+        
+        $current = (int) \get_transient( $cache_key );
+        if ( $current >= $limit ) {
+            return false;
+        }
+        \set_transient( $cache_key, $current + 1, 60 );
+        return true;
+    }
+
+    public function log_auth_failure( $ip, $reason ) {
+        if ( ! $this->audit_log_enabled ) {
+            return;
+        }
+        global $wpdb;
+        $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct insert required for audit logging.
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            array(
+                'token_id'      => 0,
+                'tool_name'     => '_auth_failure',
+                'arguments'     => wp_json_encode( array( 'reason' => $reason ) ),
+                'result_status' => 'auth_failure',
+                'ip_address'    => $ip,
+                'created_at'    => current_time( 'mysql', true ),
+            ),
+            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+        );
+    }
+
+    private function log_tool_call( $token_id, $tool_name, $arguments, $status ) {
+        if ( ! $this->audit_log_enabled ) {
+            return;
+        }
+        global $wpdb;
+        $safe_args = self::redact_sensitive_args( $arguments );
+        $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct insert required for audit logging.
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            array(
+                'token_id'      => $token_id ? (int) $token_id : 0,
+                'tool_name'     => $tool_name,
+                'arguments'     => wp_json_encode( $safe_args ),
+                'result_status' => $status,
+                'ip_address'    => self::get_client_ip(),
+                'created_at'    => current_time( 'mysql', true ),
+            ),
+            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+        );
+    }
+
+    private static function redact_sensitive_args( $args ) {
+        if ( ! is_array( $args ) ) {
+            return $args;
+        }
+        
+        $sensitive_pattern = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/i';
+        $result = array();
+        foreach ( $args as $key => $value ) {
+            if ( preg_match( $sensitive_pattern, $key ) ) {
+                $result[ $key ] = '[REDACTED]';
+            } elseif ( is_array( $value ) ) {
+                $result[ $key ] = self::redact_sensitive_args( $value );
+            } else {
+                $result[ $key ] = $value;
+            }
+        }
+        return $result;
+    }
+
+    private static function get_client_ip() {
+        
+        
+        if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+            $ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
+        } else {
+            $ip = '';
+        }
+        return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+    }
+
+    private function tool_matches_pattern_filter( $tool_name ) {
+        if ( empty( $this->allowed_tool_patterns ) ) {
+            return true;
+        }
+        foreach ( $this->allowed_tool_patterns as $pattern ) {
+            $pattern = trim( $pattern );
+            if ( '' === $pattern ) {
+                continue;
+            }
+            
+            if ( false === strpos( $pattern, '*' ) && false === strpos( $pattern, '?' ) ) {
+                $pattern = '*' . $pattern . '*';
+            }
+            if ( fnmatch( $pattern, $tool_name ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function get_session_manager() {
+        return $this->session_manager;
+    }
+}
