@@ -2,13 +2,13 @@
 Contributors: easymcpai
 Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.8
+Stable tag: 1.6.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 213 tools. Free.
+Connect any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 204 tools. Free.
 
 == Description ==
 
@@ -18,7 +18,7 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 **At a glance:**
 
-* **213 tools** across posts, pages, media, users, comments, menus, Google Analytics 4, Google Search Console, Semrush, DataforSEO, and more
+* **204 tools** across posts, pages, media, users, comments, menus, Google Analytics 4, Google Search Console, Semrush, DataforSEO, and more
 * **1-click OAuth 2.0/2.1** with per-scope consent (Claude Desktop, Cursor, etc.)
 * **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, Yoast, Rank Math, AIOSEO
 * **Google Analytics 4 & Google Search Console** — ask your AI about traffic, top pages, conversions, search queries, clicks, impressions, and indexing status
@@ -43,17 +43,31 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 Once connected, your AI assistant can handle everything you'd normally do in the WordPress admin:
 
-**Content** — draft, write, edit, and publish posts and pages; search, update, and manage existing content
+**AI Content Writing & Publishing** — let AI draft, rewrite, SEO-optimize, schedule, and publish WordPress posts and pages; bulk edit existing content
 
-**Media** — browse your media library, upload new images, update AI alt text and captions
+**AI Media Library & Alt Text** — upload images from chat, browse the media library, and auto-generate AI alt text and captions for SEO and accessibility
 
-**Organization** — manage categories, tags, and navigation menus
+**Taxonomy & Navigation** — manage categories, tags, custom taxonomies, and WordPress navigation menus with AI
 
-**Users** — list users, create accounts, update profiles and roles
+**User Management** — create WordPress user accounts, assign roles, update profiles, and manage user meta
 
-**Plugins & Themes** — see what's installed, activate or deactivate plugins
+**Plugins & Themes** — list installed plugins, activate or deactivate plugins, switch the active theme
 
-**Site Settings** — read and update core WordPress settings
+**WordPress Settings** — read and update site title, tagline, permalinks, timezone, and other core settings
+
+**WooCommerce AI Assistant** — manage WooCommerce products, variations, attributes, orders, customers, coupons, refunds, shipping zones, tax rates, and webhooks; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
+
+**SEO with Yoast, Rank Math & AIOSEO** — read and update Yoast SEO, Rank Math, and All in One SEO (AIOSEO) post metadata, meta titles, meta descriptions, focus keywords, canonical URLs, and Open Graph fields
+
+**Advanced Custom Fields (ACF)** — read and write ACF custom field values on posts, users, and taxonomy terms; list ACF field groups
+
+**Events Calendar & BuddyPress** — create and manage events, venues, and organizers with The Events Calendar; manage BuddyPress members, groups, activity stream, and private message threads
+
+**Comment Moderation** — let AI list, approve, reply to, edit, or delete WordPress comments
+
+**Gutenberg & Full Site Editing** — create, edit, and reuse Gutenberg blocks; update block templates and global styles for FSE themes
+
+**Custom Post Types (CPT)** — read and write any registered custom post type — portfolios, listings, courses, reviews, anything
 
 **Google Analytics 4** — ask about traffic, top pages, conversions, custom dimensions/metrics, and realtime active users
 
@@ -67,21 +81,23 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 
 = Tools =
 
-[**213 Tools, Ready to Use**](https://easymcpai.com/tools)
+[**204 Tools, Ready to Use**](https://easymcpai.com/tools)
 
-**74 core tools** covering every major WordPress content type:
+**86 core tools** covering every major WordPress content type:
 
-**Posts** — list, get, create, update, delete, search
+**Posts** — list, get, create, update, delete, search, count
 **Pages** — list, get, create, update, delete
-**Media** — list, get, upload, update, delete; update AI alt text on any image
-**Categories** — list, get, create, update, delete
-**Tags** — list, get, create, update, delete
+**Media** — list, get, upload, update, delete, count; update AI alt text on any image
+**Categories** — list, get, create, update, delete, count
+**Tags** — list, get, create, update, delete, count
 **Comments** — list, get, create, update, delete
 **Users** — list, get, create, update, delete
 **Menus** — list menus, get, create, update, delete; list, create, update, delete menu items
 **Custom Post Types** — list, get, create, update, delete CPT items
-**Post Meta** — get and update post meta
-**Revisions** — list, get, delete post revisions
+**Post Meta** — get, update, delete post meta; add taxonomy terms to a post
+**Term Meta** — get, update, delete term meta
+**User Meta** — get, update, delete user meta
+**Revisions** — list, get, delete, restore post revisions
 **Blocks** — list, get, create, update, delete AI blocks and reusable blocks
 **Templates** — list, get, update block templates
 **Styles** — get and update global styles
@@ -119,9 +135,12 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 **On-Page** — run a full on-page SEO audit on any URL and get a list of actionable issues
 **Account** — check your DataforSEO API account balance at any time
 
-= 47 WooCommerce MCP Tools =
+= 46 WooCommerce MCP Tools =
 
-**Products** — list, get, create, update, delete products; list and create product variations; list product categories
+**Products** — list, get, create, update, delete products
+**Product Variations** — list, get, create, update, delete product variations
+**Product Attributes** — list, create, and set product attributes
+**Product Categories** — list product categories
 **Orders** — list, get, create, update orders; list order notes, create order note; list order refunds (read-only)
 **Customers** — list, get, create, update, delete customers
 **Coupons** — list, get, create, update, delete coupons
@@ -130,10 +149,11 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 **Tax** — list tax rates
 **Payment** — list payment gateways
 **Reports** — sales, orders, products, top sellers, customers
+**Batch** — bulk create, update, or delete products, variations, and orders in a single request
 
 = 7 Plugin Integrations =
 
-**WooCommerce** — 47 WooCommerce AI tools for products, orders, customers, coupons, shipping, reports, and more
+**WooCommerce** — 46 WooCommerce AI tools for products, orders, customers, coupons, shipping, reports, and more
 **Advanced Custom Fields (ACF)** — 6 tools to get and update ACF fields on posts, users, and terms; list ACF field groups
 **The Events Calendar** — 10 tools to create and manage events, venues, and organizers
 **BuddyPress** — 10 tools for members, activity stream, groups, group members, and private messages
@@ -240,7 +260,7 @@ This plugin connects to the following third-party services **only when a site ad
 
 = What is Easy MCP AI? =
 
-Easy MCP AI is a WordPress AI tool that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 213 ready-to-use tools. No Node.js, no proxy, no extra hosting.
+Easy MCP AI is a WordPress AI tool that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 204 ready-to-use tools. No Node.js, no proxy, no extra hosting.
 
 = Is this a WordPress MCP server? =
 
@@ -252,7 +272,7 @@ MCP is an open standard created by Anthropic that lets AI assistants and AI agen
 
 = How is Easy MCP AI different from other WordPress AI plugins? =
 
-Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 213 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
+Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 204 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
 
 = Is Easy MCP AI free? =
 
@@ -272,7 +292,7 @@ See the [integrations page](https://easymcpai.com/integrations) for step-by-step
 
 = Does it work with WooCommerce, Yoast, Rank Math, ACF, BuddyPress, and The Events Calendar? =
 
-Yes. Easy MCP AI ships with first-party WooCommerce AI tool sets: **WooCommerce** (47 tools — products, orders, customers, coupons, reports, shipping, webhooks), **Advanced Custom Fields (ACF)** (6 tools to get and update ACF fields and ACF field groups on posts, users, and terms), **The Events Calendar** (10 tools), **BuddyPress** (10 tools), **Yoast SEO**, **Rank Math**, and **All in One SEO (AIOSEO)**. Each integration only loads if the underlying plugin is active, and each tool group can be toggled individually under **Easy MCP AI → Plugin Integrations**.
+Yes. Easy MCP AI ships with first-party WooCommerce AI tool sets: **WooCommerce** (46 tools — products, orders, customers, coupons, reports, shipping, webhooks), **Advanced Custom Fields (ACF)** (6 tools to get and update ACF fields and ACF field groups on posts, users, and terms), **The Events Calendar** (10 tools), **BuddyPress** (10 tools), **Yoast SEO**, **Rank Math**, and **All in One SEO (AIOSEO)**. Each integration only loads if the underlying plugin is active, and each tool group can be toggled individually under **Easy MCP AI → Plugin Integrations**.
 
 = Can I use Easy MCP AI as an AI writing assistant for WordPress? =
 
@@ -314,7 +334,7 @@ No configuration required — OAuth 2.0/2.1 endpoints are live as soon as the pl
 
 = Can I control what the AI is allowed to do? =
 
-Yes, fully. Each token has its own permission set — you choose exactly which of the 213 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
+Yes, fully. Each token has its own permission set — you choose exactly which of the 204 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
 
 = Can I limit which posts or pages the AI can edit? =
 
@@ -380,9 +400,13 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.6.9 =
+* Fixed Plugin Integrations admin tab showing 37/37 WooCommerce tools instead of the full 46 — added the 9 missing entries (single-variation get/update/delete, product attribute list/create/set, and batch update for products, variations, and orders)
+* Tested up to WordPress 7.0
+
 = 1.6.8 =
 * Added 21 new tools: count posts, count terms, count media, restore revision, add post terms, delete post meta, get/update/delete term meta, get/update/delete user meta, batch update WooCommerce products/orders/variations, list/create/set product attributes, and get/update/delete single product variation
-* Total tool count is now 213
+* Total tool count is now 204
 
 = 1.6.5 =
 * Added 13 Semrush Analytics API tools (`wp_semrush_*`): domain overview, organic keywords, organic competitors, keyword overview, related keywords, keyword difficulty, phrase questions, backlinks overview/list/referring-domains/anchors, URL organic keywords, and a free API-units balance check
