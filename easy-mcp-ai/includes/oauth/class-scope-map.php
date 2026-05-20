@@ -10,25 +10,37 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Scope_Map {
 
     const SCOPE_MAP = array(
-        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types' ),
-        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_update_post_meta', 'wp_get_post_statuses' ),
-        'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media' ),
+        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_count_posts' ),
+        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms' ),
+        'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media', 'wp_count_media' ),
         'mcp:media:write'        => array( 'wp_upload_media', 'wp_update_media', 'wp_delete_media' ),
-        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies' ),
+        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms' ),
         'mcp:taxonomies:write'   => array( 'wp_create_category', 'wp_update_category', 'wp_delete_category', 'wp_create_tag', 'wp_update_tag', 'wp_delete_tag' ),
+        'mcp:term_meta:read'     => array( 'wp_get_term_meta' ),
+        'mcp:term_meta:write'    => array( 'wp_update_term_meta', 'wp_delete_term_meta' ),
+        'mcp:user_meta:read'     => array( 'wp_get_user_meta' ),
+        'mcp:user_meta:write'    => array( 'wp_update_user_meta', 'wp_delete_user_meta' ),
         'mcp:comments:read'      => array( 'wp_get_comment', 'wp_list_comments' ),
         'mcp:comments:write'     => array( 'wp_create_comment', 'wp_update_comment', 'wp_delete_comment' ),
         'mcp:users:read'         => array( 'wp_get_user', 'wp_list_users' ),
-        'mcp:users:write'        => array( 'wp_create_user', 'wp_update_user', 'wp_delete_user' ),
+        'mcp:user_create:write'  => array( 'wp_create_user' ),
+        'mcp:user_update:write'  => array( 'wp_update_user' ),
+        'mcp:user_delete:write'  => array( 'wp_delete_user' ),
         'mcp:menus:read'         => array( 'wp_get_menu', 'wp_list_menus', 'wp_list_menu_items' ),
         'mcp:menus:write'        => array( 'wp_create_menu', 'wp_update_menu', 'wp_delete_menu', 'wp_create_menu_item', 'wp_update_menu_item', 'wp_delete_menu_item' ),
         'mcp:blocks:read'        => array( 'wp_get_block', 'wp_list_blocks', 'wp_get_template', 'wp_list_templates', 'wp_get_global_styles', 'wp_get_active_theme', 'wp_list_themes' ),
-        'mcp:blocks:write'       => array( 'wp_create_block', 'wp_update_block', 'wp_delete_block', 'wp_update_template', 'wp_update_global_styles' ),
+        'mcp:blocks:write'       => array( 'wp_create_block', 'wp_update_block', 'wp_delete_block' ),
+        
+        
+        
+        
+        'mcp:appearance:write'   => array( 'wp_update_template', 'wp_update_global_styles' ),
         'mcp:plugins:read'       => array( 'wp_list_plugins' ),
         'mcp:settings:read'      => array( 'wp_get_site_settings' ),
         'mcp:settings:write'     => array( 'wp_update_site_settings' ),
-        'mcp:woocommerce:read'   => array( 'wp_wc_get_product', 'wp_wc_list_products', 'wp_wc_get_order', 'wp_wc_list_orders', 'wp_wc_get_customer', 'wp_wc_list_customers', 'wp_wc_list_coupons', 'wp_wc_list_order_notes', 'wp_wc_list_order_refunds', 'wp_wc_list_payment_gateways', 'wp_wc_list_shipping_methods', 'wp_wc_list_shipping_zones', 'wp_wc_list_tax_rates', 'wp_wc_list_webhooks', 'wp_wc_list_product_categories', 'wp_wc_list_product_variations', 'wp_wc_report_sales', 'wp_wc_report_orders', 'wp_wc_report_products', 'wp_wc_report_customers', 'wp_wc_report_top_sellers' ),
-        'mcp:woocommerce:write'  => array( 'wp_wc_create_product', 'wp_wc_update_product', 'wp_wc_delete_product', 'wp_wc_create_order', 'wp_wc_update_order', 'wp_wc_create_order_note', 'wp_wc_create_customer', 'wp_wc_update_customer', 'wp_wc_delete_customer', 'wp_wc_create_coupon', 'wp_wc_update_coupon', 'wp_wc_delete_coupon', 'wp_wc_create_webhook', 'wp_wc_update_webhook', 'wp_wc_delete_webhook', 'wp_wc_create_product_variation' ),
+        'mcp:woocommerce:read'   => array( 'wp_wc_get_product', 'wp_wc_list_products', 'wp_wc_get_order', 'wp_wc_list_orders', 'wp_wc_get_customer', 'wp_wc_list_customers', 'wp_wc_list_coupons', 'wp_wc_list_order_notes', 'wp_wc_list_order_refunds', 'wp_wc_list_payment_gateways', 'wp_wc_list_shipping_methods', 'wp_wc_list_shipping_zones', 'wp_wc_list_tax_rates', 'wp_wc_list_webhooks', 'wp_wc_list_product_categories', 'wp_wc_list_product_variations', 'wp_wc_get_product_variation', 'wp_wc_list_product_attributes', 'wp_wc_report_sales', 'wp_wc_report_orders', 'wp_wc_report_products', 'wp_wc_report_customers', 'wp_wc_report_top_sellers' ),
+        'mcp:woocommerce:write'  => array( 'wp_wc_create_product', 'wp_wc_update_product', 'wp_wc_delete_product', 'wp_wc_create_order', 'wp_wc_update_order', 'wp_wc_create_order_note', 'wp_wc_create_customer', 'wp_wc_update_customer', 'wp_wc_delete_customer', 'wp_wc_create_coupon', 'wp_wc_update_coupon', 'wp_wc_delete_coupon', 'wp_wc_create_product_variation', 'wp_wc_update_product_variation', 'wp_wc_delete_product_variation', 'wp_wc_batch_update_products', 'wp_wc_batch_update_orders', 'wp_wc_batch_update_variations', 'wp_wc_create_product_attribute', 'wp_wc_set_product_attributes' ),
+        'mcp:wc_webhooks:write'  => array( 'wp_wc_create_webhook', 'wp_wc_update_webhook', 'wp_wc_delete_webhook' ),
         'mcp:acf:read'           => array( 'wp_acf_get_fields', 'wp_acf_get_term_fields', 'wp_acf_get_user_fields', 'wp_acf_list_field_groups' ),
         'mcp:acf:write'          => array( 'wp_acf_update_fields', 'wp_acf_update_user_fields' ),
         'mcp:buddypress:read'    => array( 'wp_bp_list_activity', 'wp_bp_list_groups', 'wp_bp_get_group', 'wp_bp_list_group_members', 'wp_bp_list_members', 'wp_bp_get_member', 'wp_bp_list_message_threads', 'wp_bp_get_message_thread' ),
@@ -78,13 +90,24 @@ class Scope_Map {
     
 
 
-    const CORE_CATEGORIES = array( 'posts', 'media', 'taxonomies', 'comments', 'users', 'menus', 'blocks' );
+
+
+
+    const LEGACY_SCOPE_UPGRADES = array(
+        'mcp:users:write' => array( 'mcp:user_create:write', 'mcp:user_update:write', 'mcp:user_delete:write' ),
+    );
+
+    
+
+
+    const CORE_CATEGORIES = array( 'posts', 'media', 'taxonomies', 'term_meta', 'comments', 'users', 'user_meta', 'menus', 'blocks' );
 
     
 
 
     const PLUGIN_CATEGORIES = array(
         'woocommerce' => 'WooCommerce',
+        'wc_webhooks' => 'WooCommerce',
         'acf'         => 'Advanced Custom Fields',
         'buddypress'  => 'BuddyPress',
         'events'      => 'The Events Calendar',
@@ -105,6 +128,7 @@ class Scope_Map {
 
     const PLUGIN_DETECTION_CLASSES = array(
         'woocommerce' => array( 'WooCommerce' ),
+        'wc_webhooks' => array( 'WooCommerce' ),
         'acf'         => array( 'ACF' ),
         'buddypress'  => array( 'BuddyPress' ),
         'events'      => array( 'Tribe__Events__Main' ),
@@ -157,6 +181,31 @@ class Scope_Map {
 
     public static function get_map(): array {
         return self::SCOPE_MAP;
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function apply_legacy_scope_upgrades( array $scopes ): array {
+        $result = array();
+        foreach ( $scopes as $scope ) {
+            if ( isset( self::LEGACY_SCOPE_UPGRADES[ $scope ] ) ) {
+                foreach ( self::LEGACY_SCOPE_UPGRADES[ $scope ] as $replacement ) {
+                    if ( ! in_array( $replacement, $result, true ) ) {
+                        $result[] = $replacement;
+                    }
+                }
+            } elseif ( ! in_array( $scope, $result, true ) ) {
+                $result[] = $scope;
+            }
+        }
+        return $result;
     }
 
     
@@ -279,6 +328,7 @@ class Scope_Map {
 
     public static function resolve_allowed_tools( string $scope ): array {
         $scope_parts    = array_filter( array_map( 'trim', explode( ' ', $scope ) ) );
+        $scope_parts    = self::apply_legacy_scope_upgrades( array_values( $scope_parts ) );
         $tools          = array();
         $has_read_scope = false;
 
@@ -357,6 +407,9 @@ class Scope_Map {
 
         
         foreach ( array_keys( self::PLUGIN_CATEGORIES ) as $cat ) {
+            if ( ! isset( self::SCOPE_MAP[ "mcp:{$cat}:read" ] ) ) {
+                continue;
+            }
             $scopes[] = "mcp:{$cat}:read";
         }
 
@@ -430,6 +483,13 @@ class Scope_Map {
                 'ga'          => __( 'Google Analytics', 'easy-mcp-ai' ),
                 'dfs'         => __( 'DataforSEO', 'easy-mcp-ai' ),
                 'semrush'     => __( 'Semrush', 'easy-mcp-ai' ),
+                'term_meta'   => __( 'Term Meta', 'easy-mcp-ai' ),
+                'user_meta'   => __( 'User Meta', 'easy-mcp-ai' ),
+                'appearance'  => __( 'Site Appearance (templates & global styles)', 'easy-mcp-ai' ),
+                'wc_webhooks' => 'WooCommerce Webhooks',
+                'user_create' => __( 'Users — Create', 'easy-mcp-ai' ),
+                'user_update' => __( 'Users — Update', 'easy-mcp-ai' ),
+                'user_delete' => __( 'Users — Delete', 'easy-mcp-ai' ),
             );
 
             $is_core        = in_array( $slug, self::CORE_CATEGORIES, true );
@@ -437,7 +497,7 @@ class Scope_Map {
             $plugin_required = $is_plugin ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
             
-            if ( 'settings' === $slug || 'plugins' === $slug ) {
+            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug ) {
                 $default_read  = false;
                 $default_write = false;
             } elseif ( 'users' === $slug ) {
@@ -452,11 +512,15 @@ class Scope_Map {
                 $default_write = false;
             }
 
+            $read_scope  = isset( self::SCOPE_MAP[ "mcp:{$slug}:read" ] ) ? "mcp:{$slug}:read" : '';
+            $write_scope = isset( self::SCOPE_MAP[ "mcp:{$slug}:write" ] ) ? "mcp:{$slug}:write" : '';
+
             $categories[] = array(
                 'slug'            => $slug,
                 'label'           => isset( $labels[ $slug ] ) ? $labels[ $slug ] : ucfirst( $slug ),
-                'read_scope'      => "mcp:{$slug}:read",
-                'write_scope'     => isset( self::SCOPE_MAP[ "mcp:{$slug}:write" ] ) ? "mcp:{$slug}:write" : '',
+                'read_scope'      => $read_scope,
+                'write_scope'     => $write_scope,
+                'write_only'      => '' === $read_scope && '' !== $write_scope,
                 'default_read'    => $default_read,
                 'default_write'   => $default_write,
                 'plugin_required' => $plugin_required,

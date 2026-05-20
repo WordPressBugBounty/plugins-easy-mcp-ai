@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $message ) {
 ?>
 <div class="wrap wp-mcp-admin">
-    <h1><?php esc_html_e( 'Audit Log', 'easy-mcp-ai' ); ?></h1>
+    <h1><?php esc_html_e( 'Easy MCP AI - Audit Log', 'easy-mcp-ai' ); ?></h1>
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 

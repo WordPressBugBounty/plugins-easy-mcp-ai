@@ -168,7 +168,10 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\WooCommerce\\Update_Product',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Delete_Product',
             'Easy_MCP_AI\\Tools\\WooCommerce\\List_Product_Variations',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Get_Product_Variation',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Create_Product_Variation',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Update_Product_Variation',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Delete_Product_Variation',
             'Easy_MCP_AI\\Tools\\WooCommerce\\List_Product_Categories',
             'Easy_MCP_AI\\Tools\\WooCommerce\\List_Orders',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Get_Order',
@@ -265,6 +268,32 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\DFS\\Labs_Keywords_For_Site_Live',
             'Easy_MCP_AI\\Tools\\DFS\\Labs_Ranked_Keywords_Live',
             'Easy_MCP_AI\\Tools\\DFS\\Backlinks_Summary_Live',
+
+            
+            'Easy_MCP_AI\\Tools\\Posts\\Count_Posts',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Count_Terms',
+            'Easy_MCP_AI\\Tools\\Media\\Count_Media',
+            
+            'Easy_MCP_AI\\Tools\\Revisions\\Restore_Revision',
+            
+            'Easy_MCP_AI\\Tools\\Meta\\Delete_Post_Meta',
+            
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Get_Term_Meta',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Update_Term_Meta',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Delete_Term_Meta',
+            
+            'Easy_MCP_AI\\Tools\\Posts\\Add_Post_Terms',
+            
+            'Easy_MCP_AI\\Tools\\Users\\Get_User_Meta',
+            'Easy_MCP_AI\\Tools\\Users\\Update_User_Meta',
+            'Easy_MCP_AI\\Tools\\Users\\Delete_User_Meta',
+            
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Batch_Update_Products',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Batch_Update_Orders',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Batch_Update_Variations',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\List_Product_Attributes',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Create_Product_Attribute',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Set_Product_Attributes',
 
             
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Overview',

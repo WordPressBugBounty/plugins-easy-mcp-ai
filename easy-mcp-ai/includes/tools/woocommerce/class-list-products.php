@@ -26,7 +26,7 @@ class List_Products extends Base_Tool {
     }
 
     public function get_annotations() {
-        return array( 'title' => $this->get_description(), 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false );
+        return array( 'title' => $this->get_title(), 'readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false );
     }
 
     public function get_input_schema() {

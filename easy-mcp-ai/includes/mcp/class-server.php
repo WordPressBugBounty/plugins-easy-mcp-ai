@@ -206,9 +206,13 @@ class Server {
         } catch ( \Exception $e ) {
             
             
+            
             $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
             return JSON_RPC::success_response( $id, array(
-                'content' => array( array( 'type' => 'text', 'text' => 'Error: ' . $e->getMessage() ) ),
+                'content' => array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) ),
                 'isError' => true,
             ) );
         } catch ( \Error $e ) {
@@ -223,6 +227,51 @@ class Server {
                 'isError' => true,
             ) );
         }
+    }
+
+    
+
+
+
+
+    public static function sanitize_error_message( $message ) {
+        if ( ! is_string( $message ) || '' === $message ) {
+            return 'Tool execution failed.';
+        }
+
+        
+        $message = preg_replace( '/\s*Stack trace:.*$/s', '', $message );
+
+        
+        $message = preg_replace( '/\s+in\s+\S+\.php(?:\(\d+\)|:\d+| on line \d+)/', '', $message );
+
+        
+        $message = preg_replace( '#(?:/|[A-Z]:\\\\)[^\s\'"<>]*\.(?:php|inc|tpl|phtml)\b#', '[file]', $message );
+
+        
+        $message = preg_replace_callback(
+            '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',
+            function ( $m ) {
+                $ip = $m[0];
+                $parts = array_map( 'intval', explode( '.', $ip ) );
+                if ( 127 === $parts[0] ) { return '[internal]'; }
+                if ( 10 === $parts[0] ) { return '[internal]'; }
+                if ( 192 === $parts[0] && 168 === $parts[1] ) { return '[internal]'; }
+                if ( 172 === $parts[0] && $parts[1] >= 16 && $parts[1] <= 31 ) { return '[internal]'; }
+                if ( 169 === $parts[0] && 254 === $parts[1] ) { return '[internal]'; }
+                return $ip;
+            },
+            $message
+        );
+        $message = preg_replace( '/\[?::1\]?|\blocalhost\b/i', '[internal]', $message );
+
+        
+        $message = trim( $message );
+        if ( strlen( $message ) > 200 ) {
+            $message = substr( $message, 0, 200 ) . '…[truncated]';
+        }
+
+        return '' === $message ? 'Tool execution failed.' : $message;
     }
 
     private function handle_resources_list( $id, $params, $token_id ) {

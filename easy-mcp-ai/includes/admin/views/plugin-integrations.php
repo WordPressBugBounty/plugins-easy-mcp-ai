@@ -24,7 +24,7 @@ function easy_mcp_ai_view_plugin_integrations( $groups, $enabled_groups, $disabl
     );
     ?>
 <div class="wrap wp-mcp-admin">
-    <h1><?php esc_html_e( 'Plugin Integrations', 'easy-mcp-ai' ); ?></h1>
+    <h1><?php esc_html_e( 'Easy MCP AI - Plugin Integrations', 'easy-mcp-ai' ); ?></h1>
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 

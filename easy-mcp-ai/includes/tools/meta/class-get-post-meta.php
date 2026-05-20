@@ -14,7 +14,7 @@ class Get_Post_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets all REST-API-visible meta fields for a post. Only meta fields registered with show_in_rest are returned.';
+        return 'Gets REST-API-visible meta fields for a post. Only meta fields registered with show_in_rest are returned. Optional `key` parameter filters to a single meta key and returns { post_id, key, value }; omit it to receive all meta.';
     }
 
     public function get_category() {
@@ -22,12 +22,12 @@ class Get_Post_Meta extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'read';
+        return 'edit_posts';
     }
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => true,
             'destructiveHint' => false,
             'openWorldHint'   => false,
@@ -47,6 +47,10 @@ class Get_Post_Meta extends Base_Tool {
                     'description' => 'The REST base for the post type (e.g. posts, pages). Default: posts.',
                     'default'     => 'posts',
                 ),
+                'key'       => array(
+                    'type'        => 'string',
+                    'description' => 'Optional single meta key to retrieve. Omit to return all meta.',
+                ),
             ),
             'required'   => array( 'post_id' ),
         );
@@ -63,7 +67,21 @@ class Get_Post_Meta extends Base_Tool {
         $data = $this->rest_request( 'GET', '/wp/v2/' . $post_type . '/' . $post_id, array( 'context' => 'edit' ) );
 
         
-        $meta   = isset( $data['meta'] ) ? $data['meta'] : array();
+        $meta = isset( $data['meta'] ) ? $data['meta'] : array();
+
+        $key = isset( $arguments['key'] ) ? sanitize_text_field( (string) $arguments['key'] ) : '';
+        if ( '' !== $key ) {
+            $value = null;
+            if ( is_array( $meta ) && array_key_exists( $key, $meta ) ) {
+                $value = $meta[ $key ];
+            }
+            return array(
+                'post_id' => $post_id,
+                'key'     => $key,
+                'value'   => $value,
+            );
+        }
+
         $result = array(
             'post_id' => $post_id,
             'meta'    => ! empty( $meta ) ? $meta : new \stdClass(),

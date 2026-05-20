@@ -27,7 +27,7 @@ class Create_Order extends Base_Tool {
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => false,
             'openWorldHint'   => false,
@@ -120,8 +120,13 @@ class Create_Order extends Base_Tool {
 
         $this->validate_required( $arguments, array( 'line_items' ) );
 
+        $line_items = $this->parse_json_param( $arguments['line_items'], 'line_items' );
+        if ( empty( $line_items ) ) {
+            throw new \InvalidArgumentException( 'line_items must contain at least one item.' );
+        }
+
         $params = array(
-            'line_items' => $this->parse_json_param( $arguments['line_items'], 'line_items' ),
+            'line_items' => $line_items,
             'status'     => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'pending',
         );
 

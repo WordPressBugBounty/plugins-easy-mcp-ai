@@ -17,7 +17,7 @@ class OAuth_Admin {
 
 
     public function __construct() {
-        \add_action( 'admin_menu', array( $this, 'add_menu' ) );
+        \add_action( 'easy_mcp_ai_render_oauth_page', array( $this, 'render_page' ) );
         \add_action( 'admin_init', array( $this, 'handle_actions' ) );
         \add_action( 'admin_init', array( $this, 'register_settings' ) );
     }
@@ -46,46 +46,6 @@ class OAuth_Admin {
     
 
 
-    public function add_menu() {
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        \add_submenu_page(
-            'easy-mcp-ai',
-            __( 'OAuth Clients', 'easy-mcp-ai' ),
-            __( 'OAuth Clients', 'easy-mcp-ai' ),
-            'manage_options',
-            'easy-mcp-ai-oauth',
-            array( $this, 'render_page' )
-        );
-        \add_action( 'admin_head', array( $this, 'hide_submenu_entry' ) );
-    }
-
-    
-
-
-
-
-
-
-    public function hide_submenu_entry() {
-        echo '<style>#adminmenu a[href="admin.php?page=easy-mcp-ai-oauth"]{display:none !important;}</style>';
-    }
-
     
 
 
@@ -108,8 +68,8 @@ class OAuth_Admin {
         $quickstart_collapsible = true;
         include EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/partials/quickstart-card.php';
         echo '<h2 class="nav-tab-wrapper">';
-        echo '<a href="' . \esc_url( $tokens_url ) . '" class="nav-tab">' . \esc_html__( 'API Token', 'easy-mcp-ai' ) . '</a>';
         echo '<a href="' . \esc_url( $oauth_url ) . '" class="nav-tab nav-tab-active">' . \esc_html__( 'OAuth', 'easy-mcp-ai' ) . '</a>';
+        echo '<a href="' . \esc_url( $tokens_url ) . '" class="nav-tab">' . \esc_html__( 'API Token', 'easy-mcp-ai' ) . '</a>';
         echo '</h2>';
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
@@ -241,7 +201,12 @@ class OAuth_Admin {
             <tbody>
                 <?php if ( empty( $clients ) ) : ?>
                     <tr>
-                        <td colspan="7"><?php \esc_html_e( 'No registered clients.', 'easy-mcp-ai' ); ?></td>
+                        <td colspan="7">
+                            <?php \esc_html_e( 'No registered clients.', 'easy-mcp-ai' ); ?>
+                            <a href="<?php echo \esc_url( \admin_url( 'admin.php?page=easy-mcp-ai' ) ); ?>">
+                                <?php \esc_html_e( 'Connect to AI Client', 'easy-mcp-ai' ); ?>
+                            </a>
+                        </td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ( $clients as $client ) : ?>
@@ -379,7 +344,12 @@ class OAuth_Admin {
             <tbody>
                 <?php if ( empty( $grants ) ) : ?>
                     <tr>
-                        <td colspan="6"><?php \esc_html_e( 'No active grants.', 'easy-mcp-ai' ); ?></td>
+                        <td colspan="6">
+                            <?php \esc_html_e( 'No active grants.', 'easy-mcp-ai' ); ?>
+                            <a href="<?php echo \esc_url( \admin_url( 'admin.php?page=easy-mcp-ai' ) ); ?>">
+                                <?php \esc_html_e( 'Connect to AI Client', 'easy-mcp-ai' ); ?>
+                            </a>
+                        </td>
                     </tr>
                 <?php else : ?>
                     <?php

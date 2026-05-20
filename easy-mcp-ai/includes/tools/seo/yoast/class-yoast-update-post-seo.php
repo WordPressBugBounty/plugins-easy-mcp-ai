@@ -31,7 +31,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 
 	public function get_annotations() {
 		return array(
-			'title'           => $this->get_description(),
+			'title'           => $this->get_title(),
 			'readOnlyHint'    => false,
 			'destructiveHint' => false,
 			'openWorldHint'   => false,

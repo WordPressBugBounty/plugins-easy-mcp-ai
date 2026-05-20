@@ -27,7 +27,7 @@ class Update_Coupon extends Base_Tool {
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => false,
             'openWorldHint'   => false,
@@ -55,8 +55,8 @@ class Update_Coupon extends Base_Tool {
                     'description' => 'Coupon amount.',
                 ),
                 'date_expires'  => array(
-                    'type'        => 'string',
-                    'description' => 'Coupon expiry date in YYYY-MM-DD format.',
+                    'type'        => array( 'string', 'null' ),
+                    'description' => 'Coupon expiry date in YYYY-MM-DD format, or null to remove the expiry.',
                 ),
                 'usage_limit'   => array(
                     'type'        => 'integer',
@@ -73,6 +73,28 @@ class Update_Coupon extends Base_Tool {
                 'free_shipping' => array(
                     'type'        => 'boolean',
                     'description' => 'Whether to grant free shipping.',
+                ),
+                'individual_use' => array(
+                    'type'        => 'boolean',
+                    'description' => 'Whether the coupon can only be used alone.',
+                ),
+                'exclude_sale_items' => array(
+                    'type'        => 'boolean',
+                    'description' => 'Whether to exclude sale items from the coupon.',
+                ),
+                'usage_limit_per_user' => array(
+                    'type'        => 'integer',
+                    'description' => 'How many times each individual user can use the coupon.',
+                ),
+                'product_ids' => array(
+                    'type'        => 'array',
+                    'description' => 'List of product IDs the coupon applies to.',
+                    'items'       => array( 'type' => 'integer' ),
+                ),
+                'excluded_product_ids' => array(
+                    'type'        => 'array',
+                    'description' => 'List of product IDs the coupon does not apply to.',
+                    'items'       => array( 'type' => 'integer' ),
                 ),
             ),
             'required'       => array( 'id' ),
@@ -95,10 +117,25 @@ class Update_Coupon extends Base_Tool {
             $params['discount_type'] = sanitize_text_field( $arguments['discount_type'] );
         }
         if ( isset( $arguments['amount'] ) ) {
-            $params['amount'] = sanitize_text_field( $arguments['amount'] );
+            $amount = $arguments['amount'];
+            if ( ! is_numeric( $amount ) || floatval( $amount ) < 0 ) {
+                throw new \InvalidArgumentException( 'Coupon amount must be a non-negative number.' );
+            }
+            
+            
+            
+            
+            
+            
+            
+            $type = isset( $arguments['discount_type'] ) ? $arguments['discount_type'] : '';
+            if ( 'percent' === $type && floatval( $amount ) > 100 ) {
+                throw new \InvalidArgumentException( 'Percent discount amount cannot exceed 100.' );
+            }
+            $params['amount'] = number_format( floatval( $amount ), 2, '.', '' );
         }
         if ( isset( $arguments['date_expires'] ) ) {
-            $params['date_expires'] = sanitize_text_field( $arguments['date_expires'] );
+            $params['date_expires'] = null === $arguments['date_expires'] ? null : sanitize_text_field( $arguments['date_expires'] );
         }
         if ( isset( $arguments['usage_limit'] ) ) {
             $params['usage_limit'] = absint( $arguments['usage_limit'] );
@@ -111,6 +148,21 @@ class Update_Coupon extends Base_Tool {
         }
         if ( isset( $arguments['free_shipping'] ) ) {
             $params['free_shipping'] = (bool) $arguments['free_shipping'];
+        }
+        if ( isset( $arguments['individual_use'] ) ) {
+            $params['individual_use'] = (bool) $arguments['individual_use'];
+        }
+        if ( isset( $arguments['exclude_sale_items'] ) ) {
+            $params['exclude_sale_items'] = (bool) $arguments['exclude_sale_items'];
+        }
+        if ( isset( $arguments['usage_limit_per_user'] ) ) {
+            $params['usage_limit_per_user'] = absint( $arguments['usage_limit_per_user'] );
+        }
+        if ( isset( $arguments['product_ids'] ) && is_array( $arguments['product_ids'] ) ) {
+            $params['product_ids'] = array_map( 'absint', $arguments['product_ids'] );
+        }
+        if ( isset( $arguments['excluded_product_ids'] ) && is_array( $arguments['excluded_product_ids'] ) ) {
+            $params['excluded_product_ids'] = array_map( 'absint', $arguments['excluded_product_ids'] );
         }
 
         $data = $this->rest_request( 'PUT', '/wc/v3/coupons/' . $id, $params );

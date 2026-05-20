@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $message, $search_query, $flat_abilities, $page_abilities, $page_links, $total_items, $current_page ) {
 ?>
 <div class="wrap wp-mcp-admin">
-    <h1><?php esc_html_e( 'Abilities Browser', 'easy-mcp-ai' ); ?></h1>
+    <h1><?php esc_html_e( 'Easy MCP AI - Abilities Browser', 'easy-mcp-ai' ); ?></h1>
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 

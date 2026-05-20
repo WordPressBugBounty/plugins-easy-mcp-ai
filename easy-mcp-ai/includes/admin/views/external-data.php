@@ -8,7 +8,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>
 <div class="wrap">
-    <h1><?php esc_html_e( 'External Data', 'easy-mcp-ai' ); ?></h1>
+    <h1><?php esc_html_e( 'Easy MCP AI - External Data', 'easy-mcp-ai' ); ?></h1>
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 
@@ -97,309 +97,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
         <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
         <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
-
-        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
-            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('gsc-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
-                <span>
-                    <?php esc_html_e( 'Google Search Console', 'easy-mcp-ai' ); ?>
-                    <?php if ( $has_json ) : ?>
-                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Credentials saved', 'easy-mcp-ai' ); ?></span>
-                    <?php else : ?>
-                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
-                    <?php endif; ?>
-                </span>
-                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
-            </h2>
-
-            <div id="gsc-section-body" style="display:none;">
-            <div style="background:#f6f7f7; border-left:4px solid #72aee6; margin:.5em 0 1em; border-radius:0 4px 4px 0; overflow:hidden;">
-                <button type="button" onclick="(function(btn){var body=btn.nextElementSibling;var open=body.style.display!=='none';body.style.display=open?'none':'block';btn.querySelector('.easy-mcp-setup-icon').textContent=open?'▶':'▼';btn.querySelector('.easy-mcp-setup-label').textContent=open?'<?php echo esc_js( __( 'Click here to see how to set up Search Console', 'easy-mcp-ai' ) ); ?>':'<?php echo esc_js( __( 'Hide setup instructions', 'easy-mcp-ai' ) ); ?>';})(this)" style="width:100%; text-align:left; background:none; border:none; padding:.75em 1em; font-weight:600; color:#2271b1; cursor:pointer; display:flex; align-items:center; gap:.5em; text-decoration:underline; text-underline-offset:2px;">
-                    <span class="easy-mcp-setup-icon" style="font-size:.75em; color:#2271b1; text-decoration:none;">▶</span>
-                    <span class="easy-mcp-setup-label"><?php esc_html_e( 'Click here to see how to set up Search Console', 'easy-mcp-ai' ); ?></span>
-                </button>
-                <div style="display:none; padding:0 1em .75em;">
-                <ol style="margin:.25em 0 0 1.25em; padding:0; color:#3c434a; font-size:.9em; line-height:1.7;">
-                    <?php /* translators: %s: URL to the Google Cloud Console Search Console API page */ ?>
-                    <li><?php echo wp_kses( sprintf( __( '<a href="%s" target="_blank" rel="noopener noreferrer">Click here to enable the Search Console API</a> in Google Cloud Console.', 'easy-mcp-ai' ), 'https://console.cloud.google.com/marketplace/product/google/searchconsole.googleapis.com' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
-                    <li><?php esc_html_e( 'Click "Manage API", then navigate to Credentials → Manage Service Accounts.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Create a service account (any name), then click Create and Done. No roles need to be assigned.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Click the service account email → Keys tab → Add Key → Create New Key → JSON. Save the downloaded file.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'In Google Search Console, go to Settings → Users and permissions and add the service account email as a User (Restricted or Full permissions).', 'easy-mcp-ai' ); ?></li>
-                </ol>
-                <?php /* translators: %s: URL to the official Google Search Console setup guide */ ?>
-                <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/webmaster-tools/v1/prereqs' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
-                </div>
-            </div>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Service Account Key', 'easy-mcp-ai' ); ?></th>
-                    <td>
-                        <?php if ( $has_json ) : ?>
-                            <div id="gsc-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
-                                <span style="color:#00a32a; font-weight:600;"><?php esc_html_e( 'Key saved', 'easy-mcp-ai' ); ?></span>
-                                <button type="button" id="gsc-test-btn" class="button button-small">
-                                    <?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small" onclick="document.getElementById('gsc-key-saved').style.display='none'; document.getElementById('gsc-key-edit').style.display='block';">
-                                    <?php esc_html_e( 'Replace key', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small" onclick="if(confirm('<?php echo esc_js( __( 'Clear all cached Search Console data? Credentials and settings stay intact. The next tool call will fetch fresh data from Google.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('gsc-clear-cache-form').submit();}" title="<?php esc_attr_e( 'Force-refresh all cached GSC responses (sites, sitemaps, query results) and OAuth token. Useful when external Google permissions change.', 'easy-mcp-ai' ); ?>">
-                                    <?php esc_html_e( 'Clear cache', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Search Console service account key? AI clients will lose access to GSC tools until a new key is saved.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('gsc-remove-key-form').submit();}">
-                                    <?php esc_html_e( 'Remove key', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <span id="gsc-test-result" style="margin-left:.25em;"></span>
-                            </div>
-                            <div id="gsc-key-edit" style="display:none;">
-                                <textarea name="gsc_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
-                                <p class="description"><?php esc_html_e( 'Paste a new key to replace the existing one.', 'easy-mcp-ai' ); ?></p>
-                            </div>
-                        <?php else : ?>
-                            <textarea id="gsc_service_account_json" name="gsc_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
-                            <p class="description"><?php esc_html_e( 'Paste the full JSON key file from Google Cloud Console.', 'easy-mcp-ai' ); ?></p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="gsc_default_site_url"><?php esc_html_e( 'Default Property URL', 'easy-mcp-ai' ); ?></label></th>
-                    <td>
-                        <?php if ( ! empty( $gsc_sites ) ) : ?>
-                            <select id="gsc_default_site_url" name="gsc_default_site_url" class="regular-text">
-                                <?php foreach ( $gsc_sites as $gsc_site ) : // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                                    <option value="<?php echo esc_attr( $gsc_site ); ?>" <?php selected( $site_url, $gsc_site ); ?>>
-                                        <?php echo esc_html( $gsc_site ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        <?php elseif ( $has_json ) : ?>
-                            <input type="text" id="gsc_default_site_url" name="gsc_default_site_url" value="<?php echo esc_attr( $site_url ); ?>" class="regular-text" placeholder="sc-domain:example.com or https://example.com/">
-                        <?php else : ?>
-                            <input type="text" disabled class="regular-text" placeholder="<?php esc_attr_e( 'Save a service account key above to auto-populate', 'easy-mcp-ai' ); ?>">
-                        <?php endif; ?>
-                        <p class="description"><?php esc_html_e( 'Required unless the AI assistant supplies a site_url on each call. Fallback used by GSC tools when site_url is omitted.', 'easy-mcp-ai' ); ?></p>
-                    </td>
-                </tr>
-            </table>
-
-            <?php if ( $has_json ) : ?>
-                <script>
-                (function(){
-                    var testBtn = document.getElementById('gsc-test-btn');
-                    if ( ! testBtn ) { return; }
-                    testBtn.addEventListener('click', function() {
-                            var btn    = this;
-                            var result = document.getElementById('gsc-test-result');
-                            btn.disabled = true;
-                            result.textContent = '<?php echo esc_js( __( 'Testing\xe2\x80\xa6', 'easy-mcp-ai' ) ); ?>';
-                            result.style.color = '#646970';
-                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: 'action=easy_mcp_ai_gsc_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_gsc_test' ) ); ?>'
-                            })
-                            .then(function(r){
-                                if ( ! r.ok ) {
-                                    return r.text().then(function(t){ throw new Error( 'Server error ' + r.status + ': ' + t.substring(0,200) ); });
-                                }
-                                return r.json();
-                            })
-                            .then(function(data) {
-                                result.textContent = data.data.message;
-                                result.style.color = data.success ? '#00a32a' : '#d63638';
-                            })
-                            .catch(function(err) {
-                                result.textContent = err.message || '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>';
-                                result.style.color = '#d63638';
-                            })
-                            .finally(function() { testBtn.disabled = false; });
-                    });
-                })();
-                </script>
-            <?php endif; ?>
-
-            <?php if ( $has_json ) : ?>
-            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <h3 style="margin-top:0; font-size:1em; font-weight:600;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></h3>
-                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;">
-                    <?php esc_html_e( 'Enable or disable individual Search Console tools.', 'easy-mcp-ai' ); ?>
-                </p>
-                <fieldset>
-                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Loop-local view vars, not globals; PHPCS flags them only because view files have no enclosing function. ?>
-                    <?php foreach ( $gsc_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = ! in_array( $tool_name, $gsc_disabled_tools, true ); ?>
-                        <label style="display:block; margin-bottom:.5em;">
-                            <input type="checkbox" name="gsc_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?>>
-                            <strong><?php echo esc_html( $tool_name ); ?></strong>
-                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                </fieldset>
-            </div>
-            <?php else : ?>
-            <p style="color:#646970; font-size:.9em; margin-top:1em; margin-bottom:0;">
-                <?php esc_html_e( 'Save credentials above to enable or disable individual tools.', 'easy-mcp-ai' ); ?>
-            </p>
-            <?php endif; ?>
-            </div><!-- /gsc-section-body -->
-        </div>
-
-        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
-            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ga-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
-                <span>
-                    <?php esc_html_e( 'Google Analytics 4', 'easy-mcp-ai' ); ?>
-                    <?php if ( $has_ga_json ) : ?>
-                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Credentials saved', 'easy-mcp-ai' ); ?></span>
-                    <?php else : ?>
-                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
-                    <?php endif; ?>
-                </span>
-                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
-            </h2>
-
-            <div id="ga-section-body" style="display:none;">
-            <div style="background:#f6f7f7; border-left:4px solid #72aee6; margin:.5em 0 1em; border-radius:0 4px 4px 0; overflow:hidden;">
-                <button type="button" onclick="(function(btn){var body=btn.nextElementSibling;var open=body.style.display!=='none';body.style.display=open?'none':'block';btn.querySelector('.easy-mcp-setup-icon').textContent=open?'▶':'▼';btn.querySelector('.easy-mcp-setup-label').textContent=open?'<?php echo esc_js( __( 'Click here to see how to set up Google Analytics', 'easy-mcp-ai' ) ); ?>':'<?php echo esc_js( __( 'Hide setup instructions', 'easy-mcp-ai' ) ); ?>';})(this)" style="width:100%; text-align:left; background:none; border:none; padding:.75em 1em; font-weight:600; color:#2271b1; cursor:pointer; display:flex; align-items:center; gap:.5em; text-decoration:underline; text-underline-offset:2px;">
-                    <span class="easy-mcp-setup-icon" style="font-size:.75em; color:#2271b1; text-decoration:none;">▶</span>
-                    <span class="easy-mcp-setup-label"><?php esc_html_e( 'Click here to see how to set up Google Analytics', 'easy-mcp-ai' ); ?></span>
-                </button>
-                <div style="display:none; padding:0 1em .75em;">
-                <ol style="margin:.25em 0 0 1.25em; padding:0; color:#3c434a; font-size:.9em; line-height:1.7;">
-                    <?php /* translators: 1: URL to Google Analytics Data API page, 2: URL to Google Analytics Admin API page */ ?>
-                    <li><?php echo wp_kses( sprintf( __( 'Enable both required APIs in Google Cloud Console: <a href="%1$s" target="_blank" rel="noopener noreferrer">Google Analytics Data API</a> and <a href="%2$s" target="_blank" rel="noopener noreferrer">Google Analytics Admin API</a>. All tools are read-only — Viewer access is sufficient.', 'easy-mcp-ai' ), 'https://console.cloud.google.com/marketplace/product/google/analyticsdata.googleapis.com', 'https://console.cloud.google.com/marketplace/product/google/analyticsadmin.googleapis.com' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
-                    <li><?php esc_html_e( 'In either API page, click "Manage API", then navigate to Credentials → Manage Service Accounts.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Create a service account (any name), then click Create and Done. No roles need to be assigned.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Click the service account email → Keys tab → Add Key → Create New Key → JSON. Save the downloaded file.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
-                    <li><?php esc_html_e( 'In Google Analytics 4, go to Admin → Property Access Management and add the service account email with Viewer (or higher) permissions.', 'easy-mcp-ai' ); ?></li>
-                </ol>
-                <?php /* translators: %s: URL to the official Google Analytics setup guide */ ?>
-                <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart-client-libraries' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
-                </div>
-            </div>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'Service Account Key', 'easy-mcp-ai' ); ?></th>
-                    <td>
-                        <?php if ( $has_ga_json ) : ?>
-                            <div id="ga-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
-                                <span style="color:#00a32a; font-weight:600;"><?php esc_html_e( 'Key saved', 'easy-mcp-ai' ); ?></span>
-                                <button type="button" id="ga-test-btn" class="button button-small">
-                                    <?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small" onclick="document.getElementById('ga-key-saved').style.display='none'; document.getElementById('ga-key-edit').style.display='block';">
-                                    <?php esc_html_e( 'Replace key', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small" onclick="if(confirm('<?php echo esc_js( __( 'Clear all cached Google Analytics data? Credentials and settings stay intact. The next tool call will fetch fresh data from Google.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('ga-clear-cache-form').submit();}" title="<?php esc_attr_e( 'Force-refresh all cached GA responses (account summaries, dimensions, metrics, data streams, metadata) and OAuth token. Useful when external Google permissions change.', 'easy-mcp-ai' ); ?>">
-                                    <?php esc_html_e( 'Clear cache', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Google Analytics service account key? AI clients will lose access to GA tools until a new key is saved.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('ga-remove-key-form').submit();}">
-                                    <?php esc_html_e( 'Remove key', 'easy-mcp-ai' ); ?>
-                                </button>
-                                <span id="ga-test-result" style="margin-left:.25em;"></span>
-                            </div>
-                            <div id="ga-key-edit" style="display:none;">
-                                <textarea name="ga_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
-                                <p class="description"><?php esc_html_e( 'Paste a new key to replace the existing one.', 'easy-mcp-ai' ); ?></p>
-                            </div>
-                        <?php else : ?>
-                            <textarea id="ga_service_account_json" name="ga_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
-                            <p class="description"><?php esc_html_e( 'Paste the full JSON key file from Google Cloud Console.', 'easy-mcp-ai' ); ?></p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <tr>
-                    <th scope="row"><label for="ga_default_property_id"><?php esc_html_e( 'Default Property ID', 'easy-mcp-ai' ); ?></label></th>
-                    <td>
-                        <?php if ( ! empty( $ga_properties ) ) : ?>
-                            <?php
-                            
-                            
-                            $ga_saved_id = ltrim( str_replace( 'properties/', '', $ga_property_id ), '/' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
-                            ?>
-                            <select id="ga_default_property_id" name="ga_default_property_id" class="regular-text">
-                                <?php foreach ( $ga_properties as $ga_prop ) : // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                                    <option value="<?php echo esc_attr( $ga_prop['id'] ); ?>" <?php selected( $ga_saved_id, $ga_prop['id'] ); ?>>
-                                        <?php echo esc_html( $ga_prop['label'] ); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        <?php elseif ( $has_ga_json ) : ?>
-                            <input type="text" id="ga_default_property_id" name="ga_default_property_id" value="<?php echo esc_attr( $ga_property_id ); ?>" class="regular-text" placeholder="123456789">
-                        <?php else : ?>
-                            <input type="text" disabled class="regular-text" placeholder="<?php esc_attr_e( 'Save a service account key above to auto-populate', 'easy-mcp-ai' ); ?>">
-                        <?php endif; ?>
-                        <p class="description"><?php esc_html_e( 'Numeric GA4 property ID (found in GA4 Admin → Property details). Required unless the AI assistant supplies a property_id on each call. Fallback used by GA tools when property_id is omitted.', 'easy-mcp-ai' ); ?></p>
-                    </td>
-                </tr>
-            </table>
-
-            <?php if ( $has_ga_json ) : ?>
-                <script>
-                (function(){
-                    var testBtn = document.getElementById('ga-test-btn');
-                    if ( ! testBtn ) { return; }
-                    testBtn.addEventListener('click', function() {
-                            var btn    = this;
-                            var result = document.getElementById('ga-test-result');
-                            btn.disabled = true;
-                            result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
-                            result.style.color = '#646970';
-                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: 'action=easy_mcp_ai_ga_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_ga_test' ) ); ?>'
-                            })
-                            .then(function(r){
-                                if ( ! r.ok ) {
-                                    return r.text().then(function(t){ throw new Error( 'Server error ' + r.status + ': ' + t.substring(0,200) ); });
-                                }
-                                return r.json();
-                            })
-                            .then(function(data) {
-                                result.textContent = data.data.message;
-                                result.style.color = data.success ? '#00a32a' : '#d63638';
-                            })
-                            .catch(function(err) {
-                                result.textContent = err.message || '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>';
-                                result.style.color = '#d63638';
-                            })
-                            .finally(function() { testBtn.disabled = false; });
-                    });
-                })();
-                </script>
-            <?php endif; ?>
-
-            <?php if ( $has_ga_json ) : ?>
-            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <h3 style="margin-top:0; font-size:1em; font-weight:600;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></h3>
-                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;">
-                    <?php esc_html_e( 'Enable or disable individual Google Analytics tools.', 'easy-mcp-ai' ); ?>
-                </p>
-                <fieldset>
-                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Loop-local view vars, not globals. ?>
-                    <?php foreach ( $ga_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = ! in_array( $tool_name, $ga_disabled_tools, true ); ?>
-                        <label style="display:block; margin-bottom:.5em;">
-                            <input type="checkbox" name="ga_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?>>
-                            <strong><?php echo esc_html( $tool_name ); ?></strong>
-                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                </fieldset>
-            </div>
-            <?php else : ?>
-            <p style="color:#646970; font-size:.9em; margin-top:1em; margin-bottom:0;">
-                <?php esc_html_e( 'Save credentials above to enable or disable individual tools.', 'easy-mcp-ai' ); ?>
-            </p>
-            <?php endif; ?>
-            </div><!-- /ga-section-body -->
-        </div>
 
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('dfs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
@@ -528,6 +225,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to DataforSEO through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
             </p>
 
+            <?php submit_button( __( 'Save DataforSEO Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
             <?php if ( $has_dfs_credentials ) : ?>
                 <script>
                 (function(){
@@ -595,26 +294,30 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </script>
             <?php endif; ?>
 
-            <?php if ( $has_dfs_credentials ) : ?>
             <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <h3 style="margin-top:0; font-size:1em; font-weight:600;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></h3>
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('dfs-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_dfs_credentials ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="dfs-tools-body" style="display:none;">
+                <?php if ( $has_dfs_credentials ) : ?>
                 <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php esc_html_e( 'Enable or disable individual DataforSEO tools.', 'easy-mcp-ai' ); ?></p>
-                <fieldset>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_dfs_credentials ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
                     <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                     <?php foreach ( $dfs_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = ! in_array( $tool_name, $dfs_disabled_tools, true ); ?>
+                        <?php $enabled = $has_dfs_credentials && ! in_array( $tool_name, $dfs_disabled_tools, true ); ?>
                         <label style="display:block; margin-bottom:.5em;">
-                            <input type="checkbox" name="dfs_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?>>
+                            <input type="checkbox" name="dfs_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_dfs_credentials ); ?>>
                             <strong><?php echo esc_html( $tool_name ); ?></strong>
                             <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
                         </label>
                     <?php endforeach; ?>
                     <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                 </fieldset>
+                </div>
             </div>
-            <?php else : ?>
-            <p style="color:#646970; font-size:.9em; margin-top:1em; margin-bottom:0;"><?php esc_html_e( 'Save credentials above to enable or disable individual tools.', 'easy-mcp-ai' ); ?></p>
-            <?php endif; ?>
             </div><!-- /dfs-section-body -->
         </div>
 
@@ -691,6 +394,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </tr>
             </table>
 
+            <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
             <?php if ( $has_semrush_credentials ) : ?>
                 <script>
                 (function(){
@@ -747,32 +452,347 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </script>
             <?php endif; ?>
 
-            <?php if ( $has_semrush_credentials ) : ?>
             <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <h3 style="margin-top:0; font-size:1em; font-weight:600;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></h3>
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('semrush-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_semrush_credentials ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="semrush-tools-body" style="display:none;">
+                <?php if ( $has_semrush_credentials ) : ?>
                 <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php esc_html_e( 'Enable or disable individual Semrush tools.', 'easy-mcp-ai' ); ?></p>
-                <fieldset>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_semrush_credentials ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
                     <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                     <?php foreach ( $semrush_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = ! in_array( $tool_name, $semrush_disabled_tools, true ); ?>
+                        <?php $enabled = $has_semrush_credentials && ! in_array( $tool_name, $semrush_disabled_tools, true ); ?>
                         <label style="display:block; margin-bottom:.5em;">
-                            <input type="checkbox" name="semrush_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?>>
+                            <input type="checkbox" name="semrush_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_semrush_credentials ); ?>>
                             <strong><?php echo esc_html( $tool_name ); ?></strong>
                             <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
                         </label>
                     <?php endforeach; ?>
                     <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                 </fieldset>
+                </div>
             </div>
-            <?php else : ?>
-            <p style="color:#646970; font-size:.9em; margin-top:1em; margin-bottom:0;"><?php esc_html_e( 'Save the API key above to enable or disable individual tools.', 'easy-mcp-ai' ); ?></p>
-            <?php endif; ?>
 
             <p style="margin-top:1.25em; padding:.75em 1em; background:#f6f7f7; border-left:3px solid #c3c4c7; border-radius:0 4px 4px 0; font-size:.85em; color:#646970; line-height:1.6;">
                 <strong>*</strong>
                 <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to Semrush through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
             </p>
             </div><!-- /semrush-section-body -->
+        </div>
+
+        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('gsc-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
+                <span>
+                    <?php esc_html_e( 'Google Search Console', 'easy-mcp-ai' ); ?>
+                    <?php if ( $has_json ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Credentials saved', 'easy-mcp-ai' ); ?></span>
+                    <?php else : ?>
+                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
+            </h2>
+
+            <div id="gsc-section-body" style="display:none;">
+            <div style="background:#f6f7f7; border-left:4px solid #72aee6; margin:.5em 0 1em; border-radius:0 4px 4px 0; overflow:hidden;">
+                <button type="button" onclick="(function(btn){var body=btn.nextElementSibling;var open=body.style.display!=='none';body.style.display=open?'none':'block';btn.querySelector('.easy-mcp-setup-icon').textContent=open?'▶':'▼';btn.querySelector('.easy-mcp-setup-label').textContent=open?'<?php echo esc_js( __( 'Click here to see how to set up Search Console', 'easy-mcp-ai' ) ); ?>':'<?php echo esc_js( __( 'Hide setup instructions', 'easy-mcp-ai' ) ); ?>';})(this)" style="width:100%; text-align:left; background:none; border:none; padding:.75em 1em; font-weight:600; color:#2271b1; cursor:pointer; display:flex; align-items:center; gap:.5em; text-decoration:underline; text-underline-offset:2px;">
+                    <span class="easy-mcp-setup-icon" style="font-size:.75em; color:#2271b1; text-decoration:none;">▶</span>
+                    <span class="easy-mcp-setup-label"><?php esc_html_e( 'Click here to see how to set up Search Console', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div style="display:none; padding:0 1em .75em;">
+                <ol style="margin:.25em 0 0 1.25em; padding:0; color:#3c434a; font-size:.9em; line-height:1.7;">
+                    <?php /* translators: %s: URL to the Google Cloud Console Search Console API page */ ?>
+                    <li><?php echo wp_kses( sprintf( __( '<a href="%s" target="_blank" rel="noopener noreferrer">Click here to enable the Search Console API</a> in Google Cloud Console.', 'easy-mcp-ai' ), 'https://console.cloud.google.com/marketplace/product/google/searchconsole.googleapis.com' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+                    <li><?php esc_html_e( 'Click "Manage API", then navigate to Credentials → Manage Service Accounts.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Create a service account (any name), then click Create and Done. No roles need to be assigned.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Click the service account email → Keys tab → Add Key → Create New Key → JSON. Save the downloaded file.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'In Google Search Console, go to Settings → Users and permissions and add the service account email as a User (Restricted or Full permissions).', 'easy-mcp-ai' ); ?></li>
+                </ol>
+                <?php /* translators: %s: URL to the official Google Search Console setup guide */ ?>
+                <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/webmaster-tools/v1/prereqs' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
+                </div>
+            </div>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Service Account Key', 'easy-mcp-ai' ); ?></th>
+                    <td>
+                        <?php if ( $has_json ) : ?>
+                            <div id="gsc-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
+                                <span style="color:#00a32a; font-weight:600;"><?php esc_html_e( 'Key saved', 'easy-mcp-ai' ); ?></span>
+                                <button type="button" id="gsc-test-btn" class="button button-small">
+                                    <?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small" onclick="document.getElementById('gsc-key-saved').style.display='none'; document.getElementById('gsc-key-edit').style.display='block';">
+                                    <?php esc_html_e( 'Replace key', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small" onclick="if(confirm('<?php echo esc_js( __( 'Clear all cached Search Console data? Credentials and settings stay intact. The next tool call will fetch fresh data from Google.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('gsc-clear-cache-form').submit();}" title="<?php esc_attr_e( 'Force-refresh all cached GSC responses (sites, sitemaps, query results) and OAuth token. Useful when external Google permissions change.', 'easy-mcp-ai' ); ?>">
+                                    <?php esc_html_e( 'Clear cache', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Search Console service account key? AI clients will lose access to GSC tools until a new key is saved.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('gsc-remove-key-form').submit();}">
+                                    <?php esc_html_e( 'Remove key', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <span id="gsc-test-result" style="margin-left:.25em;"></span>
+                            </div>
+                            <div id="gsc-key-edit" style="display:none;">
+                                <textarea name="gsc_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
+                                <p class="description"><?php esc_html_e( 'Paste a new key to replace the existing one.', 'easy-mcp-ai' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <textarea id="gsc_service_account_json" name="gsc_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
+                            <p class="description"><?php esc_html_e( 'Paste the full JSON key file from Google Cloud Console.', 'easy-mcp-ai' ); ?></p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="gsc_default_site_url"><?php esc_html_e( 'Default Property URL', 'easy-mcp-ai' ); ?></label></th>
+                    <td>
+                        <?php if ( ! empty( $gsc_sites ) ) : ?>
+                            <select id="gsc_default_site_url" name="gsc_default_site_url" class="regular-text">
+                                <?php foreach ( $gsc_sites as $gsc_site ) : // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                                    <option value="<?php echo esc_attr( $gsc_site ); ?>" <?php selected( $site_url, $gsc_site ); ?>>
+                                        <?php echo esc_html( $gsc_site ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php elseif ( $has_json ) : ?>
+                            <input type="text" id="gsc_default_site_url" name="gsc_default_site_url" value="<?php echo esc_attr( $site_url ); ?>" class="regular-text" placeholder="sc-domain:example.com or https://example.com/">
+                        <?php else : ?>
+                            <input type="text" disabled class="regular-text" placeholder="<?php esc_attr_e( 'Save a service account key above to auto-populate', 'easy-mcp-ai' ); ?>">
+                        <?php endif; ?>
+                        <p class="description"><?php esc_html_e( 'Required unless the AI assistant supplies a site_url on each call. Fallback used by GSC tools when site_url is omitted.', 'easy-mcp-ai' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Save Search Console Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
+            <?php if ( $has_json ) : ?>
+                <script>
+                (function(){
+                    var testBtn = document.getElementById('gsc-test-btn');
+                    if ( ! testBtn ) { return; }
+                    testBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('gsc-test-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Testing\xe2\x80\xa6', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_gsc_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_gsc_test' ) ); ?>'
+                            })
+                            .then(function(r){
+                                if ( ! r.ok ) {
+                                    return r.text().then(function(t){ throw new Error( 'Server error ' + r.status + ': ' + t.substring(0,200) ); });
+                                }
+                                return r.json();
+                            })
+                            .then(function(data) {
+                                result.textContent = data.data.message;
+                                result.style.color = data.success ? '#00a32a' : '#d63638';
+                            })
+                            .catch(function(err) {
+                                result.textContent = err.message || '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>';
+                                result.style.color = '#d63638';
+                            })
+                            .finally(function() { testBtn.disabled = false; });
+                    });
+                })();
+                </script>
+            <?php endif; ?>
+
+            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('gsc-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_json ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="gsc-tools-body" style="display:none;">
+                <?php if ( $has_json ) : ?>
+                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;">
+                    <?php esc_html_e( 'Enable or disable individual Search Console tools.', 'easy-mcp-ai' ); ?>
+                </p>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_json ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
+                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Loop-local view vars, not globals; PHPCS flags them only because view files have no enclosing function. ?>
+                    <?php foreach ( $gsc_tools as $tool_name => $tool_label ) : ?>
+                        <?php $enabled = $has_json && ! in_array( $tool_name, $gsc_disabled_tools, true ); ?>
+                        <label style="display:block; margin-bottom:.5em;">
+                            <input type="checkbox" name="gsc_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_json ); ?>>
+                            <strong><?php echo esc_html( $tool_name ); ?></strong>
+                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                </fieldset>
+                </div>
+            </div>
+            </div><!-- /gsc-section-body -->
+        </div>
+
+        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ga-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
+                <span>
+                    <?php esc_html_e( 'Google Analytics 4', 'easy-mcp-ai' ); ?>
+                    <?php if ( $has_ga_json ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Credentials saved', 'easy-mcp-ai' ); ?></span>
+                    <?php else : ?>
+                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
+            </h2>
+
+            <div id="ga-section-body" style="display:none;">
+            <div style="background:#f6f7f7; border-left:4px solid #72aee6; margin:.5em 0 1em; border-radius:0 4px 4px 0; overflow:hidden;">
+                <button type="button" onclick="(function(btn){var body=btn.nextElementSibling;var open=body.style.display!=='none';body.style.display=open?'none':'block';btn.querySelector('.easy-mcp-setup-icon').textContent=open?'▶':'▼';btn.querySelector('.easy-mcp-setup-label').textContent=open?'<?php echo esc_js( __( 'Click here to see how to set up Google Analytics', 'easy-mcp-ai' ) ); ?>':'<?php echo esc_js( __( 'Hide setup instructions', 'easy-mcp-ai' ) ); ?>';})(this)" style="width:100%; text-align:left; background:none; border:none; padding:.75em 1em; font-weight:600; color:#2271b1; cursor:pointer; display:flex; align-items:center; gap:.5em; text-decoration:underline; text-underline-offset:2px;">
+                    <span class="easy-mcp-setup-icon" style="font-size:.75em; color:#2271b1; text-decoration:none;">▶</span>
+                    <span class="easy-mcp-setup-label"><?php esc_html_e( 'Click here to see how to set up Google Analytics', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div style="display:none; padding:0 1em .75em;">
+                <ol style="margin:.25em 0 0 1.25em; padding:0; color:#3c434a; font-size:.9em; line-height:1.7;">
+                    <?php /* translators: 1: URL to Google Analytics Data API page, 2: URL to Google Analytics Admin API page */ ?>
+                    <li><?php echo wp_kses( sprintf( __( 'Enable both required APIs in Google Cloud Console: <a href="%1$s" target="_blank" rel="noopener noreferrer">Google Analytics Data API</a> and <a href="%2$s" target="_blank" rel="noopener noreferrer">Google Analytics Admin API</a>. All tools are read-only — Viewer access is sufficient.', 'easy-mcp-ai' ), 'https://console.cloud.google.com/marketplace/product/google/analyticsdata.googleapis.com', 'https://console.cloud.google.com/marketplace/product/google/analyticsadmin.googleapis.com' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></li>
+                    <li><?php esc_html_e( 'In either API page, click "Manage API", then navigate to Credentials → Manage Service Accounts.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Create a service account (any name), then click Create and Done. No roles need to be assigned.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Click the service account email → Keys tab → Add Key → Create New Key → JSON. Save the downloaded file.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
+                    <li><?php esc_html_e( 'In Google Analytics 4, go to Admin → Property Access Management and add the service account email with Viewer (or higher) permissions.', 'easy-mcp-ai' ); ?></li>
+                </ol>
+                <?php /* translators: %s: URL to the official Google Analytics setup guide */ ?>
+                <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart-client-libraries' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
+                </div>
+            </div>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Service Account Key', 'easy-mcp-ai' ); ?></th>
+                    <td>
+                        <?php if ( $has_ga_json ) : ?>
+                            <div id="ga-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
+                                <span style="color:#00a32a; font-weight:600;"><?php esc_html_e( 'Key saved', 'easy-mcp-ai' ); ?></span>
+                                <button type="button" id="ga-test-btn" class="button button-small">
+                                    <?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small" onclick="document.getElementById('ga-key-saved').style.display='none'; document.getElementById('ga-key-edit').style.display='block';">
+                                    <?php esc_html_e( 'Replace key', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small" onclick="if(confirm('<?php echo esc_js( __( 'Clear all cached Google Analytics data? Credentials and settings stay intact. The next tool call will fetch fresh data from Google.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('ga-clear-cache-form').submit();}" title="<?php esc_attr_e( 'Force-refresh all cached GA responses (account summaries, dimensions, metrics, data streams, metadata) and OAuth token. Useful when external Google permissions change.', 'easy-mcp-ai' ); ?>">
+                                    <?php esc_html_e( 'Clear cache', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Google Analytics service account key? AI clients will lose access to GA tools until a new key is saved.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('ga-remove-key-form').submit();}">
+                                    <?php esc_html_e( 'Remove key', 'easy-mcp-ai' ); ?>
+                                </button>
+                                <span id="ga-test-result" style="margin-left:.25em;"></span>
+                            </div>
+                            <div id="ga-key-edit" style="display:none;">
+                                <textarea name="ga_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
+                                <p class="description"><?php esc_html_e( 'Paste a new key to replace the existing one.', 'easy-mcp-ai' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <textarea id="ga_service_account_json" name="ga_service_account_json" rows="8" cols="60" class="large-text code" placeholder='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...@....iam.gserviceaccount.com",...}'></textarea>
+                            <p class="description"><?php esc_html_e( 'Paste the full JSON key file from Google Cloud Console.', 'easy-mcp-ai' ); ?></p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="ga_default_property_id"><?php esc_html_e( 'Default Property ID', 'easy-mcp-ai' ); ?></label></th>
+                    <td>
+                        <?php if ( ! empty( $ga_properties ) ) : ?>
+                            <?php
+                            
+                            
+                            $ga_saved_id = ltrim( str_replace( 'properties/', '', $ga_property_id ), '/' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
+                            ?>
+                            <select id="ga_default_property_id" name="ga_default_property_id" class="regular-text">
+                                <?php foreach ( $ga_properties as $ga_prop ) : // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                                    <option value="<?php echo esc_attr( $ga_prop['id'] ); ?>" <?php selected( $ga_saved_id, $ga_prop['id'] ); ?>>
+                                        <?php echo esc_html( $ga_prop['label'] ); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php elseif ( $has_ga_json ) : ?>
+                            <input type="text" id="ga_default_property_id" name="ga_default_property_id" value="<?php echo esc_attr( $ga_property_id ); ?>" class="regular-text" placeholder="123456789">
+                        <?php else : ?>
+                            <input type="text" disabled class="regular-text" placeholder="<?php esc_attr_e( 'Save a service account key above to auto-populate', 'easy-mcp-ai' ); ?>">
+                        <?php endif; ?>
+                        <p class="description"><?php esc_html_e( 'Numeric GA4 property ID (found in GA4 Admin → Property details). Required unless the AI assistant supplies a property_id on each call. Fallback used by GA tools when property_id is omitted.', 'easy-mcp-ai' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Save Google Analytics Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
+            <?php if ( $has_ga_json ) : ?>
+                <script>
+                (function(){
+                    var testBtn = document.getElementById('ga-test-btn');
+                    if ( ! testBtn ) { return; }
+                    testBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('ga-test-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_ga_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_ga_test' ) ); ?>'
+                            })
+                            .then(function(r){
+                                if ( ! r.ok ) {
+                                    return r.text().then(function(t){ throw new Error( 'Server error ' + r.status + ': ' + t.substring(0,200) ); });
+                                }
+                                return r.json();
+                            })
+                            .then(function(data) {
+                                result.textContent = data.data.message;
+                                result.style.color = data.success ? '#00a32a' : '#d63638';
+                            })
+                            .catch(function(err) {
+                                result.textContent = err.message || '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>';
+                                result.style.color = '#d63638';
+                            })
+                            .finally(function() { testBtn.disabled = false; });
+                    });
+                })();
+                </script>
+            <?php endif; ?>
+
+            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('ga-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_ga_json ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="ga-tools-body" style="display:none;">
+                <?php if ( $has_ga_json ) : ?>
+                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;">
+                    <?php esc_html_e( 'Enable or disable individual Google Analytics tools.', 'easy-mcp-ai' ); ?>
+                </p>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_ga_json ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
+                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- Loop-local view vars, not globals. ?>
+                    <?php foreach ( $ga_tools as $tool_name => $tool_label ) : ?>
+                        <?php $enabled = $has_ga_json && ! in_array( $tool_name, $ga_disabled_tools, true ); ?>
+                        <label style="display:block; margin-bottom:.5em;">
+                            <input type="checkbox" name="ga_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_ga_json ); ?>>
+                            <strong><?php echo esc_html( $tool_name ); ?></strong>
+                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                </fieldset>
+                </div>
+            </div>
+            </div><!-- /ga-section-body -->
         </div>
 
         <?php if ( 'semrush_invalid_key' === $message ) : ?>
@@ -790,7 +810,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </div>
             <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
         <?php endif; ?>
-        <?php submit_button( __( 'Save Changes', 'easy-mcp-ai' ) ); ?>
     </form>
 
     <?php if ( $has_json ) : ?>

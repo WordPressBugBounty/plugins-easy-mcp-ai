@@ -399,6 +399,9 @@ class Plugin {
         if ( ! empty( \get_option( \Easy_MCP_AI\Semrush\Semrush_Client::OPTION_API_KEY, '' ) ) ) {
             $tool_dirs[] = 'semrush';
         }
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/users/trait-user-meta-auth-guard.php';
+
         foreach ( $tool_dirs as $dir ) {
             $tool_path = EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/' . $dir . '/';
             if ( is_dir( $tool_path ) ) {

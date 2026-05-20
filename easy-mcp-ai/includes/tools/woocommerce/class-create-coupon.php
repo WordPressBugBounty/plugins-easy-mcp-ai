@@ -27,7 +27,7 @@ class Create_Coupon extends Base_Tool {
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => false,
             'openWorldHint'   => false,
@@ -83,10 +83,20 @@ class Create_Coupon extends Base_Tool {
 
         $this->validate_required( $arguments, array( 'code', 'discount_type', 'amount' ) );
 
+        $discount_type = sanitize_text_field( $arguments['discount_type'] );
+        $amount        = $arguments['amount'];
+
+        if ( ! is_numeric( $amount ) || floatval( $amount ) < 0 ) {
+            throw new \InvalidArgumentException( 'Coupon amount must be a non-negative number.' );
+        }
+        if ( 'percent' === $discount_type && floatval( $amount ) > 100 ) {
+            throw new \InvalidArgumentException( 'Percent discount amount cannot exceed 100.' );
+        }
+
         $params = array(
             'code'          => sanitize_text_field( $arguments['code'] ),
-            'discount_type' => sanitize_text_field( $arguments['discount_type'] ),
-            'amount'        => sanitize_text_field( $arguments['amount'] ),
+            'discount_type' => $discount_type,
+            'amount'        => number_format( floatval( $amount ), 2, '.', '' ),
         );
 
         if ( isset( $arguments['date_expires'] ) ) {

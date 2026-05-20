@@ -18,9 +18,39 @@ abstract class Base_Tool {
         return 'manage_options';
     }
 
+    public function get_title() {
+        $name = $this->get_name();
+
+        $prefixes = array(
+            'wp_wc_'       => 'WooCommerce',
+            'wp_ga_'       => 'Google Analytics',
+            'wp_gsc_'      => 'Search Console',
+            'wp_dfs_'      => 'DataForSEO',
+            'wp_semrush_'  => 'SEMrush',
+            'wp_acf_'      => 'ACF',
+            'wp_aioseo_'   => 'AIOSEO',
+            'wp_bp_'       => 'BuddyPress',
+            'wp_tec_'      => 'Events Calendar',
+            'wp_yoast_'    => 'Yoast',
+            'wp_rm_'       => 'Rank Math',
+            'wp_ability_'  => 'Ability',
+        );
+
+        foreach ( $prefixes as $prefix => $label ) {
+            if ( strpos( $name, $prefix ) === 0 ) {
+                $rest = substr( $name, strlen( $prefix ) );
+                return $label . ': ' . ucwords( str_replace( '_', ' ', $rest ) );
+            }
+        }
+
+        
+        $rest = substr( $name, 3 );
+        return ucwords( str_replace( '_', ' ', $rest ) );
+    }
+
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => true,
             'openWorldHint'   => false,
@@ -70,7 +100,7 @@ abstract class Base_Tool {
     protected function validate_required( array $arguments, array $required_keys ) {
         $missing = array();
         foreach ( $required_keys as $key ) {
-            if ( ! isset( $arguments[$key] ) || '' === $arguments[$key] || array() === $arguments[$key] ) {
+            if ( ! isset( $arguments[$key] ) || '' === $arguments[$key] ) {
                 $missing[] = $key;
             }
         }

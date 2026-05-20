@@ -27,7 +27,7 @@ class Delete_Webhook extends Base_Tool {
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => true,
             'openWorldHint'   => false,

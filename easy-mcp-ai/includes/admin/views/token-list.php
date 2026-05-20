@@ -6,10 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function easy_mcp_ai_view_token_list( $tokens, $message, $new_raw_token, $total_tokens, $tokens_truncated, $endpoint_url = '', $client_guides = array() ) {
 ?>
 <div class="wrap wp-mcp-admin">
-    <h1 class="wp-heading-inline"><?php esc_html_e( 'API Token & OAuth', 'easy-mcp-ai' ); ?></h1>
-    <a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new' ) ); ?>" class="page-title-action">
-        <?php esc_html_e( 'Create New Token', 'easy-mcp-ai' ); ?>
-    </a>
+    <h1 class="wp-heading-inline"><?php esc_html_e( 'Easy MCP AI - API Token & OAuth', 'easy-mcp-ai' ); ?></h1>
     <hr class="wp-header-end">
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
@@ -21,9 +18,15 @@ function easy_mcp_ai_view_token_list( $tokens, $message, $new_raw_token, $total_
     ?>
 
     <h2 class="nav-tab-wrapper">
-        <a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tokens' ) ); ?>" class="nav-tab nav-tab-active"><?php esc_html_e( 'API Token', 'easy-mcp-ai' ); ?></a>
         <a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-oauth' ) ); ?>" class="nav-tab"><?php esc_html_e( 'OAuth', 'easy-mcp-ai' ); ?></a>
+        <a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tokens' ) ); ?>" class="nav-tab nav-tab-active"><?php esc_html_e( 'API Token', 'easy-mcp-ai' ); ?></a>
     </h2>
+
+    <div style="margin: 12px 0;">
+        <a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new' ) ); ?>" class="button button-primary">
+            <?php esc_html_e( 'Create New Token', 'easy-mcp-ai' ); ?>
+        </a>
+    </div>
 
     <?php if ( 'created' === $message ) : ?>
         <div class="notice notice-success is-dismissible">

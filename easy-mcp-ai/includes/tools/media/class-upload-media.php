@@ -27,7 +27,7 @@ class Upload_Media extends Base_Tool {
 
     public function get_annotations() {
         return array(
-            'title'           => $this->get_description(),
+            'title'           => $this->get_title(),
             'readOnlyHint'    => false,
             'destructiveHint' => false,
             'openWorldHint'   => false,
@@ -94,6 +94,31 @@ class Upload_Media extends Base_Tool {
 
         if ( empty( $filetype['type'] ) ) {
             throw new \InvalidArgumentException( 'File type is not allowed.' );
+        }
+
+        
+        if ( function_exists( 'finfo_buffer' ) ) {
+            $finfo         = finfo_open( FILEINFO_MIME_TYPE );
+            $sniffed_mime  = finfo_buffer( $finfo, $decoded );
+            finfo_close( $finfo );
+
+            
+            
+            
+            $declared = $filetype['type'];
+            if ( $sniffed_mime !== $declared ) {
+                
+                $safe_mismatches = array(
+                    'image/svg+xml' => array( 'text/html', 'text/xml', 'text/plain', 'image/svg+xml' ),
+                    'text/csv'      => array( 'text/plain' ),
+                );
+                $allowed_sniffs  = isset( $safe_mismatches[ $declared ] ) ? $safe_mismatches[ $declared ] : array();
+                if ( ! in_array( $sniffed_mime, $allowed_sniffs, true ) ) {
+                    throw new \InvalidArgumentException(
+                        sprintf( 'File content does not match the declared file type (%s).', $declared ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    );
+                }
+            }
         }
 
         

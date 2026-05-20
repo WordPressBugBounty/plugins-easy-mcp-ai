@@ -183,6 +183,12 @@ class OAuth_Token_Manager {
 
         
         
+        $row['scope'] = implode( ' ', \Easy_MCP_AI\OAuth\Scope_Map::apply_legacy_scope_upgrades(
+            array_filter( explode( ' ', $row['scope'] ) )
+        ) );
+
+        
+        
         
         
         

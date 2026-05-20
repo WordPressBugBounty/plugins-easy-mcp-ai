@@ -27,10 +27,16 @@ class Admin_Page {
     public function register_menus() {
         \add_menu_page( __( 'Easy MCP AI for WP', 'easy-mcp-ai' ), __( 'Easy MCP AI', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai', array( $this, 'render_dashboard' ), 'dashicons-rest-api', 80 );
         \add_submenu_page( 'easy-mcp-ai', __( 'Dashboard', 'easy-mcp-ai' ), __( 'Dashboard', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai', array( $this, 'render_dashboard' ) );
+        \add_submenu_page( 'easy-mcp-ai', __( 'API Token & OAuth', 'easy-mcp-ai' ), __( 'API Token & OAuth', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-oauth', function() { \do_action( 'easy_mcp_ai_render_oauth_page' ); } );
         \add_submenu_page( 'easy-mcp-ai', __( 'API Token & OAuth', 'easy-mcp-ai' ), __( 'API Token & OAuth', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-tokens', array( $this, 'render_tokens_page' ) );
+        \add_action( 'admin_head', array( $this, 'hide_tokens_submenu_entry' ) );
         \add_submenu_page( 'easy-mcp-ai', __( 'Audit Log', 'easy-mcp-ai' ), __( 'Audit Log', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-audit', array( $this, 'render_audit_page' ) );
         \add_submenu_page( 'easy-mcp-ai', __( 'Settings', 'easy-mcp-ai' ), __( 'Settings', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-settings', array( $this, 'render_settings_page' ) );
         $this->plugin_integrations_page->register_submenu();
+    }
+
+    public function hide_tokens_submenu_entry() {
+        echo '<style>#adminmenu a[href="admin.php?page=easy-mcp-ai-tokens"]{display:none !important;}</style>';
     }
 
     public function register_external_data_menu() {

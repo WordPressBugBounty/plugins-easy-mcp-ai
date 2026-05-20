@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_invalid = '' ) {
 ?>
 <div class="wrap wp-mcp-admin">
-    <h1><?php esc_html_e( 'Settings', 'easy-mcp-ai' ); ?></h1>
+    <h1><?php esc_html_e( 'Easy MCP AI - Settings', 'easy-mcp-ai' ); ?></h1>
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 

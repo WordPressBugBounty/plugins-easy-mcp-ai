@@ -14,7 +14,7 @@ class Create_Product_Variation extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Creates a variation for a WooCommerce variable product. Required: product_id, attributes (array of {attribute, option}). Optional: regular_price, sale_price, sku, stock_quantity, manage_stock, stock_status, weight, description, status, virtual, downloadable, image ({src}).';
+		return 'Creates a variation for a WooCommerce variable product. Required: product_id, attributes (array of {name, option}). Optional: regular_price, sale_price, sku, stock_quantity, manage_stock, stock_status, weight, description, status, virtual, downloadable, image ({src}).';
 	}
 
 	public function get_category() {
@@ -27,7 +27,7 @@ class Create_Product_Variation extends Base_Tool {
 
 	public function get_annotations() {
 		return array(
-			'title'           => $this->get_description(),
+			'title'           => $this->get_title(),
 			'readOnlyHint'    => false,
 			'destructiveHint' => false,
 			'openWorldHint'   => false,
@@ -44,12 +44,12 @@ class Create_Product_Variation extends Base_Tool {
 				),
 				'attributes'     => array(
 					'type'        => 'array',
-					'description' => 'Array of attribute objects. Each item: { "attribute": "pa_size", "option": "Large" }.',
+					'description' => 'Array of attribute objects. Each item: { "name": "pa_size", "option": "Large" }.',
 					'items'       => array(
 						'type'       => 'object',
 						'properties' => array(
-							'attribute' => array( 'type' => 'string' ),
-							'option'    => array( 'type' => 'string' ),
+							'name'   => array( 'type' => 'string' ),
+							'option' => array( 'type' => 'string' ),
 						),
 					),
 				),
@@ -118,8 +118,13 @@ class Create_Product_Variation extends Base_Tool {
 
 		$product_id = $this->parse_required_id( $arguments['product_id'], 'product_id' );
 
+		$attributes = $this->parse_json_param( $arguments['attributes'], 'attributes' );
+		if ( empty( $attributes ) ) {
+			throw new \InvalidArgumentException( 'attributes must contain at least one { name, option } object. Variable products require attribute-based variations.' );
+		}
+
 		$params = array(
-			'attributes' => $this->parse_json_param( $arguments['attributes'], 'attributes' ),
+			'attributes' => $attributes,
 			'status'     => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish',
 		);
 

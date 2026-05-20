@@ -9,7 +9,7 @@ $current_page = isset( $_GET['page'] ) ? sanitize_key( $_GET['page'] ) : 'easy-m
 
 $nav_items = array(
 	'easy-mcp-ai'               => __( 'Dashboard', 'easy-mcp-ai' ),
-	'easy-mcp-ai-tokens'        => __( 'API Token & OAuth', 'easy-mcp-ai' ),
+	'easy-mcp-ai-oauth'         => __( 'API Token & OAuth', 'easy-mcp-ai' ),
 	'easy-mcp-ai-audit'         => __( 'Audit Log', 'easy-mcp-ai' ),
 	'easy-mcp-ai-settings'      => __( 'Settings', 'easy-mcp-ai' ),
 	'easy-mcp-ai-plugin-integrations' => __( 'Plugins', 'easy-mcp-ai' ),
@@ -23,7 +23,7 @@ $oauth_pages = array( 'easy-mcp-ai-oauth', 'easy-mcp-ai-tokens' );
 <nav class="nav-tab-wrapper wp-mcp-page-nav">
 	<?php foreach ( $nav_items as $slug => $label ) :
 		$is_active = ( $current_page === $slug )
-			|| ( 'easy-mcp-ai-tokens' === $slug && in_array( $current_page, $oauth_pages, true ) );
+			|| ( 'easy-mcp-ai-oauth' === $slug && in_array( $current_page, $oauth_pages, true ) );
 		$class = 'nav-tab' . ( $is_active ? ' nav-tab-active' : '' );
 	?>
 		<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . $slug ) ); ?>" class="<?php echo esc_attr( $class ); ?>">

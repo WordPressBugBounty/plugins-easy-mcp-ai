@@ -92,7 +92,8 @@ class Authorization_Endpoint {
             ? sanitize_text_field( $params['scope'] )
             : Scope_Map::get_default_scope();
 
-        $scope_list = array_filter( array_map( 'trim', explode( ' ', $requested_scope ) ) );
+        $scope_list = array_values( array_filter( array_map( 'trim', explode( ' ', $requested_scope ) ) ) );
+        $scope_list = Scope_Map::apply_legacy_scope_upgrades( $scope_list );
 
         $valid_scopes = Scope_Map::get_all_scopes();
         foreach ( $scope_list as $s ) {
