@@ -8,7 +8,7 @@ Stable tag: 1.6.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 204 tools. Free.
+Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 204 tools. Free.
 
 == Description ==
 
@@ -43,27 +43,27 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 Once connected, your AI assistant can handle everything you'd normally do in the WordPress admin:
 
-**AI Content Writing & Publishing** — let AI draft, rewrite, SEO-optimize, schedule, and publish WordPress posts and pages; bulk edit existing content
+**AI Content Writing & Publishing** — let AI draft, rewrite, SEO-optimize, schedule, and publish WordPress posts and pages; update existing posts and pages
 
 **AI Media Library & Alt Text** — upload images from chat, browse the media library, and auto-generate AI alt text and captions for SEO and accessibility
 
-**Taxonomy & Navigation** — manage categories, tags, custom taxonomies, and WordPress navigation menus with AI
+**Taxonomy & Navigation** — manage categories, tags, term meta, and WordPress navigation menus; assign terms from any taxonomy to posts
 
 **User Management** — create WordPress user accounts, assign roles, update profiles, and manage user meta
 
-**Plugins & Themes** — list installed plugins, activate or deactivate plugins, switch the active theme
+**Plugins & Themes** — list installed plugins and themes; see which theme is currently active
 
-**WordPress Settings** — read and update site title, tagline, permalinks, timezone, and other core settings
+**WordPress Settings** — read and update site title, tagline, timezone, date format, time format, and posts-per-page
 
-**WooCommerce AI Assistant** — manage WooCommerce products, variations, attributes, orders, customers, coupons, refunds, shipping zones, tax rates, and webhooks; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
+**WooCommerce AI Assistant** — manage WooCommerce products, variations, attributes, orders, customers, coupons, and webhooks; view order refunds, shipping zones, shipping methods, tax rates, and payment gateways; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
 
-**SEO with Yoast, Rank Math & AIOSEO** — read and update Yoast SEO, Rank Math, and All in One SEO (AIOSEO) post metadata, meta titles, meta descriptions, focus keywords, canonical URLs, and Open Graph fields
+**SEO with Yoast, Rank Math & AIOSEO** — read and update Yoast SEO, Rank Math, and All in One SEO (AIOSEO) post metadata: SEO titles, meta descriptions, Open Graph and Twitter card fields, plus focus keywords (Yoast, Rank Math), canonical URLs (Rank Math, AIOSEO), no-index (AIOSEO), and cornerstone content flag (Yoast)
 
-**Advanced Custom Fields (ACF)** — read and write ACF custom field values on posts, users, and taxonomy terms; list ACF field groups
+**Advanced Custom Fields (ACF)** — read and write ACF custom field values on posts and users; read ACF fields on taxonomy terms; list ACF field groups
 
-**Events Calendar & BuddyPress** — create and manage events, venues, and organizers with The Events Calendar; manage BuddyPress members, groups, activity stream, and private message threads
+**Events Calendar & BuddyPress** — create, edit, and delete events with The Events Calendar; create and view venues; create and list organizers; list BuddyPress members, groups, group members, and private message threads; create and delete activity stream posts
 
-**Comment Moderation** — let AI list, approve, reply to, edit, or delete WordPress comments
+**Comment Moderation** — let AI list, approve, hold, mark as spam, edit, or delete WordPress comments
 
 **Gutenberg & Full Site Editing** — create, edit, and reuse Gutenberg blocks; update block templates and global styles for FSE themes
 
