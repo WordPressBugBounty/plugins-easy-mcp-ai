@@ -42,6 +42,8 @@ class List_Organizers extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of organizers per page.',
                     'default'     => 20,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'        => 'integer',
@@ -63,7 +65,7 @@ class List_Organizers extends Base_Tool {
         }
 
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 20,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 20,
             'page'     => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
         );
 

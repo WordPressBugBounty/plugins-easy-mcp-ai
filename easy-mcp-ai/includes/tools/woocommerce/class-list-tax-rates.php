@@ -42,6 +42,8 @@ class List_Tax_Rates extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of tax rates per page.',
                     'default'     => 100,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'class'    => array(
                     'type'        => 'string',
@@ -85,7 +87,7 @@ class List_Tax_Rates extends Base_Tool {
         }
 
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 100,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 100,
         );
 
         foreach ( array( 'class', 'country', 'state', 'postcode', 'city', 'order' ) as $key ) {

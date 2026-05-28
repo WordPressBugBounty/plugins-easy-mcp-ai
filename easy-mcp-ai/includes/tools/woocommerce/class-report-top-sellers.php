@@ -55,6 +55,8 @@ class Report_Top_Sellers extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of results.',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
             ),
             'required'   => array(),
@@ -78,7 +80,7 @@ class Report_Top_Sellers extends Base_Tool {
             $params['period'] = sanitize_text_field( $arguments['period'] );
         }
         if ( isset( $arguments['per_page'] ) ) {
-            $params['per_page'] = absint( $arguments['per_page'] );
+            $params['per_page'] = min( 100, max( 1, absint( $arguments['per_page'] ) ) );
         }
 
         $data = $this->rest_request( 'GET', '/wc/v3/reports/top_sellers', $params );

@@ -153,8 +153,10 @@ class Semrush_Client {
 		$full_url  = \add_query_arg( $query, $url );
 
 		$response = \wp_remote_get( $full_url, array(
-			'timeout' => 30,
-			'headers' => array( 'Accept' => 'text/csv' ),
+			'timeout'             => 30,
+			'headers'             => array( 'Accept' => 'text/csv' ),
+			
+			'limit_response_size' => 33554432,
 		) );
 
 		if ( \is_wp_error( $response ) ) {
@@ -308,7 +310,11 @@ class Semrush_Client {
 		$api_key = $this->get_api_key();
 		$full    = \add_query_arg( array( 'key' => $api_key ), $url );
 
-		$response = \wp_remote_get( $full, array( 'timeout' => 15 ) );
+		$response = \wp_remote_get( $full, array(
+			'timeout'             => 15,
+			
+			'limit_response_size' => 1048576,
+		) );
 		if ( \is_wp_error( $response ) ) {
 			throw new \RuntimeException( 'Semrush balance request failed (transport): ' . $response->get_error_message() ); // phpcs:ignore
 		}

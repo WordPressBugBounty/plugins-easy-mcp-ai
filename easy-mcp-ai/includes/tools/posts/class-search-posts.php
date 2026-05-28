@@ -51,6 +51,8 @@ class Search_Posts extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of results per page (1-100).',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
             ),
             'required'   => array( 'query' ),
@@ -64,7 +66,7 @@ class Search_Posts extends Base_Tool {
         $params = array(
             'search'   => $query,
             'type'     => 'post',
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10,
         );
 
         if ( ! empty( $arguments['subtype'] ) ) {

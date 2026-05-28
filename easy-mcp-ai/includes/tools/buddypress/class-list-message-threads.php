@@ -41,6 +41,8 @@ class List_Message_Threads extends Base_Tool {
                 'per_page' => array(
                     'type'    => 'integer',
                     'default' => 20,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'    => 'integer',
@@ -72,7 +74,7 @@ class List_Message_Threads extends Base_Tool {
 
         $page   = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 20,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 20,
             'page'     => $page,
             'box'      => isset( $arguments['box'] ) ? sanitize_text_field( $arguments['box'] ) : 'inbox',
             'user_id'  => $current_user_id,

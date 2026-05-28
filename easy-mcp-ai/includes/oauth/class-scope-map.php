@@ -10,12 +10,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Scope_Map {
 
     const SCOPE_MAP = array(
-        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_count_posts' ),
-        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms' ),
+        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_count_posts', 'wp_get_post_full' ),
+        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post' ),
         'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media', 'wp_count_media' ),
-        'mcp:media:write'        => array( 'wp_upload_media', 'wp_update_media', 'wp_delete_media' ),
-        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms' ),
-        'mcp:taxonomies:write'   => array( 'wp_create_category', 'wp_update_category', 'wp_delete_category', 'wp_create_tag', 'wp_update_tag', 'wp_delete_tag' ),
+        'mcp:media:write'        => array( 'wp_upload_media', 'wp_update_media', 'wp_delete_media', 'wp_upload_media_from_url' ),
+        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms', 'wp_get_term' ),
+        'mcp:taxonomies:write'   => array( 'wp_create_category', 'wp_update_category', 'wp_delete_category', 'wp_create_tag', 'wp_update_tag', 'wp_delete_tag', 'wp_create_term', 'wp_update_term', 'wp_delete_term' ),
         'mcp:term_meta:read'     => array( 'wp_get_term_meta' ),
         'mcp:term_meta:write'    => array( 'wp_update_term_meta', 'wp_delete_term_meta' ),
         'mcp:user_meta:read'     => array( 'wp_get_user_meta' ),
@@ -65,6 +65,7 @@ class Scope_Map {
             'wp_dfs_on_page_instant_pages',
             'wp_dfs_account_balance',
         ),
+        'mcp:history:read'       => array( 'wp_history_list', 'wp_history_get', 'wp_history_diff' ),
         'mcp:semrush:read'       => array(
             'wp_semrush_domain_overview',
             'wp_semrush_domain_organic_keywords',
@@ -230,6 +231,39 @@ class Scope_Map {
         }
 
         $scopes = array_merge( $scopes, self::get_dynamic_ability_scopes() );
+
+        return array_values( array_unique( $scopes ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function get_public_scopes(): array {
+        $scopes     = array( 'mcp' );
+        $categories = array();
+
+        foreach ( array_keys( self::SCOPE_MAP ) as $leaf ) {
+            $scopes[] = $leaf;
+            $parts    = explode( ':', $leaf );
+            $category = $parts[0] . ':' . $parts[1];
+            $categories[ $category ] = true;
+        }
+
+        foreach ( array_keys( $categories ) as $cat ) {
+            $scopes[] = $cat;
+        }
+
+        if ( ! empty( self::get_cached_abilities() ) ) {
+            $scopes[] = 'mcp:abilities';
+        }
 
         return array_values( array_unique( $scopes ) );
     }
@@ -490,6 +524,7 @@ class Scope_Map {
                 'user_create' => __( 'Users — Create', 'easy-mcp-ai' ),
                 'user_update' => __( 'Users — Update', 'easy-mcp-ai' ),
                 'user_delete' => __( 'Users — Delete', 'easy-mcp-ai' ),
+                'history'     => __( 'Change History (audit log of MCP edits)', 'easy-mcp-ai' ),
             );
 
             $is_core        = in_array( $slug, self::CORE_CATEGORIES, true );
@@ -497,7 +532,7 @@ class Scope_Map {
             $plugin_required = $is_plugin ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
             
-            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug ) {
+            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug ) {
                 $default_read  = false;
                 $default_write = false;
             } elseif ( 'users' === $slug ) {

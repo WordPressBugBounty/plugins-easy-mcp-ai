@@ -4,21 +4,21 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.6.9
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 204 tools. Free.
+Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 214 tools. Free.
 
 == Description ==
 
-[**Easy MCP AI**](https://easymcpai.com/) is the most complete **WordPress AI MCP server** — a remote MCP server built so AI assistants and autonomous AI agents can run your entire site workflow, from content and publishing to SEO research, traffic monitoring, and daily admin, through the [Model Context Protocol](https://modelcontextprotocol.io). It works as a WordPress API connector for any MCP-compatible AI client, making your site agent-ready out of the box. Ask your AI about Google Analytics, Google Search Console, and SEO data without leaving your chat. You bring the direction. Your AI handles the execution.
+[**Easy MCP AI**](https://easymcpai.com/) is the most complete **free WordPress MCP server** — a remote MCP server built so AI assistants and autonomous AI agents can run your entire site workflow, from content and publishing to SEO research, traffic monitoring, and daily admin, through the [Model Context Protocol](https://modelcontextprotocol.io). It works as an MCP adapter for any MCP-compatible AI client, making your site agent-ready out of the box. Ask your AI about Google Analytics, Google Search Console, and SEO data without leaving your chat. You bring the direction. Your AI handles the execution.
 
 No Node.js. No external proxy. No complicated setup. Just install, generate a token, and start building.
 
 **At a glance:**
 
-* **204 tools** across posts, pages, media, users, comments, menus, Google Analytics 4, Google Search Console, Semrush, DataforSEO, and more
+* **214 tools** across posts, pages, media, users, comments, menus, Google Analytics 4, Google Search Console, Semrush, DataforSEO, and more
 * **1-click OAuth 2.0/2.1** with per-scope consent (Claude Desktop, Cursor, etc.)
 * **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, Yoast, Rank Math, AIOSEO
 * **Google Analytics 4 & Google Search Console** — ask your AI about traffic, top pages, conversions, search queries, clicks, impressions, and indexing status
@@ -26,14 +26,15 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 * **DataforSEO** — ask your AI for live SERP results, keyword search volumes, on-page SEO audits, backlink data, and ranked/site keywords
 * **Auto-discovers WordPress 6.9+ Abilities API**
 * **Full audit trail** — every AI action on your site is logged in a searchable user activity log
+* **Change History** — every MCP-originated write (posts, meta, terms, users, options, comments, WooCommerce, BuddyPress) is recorded with before/after snapshots and queryable via 3 dedicated `wp_history_*` tools
 
 = Works With Every Major AI =
 
-[Connect any of the following AI assistants or AI agents directly to your WordPress site](https://easymcpai.com/integrations):
+Connect any of the following AI assistants or AI agents to your site through the **WordPress MCP** endpoint — [full integration guides here](https://easymcpai.com/integrations):
 
 * **Manus** — the autonomous AI agent that can run multi-step workflows start to finish
-* **Claude** (Claude.ai, Claude Desktop, Claude Code) — AI assistant by Anthropic
-* **ChatGPT** (OpenAI) — the world's most popular AI, connected to your site
+* **Claude** (Claude.ai, Claude Desktop, Claude Code) — connect Claude to WordPress in one click via OAuth
+* **ChatGPT** (OpenAI) — connect ChatGPT to WordPress and manage your entire site by chat
 * **Gemini AI** (Gemini CLI / Google Antigravity) — Google's AI tools with MCP support
 * **Cursor, Windsurf, Cline, Roo Code** — AI-powered code editors that can also manage your content
 * **n8n** — automation for content pipelines and publishing workflows
@@ -41,9 +42,9 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 = What Can Your AI Do On Your Site? =
 
-Once connected, your AI assistant can handle everything you'd normally do in the WordPress admin:
+Once connected, your **AI agent** can handle everything you'd normally do in the WordPress admin:
 
-**AI Content Writing & Publishing** — let AI draft, rewrite, SEO-optimize, schedule, and publish WordPress posts and pages; update existing posts and pages
+**AI Content Writing & Publishing** — let your **AI agent** draft, rewrite, SEO-optimize, schedule, and publish WordPress posts and pages; update existing posts and pages
 
 **AI Media Library & Alt Text** — upload images from chat, browse the media library, and auto-generate AI alt text and captions for SEO and accessibility
 
@@ -55,7 +56,7 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 
 **WordPress Settings** — read and update site title, tagline, timezone, date format, time format, and posts-per-page
 
-**WooCommerce AI Assistant** — manage WooCommerce products, variations, attributes, orders, customers, coupons, and webhooks; view order refunds, shipping zones, shipping methods, tax rates, and payment gateways; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
+**WooCommerce AI Agent** — manage WooCommerce products, variations, attributes, orders, customers, coupons, and webhooks; view order refunds, shipping zones, shipping methods, tax rates, and payment gateways; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
 
 **SEO with Yoast, Rank Math & AIOSEO** — read and update Yoast SEO, Rank Math, and All in One SEO (AIOSEO) post metadata: SEO titles, meta descriptions, Open Graph and Twitter card fields, plus focus keywords (Yoast, Rank Math), canonical URLs (Rank Math, AIOSEO), no-index (AIOSEO), and cornerstone content flag (Yoast)
 
@@ -64,6 +65,8 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 **Events Calendar & BuddyPress** — create, edit, and delete events with The Events Calendar; create and view venues; create and list organizers; list BuddyPress members, groups, group members, and private message threads; create and delete activity stream posts
 
 **Comment Moderation** — let AI list, approve, hold, mark as spam, edit, or delete WordPress comments
+
+**Change History & Rollback Awareness** — every write your AI makes is recorded with structured before/after snapshots. Ask "what did the AI change on this post last week?", diff any two revisions, or audit per-user activity through the `wp_history_list`, `wp_history_get`, and `wp_history_diff` tools — plus a full **Change History** admin page with retention and on/off controls
 
 **Gutenberg & Full Site Editing** — create, edit, and reuse Gutenberg blocks; update block templates and global styles for FSE themes
 
@@ -79,17 +82,26 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 
 **Any Plugin** — automatically connects to plugins that support WordPress 6.9+ Abilities API, no custom code needed
 
+**Ask your AI anything — for example:**
+* "Write a 500-word blog post about healthy eating and publish it as a draft"
+* "Show me today's WooCommerce orders and their total revenue"
+* "What are the top 10 search queries bringing traffic to my site this month?"
+* "Update all product prices in the Summer Sale category by -20%"
+* "What keywords does my homepage rank for and what are the click counts?"
+* "Rewrite the introduction of my About page to sound more professional"
+
 = Tools =
 
-[**204 Tools, Ready to Use**](https://easymcpai.com/tools)
+[**214 Tools, Ready to Use**](https://easymcpai.com/tools)
 
-**86 core tools** covering every major WordPress content type:
+**93 core tools** covering every major WordPress content type:
 
-**Posts** — list, get, create, update, delete, search, count
+**Posts** — list, get, create, update, delete, search, count; get full post (with meta + terms in one call); find-and-replace inside post content
 **Pages** — list, get, create, update, delete
-**Media** — list, get, upload, update, delete, count; update AI alt text on any image
+**Media** — list, get, upload, upload from URL, update, delete, count; update AI alt text on any image
 **Categories** — list, get, create, update, delete, count
 **Tags** — list, get, create, update, delete, count
+**Taxonomy Terms (any taxonomy)** — generic create, get, update, delete for any registered taxonomy
 **Comments** — list, get, create, update, delete
 **Users** — list, get, create, update, delete
 **Menus** — list menus, get, create, update, delete; list, create, update, delete menu items
@@ -105,6 +117,15 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 **Plugins** — list installed plugins
 **Themes** — list themes, get active theme
 **Search** — search across all content
+**Change History** — list, get, and diff every MCP-originated write across posts, meta, terms, users, options, comments, WooCommerce, and BuddyPress
+
+= 3 Change History Tools =
+
+**wp_history_list** — query change records by user, object type, object id, tool name, or date range; supports `since` / `until` filters and pagination
+**wp_history_get** — fetch a single change record with full before/after JSON snapshots
+**wp_history_diff** — compute a structured diff between any recorded snapshot and either another snapshot or the current live state of the object
+
+Non-admin tokens see only their own changes. Administrators (with the new `easy_mcp_ai_view_all_history` capability — granted to the Administrator role on activation) see every user's changes. Sensitive keys are redacted before storage, sensitive post meta keys (matching patterns like `*_token`, `*_secret`, `*password*`, `*api_key*`) are redacted at write time, and snapshot size is capped. The `wp_history_diff` tool also enforces these gates when reading the *current* live state: meta requires `edit_post`, options require `manage_options`, and protected meta keys are excluded entirely. Site owners can narrow query scope further via the `easy_mcp_ai_history_query_scope` filter (the self-pin for non-admins cannot be weakened by the filter).
 
 = 11 Google Analytics 4 Tools =
 
@@ -163,11 +184,11 @@ Once connected, your AI assistant can handle everything you'd normally do in the
 
 = Connect Any Plugin with Abilities API =
 
-WordPress 6.9+ introduces **Abilities API** — a standard way for plugins to declare what they can do. Easy MCP AI automatically discovers Abilities registered by any plugin and exposes them as MCP tools. No custom code needed — if a plugin supports the Abilities API, your AI can use it out of the box.
+WordPress 6.9+ introduces **Abilities API** — a standard way for plugins to declare what they can do. Easy MCP AI acts as an **MCP adapter** for any plugin that registers Abilities — automatically discovering and exposing them as MCP tools with no custom code needed. If a plugin supports the Abilities API, your AI can use it out of the box.
 
 = One-Click Connect with OAuth 2.0/2.1 =
 
-Skip manual token copy-paste. Easy MCP AI ships with a full **OAuth 2.0/2.1** authorization server — PKCE, refresh-token rotation, and Dynamic Client Registration (RFC 7591) built in. Compatible MCP clients like Claude Desktop can connect with a single click: they register themselves, you approve the scopes on a consent screen, and you're done. Bearer tokens still work for power users and automation.
+Skip manual token copy-paste. Your **WordPress MCP** endpoint ships with a full **OAuth 2.0/2.1** authorization server — PKCE, refresh-token rotation, and Dynamic Client Registration (RFC 7591) built in. Compatible MCP clients like Claude Desktop can connect with a single click: they register themselves, you approve the scopes on a consent screen, and you're done. Bearer tokens still work for power users and automation.
 
 = Built for Security =
 
@@ -185,7 +206,8 @@ Giving an AI access to your site is serious — so security is built into every 
 * **Dashboard** — your MCP endpoint URL and one-click connection configs for every major AI client
 * **API Tokens** — create and manage tokens with a checkbox-based tool permission tree
 * **Audit Log** — a paginated, searchable user activity log of every AI action taken on your site
-* **Settings** — tune rate limits, log retention, IP whitelist, and more
+* **Change History** — a dedicated page with before/after snapshots of every MCP-originated write, inline diff expand, and user / object / date filtering
+* **Settings** — tune rate limits, audit and change-history retention, IP whitelist, and more
 
 == Installation ==
 
@@ -260,11 +282,11 @@ This plugin connects to the following third-party services **only when a site ad
 
 = What is Easy MCP AI? =
 
-Easy MCP AI is a WordPress AI tool that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 204 ready-to-use tools. No Node.js, no proxy, no extra hosting.
+Easy MCP AI is a free **WordPress AI connector** that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 204 ready-to-use tools. No Node.js, no proxy, no extra hosting.
 
 = Is this a WordPress MCP server? =
 
-Yes. Easy MCP AI is a full WordPress MCP server implementing the Model Context Protocol spec (v2025-11-25, with backwards compatibility for v2025-06-18 and v2025-03-26) directly inside WordPress. Your site exposes a single MCP endpoint at `/wp-json/easy-mcp-ai/v1/mcp` that any MCP client can connect to over HTTPS.
+Yes. Easy MCP AI acts as a **WordPress MCP adapter** — a full MCP server implementing the Model Context Protocol spec (v2025-11-25, with backwards compatibility for v2025-06-18 and v2025-03-26) directly inside WordPress. Your site exposes a single MCP endpoint at `/wp-json/easy-mcp-ai/v1/mcp` that any MCP client can connect to over HTTPS.
 
 = What is the Model Context Protocol (MCP)? =
 
@@ -272,11 +294,11 @@ MCP is an open standard created by Anthropic that lets AI assistants and AI agen
 
 = How is Easy MCP AI different from other WordPress AI plugins? =
 
-Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 204 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
+Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 214 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
 
 = Is Easy MCP AI free? =
 
-Yes. Easy MCP AI is free and open source on the WordPress.org plugin directory. There are no paid tiers, no usage limits, and no telemetry. Optional external integrations (Semrush, DataForSEO, Google Analytics, Search Console) use **your own** third-party accounts — Easy MCP AI never bills you for API usage.
+Yes. This **WordPress MCP** plugin is free and open source on the WordPress.org plugin directory. There are no paid tiers, no usage limits, and no telemetry. Optional external integrations (Semrush, DataForSEO, Google Analytics, Search Console) use **your own** third-party accounts — Easy MCP AI never bills you for API usage.
 
 = How do I connect Claude, ChatGPT, Cursor, Gemini, or n8n to my WordPress site? =
 
@@ -334,7 +356,7 @@ No configuration required — OAuth 2.0/2.1 endpoints are live as soon as the pl
 
 = Can I control what the AI is allowed to do? =
 
-Yes, fully. Each token has its own permission set — you choose exactly which of the 204 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
+Yes, fully. Each token has its own permission set — you choose exactly which of the 214 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
 
 = Can I limit which posts or pages the AI can edit? =
 
@@ -399,6 +421,13 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.0 =
+* New **Change History** page — see every change your AI made to posts, media, users, comments, WooCommerce, and more, with before/after snapshots and one-click diff
+* Ask your AI "what did you change last week?" — 3 new tools (`wp_history_list`, `wp_history_get`, `wp_history_diff`) let any AI client query its own change history
+* 7 new tools: full post fetch (post + meta + terms in one call), find-and-replace inside post content, upload media from a URL, and create/get/update/delete terms on any custom taxonomy
+* Security and OAuth hardening across the board
+* Tool count is now 214
 
 = 1.6.9 =
 * Fixed Plugin Integrations admin tab showing 37/37 WooCommerce tools instead of the full 46 — added the 9 missing entries (single-variation get/update/delete, product attribute list/create/set, and batch update for products, variations, and orders)
@@ -487,6 +516,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.0 =
+No breaking changes. A `change_log` table is added; Change History recording is OFF by default. Enable it under Easy MCP AI → Settings (90-day retention). Only MCP tool writes are recorded — admin-UI and cron edits are not.
 
 = 1.6.0 =
 No breaking changes. DataforSEO tools are inactive until you add your API credentials under Easy MCP AI → External Data.

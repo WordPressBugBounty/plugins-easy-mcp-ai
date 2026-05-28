@@ -41,6 +41,7 @@ class Plugin {
         \add_action( 'easy_mcp_ai_cleanup_audit_log', array( $this, 'cleanup_audit_log' ) );
         \add_action( 'easy_mcp_ai_cleanup_oauth', array( $this, 'cleanup_oauth_storage' ) );
         \add_action( 'easy_mcp_ai_cleanup_new_token_meta', array( $this, 'cleanup_new_token_meta' ) );
+        \add_action( 'easy_mcp_ai_cleanup_change_log', array( __CLASS__, 'cleanup_change_log' ) );
         
         \add_action( 'plugins_loaded', array( 'Easy_MCP_AI\Activator', 'maybe_upgrade' ) );
         \add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_oauth' ) );
@@ -83,6 +84,11 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-base-resource.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-resource-registry.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-redactor.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-context.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-recorder.php';
     }
 
     
@@ -96,7 +102,11 @@ class Plugin {
         
         
         
-        static $handled_actions = array(
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only gate to decide whether to load AJAX handler files; the actual wp_ajax_* handler verifies its own nonce via check_ajax_referer().
+        $action = isset( $_REQUEST['action'] ) ? \sanitize_key( \wp_unslash( $_REQUEST['action'] ) ) : '';
+
+        
+        static $external_data_actions = array(
             'easy_mcp_ai_gsc_test',
             'easy_mcp_ai_ga_test',
             'easy_mcp_ai_dfs_test',
@@ -104,20 +114,35 @@ class Plugin {
             'easy_mcp_ai_semrush_test',
             'easy_mcp_ai_semrush_refresh_balance',
         );
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only gate to decide whether to load AJAX handler files; the actual wp_ajax_* handler verifies its own nonce via check_ajax_referer().
-        $action = isset( $_REQUEST['action'] ) ? \sanitize_key( \wp_unslash( $_REQUEST['action'] ) ) : '';
-        if ( ! in_array( $action, $handled_actions, true ) ) {
+        if ( in_array( $action, $external_data_actions, true ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/gsc/class-gsc-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ga/class-ga-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/dfs/class-dataforseo-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
+            new Admin\External_Data_Admin();
             return;
         }
 
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/gsc/class-gsc-client.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ga/class-ga-client.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/dfs/class-dataforseo-client.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-client.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
-        new Admin\External_Data_Admin();
+        
+        
+        
+        
+        
+        
+        
+        if ( 'easy_mcp_ai_get_changes_for_audit' === $action ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-manager.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-base-tool.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-registry.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integration-registry.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integrations-page.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-admin-page.php';
+            new Admin\Admin_Page( new Auth\Token_Manager(), new Tools\Tool_Registry() );
+            return;
+        }
     }
 
     public function init_admin() {
@@ -346,6 +371,10 @@ class Plugin {
         
         $this->load_mcp_includes();
 
+        
+        
+        \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
+
         $this->token_manager     = new Auth\Token_Manager();
         $this->tool_registry     = new Tools\Tool_Registry();
         $this->resource_registry = new Resources\Resource_Registry();
@@ -353,6 +382,15 @@ class Plugin {
 
         $this->register_tools();
         $this->register_resources();
+
+        
+        
+        
+        if ( \get_option( 'easy_mcp_ai_change_log_enabled', true ) ) {
+            ( new \Easy_MCP_AI\History\Change_Recorder(
+                new \Easy_MCP_AI\History\Change_Log_Repository()
+            ) )->register();
+        }
 
         $transport = new MCP\Transport( $this->server, $this->token_manager );
         $transport->register_routes();
@@ -379,6 +417,7 @@ class Plugin {
             'posts', 'pages', 'media', 'taxonomy', 'comments',
             'users', 'site', 'menus', 'plugins', 'themes',
             'revisions', 'meta', 'search', 'blocks', 'cpt', 'templates', 'styles',
+            'history',
         );
 
         
@@ -533,6 +572,37 @@ class Plugin {
             }
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
+    }
+
+    
+
+
+
+
+    public static function cleanup_change_log() {
+        if ( ! \wp_doing_cron() ) {
+            return;
+        }
+        $retention = (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 );
+        if ( $retention <= 0 ) {
+            return;
+        }
+        $cutoff = \gmdate( 'Y-m-d H:i:s', time() - ( $retention * DAY_IN_SECONDS ) );
+
+        if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Log_Repository' ) ) {
+            $f = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
+            if ( ! file_exists( $f ) ) {
+                return;
+            }
+            require_once $f;
+        }
+        $repo = new \Easy_MCP_AI\History\Change_Log_Repository();
+        for ( $i = 0; $i < self::CLEANUP_MAX_ITERATIONS; $i++ ) {
+            $n = $repo->delete_older_than( $cutoff, 500 );
+            if ( $n < 500 ) {
+                break;
+            }
+        }
     }
 
     public function cleanup_audit_log() {

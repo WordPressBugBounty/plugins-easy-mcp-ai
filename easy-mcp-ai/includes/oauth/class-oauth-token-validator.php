@@ -102,6 +102,7 @@ class OAuth_Token_Validator {
         return array(
             'token_id'      => (int) $token_data['id'],
             'wp_user_id'    => (int) $token_data['wp_user_id'],
+            'client_id'     => isset( $token_data['client_id'] ) ? (string) $token_data['client_id'] : null,
             'allowed_tools' => $allowed_tools,
         );
     }

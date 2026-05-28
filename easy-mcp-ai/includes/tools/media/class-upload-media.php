@@ -72,7 +72,7 @@ class Upload_Media extends Base_Tool {
         
         $max_upload_bytes = wp_max_upload_size();
         $encoded_length   = strlen( $arguments['content_base64'] );
-        if ( $encoded_length > $max_upload_bytes * 1.4 ) {
+        if ( $encoded_length > (int) ceil( $max_upload_bytes * 4 / 3 ) ) {
             throw new \InvalidArgumentException(
                 sprintf( 'File too large. Maximum upload size is %s.', \size_format( $max_upload_bytes ) ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
@@ -109,7 +109,7 @@ class Upload_Media extends Base_Tool {
             if ( $sniffed_mime !== $declared ) {
                 
                 $safe_mismatches = array(
-                    'image/svg+xml' => array( 'text/html', 'text/xml', 'text/plain', 'image/svg+xml' ),
+                    'image/svg+xml' => array( 'text/xml', 'image/svg+xml' ),
                     'text/csv'      => array( 'text/plain' ),
                 );
                 $allowed_sniffs  = isset( $safe_mismatches[ $declared ] ) ? $safe_mismatches[ $declared ] : array();

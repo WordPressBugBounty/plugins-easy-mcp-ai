@@ -42,12 +42,15 @@ class GA_Client extends Abstract_Google_Client {
         $token = self::get_access_token();
 
         $args = array(
-            'method'  => strtoupper( $method ),
-            'headers' => array(
+            'method'              => strtoupper( $method ),
+            'headers'             => array(
                 'Authorization' => 'Bearer ' . $token,
                 'Content-Type'  => 'application/json',
             ),
-            'timeout' => 20,
+            'timeout'             => 20,
+            
+            
+            'limit_response_size' => 8388608,
         );
         if ( null !== $body ) {
             $args['body'] = wp_json_encode( $body );

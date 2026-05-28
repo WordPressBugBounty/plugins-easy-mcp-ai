@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $message ) {
+function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $message, $change_counts = array(), $changes_nonce = '' ) {
 ?>
 <div class="wrap wp-mcp-admin">
     <h1><?php esc_html_e( 'Easy MCP AI - Audit Log', 'easy-mcp-ai' ); ?></h1>
@@ -14,8 +14,13 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
         <div class="notice notice-success is-dismissible">
             <p><?php esc_html_e( 'Audit log entries have been cleaned up.', 'easy-mcp-ai' ); ?></p>
         </div>
+    <?php elseif ( 'cleaned_more' === $message ) : ?>
+        <div class="notice notice-warning is-dismissible">
+            <p><?php esc_html_e( 'Cleaned up 10,000 audit log entries. More likely remain — click the button again to drain the rest.', 'easy-mcp-ai' ); ?></p>
+        </div>
     <?php endif; ?>
 
+    <?php $retention = (int) get_option( 'easy_mcp_ai_audit_log_retention', 30 ); ?>
     <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-audit' ) ); ?>" class="wp-mcp-cleanup-form">
         <?php wp_nonce_field( 'easy_mcp_ai_cleanup_audit' ); ?>
         <input type="hidden" name="easy_mcp_ai_cleanup_audit" value="1">
@@ -27,9 +32,32 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                 absint( $total )
             );
             ?>
-            <button type="submit" class="button button-secondary" onclick="return confirm('<?php echo esc_js( __( 'Are you sure you want to delete old audit log entries?', 'easy-mcp-ai' ) ); ?>');">
-                <?php esc_html_e( 'Clean Up Old Entries', 'easy-mcp-ai' ); ?>
+            <button type="submit" class="button button-secondary wp-mcp-confirm-submit" data-confirm="<?php echo esc_attr( sprintf( /* translators: %d: retention days */ __( 'Delete all audit log entries older than %d days?', 'easy-mcp-ai' ), absint( $retention ) ) ); ?>">
+                <?php
+                printf(
+                    /* translators: %d: retention days */
+                    esc_html__( 'Clean Up Entries Older Than %d Days', 'easy-mcp-ai' ),
+                    absint( $retention )
+                );
+                ?>
             </button>
+        </p>
+        <p class="description">
+            <?php
+            printf(
+                /* translators: %s: link to settings page */
+                wp_kses( __( 'Retention period is %s.', 'easy-mcp-ai' ), array( 'a' => array( 'href' => array() ) ) ),
+                sprintf(
+                    '<a href="%s">%s</a>',
+                    esc_url( admin_url( 'admin.php?page=easy-mcp-ai-settings' ) ),
+                    sprintf(
+                        /* translators: %d: number of days */
+                        esc_html__( 'set to %d days — change in Settings', 'easy-mcp-ai' ),
+                        absint( $retention )
+                    )
+                )
+            );
+            ?>
         </p>
     </form>
 
@@ -39,6 +67,7 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                 <th scope="col" class="manage-column column-date"><?php esc_html_e( 'Date', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-token"><?php esc_html_e( 'Token', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-tool"><?php esc_html_e( 'Tool', 'easy-mcp-ai' ); ?></th>
+                <th scope="col" class="manage-column column-changes"><?php esc_html_e( 'Changes', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-arguments"><?php esc_html_e( 'Arguments', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-status"><?php esc_html_e( 'Status', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-ip"><?php esc_html_e( 'IP Address', 'easy-mcp-ai' ); ?></th>
@@ -47,7 +76,7 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
         <tbody>
             <?php if ( empty( $entries ) ) : ?>
                 <tr>
-                    <td colspan="6"><?php esc_html_e( 'No audit log entries found.', 'easy-mcp-ai' ); ?></td>
+                    <td colspan="7"><?php esc_html_e( 'No audit log entries found.', 'easy-mcp-ai' ); ?></td>
                 </tr>
             <?php else : ?>
                 <?php foreach ( $entries as $entry ) : ?>
@@ -73,7 +102,7 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                     $is_error     = ! empty( $entry['result_status'] ) && 'error' === strtolower( $entry['result_status'] );
                     $token_display = ! empty( $entry['token_name'] ) ? $entry['token_name'] : '#' . $entry['token_id'];
                     ?>
-                    <tr>
+                    <tr id="audit-<?php echo absint( $entry['id'] ); ?>">
                         <td class="column-date">
                             <?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $entry['created_at'] . ' UTC' ) ) ); ?>
                         </td>
@@ -82,6 +111,27 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                         </td>
                         <td class="column-tool">
                             <code><?php echo esc_html( $entry['tool_name'] ); ?></code>
+                        </td>
+                        <td class="column-changes">
+                            <?php
+                            $c = isset( $change_counts[ (int) $entry['id'] ] ) ? (int) $change_counts[ (int) $entry['id'] ] : 0;
+                            
+                            
+                            $is_read_only_tool = isset( $entry['tool_name'] )
+                                && preg_match( '/^wp_(list|get|search|count|history)_|^wp_search$/', $entry['tool_name'] );
+                            if ( $c > 0 && ! $is_read_only_tool ) : ?>
+                                <a href="#" class="emai-changes-toggle"
+                                   data-audit-id="<?php echo absint( $entry['id'] ); ?>"
+                                   aria-expanded="false">
+                                    <?php
+                                    /* translators: %d: change row count */
+                                    echo esc_html( sprintf( _n( '%d change', '%d changes', $c, 'easy-mcp-ai' ), $c ) );
+                                    ?>
+                                    <span class="emai-changes-caret" aria-hidden="true">▾</span>
+                                </a>
+                            <?php else : ?>
+                                <span class="description">—</span>
+                            <?php endif; ?>
                         </td>
                         <td class="column-arguments">
                             <?php if ( ! empty( $args_display ) ) : ?>
@@ -101,6 +151,13 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                             <?php echo esc_html( $entry['ip_address'] ); ?>
                         </td>
                     </tr>
+                    <tr class="emai-changes-detail" data-audit-id="<?php echo absint( $entry['id'] ); ?>" hidden>
+                        <td colspan="7" style="background:#f6f7f7;">
+                            <div class="emai-changes-detail-body">
+                                <em><?php esc_html_e( 'Loading…', 'easy-mcp-ai' ); ?></em>
+                            </div>
+                        </td>
+                    </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
         </tbody>
@@ -109,12 +166,15 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                 <th scope="col" class="manage-column column-date"><?php esc_html_e( 'Date', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-token"><?php esc_html_e( 'Token', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-tool"><?php esc_html_e( 'Tool', 'easy-mcp-ai' ); ?></th>
+                <th scope="col" class="manage-column column-changes"><?php esc_html_e( 'Changes', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-arguments"><?php esc_html_e( 'Arguments', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-status"><?php esc_html_e( 'Status', 'easy-mcp-ai' ); ?></th>
                 <th scope="col" class="manage-column column-ip"><?php esc_html_e( 'IP Address', 'easy-mcp-ai' ); ?></th>
             </tr>
         </tfoot>
     </table>
+
+    <?php  ?>
 
     <?php if ( $total_pages > 1 ) : ?>
         <div class="tablenav bottom">
@@ -135,4 +195,4 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
 </div>
 <?php
 }
-easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $message );
+easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $message, isset( $change_counts ) ? $change_counts : array(), isset( $changes_nonce ) ? $changes_nonce : '' );

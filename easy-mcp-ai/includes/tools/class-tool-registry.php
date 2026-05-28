@@ -296,6 +296,21 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\WooCommerce\\Set_Product_Attributes',
 
             
+            
+            'Easy_MCP_AI\\Tools\\Posts\\Get_Post_Full',
+            'Easy_MCP_AI\\Tools\\Media\\Upload_Media_From_Url',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Get_Term',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Create_Term',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Update_Term',
+            'Easy_MCP_AI\\Tools\\Taxonomy\\Delete_Term',
+            'Easy_MCP_AI\\Tools\\Posts\\Replace_In_Post',
+
+            
+            'Easy_MCP_AI\\Tools\\History\\History_List',
+            'Easy_MCP_AI\\Tools\\History\\History_Get',
+            'Easy_MCP_AI\\Tools\\History\\History_Diff',
+
+            
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Overview',
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Organic_Keywords',
             'Easy_MCP_AI\\Tools\\Semrush\\Competitors_Organic',

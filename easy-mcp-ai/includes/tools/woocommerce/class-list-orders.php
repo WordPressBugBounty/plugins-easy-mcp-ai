@@ -60,6 +60,8 @@ class List_Orders extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of orders per page.',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'        => 'integer',
@@ -90,7 +92,7 @@ class List_Orders extends Base_Tool {
 
         $page   = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10,
             'page'     => $page,
             'status'   => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'any',
             'orderby'  => isset( $arguments['orderby'] ) ? sanitize_text_field( $arguments['orderby'] ) : 'date',

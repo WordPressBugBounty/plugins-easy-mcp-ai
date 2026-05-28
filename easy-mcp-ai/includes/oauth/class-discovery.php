@@ -35,7 +35,7 @@ class Discovery {
         }
 
         $scopes = class_exists( __NAMESPACE__ . '\\Scope_Map' )
-            ? Scope_Map::get_all_scopes()
+            ? Scope_Map::get_public_scopes()
             : array();
 
         $metadata = array(
@@ -67,7 +67,7 @@ class Discovery {
         $rest_base = rest_url( self::NAMESPACE_V1 );
 
         $scopes = class_exists( __NAMESPACE__ . '\\Scope_Map' )
-            ? Scope_Map::get_all_scopes()
+            ? Scope_Map::get_public_scopes()
             : array();
 
         $metadata = array(
@@ -124,6 +124,7 @@ class Discovery {
         $response->header( 'X-Content-Type-Options', 'nosniff' );
         $response->header( 'Cache-Control', 'no-store' );
         $response->header( 'Pragma', 'no-cache' );
+        $response->header( 'Strict-Transport-Security', 'max-age=31536000' );
     }
 
     

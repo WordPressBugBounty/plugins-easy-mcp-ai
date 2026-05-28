@@ -46,6 +46,8 @@ class List_Product_Variations extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of variations per page.',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'       => array(
                     'type'        => 'integer',
@@ -66,7 +68,7 @@ class List_Product_Variations extends Base_Tool {
         $product_id = $this->parse_required_id( $arguments['product_id'], 'product_id' );
 
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10,
             'page'     => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
         );
 

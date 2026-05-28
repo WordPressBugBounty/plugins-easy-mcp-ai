@@ -73,6 +73,7 @@ class Transport {
 
         
         $token_id = $wp_user_id = $allowed_tools = null;
+        $oauth_client_id = null;
         $result   = null;
         $is_oauth = false;
         $auth_source_for_request = null;
@@ -85,6 +86,7 @@ class Transport {
                 $token_id      = $result['token_id'];
                 $wp_user_id    = $result['wp_user_id'];
                 $allowed_tools = isset( $result['allowed_tools'] ) ? $result['allowed_tools'] : null;
+                $oauth_client_id = isset( $result['client_id'] ) ? $result['client_id'] : null;
                 $auth_source_for_request = 'oauth';
             }
         }
@@ -147,12 +149,30 @@ class Transport {
                     400
                 );
             }
-            return $this->handle_batch( $parsed, $token_id, $wp_user_id, $request, $allowed_tools, $auth_source_for_request );
+            return $this->handle_batch( $parsed, $token_id, $wp_user_id, $request, $allowed_tools, $auth_source_for_request, $oauth_client_id );
         }
-        return $this->process_single_message( $parsed, $token_id, $wp_user_id, $request, null, $allowed_tools, $auth_source_for_request );
+        return $this->process_single_message( $parsed, $token_id, $wp_user_id, $request, null, $allowed_tools, $auth_source_for_request, $oauth_client_id );
     }
 
-    private function process_single_message( $message, $token_id, $wp_user_id, $request, $batch_revalidated = null, $allowed_tools = null, $auth_source = null ) {
+    
+
+
+
+
+
+
+    private function call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id, $omit_allowed_tools = false ) {
+        $this->server->set_request_identity( $auth_source, $wp_user_id, $oauth_client_id );
+        try {
+            return $omit_allowed_tools
+                ? $this->server->handle_message( $message, $token_id )
+                : $this->server->handle_message( $message, $token_id, $allowed_tools );
+        } finally {
+            $this->server->clear_request_identity();
+        }
+    }
+
+    private function process_single_message( $message, $token_id, $wp_user_id, $request, $batch_revalidated = null, $allowed_tools = null, $auth_source = null, $oauth_client_id = null ) {
         $method = isset( $message['method'] ) ? $message['method'] : '';
 
         if ( empty( $method ) ) {
@@ -169,7 +189,7 @@ class Transport {
                 $id = isset( $message['id'] ) ? $message['id'] : null;
                 return new \WP_REST_Response( JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Token user no longer exists' ), 200 );
             }
-            $response_data = $this->server->handle_message( $message, $token_id, $allowed_tools );
+            $response_data = $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id );
             $response = new \WP_REST_Response( $response_data, 200 );
             if ( ! isset( $response_data['error'] ) ) {
                 $negotiated = $this->server->get_last_negotiated_version() ?? Server::PROTOCOL_VERSION;
@@ -190,7 +210,7 @@ class Transport {
                 return new \WP_REST_Response( null, 401 );
             }
 
-            $this->server->handle_message( $message, $token_id, $allowed_tools );
+            $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id );
             
             $response = new \WP_REST_Response( null, 202 );
             $this->add_cors_headers( $response );
@@ -212,7 +232,7 @@ class Transport {
                 return new \WP_REST_Response( JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' ), 200 );
             }
 
-            $response_data = $this->server->handle_message( $message, $token_id );
+            $response_data = $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id, true );
             $response = new \WP_REST_Response( $response_data, 200 );
             $this->add_cors_headers( $response );
             return $response;
@@ -279,13 +299,13 @@ class Transport {
         }
 
         $this->token_manager->update_last_used( $token_id );
-        $response_data = $this->server->handle_message( $message, $token_id, $allowed_tools );
+        $response_data = $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id );
         $response = new \WP_REST_Response( $response_data, 200 );
         $this->add_cors_headers( $response );
         return $response;
     }
 
-    private function handle_batch( $messages, $token_id, $wp_user_id, $request, $allowed_tools = null, $auth_source = null ) {
+    private function handle_batch( $messages, $token_id, $wp_user_id, $request, $allowed_tools = null, $auth_source = null, $oauth_client_id = null ) {
         
         
         if ( count( $messages ) > self::MAX_BATCH_SIZE ) {
@@ -336,7 +356,7 @@ class Transport {
                 $responses[] = JSON_RPC::error_response( null, Error_Codes::INVALID_REQUEST, $message->get_error_message() );
                 continue;
             }
-            $result = $this->process_single_message( $message, $token_id, $wp_user_id, $request, $revalidated, $allowed_tools, $auth_source );
+            $result = $this->process_single_message( $message, $token_id, $wp_user_id, $request, $revalidated, $allowed_tools, $auth_source, $oauth_client_id );
             if ( $result instanceof \WP_REST_Response && null !== $result->get_data() ) {
                 $responses[] = $result->get_data();
             }

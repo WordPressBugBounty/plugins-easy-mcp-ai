@@ -24,6 +24,13 @@ class Server {
     private $allowed_tool_patterns;
     private $last_negotiated_version;
 
+    
+    
+    
+    private $request_auth_source = null;
+    private $request_wp_user_id  = 0;
+    private $request_client_id   = null;
+
     public function __construct( Tool_Registry $tool_registry, Resource_Registry $resource_registry, Token_Manager $token_manager ) {
         $this->tool_registry     = $tool_registry;
         $this->resource_registry = $resource_registry;
@@ -33,6 +40,34 @@ class Server {
         $this->disabled_tools       = (array) get_option( 'easy_mcp_ai_disabled_tools', array() );
         $this->audit_log_enabled    = (bool)  get_option( 'easy_mcp_ai_audit_log_enabled', true );
         $this->allowed_tool_patterns = (array) get_option( 'easy_mcp_ai_allowed_tool_patterns', array() );
+
+        
+        
+        register_shutdown_function( function () {
+            $err = error_get_last();
+            if ( ! $err ) { return; }
+            if ( ! in_array( $err['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR ), true ) ) {
+                return;
+            }
+            if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) { return; }
+            if ( ! \Easy_MCP_AI\History\Change_Context::is_active() ) { return; }
+            $audit_id = \Easy_MCP_AI\History\Change_Context::get( 'audit_id' );
+            if ( $audit_id ) {
+                $this->update_audit_status( (int) $audit_id, 'error' );
+            }
+        } );
+    }
+
+    public function set_request_identity( $auth_source, $wp_user_id, $client_id = null ) {
+        $this->request_auth_source = $auth_source;
+        $this->request_wp_user_id  = (int) $wp_user_id;
+        $this->request_client_id   = $client_id;
+    }
+
+    public function clear_request_identity() {
+        $this->request_auth_source = null;
+        $this->request_wp_user_id  = 0;
+        $this->request_client_id   = null;
     }
 
     public function handle_message( $message, $token_id = null, $allowed_tools = null ) {
@@ -194,9 +229,26 @@ class Server {
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
         }
 
+        
+        
+        $audit_id     = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
+        $final_status = null;
+
+        if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
+            \Easy_MCP_AI\History\Change_Context::set( array(
+                'audit_id'        => $audit_id,
+                'tool_name'       => $tool_name,
+                'token_id'        => $token_id ? (int) $token_id : 0,
+                'auth_source'     => $this->request_auth_source,
+                'oauth_client_id' => $this->request_client_id,
+                'wp_user_id'      => $this->request_wp_user_id,
+                'ip_address'      => self::get_client_ip(),
+            ) );
+        }
+
         try {
-            $result = $tool->execute( $arguments );
-            $this->log_tool_call( $token_id, $tool_name, $arguments, 'success' );
+            $result       = $tool->execute( $arguments );
+            $final_status = 'success';
             return JSON_RPC::success_response( $id, array(
                 'content' => array( array(
                     'type' => 'text',
@@ -207,7 +259,7 @@ class Server {
             
             
             
-            $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+            $final_status = 'error';
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
@@ -218,7 +270,7 @@ class Server {
         } catch ( \Error $e ) {
             
             
-            $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+            $final_status = 'error';
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( 'WP MCP Server tool error [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
@@ -226,6 +278,18 @@ class Server {
                 'content' => array( array( 'type' => 'text', 'text' => 'Tool execution failed. Check server error logs for details.' ) ),
                 'isError' => true,
             ) );
+        } finally {
+            
+            
+            
+            $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status );
+            if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
+                \Easy_MCP_AI\History\Change_Context::clear();
+            }
+            
+            
+            
+            \Easy_MCP_AI\Tools\Base_Tool::flush_deferred_purges();
         }
     }
 
@@ -374,7 +438,7 @@ class Server {
 
     private function log_tool_call( $token_id, $tool_name, $arguments, $status ) {
         if ( ! $this->audit_log_enabled ) {
-            return;
+            return 0;
         }
         global $wpdb;
         $safe_args = self::redact_sensitive_args( $arguments );
@@ -389,6 +453,21 @@ class Server {
                 'created_at'    => current_time( 'mysql', true ),
             ),
             array( '%d', '%s', '%s', '%s', '%s', '%s' )
+        );
+        return (int) $wpdb->insert_id;
+    }
+
+    private function update_audit_status( $audit_id, $status ) {
+        if ( ! $this->audit_log_enabled || ! $audit_id ) {
+            return;
+        }
+        global $wpdb;
+        $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct update required to finalize audit status.
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            array( 'result_status' => $status ),
+            array( 'id' => (int) $audit_id ),
+            array( '%s' ),
+            array( '%d' )
         );
     }
 

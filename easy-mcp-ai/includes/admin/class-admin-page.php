@@ -20,8 +20,75 @@ class Admin_Page {
         $this->plugin_integrations_page  = new Plugin_Integrations_Page();
         \add_action( 'admin_menu', array( $this, 'register_menus' ) );
         \add_action( 'admin_menu', array( $this, 'register_external_data_menu' ), 11 );
+        \add_action( 'admin_menu', array( $this, 'register_log_menus' ), 12 );
         \add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
         \add_action( 'admin_init', array( $this, 'handle_form_actions' ) );
+        \add_action( 'wp_ajax_easy_mcp_ai_get_changes_for_audit', array( $this, 'ajax_get_changes_for_audit' ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public function ajax_get_changes_for_audit() {
+        \check_ajax_referer( 'easy_mcp_ai_changes_for_audit', 'nonce' );
+        if ( ! \current_user_can( 'manage_options' ) || ! \current_user_can( 'easy_mcp_ai_view_all_history' ) ) {
+            \wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'easy-mcp-ai' ) ), 403 );
+        }
+        $audit_id = isset( $_POST['audit_id'] ) ? absint( $_POST['audit_id'] ) : 0;
+        if ( ! $audit_id ) {
+            \wp_send_json_error( array( 'message' => __( 'Missing audit_id.', 'easy-mcp-ai' ) ), 400 );
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Log_Repository' ) ) {
+            $f = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
+            if ( file_exists( $f ) ) { require_once $f; }
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Log_Repository' ) ) {
+            \wp_send_json_error( array( 'message' => __( 'Change history not available.', 'easy-mcp-ai' ) ), 500 );
+        }
+
+        $rows = ( new \Easy_MCP_AI\History\Change_Log_Repository() )->query( array( 'audit_id' => $audit_id ), 100, 0 );
+        ob_start();
+        if ( empty( $rows ) ) {
+            echo '<p class="description">' . esc_html__( 'No change-log rows for this call.', 'easy-mcp-ai' ) . '</p>';
+        } else {
+            echo '<ul class="emai-changes-list" style="margin:0; padding-left: 18px;">';
+            foreach ( $rows as $r ) {
+                $changed = ! empty( $r['changed_fields'] ) ? json_decode( $r['changed_fields'], true ) : array();
+                $changed = is_array( $changed ) ? array_map( 'sanitize_text_field', $changed ) : array();
+                echo '<li style="margin: 6px 0;">';
+                echo '<code>' . esc_html( $r['action'] ) . '</code> ';
+                echo esc_html( $r['object_type'] ) . ':<code>' . esc_html( $r['object_id'] ) . '</code>';
+                if ( ! empty( $changed ) ) {
+                    echo ' &mdash; <span class="description">' . esc_html( implode( ', ', $changed ) ) . '</span>';
+                }
+                echo ' <details style="display:inline; margin-left: 8px;"><summary style="cursor:pointer;">' . esc_html__( 'Show before/after', 'easy-mcp-ai' ) . '</summary>';
+                echo '<div style="margin: 6px 0 0 12px;">';
+                echo '<strong>' . esc_html__( 'Before:', 'easy-mcp-ai' ) . '</strong>';
+                echo '<pre style="background:#f6f7f7; padding:6px; max-height:200px; overflow:auto;">' . esc_html( (string) ( $r['before_value'] ?? '' ) ) . '</pre>';
+                echo '<strong>' . esc_html__( 'After:', 'easy-mcp-ai' ) . '</strong>';
+                echo '<pre style="background:#f6f7f7; padding:6px; max-height:200px; overflow:auto;">' . esc_html( (string) ( $r['after_value'] ?? '' ) ) . '</pre>';
+                echo '</div></details>';
+                if ( ! empty( $r['revision_id'] ) ) {
+                    $rev_url = \admin_url( 'revision.php?revision=' . absint( $r['revision_id'] ) );
+                    echo ' &middot; <a href="' . esc_url( $rev_url ) . '">' . esc_html__( 'View revision', 'easy-mcp-ai' ) . '</a>';
+                }
+                $object_history_url = \add_query_arg(
+                    array( 'page' => 'easy-mcp-ai-history', 'object_type' => $r['object_type'], 'object_id' => $r['object_id'] ),
+                    \admin_url( 'admin.php' )
+                );
+                echo ' &middot; <a href="' . esc_url( $object_history_url ) . '">' . esc_html__( 'View object history →', 'easy-mcp-ai' ) . '</a>';
+                echo '</li>';
+            }
+            echo '</ul>';
+        }
+        \wp_send_json_success( array( 'html' => ob_get_clean() ) );
     }
 
     public function register_menus() {
@@ -30,9 +97,13 @@ class Admin_Page {
         \add_submenu_page( 'easy-mcp-ai', __( 'API Token & OAuth', 'easy-mcp-ai' ), __( 'API Token & OAuth', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-oauth', function() { \do_action( 'easy_mcp_ai_render_oauth_page' ); } );
         \add_submenu_page( 'easy-mcp-ai', __( 'API Token & OAuth', 'easy-mcp-ai' ), __( 'API Token & OAuth', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-tokens', array( $this, 'render_tokens_page' ) );
         \add_action( 'admin_head', array( $this, 'hide_tokens_submenu_entry' ) );
-        \add_submenu_page( 'easy-mcp-ai', __( 'Audit Log', 'easy-mcp-ai' ), __( 'Audit Log', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-audit', array( $this, 'render_audit_page' ) );
         \add_submenu_page( 'easy-mcp-ai', __( 'Settings', 'easy-mcp-ai' ), __( 'Settings', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-settings', array( $this, 'render_settings_page' ) );
         $this->plugin_integrations_page->register_submenu();
+    }
+
+    public function register_log_menus() {
+        \add_submenu_page( 'easy-mcp-ai', __( 'Audit Log', 'easy-mcp-ai' ), __( 'Audit Log', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-audit', array( $this, 'render_audit_page' ) );
+        \add_submenu_page( 'easy-mcp-ai', __( 'Change History', 'easy-mcp-ai' ), __( 'Change History', 'easy-mcp-ai' ), 'manage_options', 'easy-mcp-ai-history', array( $this, 'render_change_log_page' ) );
     }
 
     public function hide_tokens_submenu_entry() {
@@ -105,10 +176,15 @@ class Admin_Page {
                 'audit_log_enabled'     => isset( $_POST['audit_log_enabled'] ) ? 1 : 0,
                 'allowed_tool_patterns' => isset( $_POST['allowed_tool_patterns'] ) ? sanitize_text_field( wp_unslash( $_POST['allowed_tool_patterns'] ) ) : '',
                 'admin_language'        => isset( $_POST['admin_language'] ) ? sanitize_text_field( wp_unslash( $_POST['admin_language'] ) ) : '',
+                'change_log_enabled'    => isset( $_POST['change_log_enabled'] ) ? 1 : 0,
+                'change_log_retention'  => isset( $_POST['change_log_retention'] ) ? absint( $_POST['change_log_retention'] ) : 30,
             ) );
         }
         if ( isset( $_POST['easy_mcp_ai_cleanup_audit'] ) && \check_admin_referer( 'easy_mcp_ai_cleanup_audit' ) ) {
             $this->handle_cleanup_audit();
+        }
+        if ( isset( $_POST['easy_mcp_ai_cleanup_change_log'] ) && \check_admin_referer( 'easy_mcp_ai_cleanup_change_log' ) ) {
+            $this->handle_cleanup_change_log();
         }
     }
 
@@ -183,6 +259,8 @@ class Admin_Page {
             'audit_log_enabled'      => $post_data['audit_log_enabled'],
             'allowed_tool_patterns'  => $patterns,
             'admin_language'         => $post_data['admin_language'],
+            'change_log_enabled'     => $post_data['change_log_enabled'],
+            'change_log_retention'   => max( 1, min( 3650, (int) $post_data['change_log_retention'] ) ),
         );
         foreach ( $settings as $key => $value ) {
             \update_option( 'easy_mcp_ai_' . $key, $value );
@@ -253,12 +331,55 @@ class Admin_Page {
         $retention = (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 );
         
         
-        do {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for audit cleanup.
-            $deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->prefix}easy_mcp_ai_audit_log WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY) LIMIT 500", $retention ) );
-        } while ( $deleted > 0 );
-        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-audit&message=cleaned' ) );
+        
+        
+        $more = self::batched_cleanup( "{$wpdb->prefix}easy_mcp_ai_audit_log", $retention );
+        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-audit&message=' . ( $more ? 'cleaned_more' : 'cleaned' ) ) );
         exit;
+    }
+
+    private function handle_cleanup_change_log() {
+        global $wpdb;
+        $retention = (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 );
+        $more      = self::batched_cleanup( "{$wpdb->prefix}easy_mcp_ai_change_log", $retention );
+        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-history&message=' . ( $more ? 'cleaned_more' : 'cleaned' ) ) );
+        exit;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function batched_cleanup( $table, $retention ) {
+        global $wpdb;
+        
+        
+        
+        
+        $table   = \esc_sql( $table );
+        $iter    = 0;
+        $max     = (int) \Easy_MCP_AI\Plugin::CLEANUP_MAX_ITERATIONS;
+        $deleted = 0;
+        do {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is plugin-controlled (esc_sql'd above); retention is %d-bound.
+            $deleted = $wpdb->query( $wpdb->prepare( "DELETE FROM `{$table}` WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY) LIMIT 500", $retention ) );
+            $iter++;
+        } while ( $deleted > 0 && $iter < $max );
+
+        
+        
+        
+        if ( $iter < $max || $deleted < 500 ) {
+            return false;
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- One-row existence check; same identifier guarantee.
+        $remaining = $wpdb->get_var( $wpdb->prepare( "SELECT 1 FROM `{$table}` WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY) LIMIT 1", $retention ) );
+        return null !== $remaining;
     }
 
     public function render_dashboard() {
@@ -310,6 +431,7 @@ class Admin_Page {
             'cpt'       => 'Custom Post Types',
             'templates' => 'Templates',
             'styles'    => 'Global Styles',
+            'history'   => 'Change History',
             'general'   => 'General',
         );
 
@@ -317,11 +439,11 @@ class Admin_Page {
         $known_plugins = array(
             'woocommerce'     => array( 'label' => 'WooCommerce',                 'class' => 'WooCommerce',             'fn' => 'WC' ),
             'acf'             => array( 'label' => 'Advanced Custom Fields (ACF)','class' => 'ACF',                     'fn' => 'acf' ),
-            'events_calendar' => array( 'label' => 'The Events Calendar',         'class' => 'Tribe__Events__Main',     'fn' => '' ),
+            'events-calendar' => array( 'label' => 'The Events Calendar',         'class' => 'Tribe__Events__Main',     'fn' => '' ),
             'buddypress'      => array( 'label' => 'BuddyPress',                  'class' => 'BuddyPress',              'fn' => 'bp_is_active' ),
-            'seo_yoast'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),
-            'seo_rankmath'    => array( 'label' => 'Rank Math SEO',               'class' => 'RankMath',                'fn' => '' ),
-            'seo_aioseo'      => array( 'label' => 'All in One SEO',              'class' => 'AIOSEO\Plugin\AIOSEO',    'fn' => 'aioseo' ),
+            'yoast-seo'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),
+            'rank-math'       => array( 'label' => 'Rank Math SEO',               'class' => 'RankMath',                'fn' => '' ),
+            'aioseo'          => array( 'label' => 'All in One SEO',              'class' => 'AIOSEO\Plugin\AIOSEO',    'fn' => 'aioseo' ),
         );
 
         
@@ -915,9 +1037,135 @@ class Admin_Page {
         $total     = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)", $retention ) );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names are not user input
         $entries   = $wpdb->get_results( $wpdb->prepare( "SELECT l.*, t.name as token_name FROM `{$table}` l LEFT JOIN `{$wpdb->prefix}easy_mcp_ai_tokens` t ON l.token_id = t.id ORDER BY l.created_at DESC LIMIT %d OFFSET %d", $per_page, $offset ), ARRAY_A );
+
+        
+        
+        $change_counts = array();
+        if ( ! empty( $entries ) ) {
+            $audit_ids = array_filter( array_map( static function ( $r ) { return (int) ( $r['id'] ?? 0 ); }, $entries ) );
+            if ( $audit_ids ) {
+                $change_table = \esc_sql( $wpdb->prefix . 'easy_mcp_ai_change_log' );
+                $placeholders = implode( ',', array_fill( 0, count( $audit_ids ), '%d' ) );
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- placeholders generated, plugin-owned table
+                $rows = $wpdb->get_results( $wpdb->prepare( "SELECT audit_id, COUNT(*) AS c FROM `{$change_table}` WHERE audit_id IN ({$placeholders}) GROUP BY audit_id", ...$audit_ids ), ARRAY_A );
+                foreach ( (array) $rows as $r ) {
+                    $change_counts[ (int) $r['audit_id'] ] = (int) $r['c'];
+                }
+            }
+        }
+
         $total_pages = ceil( $total / $per_page );
-        $message   = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $message     = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $changes_nonce = \wp_create_nonce( 'easy_mcp_ai_changes_for_audit' );
+        
+        
+        
+        \wp_localize_script( 'easy-mcp-ai-admin', 'easyMcpAiAudit', array(
+            'ajaxUrl'         => \admin_url( 'admin-ajax.php' ),
+            'nonce'           => $changes_nonce,
+            'failedToLoadMsg' => __( 'Failed to load changes.', 'easy-mcp-ai' ),
+        ) );
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/audit-log.php';
+    }
+
+    public function render_change_log_page() {
+        global $wpdb;
+        $table = \esc_sql( $wpdb->prefix . 'easy_mcp_ai_change_log' );
+
+        
+        $page     = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $per_page = 50;
+        $offset   = ( $page - 1 ) * $per_page;
+
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only filter args.
+        $filter_object_type = isset( $_GET['object_type'] ) ? sanitize_text_field( wp_unslash( $_GET['object_type'] ) ) : '';
+        $filter_object_id   = isset( $_GET['object_id'] )   ? sanitize_text_field( wp_unslash( $_GET['object_id'] ) )   : '';
+        $filter_tool_name   = isset( $_GET['tool_name'] )   ? sanitize_text_field( wp_unslash( $_GET['tool_name'] ) )   : '';
+        $filter_wp_user_id  = isset( $_GET['wp_user_id'] )  ? absint( $_GET['wp_user_id'] )                              : 0;
+        $filter_audit_id    = isset( $_GET['audit_id'] )    ? absint( $_GET['audit_id'] )                                : 0;
+        $filter_since       = isset( $_GET['since'] )       ? sanitize_text_field( wp_unslash( $_GET['since'] ) )       : '';
+        $filter_until       = isset( $_GET['until'] )       ? sanitize_text_field( wp_unslash( $_GET['until'] ) )       : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+        
+        
+        $coerce_datetime = static function ( $raw ) {
+            if ( '' === $raw ) { return ''; }
+            $raw = str_replace( 'T', ' ', $raw );
+            if ( preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $raw ) ) {
+                return strlen( $raw ) === 16 ? $raw . ':00' : $raw;
+            }
+            return '';
+        };
+        $sql_since = $coerce_datetime( $filter_since );
+        $sql_until = $coerce_datetime( $filter_until );
+
+        $detail_id = isset( $_GET['detail'] ) ? absint( $_GET['detail'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $detail_row = null;
+        if ( $detail_id && class_exists( '\\Easy_MCP_AI\\History\\Change_Log_Repository' ) ) {
+            $detail_row = ( new \Easy_MCP_AI\History\Change_Log_Repository() )->find( $detail_id );
+        }
+
+        $where  = array( '1=1' );
+        $params = array();
+        $filters_map = array(
+            'object_type' => $filter_object_type,
+            'object_id'   => $filter_object_id,
+            'tool_name'   => $filter_tool_name,
+        );
+        foreach ( $filters_map as $col => $val ) {
+            if ( '' !== $val ) {
+                $where[]  = "{$col} = %s";
+                $params[] = $val;
+            }
+        }
+        if ( $filter_wp_user_id > 0 ) {
+            $where[]  = 'wp_user_id = %d';
+            $params[] = $filter_wp_user_id;
+        }
+        if ( $filter_audit_id > 0 ) {
+            $where[]  = 'audit_id = %d';
+            $params[] = $filter_audit_id;
+        }
+        if ( '' !== $sql_since ) {
+            $where[]  = 'created_at >= %s';
+            $params[] = $sql_since;
+        }
+        if ( '' !== $sql_until ) {
+            $where[]  = 'created_at <= %s';
+            $params[] = $sql_until;
+        }
+        $where_sql = implode( ' AND ', $where );
+
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table/$where_sql are server-built from a constant list of known column names with all user values bound via %s/%d placeholders.
+        $count_sql = "SELECT COUNT(*) FROM `{$table}` WHERE {$where_sql}";
+        $total     = (int) $wpdb->get_var( empty( $params ) ? $count_sql : $wpdb->prepare( $count_sql, ...$params ) );
+
+        
+        
+        
+        
+        $list_columns = 'id, audit_id, tool_name, action, object_type, object_id, object_subtype, changed_fields, revision_id, wp_user_id, oauth_client_id, auth_source, created_at, truncated, ip_address';
+        $entries      = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT {$list_columns} FROM `{$table}` WHERE {$where_sql} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+                ...array_merge( $params, array( $per_page, $offset ) )
+            ),
+            ARRAY_A
+        );
+        
+        
+        
+        $object_types = \get_transient( 'easy_mcp_ai_change_log_object_types' );
+        if ( false === $object_types ) {
+            $object_types = $wpdb->get_col( "SELECT DISTINCT object_type FROM `{$table}` ORDER BY object_type ASC" );
+            \set_transient( 'easy_mcp_ai_change_log_object_types', $object_types, 5 * MINUTE_IN_SECONDS );
+        }
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+        $total_pages = $per_page > 0 ? (int) ceil( $total / $per_page ) : 1;
+
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/change-log.php';
     }
 
     public function render_external_data_page(): void {
@@ -935,6 +1183,8 @@ class Admin_Page {
             'audit_log_enabled'      => (bool)  \get_option( 'easy_mcp_ai_audit_log_enabled', true ),
             'allowed_tool_patterns'  => (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ),
             'admin_language'         =>         \get_option( 'easy_mcp_ai_admin_language', '' ),
+            'change_log_enabled'     => (bool)  \get_option( 'easy_mcp_ai_change_log_enabled', true ),
+            'change_log_retention'   => (int)   \get_option( 'easy_mcp_ai_change_log_retention', 30 ),
         );
         $all_tool_names = array_values( array_diff(
             $this->tool_registry->get_all_tool_names(),

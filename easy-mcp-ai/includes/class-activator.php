@@ -16,6 +16,7 @@ class Activator {
                 try {
                     self::create_tables();
                     self::create_oauth_tables();
+                    self::create_change_log_tables();
                     self::set_default_options();
                 } finally {
                     \restore_current_blog();
@@ -24,6 +25,7 @@ class Activator {
         } else {
             self::create_tables();
             self::create_oauth_tables();
+            self::create_change_log_tables();
             self::set_default_options();
         }
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_audit_log' ) ) {
@@ -34,6 +36,9 @@ class Activator {
         }
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_new_token_meta' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_new_token_meta' );
+        }
+        if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_change_log' ) ) {
+            \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_change_log' );
         }
         \flush_rewrite_rules();
     }
@@ -49,6 +54,7 @@ class Activator {
         
         
         self::maybe_upgrade_oauth_tables();
+        self::maybe_upgrade_change_log_tables();
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_audit_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_audit_log' );
         }
@@ -57,6 +63,9 @@ class Activator {
         }
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_new_token_meta' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_new_token_meta' );
+        }
+        if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_change_log' ) ) {
+            \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_change_log' );
         }
     }
 
@@ -125,6 +134,58 @@ class Activator {
             require_once $schema_file;
             \Easy_MCP_AI\OAuth\OAuth_Schema::maybe_upgrade();
         }
+    }
+
+    
+
+
+
+    private static function create_change_log_tables() {
+        $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
+        if ( ! file_exists( $schema_file ) ) {
+            return;
+        }
+        require_once $schema_file;
+        \Easy_MCP_AI\History\Change_Log_Schema::create_tables();
+
+        
+        
+        \add_option( 'easy_mcp_ai_change_log_retention', 30 );
+        \add_option( 'easy_mcp_ai_change_log_enabled', true );
+
+        self::ensure_view_all_history_cap();
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function ensure_view_all_history_cap() {
+        $admin_role = \get_role( 'administrator' );
+        if ( $admin_role && ! $admin_role->has_cap( 'easy_mcp_ai_view_all_history' ) ) {
+            $admin_role->add_cap( 'easy_mcp_ai_view_all_history' );
+        }
+    }
+
+    
+
+
+
+
+    private static function maybe_upgrade_change_log_tables() {
+        $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
+        if ( ! file_exists( $schema_file ) ) {
+            return;
+        }
+        require_once $schema_file;
+        \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
+        self::ensure_view_all_history_cap();
     }
 
     private static function set_default_options() {

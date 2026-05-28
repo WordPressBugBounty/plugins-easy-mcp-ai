@@ -42,6 +42,8 @@ class List_Product_Categories extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of categories per page.',
                     'default'     => 100,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'       => array(
                     'type'        => 'integer',
@@ -67,7 +69,7 @@ class List_Product_Categories extends Base_Tool {
         }
 
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 100,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 100,
             'page'     => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
         );
 

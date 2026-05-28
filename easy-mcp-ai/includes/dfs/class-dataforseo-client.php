@@ -211,11 +211,14 @@ class DataforSEO_Client {
 		$creds = self::get_credentials();
 
 		$args = array(
-			'method'  => strtoupper( $method ),
-			'headers' => array(
+			'method'              => strtoupper( $method ),
+			'headers'             => array(
 				'Authorization' => self::auth_header( $creds ),
 			),
-			'timeout' => 30,
+			'timeout'             => 30,
+			
+			
+			'limit_response_size' => 33554432,
 		);
 
 		if ( null !== $body ) {

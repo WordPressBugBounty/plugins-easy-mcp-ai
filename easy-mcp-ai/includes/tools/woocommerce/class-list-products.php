@@ -33,7 +33,7 @@ class List_Products extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'per_page'     => array( 'type' => 'integer', 'description' => 'Number of products per page (1–100).', 'default' => 10 ),
+                'per_page'     => array( 'type' => 'integer', 'description' => 'Number of products per page (1–100).', 'default' => 10, 'minimum' => 1, 'maximum' => 100 ),
                 'page'         => array( 'type' => 'integer', 'description' => 'Page number.', 'default' => 1 ),
                 'search'       => array( 'type' => 'string',  'description' => 'Search term to filter products by name or SKU.' ),
                 'status'       => array( 'type' => 'string',  'description' => 'Filter by product status.', 'enum' => array( 'publish', 'draft', 'pending', 'private', 'any' ) ),
@@ -57,7 +57,7 @@ class List_Products extends Base_Tool {
             throw new \RuntimeException( 'WooCommerce is not active on this site. Please install and activate WooCommerce to use this tool.' );
         }
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10,
+            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10,
             'page'     => isset( $arguments['page'] )     ? absint( $arguments['page'] )     : 1,
         );
         foreach ( array( 'search', 'status', 'category', 'stock_status', 'orderby', 'order', 'type', 'sku', 'min_price', 'max_price', 'after', 'before' ) as $key ) {

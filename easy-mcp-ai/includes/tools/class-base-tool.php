@@ -7,6 +7,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 abstract class Base_Tool {
 
+    
+
+
+
+
+
+
+
+
+    protected static $deferred_purge_ids = array();
+
+    
+
+
+
+
+
+
+
+
+
+    protected static $already_invalidated = array();
+
     abstract public function get_name();
     abstract public function get_description();
     abstract public function get_input_schema();
@@ -321,6 +344,115 @@ abstract class Base_Tool {
         }
 
         return esc_url_raw( $url );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function invalidate_post_cache( $post_id, array $context = array() ) {
+        $post_id = (int) $post_id;
+        if ( $post_id <= 0 ) {
+            return;
+        }
+
+        if ( isset( self::$already_invalidated[ $post_id ] ) ) {
+            return;
+        }
+        self::$already_invalidated[ $post_id ] = true;
+
+        
+        
+        
+        
+        if ( function_exists( 'clean_post_cache' ) ) {
+            clean_post_cache( $post_id );
+        }
+
+        $context = wp_parse_args(
+            $context,
+            array(
+                'source' => 'mcp',
+                'tool'   => $this->get_name(),
+            )
+        );
+
+        
+
+
+
+
+
+        do_action( 'easy_mcp_ai_post_changed', $post_id, $context );
+
+        
+        
+        
+        self::$deferred_purge_ids[ $post_id ] = true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function flush_deferred_purges() {
+        if ( empty( self::$deferred_purge_ids ) ) {
+            return;
+        }
+        foreach ( array_keys( self::$deferred_purge_ids ) as $id ) {
+            
+            if ( function_exists( 'rocket_clean_post' ) ) {
+                rocket_clean_post( $id );
+            }
+            
+            do_action( 'litespeed_purge_post', $id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party hook owned by LiteSpeed Cache plugin.
+            
+            if ( function_exists( 'w3tc_flush_post' ) ) {
+                w3tc_flush_post( $id );
+            }
+        }
+        self::$deferred_purge_ids = array();
+    }
+
+    
+
+
+
+
+
+
+    public static function reset_cache_invalidation_state() {
+        self::$deferred_purge_ids   = array();
+        self::$already_invalidated = array();
     }
 
     protected function rest_request( $method, $route, $params = array() ) {

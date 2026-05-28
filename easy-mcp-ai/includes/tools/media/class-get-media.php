@@ -63,6 +63,7 @@ class Get_Media extends Base_Tool {
             'source_url'  => $data['source_url'],
             'date'        => $data['date'],
             'media_type'  => $data['media_type'],
+            'post'        => isset( $data['post'] ) ? (int) $data['post'] : 0,
         );
 
         if ( ! empty( $data['media_details']['width'] ) ) {

@@ -45,6 +45,81 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
         <table class="form-table" role="presentation">
             <tr>
                 <th scope="row">
+                    <label for="admin_language"><?php esc_html_e( 'Admin Language', 'easy-mcp-ai' ); ?></label>
+                </th>
+                <td>
+                    <div class="wp-mcp-lang-select" data-placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>">
+                        <input type="hidden" id="admin_language" name="admin_language" value="<?php echo esc_attr( $settings['admin_language'] ); ?>" />
+                        <input type="text" id="admin_language_display" class="wp-mcp-lang-display" autocomplete="off" placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>" value="<?php
+                            $easy_mcp_current_lang = $settings['admin_language'];
+                            $easy_mcp_languages = array(
+                                ''      => __( 'Default (WordPress language)', 'easy-mcp-ai' ),
+                                'en_US' => 'English',
+                                'ar'    => 'العربية',
+                                'bg_BG' => 'Български',
+                                'bn_BD' => 'বাংলা',
+                                'cs_CZ' => 'Čeština',
+                                'da_DK' => 'Dansk',
+                                'de_DE' => 'Deutsch',
+                                'el'    => 'Ελληνικά',
+                                'es_ES' => 'Español',
+                                'es_MX' => 'Español (México)',
+                                'et'    => 'Eesti',
+                                'fa_IR' => 'فارسی',
+                                'fi'    => 'Suomi',
+                                'fr_FR' => 'Français',
+                                'gu'    => 'ગુજરાતી',
+                                'he_IL' => 'עברית',
+                                'hi_IN' => 'हिन्दी',
+                                'hr'    => 'Hrvatski',
+                                'hu_HU' => 'Magyar',
+                                'id_ID' => 'Bahasa Indonesia',
+                                'it_IT' => 'Italiano',
+                                'ja'    => '日本語',
+                                'kn'    => 'ಕನ್ನಡ',
+                                'ko_KR' => '한국어',
+                                'lt_LT' => 'Lietuvių',
+                                'lv'    => 'Latviešu',
+                                'ml_IN' => 'മലയാളം',
+                                'mr'    => 'मराठी',
+                                'ms_MY' => 'Bahasa Melayu',
+                                'nb_NO' => 'Norsk (Bokmål)',
+                                'nl_NL' => 'Nederlands',
+                                'pa_IN' => 'ਪੰਜਾਬੀ',
+                                'pl_PL' => 'Polski',
+                                'pt_BR' => 'Português (Brasil)',
+                                'pt_PT' => 'Português (Portugal)',
+                                'ro_RO' => 'Română',
+                                'ru_RU' => 'Русский',
+                                'sk_SK' => 'Slovenčina',
+                                'sr_RS' => 'Српски',
+                                'sv_SE' => 'Svenska',
+                                'sw'    => 'Kiswahili',
+                                'ta_IN' => 'தமிழ்',
+                                'te'    => 'తెలుగు',
+                                'th'    => 'ไทย',
+                                'tl'    => 'Filipino',
+                                'tr_TR' => 'Türkçe',
+                                'uk'    => 'Українська',
+                                'ur'    => 'اردو',
+                                'vi'    => 'Tiếng Việt',
+                                'zh_CN' => '中文 (简体)',
+                                'zh_TW' => '中文 (繁體)',
+                            );
+                            echo esc_attr( isset( $easy_mcp_languages[ $easy_mcp_current_lang ] ) ? $easy_mcp_languages[ $easy_mcp_current_lang ] : '' );
+                        ?>" />
+                        <ul class="wp-mcp-lang-options" role="listbox">
+                            <?php foreach ( $easy_mcp_languages as $code => $name ) : ?>
+                                <li role="option" data-value="<?php echo esc_attr( $code ); ?>" data-label="<?php echo esc_attr( $name ); ?>"<?php if ( $code === $easy_mcp_current_lang ) echo ' class="wp-mcp-lang-active"'; ?>><?php echo esc_html( $name ); ?> <span class="wp-mcp-lang-code"><?php echo esc_html( $code ); ?></span></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <p class="description"><?php esc_html_e( 'Language for the Easy MCP AI admin interface. Defaults to the WordPress site language.', 'easy-mcp-ai' ); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
                     <label for="rate_limit_per_minute"><?php esc_html_e( 'Rate Limit (per minute)', 'easy-mcp-ai' ); ?></label>
                 </th>
                 <td>
@@ -54,26 +129,6 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
                 </td>
             </tr>
 
-            <tr>
-                <th scope="row">
-                    <label for="audit_log_retention"><?php esc_html_e( 'Audit Log Retention (days)', 'easy-mcp-ai' ); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="audit_log_retention" name="audit_log_retention" min="1" max="365"
-                        value="<?php echo esc_attr( $settings['audit_log_retention'] ); ?>" class="small-text">
-                    <p class="description"><?php esc_html_e( 'How many days to keep audit log entries before cleanup.', 'easy-mcp-ai' ); ?></p>
-                </td>
-            </tr>
-
-            <tr>
-                <th scope="row">
-                    <label for="ip_whitelist"><?php esc_html_e( 'IP Whitelist', 'easy-mcp-ai' ); ?></label>
-                </th>
-                <td>
-                    <textarea id="ip_whitelist" name="ip_whitelist" rows="4" cols="50" class="large-text code"><?php echo esc_textarea( $settings['ip_whitelist'] ); ?></textarea>
-                    <p class="description"><?php esc_html_e( 'One IP address or CIDR range per line (e.g., 203.0.113.10 or 192.168.1.0/24). Leave empty to allow all IPs.', 'easy-mcp-ai' ); ?></p>
-                </td>
-            </tr>
             <tr>
                 <th scope="row"><?php esc_html_e( 'Force Draft on Create', 'easy-mcp-ai' ); ?></th>
                 <td>
@@ -104,6 +159,39 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
                             <?php checked( $settings['audit_log_enabled'], true ); ?>>
                         <?php esc_html_e( 'Enable audit logging of all tool calls. When disabled, no log entries are written.', 'easy-mcp-ai' ); ?>
                     </label>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="audit_log_retention"><?php esc_html_e( 'Audit Log Retention (days)', 'easy-mcp-ai' ); ?></label>
+                </th>
+                <td>
+                    <input type="number" id="audit_log_retention" name="audit_log_retention" min="1" max="365"
+                        value="<?php echo esc_attr( $settings['audit_log_retention'] ); ?>" class="small-text">
+                    <p class="description"><?php esc_html_e( 'Older audit log entries are pruned daily by cron.', 'easy-mcp-ai' ); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row"><?php esc_html_e( 'Change History', 'easy-mcp-ai' ); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="change_log_enabled" value="1"
+                            <?php checked( $settings['change_log_enabled'], true ); ?>>
+                        <?php esc_html_e( 'Record before/after snapshots of every write performed via MCP. When disabled, no change-history entries are written.', 'easy-mcp-ai' ); ?>
+                    </label>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="change_log_retention"><?php esc_html_e( 'Change History Retention (days)', 'easy-mcp-ai' ); ?></label>
+                </th>
+                <td>
+                    <input type="number" id="change_log_retention" name="change_log_retention" min="1" max="3650"
+                        value="<?php echo esc_attr( $settings['change_log_retention'] ); ?>" class="small-text">
+                    <p class="description"><?php esc_html_e( 'Older change-history rows are pruned daily by cron.', 'easy-mcp-ai' ); ?></p>
                 </td>
             </tr>
 
@@ -200,76 +288,11 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
             </tr>
             <tr>
                 <th scope="row">
-                    <label for="admin_language"><?php esc_html_e( 'Admin Language', 'easy-mcp-ai' ); ?></label>
+                    <label for="ip_whitelist"><?php esc_html_e( 'IP Whitelist', 'easy-mcp-ai' ); ?></label>
                 </th>
                 <td>
-                    <div class="wp-mcp-lang-select" data-placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>">
-                        <input type="hidden" id="admin_language" name="admin_language" value="<?php echo esc_attr( $settings['admin_language'] ); ?>" />
-                        <input type="text" id="admin_language_display" class="wp-mcp-lang-display" autocomplete="off" placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>" value="<?php
-                            $easy_mcp_current_lang = $settings['admin_language'];
-                            $easy_mcp_languages = array(
-                                ''      => __( 'Default (WordPress language)', 'easy-mcp-ai' ),
-                                'en_US' => 'English',
-                                'ar'    => 'العربية',
-                                'bg_BG' => 'Български',
-                                'bn_BD' => 'বাংলা',
-                                'cs_CZ' => 'Čeština',
-                                'da_DK' => 'Dansk',
-                                'de_DE' => 'Deutsch',
-                                'el'    => 'Ελληνικά',
-                                'es_ES' => 'Español',
-                                'es_MX' => 'Español (México)',
-                                'et'    => 'Eesti',
-                                'fa_IR' => 'فارسی',
-                                'fi'    => 'Suomi',
-                                'fr_FR' => 'Français',
-                                'gu'    => 'ગુજરાતી',
-                                'he_IL' => 'עברית',
-                                'hi_IN' => 'हिन्दी',
-                                'hr'    => 'Hrvatski',
-                                'hu_HU' => 'Magyar',
-                                'id_ID' => 'Bahasa Indonesia',
-                                'it_IT' => 'Italiano',
-                                'ja'    => '日本語',
-                                'kn'    => 'ಕನ್ನಡ',
-                                'ko_KR' => '한국어',
-                                'lt_LT' => 'Lietuvių',
-                                'lv'    => 'Latviešu',
-                                'ml_IN' => 'മലയാളം',
-                                'mr'    => 'मराठी',
-                                'ms_MY' => 'Bahasa Melayu',
-                                'nb_NO' => 'Norsk (Bokmål)',
-                                'nl_NL' => 'Nederlands',
-                                'pa_IN' => 'ਪੰਜਾਬੀ',
-                                'pl_PL' => 'Polski',
-                                'pt_BR' => 'Português (Brasil)',
-                                'pt_PT' => 'Português (Portugal)',
-                                'ro_RO' => 'Română',
-                                'ru_RU' => 'Русский',
-                                'sk_SK' => 'Slovenčina',
-                                'sr_RS' => 'Српски',
-                                'sv_SE' => 'Svenska',
-                                'sw'    => 'Kiswahili',
-                                'ta_IN' => 'தமிழ்',
-                                'te'    => 'తెలుగు',
-                                'th'    => 'ไทย',
-                                'tl'    => 'Filipino',
-                                'tr_TR' => 'Türkçe',
-                                'uk'    => 'Українська',
-                                'ur'    => 'اردو',
-                                'vi'    => 'Tiếng Việt',
-                                'zh_CN' => '中文 (简体)',
-                                'zh_TW' => '中文 (繁體)',
-                            );
-                            echo esc_attr( isset( $easy_mcp_languages[ $easy_mcp_current_lang ] ) ? $easy_mcp_languages[ $easy_mcp_current_lang ] : '' );
-                        ?>" />
-                        <ul class="wp-mcp-lang-options" role="listbox">
-                            <?php foreach ( $easy_mcp_languages as $code => $name ) : ?>
-                                <li role="option" data-value="<?php echo esc_attr( $code ); ?>" data-label="<?php echo esc_attr( $name ); ?>"<?php if ( $code === $easy_mcp_current_lang ) echo ' class="wp-mcp-lang-active"'; ?>><?php echo esc_html( $name ); ?> <span class="wp-mcp-lang-code"><?php echo esc_html( $code ); ?></span></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                    <p class="description"><?php esc_html_e( 'Language for the Easy MCP AI admin interface. Defaults to the WordPress site language.', 'easy-mcp-ai' ); ?></p>
+                    <textarea id="ip_whitelist" name="ip_whitelist" rows="4" cols="50" class="large-text code"><?php echo esc_textarea( $settings['ip_whitelist'] ); ?></textarea>
+                    <p class="description"><?php esc_html_e( 'One IP address or CIDR range per line (e.g., 203.0.113.10 or 192.168.1.0/24). Leave empty to allow all IPs.', 'easy-mcp-ai' ); ?></p>
                 </td>
             </tr>
         </table>

@@ -53,6 +53,8 @@ class List_Comments extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of comments per page (1-100).',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'        => 'integer',
@@ -80,7 +82,7 @@ class List_Comments extends Base_Tool {
             $params['status'] = $arguments['status'];
         }
 
-        $params['per_page'] = isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10;
+        $params['per_page'] = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
         $params['page']     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
 
         if ( ! empty( $arguments['search'] ) ) {

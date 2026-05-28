@@ -42,6 +42,8 @@ class List_Templates extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Items per page (1-100).',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'        => 'integer',
@@ -62,7 +64,7 @@ class List_Templates extends Base_Tool {
         }
 
         $request = new \WP_REST_Request( 'GET', '/wp/v2/templates' );
-        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10 );
+        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10 );
         $request->set_param( 'page', isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1 );
         $request->set_param( 'context', 'edit' );
 

@@ -46,6 +46,8 @@ class List_Revisions extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Number of revisions to return (1-100).',
                     'default'     => 10,
+                    'minimum'     => 1,
+                    'maximum'     => 100,
                 ),
                 'page'     => array(
                     'type'        => 'integer',
@@ -62,7 +64,7 @@ class List_Revisions extends Base_Tool {
 
         $post_id   = $this->parse_required_id( $arguments['post_id'], 'post_id' );
         $rest_base = $this->resolve_post_rest_base( $post_id );
-        $per_page  = isset( $arguments['per_page'] ) ? absint( $arguments['per_page'] ) : 10;
+        $per_page  = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
         $page      = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
 
         $request = new \WP_REST_Request( 'GET', '/wp/v2/' . $rest_base . '/' . $post_id . '/revisions' );
