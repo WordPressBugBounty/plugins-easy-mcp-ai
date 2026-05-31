@@ -344,7 +344,16 @@ class Scope_Map {
             if ( '' === $name ) {
                 continue;
             }
-            if ( false === strpos( $name, '/' ) ) {
+            
+            
+            
+            
+            
+            
+            
+            $parts  = explode( '/', $name, 2 );
+            $prefix = count( $parts ) > 1 ? $parts[0] : 'core';
+            if ( 'core' === $prefix ) {
                 $tools[] = 'wp_ability_' . Dynamic_Tool_Registrar::normalize_identifier( $name );
             }
         }
@@ -381,6 +390,10 @@ class Scope_Map {
             if ( 0 === strpos( $part, 'mcp:abilities:' ) ) {
                 $prefix = substr( $part, strlen( 'mcp:abilities:' ) );
                 if ( 'core' === $prefix ) {
+                    
+                    
+                    
+                    
                     
                     
                     $tools = array_merge( $tools, self::resolve_core_ability_tools() );

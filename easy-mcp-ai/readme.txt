@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -422,6 +422,10 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.1 =
+* Fixed: enabling a plugin-provided ability on the **Abilities** page now sticks — previously, after saving, every ability except the built-in core ones could vanish from the list and fail to turn into a tool. They now stay enabled and become usable AI tools as expected.
+* Fixed: the OAuth consent screen now lists abilities from all your plugins, not just the built-in core ones — so you can grant an AI client access to a specific plugin's abilities when connecting.
+
 = 1.7.0 =
 * New **Change History** page — see every change your AI made to posts, media, users, comments, WooCommerce, and more, with before/after snapshots and one-click diff
 * Ask your AI "what did you change last week?" — 3 new tools (`wp_history_list`, `wp_history_get`, `wp_history_diff`) let any AI client query its own change history
@@ -516,6 +520,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.1 =
+Bug-fix release. Plugin-provided abilities now save and activate correctly on the Abilities page. No breaking changes.
 
 = 1.7.0 =
 No breaking changes. A `change_log` table is added; Change History recording is OFF by default. Enable it under Easy MCP AI → Settings (90-day retention). Only MCP tool writes are recorded — admin-UI and cron edits are not.

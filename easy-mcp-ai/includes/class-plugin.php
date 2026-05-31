@@ -38,6 +38,17 @@ class Plugin {
         
         \add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
         \add_action( 'init', array( $this, 'handle_well_known' ), 0 );
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        \add_action( 'init', array( $this, 'handle_oauth_authorize_request' ), PHP_INT_MAX );
         \add_action( 'easy_mcp_ai_cleanup_audit_log', array( $this, 'cleanup_audit_log' ) );
         \add_action( 'easy_mcp_ai_cleanup_oauth', array( $this, 'cleanup_oauth_storage' ) );
         \add_action( 'easy_mcp_ai_cleanup_new_token_meta', array( $this, 'cleanup_new_token_meta' ) );
@@ -189,23 +200,17 @@ class Plugin {
         
         
         
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check on REQUEST_URI / public OAuth discovery param; no state is mutated here.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check on REQUEST_URI; no state is mutated here.
         $request_uri_raw = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check; authorize handler enforces its own nonce downstream.
-        $oauth_param     = isset( $_GET['easy_mcp_ai_oauth'] ) ? sanitize_text_field( wp_unslash( $_GET['easy_mcp_ai_oauth'] ) ) : '';
-        $is_authorize    = 'authorize' === $oauth_param;
         $is_well_known   = false !== strpos( $request_uri_raw, '/.well-known/' );
-        if ( ! $is_authorize && ! $is_well_known ) {
+        if ( ! $is_well_known ) {
+            
+            
+            
             return;
         }
 
         if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
-            return;
-        }
-
-        
-        if ( $is_authorize ) {
-            $this->handle_oauth_authorize();
             return;
         }
 
@@ -265,6 +270,28 @@ class Plugin {
         header( 'Pragma: no-cache' );
         echo \wp_json_encode( $body ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded.
         exit;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public function handle_oauth_authorize_request() {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check; authorize handler enforces its own nonce downstream.
+        $oauth_param = isset( $_GET['easy_mcp_ai_oauth'] ) ? sanitize_text_field( wp_unslash( $_GET['easy_mcp_ai_oauth'] ) ) : '';
+        if ( 'authorize' !== $oauth_param ) {
+            return;
+        }
+        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+            return;
+        }
+        $this->handle_oauth_authorize();
     }
 
     
@@ -487,8 +514,30 @@ class Plugin {
         $this->tool_registry->auto_discover();
 
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $registry          = $this->tool_registry;
         $dynamic_registrar = new Tools\Dynamic_Tool_Registrar();
-        $dynamic_registrar->register_to( $this->tool_registry );
+        if ( \doing_action( 'init' ) ) {
+            \add_action(
+                'wp_loaded',
+                static function () use ( $dynamic_registrar, $registry ) {
+                    $dynamic_registrar->register_to( $registry );
+                }
+            );
+        } else {
+            $dynamic_registrar->register_to( $registry );
+        }
     }
 
     private function register_resources() {
