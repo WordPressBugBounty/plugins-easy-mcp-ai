@@ -14,7 +14,7 @@ class Create_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; wp_kses_post applied), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed). Returns { id, title, status, link }.';
+        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed). Returns { id, title, status, link }.';
     }
 
     public function get_category() {
@@ -110,7 +110,11 @@ class Create_Page extends Base_Tool {
         );
 
         if ( isset( $arguments['content'] ) ) {
-            $params['content'] = wp_kses_post( $arguments['content'] );
+            
+            
+            
+            
+            $params['content'] = $arguments['content'];
         }
 
         if ( isset( $arguments['parent'] ) ) {

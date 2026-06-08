@@ -14,7 +14,7 @@ class Create_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress post. Required: `title`. Optional: `content` (HTML/Gutenberg blocks accepted; wp_kses_post applied), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601, e.g. 2026-06-01T09:00:00), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `comment_status` (open/closed), `sticky`. Returns { id, title, status, link, date }. Revisions are created automatically on each update.';
+        return 'Creates a new WordPress post. Required: `title`. Optional: `content` (HTML/Gutenberg blocks accepted; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601, e.g. 2026-06-01T09:00:00), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `comment_status` (open/closed), `sticky`. Returns { id, title, status, link, date }. Revisions are created automatically on each update.';
     }
 
     public function get_category() {
@@ -121,7 +121,11 @@ class Create_Post extends Base_Tool {
         );
 
         if ( isset( $arguments['content'] ) ) {
-            $params['content'] = wp_kses_post( $arguments['content'] );
+            
+            
+            
+            
+            $params['content'] = $arguments['content'];
         }
 
         if ( isset( $arguments['excerpt'] ) ) {

@@ -115,7 +115,11 @@ class Update_Page extends Base_Tool {
         }
 
         if ( isset( $arguments['content'] ) ) {
-            $params['content'] = wp_kses_post( $arguments['content'] );
+            
+            
+            
+            
+            $params['content'] = $arguments['content'];
         }
 
         if ( isset( $arguments['status'] ) ) {

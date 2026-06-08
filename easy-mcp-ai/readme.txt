@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.7.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -422,6 +422,11 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.2 =
+* Fixed: AI connections that dropped when an access token expired now reconnect on their own instead of silently failing — your AI client refreshes its login and keeps working.
+* Fixed: posts and pages created or edited by AI no longer corrupt Gutenberg blocks that contain special characters (such as `&` in block settings), which previously caused the editor's "this block contains unexpected content" recovery prompt.
+* Improved: added no-cache headers to MCP responses so a CDN or server cache can't serve a stale "not authorized" response to a valid request.
+
 = 1.7.1 =
 * Fixed: enabling a plugin-provided ability on the **Abilities** page now sticks — previously, after saving, every ability except the built-in core ones could vanish from the list and fail to turn into a tool. They now stay enabled and become usable AI tools as expected.
 * Fixed: the OAuth consent screen now lists abilities from all your plugins, not just the built-in core ones — so you can grant an AI client access to a specific plugin's abilities when connecting.
@@ -520,6 +525,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.2 =
+Bug-fix release. AI connections now recover automatically when a login token expires, and AI-edited Gutenberg blocks with special characters are no longer corrupted. No breaking changes.
 
 = 1.7.1 =
 Bug-fix release. Plugin-provided abilities now save and activate correctly on the Abilities page. No breaking changes.

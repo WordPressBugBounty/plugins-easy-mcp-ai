@@ -130,6 +130,15 @@ class Transport {
         }
 
         
+        
+        
+        
+        
+        if ( null === $token_id ) {
+            return $this->make_unauthorized_response( null, 401, 'invalid_token' );
+        }
+
+        
         $is_initialize = isset( $parsed['method'] ) && 'initialize' === $parsed['method'];
         if ( ! $is_initialize ) {
             $header_error = $this->validate_protocol_version_header( $request );
@@ -375,6 +384,8 @@ class Transport {
 
         $response = new \WP_REST_Response( array( 'error' => 'SSE streaming not supported. Use POST for MCP communication.' ), 405 );
         $response->header( 'Allow', 'POST, DELETE, OPTIONS' );
+        $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, private' );
+        $response->header( 'Pragma', 'no-cache' );
         return $response;
     }
 
@@ -521,6 +532,10 @@ class Transport {
         $response->header( 'Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS' );
         $response->header( 'Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Mcp-Session-Id, Last-Event-ID' );
         $response->header( 'Access-Control-Expose-Headers', 'Content-Type, Mcp-Session-Id' );
+        
+        
+        $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, private' );
+        $response->header( 'Pragma', 'no-cache' );
     }
 
     
@@ -654,12 +669,27 @@ class Transport {
 
 
 
-    private function make_unauthorized_response( $data, $http_status = 401 ) {
+    private function make_unauthorized_response( $data, $http_status = 401, $error_code = null ) {
         $response = new \WP_REST_Response( $data, $http_status );
-        if ( $this->is_oauth_available() ) {
-            $resource_metadata_url = \home_url( '/.well-known/oauth-protected-resource' );
-            $response->header( 'WWW-Authenticate', 'Bearer resource_metadata="' . $resource_metadata_url . '"' );
+
+        
+        
+        
+        
+        $params = array();
+        if ( $error_code ) {
+            
+            
+            $params[] = 'error="' . $error_code . '"';
+            $params[] = 'error_description="The access token is invalid or expired"';
         }
+        if ( $this->is_oauth_available() ) {
+            
+            $params[] = 'resource_metadata="' . \home_url( '/.well-known/oauth-protected-resource' ) . '"';
+        }
+        $challenge = 'Bearer' . ( $params ? ' ' . implode( ', ', $params ) : '' );
+        $response->header( 'WWW-Authenticate', $challenge );
+
         $this->add_cors_headers( $response );
         return $response;
     }
