@@ -40,8 +40,8 @@ class Change_Log_Schema {
             ip_address      varchar(45)  DEFAULT NULL,
             created_at      datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY object_lookup (object_type, object_id, created_at),
-            KEY tool_name (tool_name, created_at),
+            KEY object_lookup (object_type, object_id(100), created_at),
+            KEY tool_name (tool_name(150), created_at),
             KEY wp_user_id (wp_user_id, created_at),
             KEY audit_id (audit_id),
             KEY created_at (created_at)

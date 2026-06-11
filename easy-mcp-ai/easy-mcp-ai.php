@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Easy MCP AI – Claude, ChatGPT & SEO Data Connector
+ * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
  * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 223 tools. Free.
- * Version:     1.7.2
+ * Version:     1.7.3
  * Author:      EasyMCPAI
  * Author URI:
  * License:     GPL-2.0-or-later
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'EASY_MCP_AI_VERSION', '1.7.2' );
+define( 'EASY_MCP_AI_VERSION', '1.7.3' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

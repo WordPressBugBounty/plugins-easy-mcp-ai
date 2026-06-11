@@ -24,6 +24,49 @@ class Admin_Page {
         \add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
         \add_action( 'admin_init', array( $this, 'handle_form_actions' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_get_changes_for_audit', array( $this, 'ajax_get_changes_for_audit' ) );
+        \add_filter( 'admin_footer_text', array( $this, 'admin_footer_rating_text' ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public function admin_footer_rating_text( $text ) {
+        if ( ! \function_exists( 'get_current_screen' ) ) {
+            return $text;
+        }
+        $screen = \get_current_screen();
+        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
+            return $text;
+        }
+
+        $stars = '<a href="' . \esc_url( 'https://wordpress.org/support/plugin/easy-mcp-ai/reviews/#new-post' ) . '" target="_blank" rel="noopener" aria-label="' . \esc_attr__( 'Rate Easy MCP AI five stars on WordPress.org (opens in a new tab)', 'easy-mcp-ai' ) . '">&#9733;&#9733;&#9733;&#9733;&#9733;</a>';
+        $forum = '<a href="' . \esc_url( 'https://wordpress.org/support/plugin/easy-mcp-ai/' ) . '" target="_blank" rel="noopener">' . \esc_html__( 'support forum', 'easy-mcp-ai' ) . '</a>';
+
+        return \wp_kses(
+            sprintf(
+                /* translators: 1: five-star rating link, 2: support forum link. */
+                __( 'Enjoying <strong>Easy MCP AI</strong>? Please leave us a %1$s rating &mdash; a huge thanks in advance! Need a hand? Just ask in the %2$s.', 'easy-mcp-ai' ),
+                $stars,
+                $forum
+            ),
+            array(
+                'a'      => array(
+                    'href'       => array(),
+                    'target'     => array(),
+                    'rel'        => array(),
+                    'aria-label' => array(),
+                ),
+                'strong' => array(),
+            )
+        );
     }
 
     

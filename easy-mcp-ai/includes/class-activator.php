@@ -103,7 +103,7 @@ class Activator {
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY token_id (token_id),
-            KEY tool_name (tool_name),
+            KEY tool_name (tool_name(150)),
             KEY created_at (created_at)
         ) {$charset_collate};";
 

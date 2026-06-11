@@ -317,7 +317,10 @@ class Client_Registry {
         }
 
         
-        if ( isset( $parsed['fragment'] ) ) {
+        
+        
+        
+        if ( false !== strpos( $uri, '#' ) ) {
             return self::dcr_error( 'invalid_redirect_uri', __( 'Redirect URIs must not contain a fragment (#).', 'easy-mcp-ai' ), 400 );
         }
 

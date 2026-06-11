@@ -1,10 +1,10 @@
-=== Easy MCP AI – Claude, ChatGPT & SEO Data Connector ===
+=== Easy MCP AI - Connector for Claude, ChatGPT & SEO Data ===
 Contributors: easymcpai
 Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.2
+Stable tag: 1.7.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -422,6 +422,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.3 =
+* Fixed: on some MariaDB/MySQL setups the Change History and Audit Log tables failed to install (a "Specified key was too long" database error), leaving those features unavailable. The tables now create correctly on any database engine.
+
 = 1.7.2 =
 * Fixed: AI connections that dropped when an access token expired now reconnect on their own instead of silently failing — your AI client refreshes its login and keeps working.
 * Fixed: posts and pages created or edited by AI no longer corrupt Gutenberg blocks that contain special characters (such as `&` in block settings), which previously caused the editor's "this block contains unexpected content" recovery prompt.
@@ -525,6 +528,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.3 =
+Bug-fix release. The Change History and Audit Log tables now install correctly on database setups where they previously failed. No breaking changes.
 
 = 1.7.2 =
 Bug-fix release. AI connections now recover automatically when a login token expires, and AI-edited Gutenberg blocks with special characters are no longer corrupted. No breaking changes.
