@@ -14,6 +14,23 @@ class Admin_Page {
     private $tool_registry;
     private $plugin_integrations_page;
 
+    
+
+
+
+
+
+
+
+
+
+
+    public static function tool_cache_hint_html(): string {
+        return '<span style="color:#646970;">'
+            . \esc_html__( 'Your AI client may cache the old tool list — refresh its tools or start a new conversation to see the change. If your token or OAuth grant is limited to specific tools, you may also need to add the tool there.', 'easy-mcp-ai' )
+            . '</span>';
+    }
+
     public function __construct( Token_Manager $token_manager, Tool_Registry $tool_registry ) {
         $this->token_manager             = $token_manager;
         $this->tool_registry             = $tool_registry;
@@ -295,7 +312,8 @@ class Admin_Page {
                 (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() ),
                 (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() ),
                 (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() )
+                (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() ),
+                (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() )
             ) ) ),
             'force_draft_on_create'  => $post_data['force_draft_on_create'],
             'max_title_length'       => max( 0, $post_data['max_title_length'] ),
@@ -440,6 +458,9 @@ class Admin_Page {
             __( 'Google Analytics', 'easy-mcp-ai' )      => \get_option( 'easy_mcp_ai_ga_service_account_json', '' ) !== '',
             __( 'DataForSEO', 'easy-mcp-ai' )            => \get_option( 'easy_mcp_ai_dfs_login', '' ) !== '',
             __( 'SEMrush', 'easy-mcp-ai' )               => \get_option( 'easy_mcp_ai_semrush_api_key', '' ) !== '',
+            
+            
+            __( 'Ahrefs (DR)', 'easy-mcp-ai' )           => (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false ),
         );
 
         require EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/dashboard.php';
@@ -490,11 +511,16 @@ class Admin_Page {
         );
 
         
+        
+        
         $known_external = array(
             'gsc' => array( 'label' => 'Google Search Console', 'option' => 'easy_mcp_ai_gsc_service_account_json' ),
             'ga'  => array( 'label' => 'Google Analytics',      'option' => 'easy_mcp_ai_ga_service_account_json' ),
             'dfs' => array( 'label' => 'DataforSEO',             'option' => 'easy_mcp_ai_dfs_login' ),
             'semrush' => array( 'label' => 'Semrush',             'option' => 'easy_mcp_ai_semrush_api_key' ),
+            
+            
+            'ahrefs' => array( 'label' => 'Ahrefs (DR)',        'option' => 'easy_mcp_ai_ahrefs_enabled', 'keyless' => true ),
         );
 
         $tools_by_category = $this->tool_registry->get_tools_by_category();
@@ -575,8 +601,9 @@ class Admin_Page {
             }
 
             $external[ $info['label'] ] = array(
-                'status' => $status,
-                'tools'  => $tools,
+                'status'  => $status,
+                'tools'   => $tools,
+                'keyless' => ! empty( $info['keyless'] ),
             );
         }
 
@@ -738,7 +765,8 @@ class Admin_Page {
             (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() ),
             (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() ),
             (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() )
+            (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() ),
+            (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() )
         );
         $settings_only_disabled = array_diff( $disabled_tools, $bucket_disables );
         $has_global_overrides   = ! empty( $settings_only_disabled ) || ! empty( $allowed_patterns );
@@ -789,6 +817,8 @@ class Admin_Page {
         $gsc_missing      = ! $gsc_configured;
         $dfs_missing      = ! $dfs_configured;
         $semrush_missing  = ! $semrush_configured;
+        
+        $ahrefs_disabled  = ! (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
 
         return array(
             'total'    => $total,
@@ -807,6 +837,7 @@ class Admin_Page {
                 'gsc_missing'                  => $gsc_missing,
                 'dfs_missing'                  => $dfs_missing,
                 'semrush_missing'              => $semrush_missing,
+                'ahrefs_disabled'              => $ahrefs_disabled,
             ),
         );
     }

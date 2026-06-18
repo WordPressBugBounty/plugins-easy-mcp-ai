@@ -96,7 +96,8 @@ class Plugin_Integrations_Page {
         $disabled_ga_tools     = (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() );
         $disabled_dfs_tools    = (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() );
         $disabled_semrush_tools = (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() );
-        \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_unique( array_merge( $non_plugin, $disabled_plugin_tools, $disabled_gsc_tools, $disabled_ga_tools, $disabled_dfs_tools, $disabled_semrush_tools ) ) ) );
+        $disabled_ahrefs_tools  = (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() );
+        \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_unique( array_merge( $non_plugin, $disabled_plugin_tools, $disabled_gsc_tools, $disabled_ga_tools, $disabled_dfs_tools, $disabled_semrush_tools, $disabled_ahrefs_tools ) ) ) );
 
         \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-plugin-integrations&message=saved' ) );
         exit;

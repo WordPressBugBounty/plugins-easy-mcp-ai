@@ -33,7 +33,7 @@ function easy_mcp_ai_view_plugin_integrations( $groups, $enabled_groups, $disabl
     </p>
 
     <?php if ( 'saved' === $message ) : ?>
-        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Plugin integration settings saved.', 'easy-mcp-ai' ); ?></p></div>
+        <div class="notice notice-success is-dismissible"><p><strong><?php esc_html_e( 'Plugin integration settings saved.', 'easy-mcp-ai' ); ?></strong> <?php echo \Easy_MCP_AI\Admin\Admin_Page::tool_cache_hint_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped static HTML ?></p></div>
     <?php endif; ?>
 
     <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-plugin-integrations' ) ); ?>">

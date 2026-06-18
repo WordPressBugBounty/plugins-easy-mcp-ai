@@ -245,7 +245,7 @@ class Authorization_Endpoint {
         if ( ! empty( $params['state'] ) ) {
             $args['state'] = $params['state'];
         }
-        $redirect = add_query_arg( $args, $params['redirect_uri'] );
+        $redirect = self::build_query_url( $params['redirect_uri'], $args );
 
         $response = new \WP_REST_Response( null, 302 );
         $response->header( 'Location', $redirect );
@@ -544,7 +544,7 @@ class Authorization_Endpoint {
         if ( ! empty( $params['state'] ) ) {
             $error_args['state'] = $params['state'];
         }
-        $redirect = add_query_arg( $error_args, $params['redirect_uri'] );
+        $redirect = self::build_query_url( $params['redirect_uri'], $error_args );
 
         $response = new \WP_REST_Response( null, 302 );
         $response->header( 'Location', $redirect );
@@ -668,6 +668,34 @@ class Authorization_Endpoint {
 
 
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function build_query_url( $base, array $args ) {
+        $encoded = array();
+        foreach ( $args as $key => $value ) {
+            
+            
+            if ( false === $value || null === $value ) {
+                continue;
+            }
+            $encoded[ $key ] = rawurlencode( (string) $value );
+        }
+        return add_query_arg( $encoded, $base );
+    }
+
     private function redirect_with_code( $redirect_uri, $code, $state ) {
         
         
@@ -678,7 +706,7 @@ class Authorization_Endpoint {
         if ( '' !== (string) $state ) {
             $args['state'] = $state;
         }
-        $redirect = add_query_arg( $args, $redirect_uri );
+        $redirect = self::build_query_url( $redirect_uri, $args );
 
         $response = new \WP_REST_Response( null, 302 );
         $response->header( 'Location', $redirect );
@@ -716,7 +744,7 @@ class Authorization_Endpoint {
                 }
             }
             if ( ! empty( $filtered ) ) {
-                $base = add_query_arg( $filtered, $base );
+                $base = self::build_query_url( $base, $filtered );
             }
         }
         return $base;

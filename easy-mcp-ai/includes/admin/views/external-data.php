@@ -52,7 +52,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <?php endif; ?>
 
     <?php if ( 'saved' === $message ) : ?>
-        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Settings saved.', 'easy-mcp-ai' ); ?></p></div>
+        <div class="notice notice-success is-dismissible"><p><strong><?php esc_html_e( 'Settings saved.', 'easy-mcp-ai' ); ?></strong> <?php echo \Easy_MCP_AI\Admin\Admin_Page::tool_cache_hint_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped static HTML ?></p></div>
     <?php elseif ( 'removed' === $message ) : ?>
         <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Search Console credentials removed.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'json_invalid' === $message ) : ?>
@@ -482,6 +482,54 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to Semrush through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
             </p>
             </div><!-- /semrush-section-body -->
+        </div>
+
+        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ahrefs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
+                <span>
+                    <?php esc_html_e( 'Ahrefs (DR)', 'easy-mcp-ai' ); ?>
+                    <?php if ( $ahrefs_enabled ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Enabled — free, no API key', 'easy-mcp-ai' ); ?></span>
+                    <?php else : ?>
+                        <span style="color:#646970; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Off — free, no API key (opt-in)', 'easy-mcp-ai' ); ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
+            </h2>
+
+            <div id="ahrefs-section-body" style="display:none;">
+            <p style="color:#646970; font-size:.9em; margin-top:0;">
+                <?php esc_html_e( 'Ahrefs exposes a free Domain Rating endpoint that needs no account or API key. It is OFF by default — enable the tool below to let authorized AI clients look up the Domain Rating (backlink-profile strength, 0–100) for any domain or URL. When you display the value, you must credit "Domain Rating by Ahrefs" per the Ahrefs Domain Rating License.', 'easy-mcp-ai' ); ?>
+            </p>
+
+            <div style="margin-top:1em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <fieldset>
+                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                    <?php foreach ( $ahrefs_tools as $tool_name => $tool_label ) : ?>
+                        <?php $enabled = $ahrefs_enabled && ! in_array( $tool_name, $ahrefs_disabled_tools, true ); ?>
+                        <label style="display:flex; align-items:flex-start; gap:.6em; padding:.85em 1em; border:1px solid <?php echo $enabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius:4px; background:<?php echo $enabled ? '#f0f9f1' : '#fff'; ?>; cursor:pointer;">
+                            <input type="checkbox" name="ahrefs_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?> style="margin-top:.15em; width:16px; height:16px; cursor:pointer;">
+                            <span>
+                                <strong style="font-size:1em; color:#1d2327;"><?php esc_html_e( 'Enable Ahrefs Domain Rating', 'easy-mcp-ai' ); ?></strong>
+                                <span style="display:block; color:#646970; font-size:.85em; margin-top:.2em;">
+                                    <?php
+                                    printf(
+                                        /* translators: %s: the MCP tool name, rendered inside a code tag */
+                                        wp_kses( __( 'Exposes <code>%s</code> to authorized AI clients so they can look up any domain or URL\'s Domain Rating. Off by default.', 'easy-mcp-ai' ), array( 'code' => array() ) ),
+                                        esc_html( $tool_name )
+                                    );
+                                    ?>
+                                </span>
+                            </span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                </fieldset>
+                <p style="color:#646970; margin:.75em 0 0; font-size:.85em;"><?php esc_html_e( 'Tick the box above, then Save to activate. Untick and Save to turn it off again.', 'easy-mcp-ai' ); ?></p>
+            </div>
+
+            <?php submit_button( __( 'Save Ahrefs Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            </div><!-- /ahrefs-section-body -->
         </div>
 
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">

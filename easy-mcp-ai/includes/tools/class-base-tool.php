@@ -50,6 +50,7 @@ abstract class Base_Tool {
             'wp_gsc_'      => 'Search Console',
             'wp_dfs_'      => 'DataForSEO',
             'wp_semrush_'  => 'SEMrush',
+            'wp_ahrefs_'   => 'Ahrefs',
             'wp_acf_'      => 'ACF',
             'wp_aioseo_'   => 'AIOSEO',
             'wp_bp_'       => 'BuddyPress',

@@ -325,6 +325,9 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Semrush\\Url_Organic_Keywords',
             'Easy_MCP_AI\\Tools\\Semrush\\Api_Units_Balance',
 
+            
+            'Easy_MCP_AI\\Tools\\Ahrefs\\Domain_Rating_Free',
+
         );
         $plugin_namespaces = array(
             'Easy_MCP_AI\\Tools\\WooCommerce\\',
@@ -336,6 +339,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\GA\\',
             'Easy_MCP_AI\\Tools\\DFS\\',
             'Easy_MCP_AI\\Tools\\Semrush\\',
+            'Easy_MCP_AI\\Tools\\Ahrefs\\',
         );
 
         foreach ( $tool_classes as $class ) {

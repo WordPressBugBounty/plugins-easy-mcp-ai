@@ -315,6 +315,66 @@ class External_Data_Admin {
         return $cached;
     }
 
+    
+
+
+
+
+
+
+
+
+    public static function get_ahrefs_tools(): array {
+        static $cached = null;
+        if ( null !== $cached ) {
+            return $cached;
+        }
+
+        $ahrefs_dir = EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/ahrefs/';
+        if ( is_dir( $ahrefs_dir ) ) {
+            foreach ( (array) glob( $ahrefs_dir . 'class-*.php' ) as $file ) {
+                require_once $file;
+            }
+        }
+
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_Registry' ) ) {
+            $cached = array();
+            return $cached;
+        }
+
+        $registry = new Tool_Registry();
+        $registry->auto_discover();
+        $tools       = array();
+        $by_category = $registry->get_tools_by_category();
+        foreach ( $by_category['ahrefs'] ?? array() as $def ) {
+            $tools[ $def['name'] ] = $def['description'] ?? $def['name'];
+        }
+        $cached = $tools;
+        return $cached;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function compute_disabled_tools( array $all_names, array $checked ): array {
+        $disabled = array();
+        foreach ( $all_names as $name ) {
+            if ( ! in_array( $name, $checked, true ) ) {
+                $disabled[] = $name;
+            }
+        }
+        return $disabled;
+    }
+
     public function handle_test_dfs_connection(): void {
         if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_dfs_test', 'nonce', false ) ) {
             \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
@@ -508,6 +568,10 @@ class External_Data_Admin {
         $has_semrush_credentials = ! empty( \get_option( Semrush_Client::OPTION_API_KEY, '' ) );
         $semrush_tools           = self::get_semrush_tools();
         $semrush_disabled_tools  = (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() );
+        
+        $ahrefs_tools            = self::get_ahrefs_tools();
+        $ahrefs_disabled_tools   = (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() );
+        $ahrefs_enabled          = (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
         $semrush_balance         = null;
         if ( $has_semrush_credentials ) {
             try {
@@ -767,11 +831,27 @@ class External_Data_Admin {
 
         
 
+        
+        
+        
+        $ahrefs_tools     = self::get_ahrefs_tools();
+        $all_ahrefs_names = array_keys( $ahrefs_tools );
+        $checked_ahrefs   = isset( $_POST['ahrefs_enabled_tools'] )
+            ? array_map( '\sanitize_key', (array) \wp_unslash( $_POST['ahrefs_enabled_tools'] ) ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+            : array();
+        $disabled_ahrefs  = self::compute_disabled_tools( $all_ahrefs_names, $checked_ahrefs );
+        \update_option( 'easy_mcp_ai_disabled_ahrefs_tools', $disabled_ahrefs );
+        
+        
+        \update_option( 'easy_mcp_ai_ahrefs_enabled', ! empty( $all_ahrefs_names ) && empty( $disabled_ahrefs ) );
+
+        
+
         $global_disabled = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
-        $other_disabled  = array_values( array_diff( $global_disabled, $all_gsc_names, $all_ga_names, $all_dfs_names, $all_semrush_names ) );
+        $other_disabled  = array_values( array_diff( $global_disabled, $all_gsc_names, $all_ga_names, $all_dfs_names, $all_semrush_names, $all_ahrefs_names ) );
         \update_option(
             'easy_mcp_ai_disabled_tools',
-            array_values( array_unique( array_merge( $other_disabled, $disabled_gsc, $disabled_ga, $disabled_dfs, $disabled_semrush ) ) )
+            array_values( array_unique( array_merge( $other_disabled, $disabled_gsc, $disabled_ga, $disabled_dfs, $disabled_semrush, $disabled_ahrefs ) ) )
         );
 
         $message = $semrush_key_saved ? 'semrush_saved' : 'saved';

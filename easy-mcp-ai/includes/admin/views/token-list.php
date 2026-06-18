@@ -48,7 +48,10 @@ function easy_mcp_ai_view_token_list( $tokens, $message, $new_raw_token, $total_
 
     <?php if ( 'updated' === $message ) : ?>
         <div class="notice notice-success is-dismissible">
-            <p><?php esc_html_e( 'Token has been updated.', 'easy-mcp-ai' ); ?></p>
+            <p>
+                <strong><?php esc_html_e( 'Token has been updated.', 'easy-mcp-ai' ); ?></strong>
+                <?php echo \Easy_MCP_AI\Admin\Admin_Page::tool_cache_hint_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- returns pre-escaped static HTML ?>
+            </p>
         </div>
     <?php endif; ?>
 

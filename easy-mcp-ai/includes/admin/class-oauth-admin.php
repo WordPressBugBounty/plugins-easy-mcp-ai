@@ -73,7 +73,10 @@ class OAuth_Admin {
         echo '</h2>';
 
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
-        if ( isset( $_GET['updated'] ) ) {
+        if ( isset( $_GET['scope_updated'] ) ) {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>' . \esc_html__( 'Scope updated.', 'easy-mcp-ai' ) . '</strong> ' . Admin_Page::tool_cache_hint_html() . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html__ + pre-escaped helper
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
+        } elseif ( isset( $_GET['updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . \esc_html__( 'Settings saved.', 'easy-mcp-ai' ) . '</p></div>';
         }
 
@@ -835,7 +838,7 @@ class OAuth_Admin {
             error_log( 'Easy MCP AI: token scope update failed after consent update — ' . $wpdb->last_error ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
         }
 
-        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-oauth&updated=1' ) );
+        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-oauth&scope_updated=1' ) );
         exit;
     }
 

@@ -249,6 +249,15 @@ class Server {
         try {
             $result       = $tool->execute( $arguments );
             $final_status = 'success';
+            
+            
+            
+            
+            
+            
+            if ( is_array( $result ) && isset( $result['error'] ) && is_string( $result['error'] ) ) {
+                $result['error'] = self::sanitize_error_message( $result['error'] );
+            }
             return JSON_RPC::success_response( $id, array(
                 'content' => array( array(
                     'type' => 'text',

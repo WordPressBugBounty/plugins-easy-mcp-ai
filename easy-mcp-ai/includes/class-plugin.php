@@ -448,6 +448,13 @@ class Plugin {
         );
 
         
+        
+        
+        
+        if ( \get_option( 'easy_mcp_ai_ahrefs_enabled', false ) ) {
+            $tool_dirs[] = 'ahrefs';
+        }
+        
         if ( ! empty( \get_option( \Easy_MCP_AI\GSC\GSC_Client::OPTION_JSON, '' ) ) ) {
             $tool_dirs[] = 'gsc';
         }

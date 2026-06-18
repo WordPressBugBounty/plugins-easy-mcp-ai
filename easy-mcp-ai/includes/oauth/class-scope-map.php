@@ -12,6 +12,8 @@ class Scope_Map {
     const SCOPE_MAP = array(
         'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_count_posts', 'wp_get_post_full' ),
         'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post' ),
+        'mcp:cpt:read'           => array( 'wp_list_cpt_items', 'wp_get_cpt_item' ),
+        'mcp:cpt:write'          => array( 'wp_create_cpt_item', 'wp_update_cpt_item', 'wp_delete_cpt_item' ),
         'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media', 'wp_count_media' ),
         'mcp:media:write'        => array( 'wp_upload_media', 'wp_update_media', 'wp_delete_media', 'wp_upload_media_from_url' ),
         'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms', 'wp_get_term' ),
@@ -81,6 +83,9 @@ class Scope_Map {
             'wp_semrush_url_organic_keywords',
             'wp_semrush_api_units_balance',
         ),
+        'mcp:ahrefs:read'        => array(
+            'wp_ahrefs_domain_rating_free',
+        ),
     );
 
     
@@ -101,7 +106,7 @@ class Scope_Map {
     
 
 
-    const CORE_CATEGORIES = array( 'posts', 'media', 'taxonomies', 'term_meta', 'comments', 'users', 'user_meta', 'menus', 'blocks' );
+    const CORE_CATEGORIES = array( 'posts', 'cpt', 'media', 'taxonomies', 'term_meta', 'comments', 'users', 'user_meta', 'menus', 'blocks' );
 
     
 
@@ -119,6 +124,7 @@ class Scope_Map {
         'ga'          => 'Google Analytics',
         'dfs'         => 'DataforSEO',
         'semrush'     => 'Semrush',
+        'ahrefs'      => 'Ahrefs (DR)',
     );
 
     
@@ -140,6 +146,7 @@ class Scope_Map {
         'ga'          => array(),
         'dfs'         => array(),
         'semrush'     => array(),
+        'ahrefs'      => array(),
     );
 
     
@@ -163,6 +170,11 @@ class Scope_Map {
         }
         if ( 'semrush' === $slug ) {
             return ! empty( \get_option( 'easy_mcp_ai_semrush_api_key', '' ) );
+        }
+        
+        
+        if ( 'ahrefs' === $slug ) {
+            return (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
         }
         if ( ! isset( self::PLUGIN_DETECTION_CLASSES[ $slug ] ) ) {
             return false;
@@ -511,6 +523,7 @@ class Scope_Map {
 
             $labels = array(
                 'posts'       => __( 'Posts & Pages', 'easy-mcp-ai' ),
+                'cpt'         => __( 'Custom Post Types', 'easy-mcp-ai' ),
                 'media'       => __( 'Media', 'easy-mcp-ai' ),
                 'taxonomies'  => __( 'Taxonomies', 'easy-mcp-ai' ),
                 'comments'    => __( 'Comments', 'easy-mcp-ai' ),
@@ -530,6 +543,7 @@ class Scope_Map {
                 'ga'          => __( 'Google Analytics', 'easy-mcp-ai' ),
                 'dfs'         => __( 'DataforSEO', 'easy-mcp-ai' ),
                 'semrush'     => __( 'Semrush', 'easy-mcp-ai' ),
+                'ahrefs'      => __( 'Ahrefs (DR)', 'easy-mcp-ai' ),
                 'term_meta'   => __( 'Term Meta', 'easy-mcp-ai' ),
                 'user_meta'   => __( 'User Meta', 'easy-mcp-ai' ),
                 'appearance'  => __( 'Site Appearance (templates & global styles)', 'easy-mcp-ai' ),

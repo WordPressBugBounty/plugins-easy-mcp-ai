@@ -12,7 +12,7 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
 
     <?php if ( 'saved' === $message ) : ?>
         <div class="notice notice-success is-dismissible">
-            <p><?php esc_html_e( 'Ability settings saved. Enabled abilities are now available as individual MCP tools.', 'easy-mcp-ai' ); ?></p>
+            <p><strong><?php esc_html_e( 'Ability settings saved. Enabled abilities are now available as individual MCP tools.', 'easy-mcp-ai' ); ?></strong> <?php echo \Easy_MCP_AI\Admin\Admin_Page::tool_cache_hint_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped static HTML ?></p>
         </div>
     <?php endif; ?>
 
