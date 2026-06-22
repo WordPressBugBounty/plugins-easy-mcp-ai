@@ -167,12 +167,14 @@ class OAuth_Admin {
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom plugin tables; names prefixed by $wpdb->prefix.
         $clients = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT c.*, COUNT(t.id) AS active_tokens
+                
+                
+                
+                "SELECT c.*,
+                        (SELECT COUNT(*) FROM {$tokens_table} t
+                          WHERE t.client_id = c.client_id AND t.is_active = %d AND t.expires_at > %s) AS active_tokens
                  FROM {$table} c
-                 LEFT JOIN {$tokens_table} t
-                   ON t.client_id = c.client_id AND t.is_active = %d AND t.expires_at > %s
                  WHERE c.is_active = %d
-                 GROUP BY c.id
                  ORDER BY c.created_at DESC
                  LIMIT 51 OFFSET %d",
                 1,

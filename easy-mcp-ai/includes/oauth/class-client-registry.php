@@ -23,6 +23,11 @@ class Client_Registry {
     const MAX_CLIENT_NAME_LENGTH = 120;
 
     
+    
+    const MAX_SOFTWARE_ID_LENGTH      = 255;
+    const MAX_SOFTWARE_VERSION_LENGTH = 64;
+
+    
 
 
 
@@ -188,11 +193,14 @@ class Client_Registry {
             return self::dcr_error( 'invalid_client_metadata', __( 'Only token_endpoint_auth_method=none is supported.', 'easy-mcp-ai' ), 400 );
         }
 
+        
+        
+        
         $software_id      = isset( $body['software_id'] ) && is_string( $body['software_id'] )
-            ? sanitize_text_field( $body['software_id'] )
+            ? mb_substr( sanitize_text_field( $body['software_id'] ), 0, self::MAX_SOFTWARE_ID_LENGTH )
             : null;
         $software_version = isset( $body['software_version'] ) && is_string( $body['software_version'] )
-            ? sanitize_text_field( $body['software_version'] )
+            ? mb_substr( sanitize_text_field( $body['software_version'] ), 0, self::MAX_SOFTWARE_VERSION_LENGTH )
             : null;
 
         return array(

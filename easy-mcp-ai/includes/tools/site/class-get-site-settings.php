@@ -49,7 +49,7 @@ class Get_Site_Settings extends Base_Tool {
             'description'            => $data['description'] ?? null,
             'url'                    => $data['url'] ?? null,
             'email'                  => $data['email'] ?? null,
-            'timezone_string'        => $data['timezone_string'] ?? null,
+            'timezone'               => $data['timezone'] ?? null,
             'date_format'            => $data['date_format'] ?? null,
             'time_format'            => $data['time_format'] ?? null,
             'start_of_week'          => $data['start_of_week'] ?? null,

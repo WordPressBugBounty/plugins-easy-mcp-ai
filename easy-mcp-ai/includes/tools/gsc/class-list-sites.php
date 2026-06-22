@@ -37,11 +37,7 @@ class List_Sites extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $data = GSC_Client::get( 'https://www.googleapis.com/webmasters/v3/sites' );
-        } catch ( \Exception $e ) {
-            throw $e;
-        }
+        $data = GSC_Client::get( 'https://www.googleapis.com/webmasters/v3/sites' );
 
         $sites = array();
         foreach ( $data['siteEntry'] ?? array() as $entry ) {

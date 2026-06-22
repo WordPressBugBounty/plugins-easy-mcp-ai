@@ -1108,7 +1108,7 @@ class Admin_Page {
         $offset    = ( $page - 1 ) * $per_page;
         $retention = (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table name is not user input
-        $total     = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE created_at >= DATE_SUB(NOW(), INTERVAL %d DAY)", $retention ) );
+        $total     = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)", $retention ) );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names are not user input
         $entries   = $wpdb->get_results( $wpdb->prepare( "SELECT l.*, t.name as token_name FROM `{$table}` l LEFT JOIN `{$wpdb->prefix}easy_mcp_ai_tokens` t ON l.token_id = t.id ORDER BY l.created_at DESC LIMIT %d OFFSET %d", $per_page, $offset ), ARRAY_A );
 

@@ -43,7 +43,7 @@ class Get_User_Fields extends Base_Tool {
         if ( ! class_exists( 'ACF' ) ) {
             throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
         }
-        $user_id = $this->parse_required_id( $arguments['user_id'], 'user_id' );
+        $user_id = $this->parse_required_id( $arguments['user_id'] ?? null, 'user_id' );
         $data    = $this->rest_request( 'GET', '/wp/v2/users/' . $user_id );
         return array(
             'user_id'    => $user_id,

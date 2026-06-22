@@ -41,19 +41,15 @@ class Get_Sitemap extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'site_url', 'feed_path' ) );
-            $feed_path = trim( (string) $arguments['feed_path'] );
-            if ( ! preg_match( '#^https?://\S+$#i', $feed_path ) ) {
-                throw new \InvalidArgumentException( 'feed_path must be an absolute http(s) URL to the sitemap.' );
-            }
-            $encoded_site = rawurlencode( GSC_Client::validate_site_url( (string) $arguments['site_url'] ) );
-            $encoded_feed = rawurlencode( $feed_path );
-            $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/sitemaps/{$encoded_feed}";
-            $data = GSC_Client::get( $url );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $this->validate_required( $arguments, array( 'site_url', 'feed_path' ) );
+        $feed_path = trim( (string) $arguments['feed_path'] );
+        if ( ! preg_match( '#^https?://\S+$#i', $feed_path ) ) {
+            throw new \InvalidArgumentException( 'feed_path must be an absolute http(s) URL to the sitemap.' );
         }
+        $encoded_site = rawurlencode( GSC_Client::validate_site_url( (string) $arguments['site_url'] ) );
+        $encoded_feed = rawurlencode( $feed_path );
+        $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/sitemaps/{$encoded_feed}";
+        $data = GSC_Client::get( $url );
 
         return array(
             'path'            => $data['path'] ?? '',

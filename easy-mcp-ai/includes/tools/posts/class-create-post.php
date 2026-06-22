@@ -182,7 +182,10 @@ class Create_Post extends Base_Tool {
 
         $this->maybe_force_draft( $params );
 
-        $data = $this->rest_request( 'POST', '/wp/v2/posts', $params );
+        
+        
+        
+        $data = $this->rest_request( 'POST', '/wp/v2/posts', $params, 'id,title,status,link,date' );
 
         return array(
             'id'     => $data['id'],

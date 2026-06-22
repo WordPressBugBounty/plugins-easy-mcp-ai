@@ -166,7 +166,11 @@ class Update_Page extends Base_Tool {
             $params['ping_status'] = sanitize_text_field( $arguments['ping_status'] );
         }
 
-        $data = $this->rest_request( 'PUT', '/wp/v2/pages/' . $page_id, $params );
+        
+        
+        
+        
+        $data = $this->rest_request( 'PUT', '/wp/v2/pages/' . $page_id, $params, 'id,title,status,modified,link' );
 
         return array(
             'id'       => $data['id'],

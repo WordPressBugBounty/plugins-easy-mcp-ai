@@ -69,11 +69,11 @@ class Delete_Tag extends Base_Tool {
         $result = wp_delete_term( $tag_id, 'post_tag', $args );
 
         if ( is_wp_error( $result ) ) {
-            throw new \Exception( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         if ( false === $result ) {
-            throw new \Exception( 'Tag not found or could not be deleted.' );
+            throw new \RuntimeException( 'Tag not found or could not be deleted.' );
         }
 
         return array(

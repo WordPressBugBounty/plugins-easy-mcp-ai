@@ -68,6 +68,16 @@ if ( is_multisite() ) {
     $easy_mcp_ai_site_ids = get_sites( array( 'fields' => 'ids', 'number' => 0 ) );
     foreach ( $easy_mcp_ai_site_ids as $easy_mcp_ai_site_id ) {
         switch_to_blog( $easy_mcp_ai_site_id );
+        
+        wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_audit_log' );
+        wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_oauth' );
+        wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_new_token_meta' );
+        wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_change_log' );
+        
+        $easy_mcp_ai_admin_role = get_role( 'administrator' );
+        if ( $easy_mcp_ai_admin_role ) {
+            $easy_mcp_ai_admin_role->remove_cap( 'easy_mcp_ai_view_all_history' );
+        }
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_tokens" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_audit_log" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_clients" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
@@ -110,6 +120,12 @@ if ( is_multisite() ) {
 
     foreach ( $options as $easy_mcp_ai_option ) {
         delete_option( $easy_mcp_ai_option );
+    }
+
+    
+    $easy_mcp_ai_admin_role = get_role( 'administrator' );
+    if ( $easy_mcp_ai_admin_role ) {
+        $easy_mcp_ai_admin_role->remove_cap( 'easy_mcp_ai_view_all_history' );
     }
 
     

@@ -40,18 +40,14 @@ class List_Account_Summaries extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $size  = max( 1, min( 200, (int) ( $arguments['page_size'] ?? 200 ) ) );
-            $token = isset( $arguments['page_token'] ) ? (string) $arguments['page_token'] : '';
+        $size  = max( 1, min( 200, (int) ( $arguments['page_size'] ?? 200 ) ) );
+        $token = isset( $arguments['page_token'] ) ? (string) $arguments['page_token'] : '';
 
-            $url = 'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=' . $size;
-            if ( '' !== $token ) {
-                $url .= '&pageToken=' . rawurlencode( $token );
-            }
-            $data = GA_Client::get( $url );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $url = 'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=' . $size;
+        if ( '' !== $token ) {
+            $url .= '&pageToken=' . rawurlencode( $token );
         }
+        $data = GA_Client::get( $url );
 
         $result = array(
             'accountSummaries' => $data['accountSummaries'] ?? array(),

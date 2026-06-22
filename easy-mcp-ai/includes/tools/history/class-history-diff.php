@@ -35,20 +35,20 @@ class History_Diff extends Base_Tool {
 
         $row_a = $repo->find( (int) $args['id_a'] );
         if ( ! $row_a ) {
-            throw new \Exception( 'id_a not found' );
+            throw new \RuntimeException( 'id_a not found' );
         }
         if ( ! $can_view_all && (int) ( $row_a['wp_user_id'] ?? 0 ) !== $current_uid ) {
-            throw new \Exception( 'id_a not found' );
+            throw new \RuntimeException( 'id_a not found' );
         }
         $a_after = ! empty( $row_a['after_value'] ) ? json_decode( $row_a['after_value'], true ) : array();
 
         if ( isset( $args['id_b'] ) ) {
             $row_b = $repo->find( (int) $args['id_b'] );
             if ( ! $row_b ) {
-                throw new \Exception( 'id_b not found' );
+                throw new \RuntimeException( 'id_b not found' );
             }
             if ( ! $can_view_all && (int) ( $row_b['wp_user_id'] ?? 0 ) !== $current_uid ) {
-                throw new \Exception( 'id_b not found' );
+                throw new \RuntimeException( 'id_b not found' );
             }
             
             
@@ -57,7 +57,7 @@ class History_Diff extends Base_Tool {
             if ( $row_a['object_type'] !== $row_b['object_type']
                 || (string) $row_a['object_id'] !== (string) $row_b['object_id']
             ) {
-                throw new \Exception( 'id_a and id_b refer to different objects; diff is only meaningful between history entries of the same object_type and object_id' );
+                throw new \RuntimeException( 'id_a and id_b refer to different objects; diff is only meaningful between history entries of the same object_type and object_id' );
             }
             $b_after = ! empty( $row_b['after_value'] ) ? json_decode( $row_b['after_value'], true ) : array();
             $b_label = (int) $row_b['id'];

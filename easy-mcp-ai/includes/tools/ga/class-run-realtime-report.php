@@ -68,18 +68,18 @@ class Run_Realtime_Report extends Base_Tool {
             );
             foreach ( $minute_ranges as $i => $range ) {
                 if ( ! is_array( $range ) ) {
-                    throw new \RuntimeException( "minute_ranges[{$i}] must be an object." );
+                    throw new \RuntimeException( "minute_ranges[{$i}] must be an object." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
                 $start = isset( $range['startMinutesAgo'] ) ? (int) $range['startMinutesAgo'] : 29;
                 $end   = isset( $range['endMinutesAgo'] )   ? (int) $range['endMinutesAgo']   : 0;
                 if ( $start < 0 || $start > 59 ) {
-                    throw new \RuntimeException( "minute_ranges[{$i}].startMinutesAgo ({$start}) must be between 0 and 59." );
+                    throw new \RuntimeException( "minute_ranges[{$i}].startMinutesAgo ({$start}) must be between 0 and 59." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
                 if ( $end < 0 || $end > 59 ) {
-                    throw new \RuntimeException( "minute_ranges[{$i}].endMinutesAgo ({$end}) must be between 0 and 59." );
+                    throw new \RuntimeException( "minute_ranges[{$i}].endMinutesAgo ({$end}) must be between 0 and 59." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
                 if ( $end > $start ) {
-                    throw new \RuntimeException( "minute_ranges[{$i}].endMinutesAgo ({$end}) must be less than or equal to startMinutesAgo ({$start})." );
+                    throw new \RuntimeException( "minute_ranges[{$i}].endMinutesAgo ({$end}) must be less than or equal to startMinutesAgo ({$start})." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
             }
 

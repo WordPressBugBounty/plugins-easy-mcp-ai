@@ -83,7 +83,16 @@ class Batch_Update_Variations extends Base_Tool {
             if ( count( $arguments['create'] ) > $soft_cap ) {
                 throw new \InvalidArgumentException( sprintf( 'create exceeds the %d-item soft cap. Use the easy_mcp_ai_wc_batch_soft_cap filter to raise the limit.', $soft_cap ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
-            $body['create'] = $arguments['create'];
+            
+            
+            $create_items = array();
+            foreach ( $arguments['create'] as $item ) {
+                if ( is_array( $item ) ) {
+                    $this->maybe_force_draft( $item );
+                }
+                $create_items[] = $item;
+            }
+            $body['create'] = $create_items;
         }
         if ( ! empty( $arguments['update'] ) ) {
             if ( count( $arguments['update'] ) > $soft_cap ) {
@@ -103,7 +112,9 @@ class Batch_Update_Variations extends Base_Tool {
         }
 
         wp_raise_memory_limit( 'admin' );
-        set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+        }
 
         return $this->rest_request( 'POST', '/wc/v3/products/' . $product_id . '/variations/batch', $body );
     }

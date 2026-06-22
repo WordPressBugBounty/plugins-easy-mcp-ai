@@ -44,29 +44,25 @@ class Check_Compatibility extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $property = ! empty( $arguments['property_id'] )
-                ? GA_Client::normalize_property( (string) $arguments['property_id'] )
-                : GA_Client::default_property_id();
+        $property = ! empty( $arguments['property_id'] )
+            ? GA_Client::normalize_property( (string) $arguments['property_id'] )
+            : GA_Client::default_property_id();
 
-            $body = array();
-            if ( ! empty( $arguments['dimensions'] ) ) {
-                $body['dimensions'] = array_map( function ( $d ) { return array( 'name' => (string) $d ); }, (array) $arguments['dimensions'] );
-            }
-            if ( ! empty( $arguments['metrics'] ) ) {
-                $body['metrics'] = array_map( function ( $m ) { return array( 'name' => (string) $m ); }, (array) $arguments['metrics'] );
-            }
-            if ( ! empty( $arguments['dimension_filter'] ) ) {
-                $body['dimensionFilter'] = $arguments['dimension_filter'];
-            }
-            if ( ! empty( $arguments['metric_filter'] ) ) {
-                $body['metricFilter'] = $arguments['metric_filter'];
-            }
-            $body['compatibilityFilter'] = $arguments['compatibility_filter'] ?? 'COMPATIBLE';
-            $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:checkCompatibility", $body );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $body = array();
+        if ( ! empty( $arguments['dimensions'] ) ) {
+            $body['dimensions'] = array_map( function ( $d ) { return array( 'name' => (string) $d ); }, (array) $arguments['dimensions'] );
         }
+        if ( ! empty( $arguments['metrics'] ) ) {
+            $body['metrics'] = array_map( function ( $m ) { return array( 'name' => (string) $m ); }, (array) $arguments['metrics'] );
+        }
+        if ( ! empty( $arguments['dimension_filter'] ) ) {
+            $body['dimensionFilter'] = $arguments['dimension_filter'];
+        }
+        if ( ! empty( $arguments['metric_filter'] ) ) {
+            $body['metricFilter'] = $arguments['metric_filter'];
+        }
+        $body['compatibilityFilter'] = $arguments['compatibility_filter'] ?? 'COMPATIBLE';
+        $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:checkCompatibility", $body );
 
         return array(
             'dimensionCompatibilities' => $data['dimensionCompatibilities'] ?? array(),

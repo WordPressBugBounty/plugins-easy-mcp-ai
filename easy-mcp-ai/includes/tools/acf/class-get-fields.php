@@ -44,7 +44,7 @@ class Get_Fields extends Base_Tool {
         if ( ! class_exists( 'ACF' ) ) {
             throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
         }
-        $post_id   = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+        $post_id   = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
         $post_type = ! empty( $arguments['post_type'] ) ? $this->validate_rest_route_segment( $arguments['post_type'], 'post_type' ) : 'posts';
         $data      = $this->rest_request( 'GET', '/wp/v2/' . $post_type . '/' . $post_id );
         return array(

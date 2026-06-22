@@ -26,13 +26,6 @@ trait User_Meta_Auth_Guard {
         );
     }
 
-    private static function privilege_keys(): array {
-        return array(
-            'wp_capabilities',
-            'wp_user_level',
-        );
-    }
-
     protected static function is_auth_protected( string $key ): bool {
         if ( in_array( $key, self::auth_protected_keys(), true ) ) {
             return true;

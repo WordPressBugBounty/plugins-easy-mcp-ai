@@ -59,6 +59,9 @@ class Plugin {
         
         if ( \is_multisite() ) {
             \add_action( 'wp_initialize_site', array( $this, 'on_new_site' ), 10, 1 );
+            
+            
+            \add_filter( 'wpmu_drop_tables', array( $this, 'on_drop_subsite_tables' ), 10, 1 );
         }
         if ( \is_admin() && ! \wp_doing_cron() ) {
             if ( \wp_doing_ajax() ) {
@@ -171,7 +174,20 @@ class Plugin {
         $this->load_mcp_includes();
         $this->token_manager = new Auth\Token_Manager();
         $this->tool_registry = new Tools\Tool_Registry();
-        $this->register_tools();
+        
+        
+        
+        $this->tool_registry->set_lazy_loader( function () { $this->register_tools(); } );
+        
+        
+        
+        
+        
+        
+        
+        if ( $this->is_plugin_admin_screen() ) {
+            $this->register_tools();
+        }
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-admin-page.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-abilities-page.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
@@ -184,6 +200,20 @@ class Plugin {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-oauth-admin.php';
             new Admin\OAuth_Admin();
         }
+    }
+
+    
+
+
+
+
+
+
+
+    private function is_plugin_admin_screen() {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen routing; mutates nothing.
+        $page = isset( $_GET['page'] ) ? \sanitize_key( \wp_unslash( $_GET['page'] ) ) : '';
+        return '' !== $page && 0 === strpos( $page, 'easy-mcp-ai' );
     }
 
     
@@ -683,7 +713,11 @@ class Plugin {
     public function on_new_site( $site ) {
         \switch_to_blog( $site->id );
         try {
-            Activator::activate();
+            
+            
+            
+            Activator::activate( false, false );
+            \delete_option( 'rewrite_rules' );
             
             if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
                 require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
@@ -692,6 +726,31 @@ class Plugin {
         } finally {
             \restore_current_blog();
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+    public function on_drop_subsite_tables( $tables ) {
+        global $wpdb;
+        foreach ( array(
+            'easy_mcp_ai_tokens',
+            'easy_mcp_ai_audit_log',
+            'easy_mcp_ai_oauth_clients',
+            'easy_mcp_ai_oauth_codes',
+            'easy_mcp_ai_oauth_access_tokens',
+            'easy_mcp_ai_oauth_consents',
+            'easy_mcp_ai_change_log',
+        ) as $suffix ) {
+            $tables[] = $wpdb->prefix . $suffix;
+        }
+        return $tables;
     }
 
     

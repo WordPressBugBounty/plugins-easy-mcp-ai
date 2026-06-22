@@ -162,6 +162,10 @@ class Create_Product_Variation extends Base_Tool {
 			$params['image'] = $this->parse_json_param( $arguments['image'], 'image' );
 		}
 
+		
+		
+		$this->maybe_force_draft( $params );
+
 		$data = $this->rest_request( 'POST', '/wc/v3/products/' . $product_id . '/variations', $params );
 
 		return array(

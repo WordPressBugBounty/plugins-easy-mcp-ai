@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.4
+Stable tag: 1.7.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -416,6 +416,18 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.6 =
+* Fixed: WooCommerce product variations created or bulk-created by AI now honour the "Force draft on create" safety setting, just like products and posts.
+* Fixed: restored compatibility with the stated minimum WordPress 6.0.
+* Improved: faster admin and front-end page loads.
+
+= 1.7.5 =
+* Fixed: creating or updating posts and pages with large content (e.g. shortcodes or complex blocks) no longer times out — the change saves and returns instantly instead of stalling.
+* Fixed: changing your site timezone now applies (and is reported back) correctly.
+* Fixed: updating a post's custom fields no longer shows a false error when values are sent as JSON.
+* Improved: smoother compatibility with MariaDB/MySQL and multisite — reliable OAuth Clients list, cleaner uninstall, and correct cleanup when a subsite is deleted.
+* Various stability, reliability, and standards fixes under the hood.
 
 = 1.7.4 =
 * New: **Ahrefs Domain Rating** tool — ask your AI for any website's Domain Rating (0–100). It's free and needs no API key or account. Off by default; turn it on under Easy MCP AI → External Data → Ahrefs.

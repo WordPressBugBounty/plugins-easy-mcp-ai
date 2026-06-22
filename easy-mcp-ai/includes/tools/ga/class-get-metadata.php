@@ -39,20 +39,16 @@ class Get_Metadata extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            
-            
-            
-            if ( empty( $arguments['property_id'] ) ) {
-                $property = 'properties/0';
-            } else {
-                $property = GA_Client::normalize_property( (string) $arguments['property_id'] );
-            }
-
-            $data = GA_Client::get( "https://analyticsdata.googleapis.com/v1beta/{$property}/metadata" );
-        } catch ( \Exception $e ) {
-            throw $e;
+        
+        
+        
+        if ( empty( $arguments['property_id'] ) ) {
+            $property = 'properties/0';
+        } else {
+            $property = GA_Client::normalize_property( (string) $arguments['property_id'] );
         }
+
+        $data = GA_Client::get( "https://analyticsdata.googleapis.com/v1beta/{$property}/metadata" );
 
         $result = array(
             'dimensions'  => $data['dimensions'] ?? array(),

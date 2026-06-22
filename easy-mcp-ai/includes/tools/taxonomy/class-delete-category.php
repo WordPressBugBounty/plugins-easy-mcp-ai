@@ -59,7 +59,7 @@ class Delete_Category extends Base_Tool {
         
         $default_category_id = get_option( 'default_category' );
         if ( (int) $category_id === (int) $default_category_id ) {
-            throw new \Exception( 'WordPress does not allow deleting the default category.' );
+            throw new \RuntimeException( 'WordPress does not allow deleting the default category.' );
         }
 
         
@@ -75,11 +75,11 @@ class Delete_Category extends Base_Tool {
         $result = wp_delete_term( $category_id, 'category', $args );
 
         if ( is_wp_error( $result ) ) {
-            throw new \Exception( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         if ( false === $result ) {
-            throw new \Exception( 'Category not found or could not be deleted.' );
+            throw new \RuntimeException( 'Category not found or could not be deleted.' );
         }
 
         return array(

@@ -14,7 +14,7 @@ class Create_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new item in any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (NOT the post_type slug — discover via `wp_get_post_types`), `title`. Optional: `content`, `status` (publish/draft/pending/private — default draft), `slug`, `excerpt`, `meta` (object of custom-field key/values; only meta keys registered with `show_in_rest=true` are accepted). Field acceptance depends on what the CPT registered as `supports`; sending unsupported fields is silently ignored. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas.';
+        return 'Creates a new item in any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (NOT the post_type slug — discover via `wp_get_post_types`), `title`. Optional: `content`, `status` (publish/draft/pending/private — default draft), `slug`, `excerpt`. Field acceptance depends on what the CPT registered as `supports`; sending unsupported fields is silently ignored. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas.';
     }
 
     public function get_category() {

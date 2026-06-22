@@ -42,29 +42,25 @@ class Inspect_Url extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'site_url', 'inspection_url' ) );
+        $this->validate_required( $arguments, array( 'site_url', 'inspection_url' ) );
 
-            $inspection_url = trim( (string) $arguments['inspection_url'] );
-            if ( ! preg_match( '#^https?://\S+$#i', $inspection_url ) ) {
-                throw new \InvalidArgumentException( 'inspection_url must be a full http(s) URL.' );
-            }
-
-            $body = array(
-                'siteUrl'       => GSC_Client::validate_site_url( (string) $arguments['site_url'] ),
-                'inspectionUrl' => $inspection_url,
-            );
-            if ( ! empty( $arguments['language_code'] ) ) {
-                $body['languageCode'] = trim( $arguments['language_code'] );
-            }
-
-            $data = GSC_Client::post(
-                'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
-                $body
-            );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $inspection_url = trim( (string) $arguments['inspection_url'] );
+        if ( ! preg_match( '#^https?://\S+$#i', $inspection_url ) ) {
+            throw new \InvalidArgumentException( 'inspection_url must be a full http(s) URL.' );
         }
+
+        $body = array(
+            'siteUrl'       => GSC_Client::validate_site_url( (string) $arguments['site_url'] ),
+            'inspectionUrl' => $inspection_url,
+        );
+        if ( ! empty( $arguments['language_code'] ) ) {
+            $body['languageCode'] = trim( $arguments['language_code'] );
+        }
+
+        $data = GSC_Client::post(
+            'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+            $body
+        );
 
         return $data['inspectionResult'] ?? $data;
     }

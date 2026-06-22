@@ -43,13 +43,9 @@ class Get_Site extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'site_url' ) );
-            $site_url = rawurlencode( GSC_Client::validate_site_url( (string) $arguments['site_url'] ) );
-            $data = GSC_Client::get( "https://www.googleapis.com/webmasters/v3/sites/{$site_url}" );
-        } catch ( \Exception $e ) {
-            throw $e;
-        }
+        $this->validate_required( $arguments, array( 'site_url' ) );
+        $site_url = rawurlencode( GSC_Client::validate_site_url( (string) $arguments['site_url'] ) );
+        $data = GSC_Client::get( "https://www.googleapis.com/webmasters/v3/sites/{$site_url}" );
 
         return array(
             'siteUrl'         => $data['siteUrl'] ?? '',

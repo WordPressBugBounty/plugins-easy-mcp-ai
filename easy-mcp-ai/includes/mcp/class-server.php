@@ -93,9 +93,12 @@ class Server {
             case 'resources/read':
                 return $this->handle_resources_read( $id, $params, $token_id );
             case 'prompts/list':
-                return JSON_RPC::success_response( $id, array( 'prompts' => array() ) );
+                
+                
+                
+                return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Prompts are not supported' );
             case 'prompts/get':
-                return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'No prompts available' );
+                return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Prompts are not supported' );
             default:
                 return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Method not found' );
         }
@@ -190,6 +193,13 @@ class Server {
 
         if ( empty( $tool_name ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Missing tool name' );
+        }
+
+        
+        
+        
+        if ( ! is_array( $arguments ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Tool arguments must be a JSON object' );
         }
 
         

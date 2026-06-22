@@ -14,7 +14,7 @@ class Update_Site_Settings extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone_string` (e.g. "America/New_York" or "Europe/London" — use the WP REST API field name), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer). Requires `manage_options` (administrators only). Changes take effect immediately. Returns { updated: true, title, description }.';
+        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone` (e.g. "America/New_York" or "Europe/London"; `timezone_string` is accepted as an alias), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer). Requires `manage_options` (administrators only). Changes take effect immediately. Returns { updated: true, title, description }.';
     }
 
     public function get_category() {
@@ -46,9 +46,13 @@ class Update_Site_Settings extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'The site tagline/description.',
                 ),
+                'timezone'        => array(
+                    'type'        => 'string',
+                    'description' => 'The site timezone string (e.g. America/New_York, Europe/London). This is the WP REST API settings field name.',
+                ),
                 'timezone_string' => array(
                     'type'        => 'string',
-                    'description' => 'The site timezone string (e.g. America/New_York, Europe/London). Matches the WP REST API parameter name.',
+                    'description' => 'Deprecated alias for `timezone`; accepted for backward compatibility.',
                 ),
                 'date_format'    => array(
                     'type'        => 'string',
@@ -77,8 +81,13 @@ class Update_Site_Settings extends Base_Tool {
             $params['description'] = sanitize_text_field( $arguments['description'] );
         }
 
-        if ( isset( $arguments['timezone_string'] ) ) {
-            $params['timezone_string'] = sanitize_text_field( $arguments['timezone_string'] );
+        
+        
+        
+        if ( isset( $arguments['timezone'] ) ) {
+            $params['timezone'] = sanitize_text_field( $arguments['timezone'] );
+        } elseif ( isset( $arguments['timezone_string'] ) ) {
+            $params['timezone'] = sanitize_text_field( $arguments['timezone_string'] );
         }
 
         if ( isset( $arguments['date_format'] ) ) {

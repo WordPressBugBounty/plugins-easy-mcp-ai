@@ -85,7 +85,7 @@ class Update_Post_Meta extends Base_Tool {
 
         
         $persisted_meta = isset( $read_data['meta'] ) ? $read_data['meta'] : array();
-        $requested_keys = array_keys( $arguments['meta'] );
+        $requested_keys = array_keys( $meta );
         $ignored_keys   = array();
         foreach ( $requested_keys as $key ) {
             if ( ! array_key_exists( $key, $persisted_meta ) ) {

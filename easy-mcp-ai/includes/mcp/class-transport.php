@@ -68,7 +68,12 @@ class Transport {
 
         $parsed = JSON_RPC::parse_request( $request->get_body() );
         if ( \is_wp_error( $parsed ) ) {
-            return new \WP_REST_Response( JSON_RPC::error_response( null, Error_Codes::PARSE_ERROR, $parsed->get_error_message() ), 400 );
+            
+            
+            
+            
+            $error_code = is_int( $parsed->get_error_data() ) ? $parsed->get_error_data() : Error_Codes::PARSE_ERROR;
+            return new \WP_REST_Response( JSON_RPC::error_response( null, $error_code, $parsed->get_error_message() ), 400 );
         }
 
         

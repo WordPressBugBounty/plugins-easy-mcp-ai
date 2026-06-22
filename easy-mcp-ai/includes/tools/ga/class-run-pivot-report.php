@@ -62,62 +62,58 @@ class Run_Pivot_Report extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) );
-            foreach ( array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) as $field ) {
-                if ( ! is_array( $arguments[ $field ] ) ) {
-                    throw new \RuntimeException( "{$field} must be an array." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-                }
+        $this->validate_required( $arguments, array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) );
+        foreach ( array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) as $field ) {
+            if ( ! is_array( $arguments[ $field ] ) ) {
+                throw new \RuntimeException( "{$field} must be an array." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
-            if ( empty( $arguments['dimensions'] ) ) {
-                throw new \RuntimeException( 'dimensions must contain at least one dimension apiName string.' );
-            }
-            if ( empty( $arguments['metrics'] ) ) {
-                throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. sessions).' );
-            }
-            if ( empty( $arguments['pivots'] ) ) {
-                throw new \RuntimeException( 'pivots must contain at least one Pivot object. See GA4 Data API runPivotReport docs.' );
-            }
-            if ( count( $arguments['date_ranges'] ) > 4 ) {
-                throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
-            }
-
-            $property = ! empty( $arguments['property_id'] )
-                ? GA_Client::normalize_property( (string) $arguments['property_id'] )
-                : GA_Client::default_property_id();
-
-            $body = array(
-                'dateRanges' => GA_Client::build_date_ranges( $arguments['date_ranges'] ),
-                'dimensions' => array_map( function ( $d ) { return array( 'name' => (string) $d ); }, $arguments['dimensions'] ),
-                'metrics'    => array_map( function ( $m ) { return array( 'name' => (string) $m ); }, $arguments['metrics'] ),
-                'pivots'     => array_values( $arguments['pivots'] ),
-            );
-            if ( ! empty( $arguments['dimension_filter'] ) ) {
-                if ( ! is_array( $arguments['dimension_filter'] ) ) {
-                    throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
-                }
-                $body['dimensionFilter'] = $arguments['dimension_filter'];
-            }
-            if ( ! empty( $arguments['metric_filter'] ) ) {
-                if ( ! is_array( $arguments['metric_filter'] ) ) {
-                    throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
-                }
-                $body['metricFilter'] = $arguments['metric_filter'];
-            }
-            if ( ! empty( $arguments['currency_code'] ) ) {
-                $body['currencyCode'] = (string) $arguments['currency_code'];
-            }
-            if ( ! empty( $arguments['keep_empty_rows'] ) ) {
-                $body['keepEmptyRows'] = true;
-            }
-            if ( ! empty( $arguments['return_property_quota'] ) ) {
-                $body['returnPropertyQuota'] = true;
-            }
-
-            $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:runPivotReport", $body );
-        } catch ( \Exception $e ) {
-            throw $e;
         }
+        if ( empty( $arguments['dimensions'] ) ) {
+            throw new \RuntimeException( 'dimensions must contain at least one dimension apiName string.' );
+        }
+        if ( empty( $arguments['metrics'] ) ) {
+            throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. sessions).' );
+        }
+        if ( empty( $arguments['pivots'] ) ) {
+            throw new \RuntimeException( 'pivots must contain at least one Pivot object. See GA4 Data API runPivotReport docs.' );
+        }
+        if ( count( $arguments['date_ranges'] ) > 4 ) {
+            throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
+        }
+
+        $property = ! empty( $arguments['property_id'] )
+            ? GA_Client::normalize_property( (string) $arguments['property_id'] )
+            : GA_Client::default_property_id();
+
+        $body = array(
+            'dateRanges' => GA_Client::build_date_ranges( $arguments['date_ranges'] ),
+            'dimensions' => array_map( function ( $d ) { return array( 'name' => (string) $d ); }, $arguments['dimensions'] ),
+            'metrics'    => array_map( function ( $m ) { return array( 'name' => (string) $m ); }, $arguments['metrics'] ),
+            'pivots'     => array_values( $arguments['pivots'] ),
+        );
+        if ( ! empty( $arguments['dimension_filter'] ) ) {
+            if ( ! is_array( $arguments['dimension_filter'] ) ) {
+                throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+            }
+            $body['dimensionFilter'] = $arguments['dimension_filter'];
+        }
+        if ( ! empty( $arguments['metric_filter'] ) ) {
+            if ( ! is_array( $arguments['metric_filter'] ) ) {
+                throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+            }
+            $body['metricFilter'] = $arguments['metric_filter'];
+        }
+        if ( ! empty( $arguments['currency_code'] ) ) {
+            $body['currencyCode'] = (string) $arguments['currency_code'];
+        }
+        if ( ! empty( $arguments['keep_empty_rows'] ) ) {
+            $body['keepEmptyRows'] = true;
+        }
+        if ( ! empty( $arguments['return_property_quota'] ) ) {
+            $body['returnPropertyQuota'] = true;
+        }
+
+        $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:runPivotReport", $body );
 
         if ( is_array( $data ) && ! isset( $data['error'] ) ) {
             $data['row_count'] = count( $data['rows'] ?? array() );

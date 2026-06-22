@@ -189,7 +189,11 @@ class Update_Post extends Base_Tool {
             $params['sticky'] = (bool) $arguments['sticky'];
         }
 
-        $data = $this->rest_request( 'PUT', '/wp/v2/posts/' . $post_id, $params );
+        
+        
+        
+        
+        $data = $this->rest_request( 'PUT', '/wp/v2/posts/' . $post_id, $params, 'id,title,status,modified,link' );
 
         return array(
             'id'       => $data['id'],

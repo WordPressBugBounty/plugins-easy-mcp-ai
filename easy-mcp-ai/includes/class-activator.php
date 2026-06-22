@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Activator {
 
-    public static function activate( $network_wide = false ) {
+    public static function activate( $network_wide = false, $flush_rewrite = true ) {
         if ( \is_multisite() && $network_wide ) {
             
             $sites = \get_sites( array( 'number' => 0, 'fields' => 'ids' ) );
@@ -40,7 +40,12 @@ class Activator {
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_change_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_change_log' );
         }
-        \flush_rewrite_rules();
+        
+        
+        
+        if ( $flush_rewrite ) {
+            \flush_rewrite_rules();
+        }
     }
 
     
@@ -48,6 +53,16 @@ class Activator {
 
 
     public static function maybe_upgrade() {
+        
+        
+        
+        
+        
+        $is_rest = defined( 'REST_REQUEST' ) && REST_REQUEST;
+        $is_cli  = defined( 'WP_CLI' ) && WP_CLI;
+        if ( ! \is_admin() && ! $is_rest && ! $is_cli && ! \wp_doing_cron() ) {
+            return;
+        }
         if ( \get_option( 'easy_mcp_ai_db_version' ) !== EASY_MCP_AI_VERSION ) {
             self::create_tables();
         }
@@ -109,7 +124,21 @@ class Activator {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         \dbDelta( $sql );
-        \update_option( 'easy_mcp_ai_db_version', EASY_MCP_AI_VERSION );
+
+        
+        
+        
+        
+        
+        
+        
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on plugin-owned tables.
+        $tokens_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $tokens_table ) ) ) === $tokens_table;
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on plugin-owned tables.
+        $audit_exists  = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $audit_table ) ) ) === $audit_table;
+        if ( $tokens_exists && $audit_exists ) {
+            \update_option( 'easy_mcp_ai_db_version', EASY_MCP_AI_VERSION );
+        }
     }
 
     

@@ -371,6 +371,8 @@ abstract class Base_Tool {
 
 
 
+
+
     protected function invalidate_post_cache( $post_id, array $context = array() ) {
         $post_id = (int) $post_id;
         if ( $post_id <= 0 ) {
@@ -456,7 +458,7 @@ abstract class Base_Tool {
         self::$already_invalidated = array();
     }
 
-    protected function rest_request( $method, $route, $params = array() ) {
+    protected function rest_request( $method, $route, $params = array(), $fields = null ) {
         $request = new \WP_REST_Request( $method, $route );
         if ( in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) && ! empty( $params ) ) {
             $request->set_header( 'content-type', 'application/json' );
@@ -465,6 +467,21 @@ abstract class Base_Tool {
             foreach ( $params as $key => $value ) {
                 $request->set_param( $key, $value );
             }
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( null !== $fields ) {
+            $request->set_param( '_fields', $fields );
         }
         $response = rest_do_request( $request );
         if ( $response->is_error() ) {

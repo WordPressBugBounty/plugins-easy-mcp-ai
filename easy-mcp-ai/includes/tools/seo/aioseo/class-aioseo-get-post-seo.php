@@ -61,7 +61,7 @@ class Aioseo_Get_Post_Seo extends Base_Tool {
 			throw new \RuntimeException( 'All in One SEO (AIOSEO) is not active on this site. Please install and activate AIOSEO to use this tool.' );
 		}
 
-		$post_id   = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+		$post_id   = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
 		$post_type = ! empty( $arguments['post_type'] ) ? $this->validate_rest_route_segment( $arguments['post_type'], 'post_type' ) : 'posts';
 
 		$data = $this->rest_request( 'GET', '/wp/v2/' . $post_type . '/' . $post_id );

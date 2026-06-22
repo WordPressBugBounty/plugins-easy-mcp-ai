@@ -61,7 +61,7 @@ class Yoast_Get_Post_Seo extends Base_Tool {
 			throw new \RuntimeException( 'Yoast SEO is not active on this site. Please install and activate Yoast SEO to use this tool.' );
 		}
 
-		$post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+		$post_id = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
 
 		$post = get_post( $post_id );
 		if ( ! $post ) {

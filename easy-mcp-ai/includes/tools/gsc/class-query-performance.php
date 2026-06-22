@@ -67,79 +67,75 @@ class Query_Performance extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'start_date', 'end_date' ) );
-            foreach ( array( 'start_date', 'end_date' ) as $field ) {
-                if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $arguments[ $field ] ) ) {
-                    throw new \RuntimeException( "{$field} must be in YYYY-MM-DD format." );
+        $this->validate_required( $arguments, array( 'start_date', 'end_date' ) );
+        foreach ( array( 'start_date', 'end_date' ) as $field ) {
+            if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $arguments[ $field ] ) ) {
+                throw new \RuntimeException( "{$field} must be in YYYY-MM-DD format." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+        }
+        if ( strcmp( $arguments['end_date'], $arguments['start_date'] ) < 0 ) {
+            throw new \RuntimeException( "end_date ({$arguments['end_date']}) must be on or after start_date ({$arguments['start_date']})." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+
+        $data_state = $arguments['data_state'] ?? 'final';
+        $dimensions = isset( $arguments['dimensions'] ) ? array_map( 'strval', (array) $arguments['dimensions'] ) : array();
+        if ( 'hourly_all' === $data_state && ! in_array( 'hour', $dimensions, true ) ) {
+            throw new \RuntimeException( 'data_state=hourly_all requires the "hour" dimension to be included.' );
+        }
+
+        $site_url = ! empty( $arguments['site_url'] )
+            ? GSC_Client::validate_site_url( (string) $arguments['site_url'] )
+            : GSC_Client::default_site_url();
+
+        $body = array(
+            'startDate'       => $arguments['start_date'],
+            'endDate'         => $arguments['end_date'],
+            'type'            => $arguments['search_type'] ?? 'web',
+            'aggregationType' => $arguments['aggregation_type'] ?? 'auto',
+            'dataState'       => $data_state,
+            'rowLimit'        => (int) ( $arguments['row_limit'] ?? 1000 ),
+            'startRow'        => (int) ( $arguments['start_row'] ?? 0 ),
+        );
+
+        if ( ! empty( $dimensions ) ) {
+            $body['dimensions'] = $dimensions;
+        }
+
+        if ( ! empty( $arguments['filters'] ) ) {
+            $allowed_ops  = array( 'equals', 'notEquals', 'contains', 'notContains', 'includingRegex', 'excludingRegex' );
+            $allowed_dims = array( 'query', 'page', 'country', 'device', 'date', 'hour', 'searchAppearance' );
+            $filters      = array();
+            foreach ( $arguments['filters'] as $f ) {
+                $dim  = (string) ( $f['dimension'] ?? '' );
+                $op   = $f['operator'] ?? '';
+                $expr = (string) ( $f['expression'] ?? '' );
+                if ( ! in_array( $dim, $allowed_dims, true ) ) {
+                    throw new \InvalidArgumentException( 'Invalid filter dimension "' . $dim . '". Must be one of: ' . implode( ', ', $allowed_dims ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
-            }
-            if ( strcmp( $arguments['end_date'], $arguments['start_date'] ) < 0 ) {
-                throw new \RuntimeException( "end_date ({$arguments['end_date']}) must be on or after start_date ({$arguments['start_date']})." );
-            }
-
-            $data_state = $arguments['data_state'] ?? 'final';
-            $dimensions = isset( $arguments['dimensions'] ) ? array_map( 'strval', (array) $arguments['dimensions'] ) : array();
-            if ( 'hourly_all' === $data_state && ! in_array( 'hour', $dimensions, true ) ) {
-                throw new \RuntimeException( 'data_state=hourly_all requires the "hour" dimension to be included.' );
-            }
-
-            $site_url = ! empty( $arguments['site_url'] )
-                ? GSC_Client::validate_site_url( (string) $arguments['site_url'] )
-                : GSC_Client::default_site_url();
-
-            $body = array(
-                'startDate'       => $arguments['start_date'],
-                'endDate'         => $arguments['end_date'],
-                'type'            => $arguments['search_type'] ?? 'web',
-                'aggregationType' => $arguments['aggregation_type'] ?? 'auto',
-                'dataState'       => $data_state,
-                'rowLimit'        => (int) ( $arguments['row_limit'] ?? 1000 ),
-                'startRow'        => (int) ( $arguments['start_row'] ?? 0 ),
-            );
-
-            if ( ! empty( $dimensions ) ) {
-                $body['dimensions'] = $dimensions;
-            }
-
-            if ( ! empty( $arguments['filters'] ) ) {
-                $allowed_ops  = array( 'equals', 'notEquals', 'contains', 'notContains', 'includingRegex', 'excludingRegex' );
-                $allowed_dims = array( 'query', 'page', 'country', 'device', 'date', 'hour', 'searchAppearance' );
-                $filters      = array();
-                foreach ( $arguments['filters'] as $f ) {
-                    $dim  = (string) ( $f['dimension'] ?? '' );
-                    $op   = $f['operator'] ?? '';
-                    $expr = (string) ( $f['expression'] ?? '' );
-                    if ( ! in_array( $dim, $allowed_dims, true ) ) {
-                        throw new \InvalidArgumentException( 'Invalid filter dimension "' . $dim . '". Must be one of: ' . implode( ', ', $allowed_dims ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-                    }
-                    if ( ! in_array( $op, $allowed_ops, true ) ) {
-                        throw new \InvalidArgumentException( 'Invalid filter operator.' );
-                    }
-                    if ( strlen( $expr ) > 4096 ) {
-                        throw new \InvalidArgumentException( 'Filter expression exceeds 4096 characters.' );
-                    }
-                    $filters[] = array(
-                        'dimension'  => $dim,
-                        'operator'   => $op,
-                        'expression' => $expr,
-                    );
+                if ( ! in_array( $op, $allowed_ops, true ) ) {
+                    throw new \InvalidArgumentException( 'Invalid filter operator.' );
                 }
-                $body['dimensionFilterGroups'] = array(
-                    array(
-                        'groupType' => 'and',
-                        'filters'   => $filters,
-                    ),
+                if ( strlen( $expr ) > 4096 ) {
+                    throw new \InvalidArgumentException( 'Filter expression exceeds 4096 characters.' );
+                }
+                $filters[] = array(
+                    'dimension'  => $dim,
+                    'operator'   => $op,
+                    'expression' => $expr,
                 );
             }
-
-            $encoded_site = rawurlencode( $site_url );
-            $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/searchAnalytics/query";
-
-            $data = GSC_Client::post( $url, $body );
-        } catch ( \Exception $e ) {
-            throw $e;
+            $body['dimensionFilterGroups'] = array(
+                array(
+                    'groupType' => 'and',
+                    'filters'   => $filters,
+                ),
+            );
         }
+
+        $encoded_site = rawurlencode( $site_url );
+        $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/searchAnalytics/query";
+
+        $data = GSC_Client::post( $url, $body );
 
         $result = array(
             'rows'                    => $data['rows'] ?? array(),

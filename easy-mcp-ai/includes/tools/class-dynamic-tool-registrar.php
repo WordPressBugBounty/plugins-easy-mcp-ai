@@ -68,6 +68,19 @@ class Dynamic_Tool_Registrar {
             $input_schema = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
             if ( empty( $input_schema ) || ! is_array( $input_schema ) ) {
                 $input_schema = array( 'type' => 'object', 'properties' => new \stdClass() );
+            } else {
+                
+                
+                
+                
+                
+                if ( ! isset( $input_schema['type'] ) ) {
+                    $input_schema['type'] = 'object';
+                }
+                if ( ! isset( $input_schema['properties'] ) ) {
+                    $input_schema['properties'] = new \stdClass();
+                }
+                $input_schema = self::normalize_json_schema( $input_schema );
             }
 
             
@@ -157,5 +170,86 @@ class Dynamic_Tool_Registrar {
         $normalized = strtolower( (string) $value );
         $normalized = preg_replace( '/[^a-z0-9]+/', '_', $normalized );
         return trim( $normalized, '_' );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private static function normalize_json_schema( array $schema ) {
+        
+        
+        foreach ( array( 'properties', 'patternProperties', '$defs', 'definitions' ) as $map_key ) {
+            if ( array_key_exists( $map_key, $schema ) && is_array( $schema[ $map_key ] ) ) {
+                if ( empty( $schema[ $map_key ] ) ) {
+                    $schema[ $map_key ] = new \stdClass();
+                } else {
+                    foreach ( $schema[ $map_key ] as $name => $child ) {
+                        if ( is_array( $child ) ) {
+                            $schema[ $map_key ][ $name ] = self::normalize_json_schema( $child );
+                        }
+                    }
+                }
+            }
+        }
+
+        
+        foreach ( array( 'allOf', 'anyOf', 'oneOf', 'prefixItems' ) as $list_key ) {
+            if ( array_key_exists( $list_key, $schema ) && is_array( $schema[ $list_key ] ) ) {
+                foreach ( $schema[ $list_key ] as $i => $child ) {
+                    if ( is_array( $child ) ) {
+                        $schema[ $list_key ][ $i ] = self::normalize_json_schema( $child );
+                    }
+                }
+            }
+        }
+
+        
+        
+        foreach ( array( 'additionalProperties', 'additionalItems', 'contains', 'propertyNames', 'not', 'if', 'then', 'else' ) as $sub_key ) {
+            if ( array_key_exists( $sub_key, $schema ) && is_array( $schema[ $sub_key ] ) ) {
+                $schema[ $sub_key ] = empty( $schema[ $sub_key ] )
+                    ? new \stdClass()
+                    : self::normalize_json_schema( $schema[ $sub_key ] );
+            }
+        }
+
+        
+        if ( array_key_exists( 'items', $schema ) && is_array( $schema['items'] ) ) {
+            if ( self::is_list_array( $schema['items'] ) ) {
+                foreach ( $schema['items'] as $i => $child ) {
+                    if ( is_array( $child ) ) {
+                        $schema['items'][ $i ] = self::normalize_json_schema( $child );
+                    }
+                }
+            } else {
+                $schema['items'] = self::normalize_json_schema( $schema['items'] );
+            }
+        }
+
+        return $schema;
+    }
+
+    
+
+
+
+
+
+    private static function is_list_array( array $arr ) {
+        $i = 0;
+        foreach ( $arr as $k => $unused ) {
+            if ( $k !== $i++ ) {
+                return false;
+            }
+        }
+        return true;
     }
 }

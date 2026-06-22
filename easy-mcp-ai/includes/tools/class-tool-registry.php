@@ -18,11 +18,46 @@ class Tool_Registry {
 
     private $lazy_classes = array();
 
+    
+
+
+
+
+
+
+
+    private $lazy_loader = null;
+    private $lazy_loader_ran = false;
+
+    
+
+
+    public function set_lazy_loader( callable $loader ) {
+        $this->lazy_loader = $loader;
+    }
+
+    
+
+
+
+
+    private function ensure_loaded() {
+        if ( $this->lazy_loader_ran || null === $this->lazy_loader ) {
+            return;
+        }
+        if ( ! empty( $this->tools ) || ! empty( $this->lazy_classes ) ) {
+            return;
+        }
+        $this->lazy_loader_ran = true;
+        ( $this->lazy_loader )();
+    }
+
     public function register( Base_Tool $tool ) {
         $this->tools[ $tool->get_name() ] = $tool;
     }
 
     public function get_tool( $name ) {
+        $this->ensure_loaded();
         if ( isset( $this->tools[ $name ] ) ) {
             return $this->tools[ $name ];
         }
@@ -69,6 +104,7 @@ class Tool_Registry {
     }
 
     private function materialize_all() {
+        $this->ensure_loaded();
         foreach ( $this->lazy_classes as $key => $class ) {
             $instance = new $class();
             $this->tools[ $instance->get_name() ] = $instance;

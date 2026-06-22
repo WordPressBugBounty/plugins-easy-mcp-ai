@@ -163,7 +163,10 @@ class Create_Page extends Base_Tool {
 
         $this->maybe_force_draft( $params );
 
-        $data = $this->rest_request( 'POST', '/wp/v2/pages', $params );
+        
+        
+        
+        $data = $this->rest_request( 'POST', '/wp/v2/pages', $params, 'id,title,status,link' );
 
         return array(
             'id'     => $data['id'],

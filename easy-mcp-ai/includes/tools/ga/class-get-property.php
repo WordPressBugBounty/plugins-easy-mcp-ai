@@ -39,14 +39,10 @@ class Get_Property extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $property = ! empty( $arguments['property_id'] )
-                ? GA_Client::normalize_property( (string) $arguments['property_id'] )
-                : GA_Client::default_property_id();
-            $data = GA_Client::get( "https://analyticsadmin.googleapis.com/v1beta/{$property}" );
-        } catch ( \Exception $e ) {
-            throw $e;
-        }
+        $property = ! empty( $arguments['property_id'] )
+            ? GA_Client::normalize_property( (string) $arguments['property_id'] )
+            : GA_Client::default_property_id();
+        $data = GA_Client::get( "https://analyticsadmin.googleapis.com/v1beta/{$property}" );
         return $data;
     }
 }

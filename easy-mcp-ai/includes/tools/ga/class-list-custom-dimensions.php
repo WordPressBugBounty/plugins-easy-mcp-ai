@@ -41,21 +41,17 @@ class List_Custom_Dimensions extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $property = ! empty( $arguments['property_id'] )
-                ? GA_Client::normalize_property( (string) $arguments['property_id'] )
-                : GA_Client::default_property_id();
-            $size  = max( 1, min( 200, (int) ( $arguments['page_size'] ?? 200 ) ) );
-            $token = isset( $arguments['page_token'] ) ? (string) $arguments['page_token'] : '';
+        $property = ! empty( $arguments['property_id'] )
+            ? GA_Client::normalize_property( (string) $arguments['property_id'] )
+            : GA_Client::default_property_id();
+        $size  = max( 1, min( 200, (int) ( $arguments['page_size'] ?? 200 ) ) );
+        $token = isset( $arguments['page_token'] ) ? (string) $arguments['page_token'] : '';
 
-            $url = "https://analyticsadmin.googleapis.com/v1beta/{$property}/customDimensions?pageSize=" . $size;
-            if ( '' !== $token ) {
-                $url .= '&pageToken=' . rawurlencode( $token );
-            }
-            $data = GA_Client::get( $url );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $url = "https://analyticsadmin.googleapis.com/v1beta/{$property}/customDimensions?pageSize=" . $size;
+        if ( '' !== $token ) {
+            $url .= '&pageToken=' . rawurlencode( $token );
         }
+        $data = GA_Client::get( $url );
 
         $result = array(
             'customDimensions' => $data['customDimensions'] ?? array(),

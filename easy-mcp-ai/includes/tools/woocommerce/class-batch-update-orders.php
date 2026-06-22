@@ -95,7 +95,9 @@ class Batch_Update_Orders extends Base_Tool {
         }
 
         wp_raise_memory_limit( 'admin' );
-        set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+        if ( function_exists( 'set_time_limit' ) ) {
+            set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
+        }
 
         return $this->rest_request( 'POST', '/wc/v3/orders/batch', $body );
     }

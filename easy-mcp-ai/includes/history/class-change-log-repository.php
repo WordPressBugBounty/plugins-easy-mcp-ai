@@ -35,6 +35,13 @@ class Change_Log_Repository {
         );
         $row = array_merge( $defaults, $row );
 
+        
+        
+        
+        if ( isset( $row['object_id'] ) && is_string( $row['object_id'] ) ) {
+            $row['object_id'] = mb_substr( $row['object_id'], 0, 191 );
+        }
+
         foreach ( array( 'before_value', 'after_value', 'changed_fields' ) as $field ) {
             if ( is_array( $row[ $field ] ) || is_object( $row[ $field ] ) ) {
                 $row[ $field ] = \wp_json_encode( $row[ $field ] );

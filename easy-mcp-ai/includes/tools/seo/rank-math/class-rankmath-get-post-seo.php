@@ -56,7 +56,7 @@ class Rankmath_Get_Post_Seo extends Base_Tool {
 			throw new \RuntimeException( 'Rank Math SEO is not active on this site. Please install and activate Rank Math SEO to use this tool.' );
 		}
 
-		$post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+		$post_id = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
 
 		if ( ! get_post( $post_id ) ) {
 			throw new \RuntimeException( 'Post not found.' );

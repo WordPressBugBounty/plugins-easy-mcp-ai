@@ -66,78 +66,74 @@ class Run_Report extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $this->validate_required( $arguments, array( 'date_ranges', 'metrics' ) );
-            if ( ! is_array( $arguments['metrics'] ) ) {
-                throw new \RuntimeException( 'metrics must be an array of metric apiName strings (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
-            }
-            if ( empty( $arguments['metrics'] ) ) {
-                throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
-            }
-            if ( ! is_array( $arguments['date_ranges'] ) ) {
-                throw new \RuntimeException( 'date_ranges must be an array of {start_date, end_date} objects.' );
-            }
-            if ( count( $arguments['date_ranges'] ) > 4 ) {
-                throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
-            }
-
-            $property = ! empty( $arguments['property_id'] )
-                ? GA_Client::normalize_property( (string) $arguments['property_id'] )
-                : GA_Client::default_property_id();
-
-            $body = array(
-                'dateRanges' => GA_Client::build_date_ranges( $arguments['date_ranges'] ),
-                'metrics'    => array_map( function ( $m ) { return array( 'name' => (string) $m ); }, $arguments['metrics'] ),
-            );
-            if ( ! empty( $arguments['dimensions'] ) ) {
-                $body['dimensions'] = array_map( function ( $d ) { return array( 'name' => (string) $d ); }, (array) $arguments['dimensions'] );
-            }
-            if ( ! empty( $arguments['dimension_filter'] ) ) {
-                if ( ! is_array( $arguments['dimension_filter'] ) ) {
-                    throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
-                }
-                $body['dimensionFilter'] = $arguments['dimension_filter'];
-            }
-            if ( ! empty( $arguments['metric_filter'] ) ) {
-                if ( ! is_array( $arguments['metric_filter'] ) ) {
-                    throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
-                }
-                $body['metricFilter'] = $arguments['metric_filter'];
-            }
-            if ( ! empty( $arguments['order_bys'] ) ) {
-                if ( ! is_array( $arguments['order_bys'] ) ) {
-                    throw new \RuntimeException( 'order_bys must be an array of OrderBy objects.' );
-                }
-                $body['orderBys'] = $arguments['order_bys'];
-            }
-            if ( isset( $arguments['limit'] ) ) {
-                $body['limit'] = (int) $arguments['limit'];
-            }
-            if ( isset( $arguments['offset'] ) ) {
-                $body['offset'] = (int) $arguments['offset'];
-            }
-            if ( ! empty( $arguments['metric_aggregations'] ) ) {
-                $body['metricAggregations'] = array_values( (array) $arguments['metric_aggregations'] );
-            }
-            if ( ! empty( $arguments['currency_code'] ) ) {
-                $body['currencyCode'] = (string) $arguments['currency_code'];
-            }
-            if ( ! empty( $arguments['keep_empty_rows'] ) ) {
-                $body['keepEmptyRows'] = true;
-            }
-            if ( ! empty( $arguments['return_property_quota'] ) ) {
-                $body['returnPropertyQuota'] = true;
-            }
-            if ( ! empty( $arguments['cohort_spec'] ) ) {
-                if ( ! is_array( $arguments['cohort_spec'] ) ) {
-                    throw new \RuntimeException( 'cohort_spec must be a CohortSpec object. See GA4 Data API docs.' );
-                }
-                $body['cohortSpec'] = $arguments['cohort_spec'];
-            }
-            $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:runReport", $body );
-        } catch ( \Exception $e ) {
-            throw $e;
+        $this->validate_required( $arguments, array( 'date_ranges', 'metrics' ) );
+        if ( ! is_array( $arguments['metrics'] ) ) {
+            throw new \RuntimeException( 'metrics must be an array of metric apiName strings (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
         }
+        if ( empty( $arguments['metrics'] ) ) {
+            throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
+        }
+        if ( ! is_array( $arguments['date_ranges'] ) ) {
+            throw new \RuntimeException( 'date_ranges must be an array of {start_date, end_date} objects.' );
+        }
+        if ( count( $arguments['date_ranges'] ) > 4 ) {
+            throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
+        }
+
+        $property = ! empty( $arguments['property_id'] )
+            ? GA_Client::normalize_property( (string) $arguments['property_id'] )
+            : GA_Client::default_property_id();
+
+        $body = array(
+            'dateRanges' => GA_Client::build_date_ranges( $arguments['date_ranges'] ),
+            'metrics'    => array_map( function ( $m ) { return array( 'name' => (string) $m ); }, $arguments['metrics'] ),
+        );
+        if ( ! empty( $arguments['dimensions'] ) ) {
+            $body['dimensions'] = array_map( function ( $d ) { return array( 'name' => (string) $d ); }, (array) $arguments['dimensions'] );
+        }
+        if ( ! empty( $arguments['dimension_filter'] ) ) {
+            if ( ! is_array( $arguments['dimension_filter'] ) ) {
+                throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+            }
+            $body['dimensionFilter'] = $arguments['dimension_filter'];
+        }
+        if ( ! empty( $arguments['metric_filter'] ) ) {
+            if ( ! is_array( $arguments['metric_filter'] ) ) {
+                throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+            }
+            $body['metricFilter'] = $arguments['metric_filter'];
+        }
+        if ( ! empty( $arguments['order_bys'] ) ) {
+            if ( ! is_array( $arguments['order_bys'] ) ) {
+                throw new \RuntimeException( 'order_bys must be an array of OrderBy objects.' );
+            }
+            $body['orderBys'] = $arguments['order_bys'];
+        }
+        if ( isset( $arguments['limit'] ) ) {
+            $body['limit'] = (int) $arguments['limit'];
+        }
+        if ( isset( $arguments['offset'] ) ) {
+            $body['offset'] = (int) $arguments['offset'];
+        }
+        if ( ! empty( $arguments['metric_aggregations'] ) ) {
+            $body['metricAggregations'] = array_values( (array) $arguments['metric_aggregations'] );
+        }
+        if ( ! empty( $arguments['currency_code'] ) ) {
+            $body['currencyCode'] = (string) $arguments['currency_code'];
+        }
+        if ( ! empty( $arguments['keep_empty_rows'] ) ) {
+            $body['keepEmptyRows'] = true;
+        }
+        if ( ! empty( $arguments['return_property_quota'] ) ) {
+            $body['returnPropertyQuota'] = true;
+        }
+        if ( ! empty( $arguments['cohort_spec'] ) ) {
+            if ( ! is_array( $arguments['cohort_spec'] ) ) {
+                throw new \RuntimeException( 'cohort_spec must be a CohortSpec object. See GA4 Data API docs.' );
+            }
+            $body['cohortSpec'] = $arguments['cohort_spec'];
+        }
+        $data = GA_Client::post( "https://analyticsdata.googleapis.com/v1beta/{$property}:runReport", $body );
 
         
         

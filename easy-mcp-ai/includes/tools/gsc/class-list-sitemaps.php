@@ -40,25 +40,21 @@ class List_Sitemaps extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        try {
-            $site_url = ! empty( $arguments['site_url'] )
-                ? GSC_Client::validate_site_url( (string) $arguments['site_url'] )
-                : GSC_Client::default_site_url();
+        $site_url = ! empty( $arguments['site_url'] )
+            ? GSC_Client::validate_site_url( (string) $arguments['site_url'] )
+            : GSC_Client::default_site_url();
 
-            $encoded_site = rawurlencode( $site_url );
-            $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/sitemaps";
-            $index        = ! empty( $arguments['sitemap_index'] ) ? trim( (string) $arguments['sitemap_index'] ) : '';
-            if ( '' !== $index ) {
-                if ( ! preg_match( '#^https?://\S+$#i', $index ) ) {
-                    throw new \RuntimeException( 'sitemap_index must be an absolute http(s) URL, e.g. https://example.com/sitemap-index.xml.' );
-                }
-                $url .= '?sitemapIndex=' . rawurlencode( $index );
+        $encoded_site = rawurlencode( $site_url );
+        $url          = "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/sitemaps";
+        $index        = ! empty( $arguments['sitemap_index'] ) ? trim( (string) $arguments['sitemap_index'] ) : '';
+        if ( '' !== $index ) {
+            if ( ! preg_match( '#^https?://\S+$#i', $index ) ) {
+                throw new \RuntimeException( 'sitemap_index must be an absolute http(s) URL, e.g. https://example.com/sitemap-index.xml.' );
             }
-
-            $data = GSC_Client::get( $url );
-        } catch ( \Exception $e ) {
-            throw $e;
+            $url .= '?sitemapIndex=' . rawurlencode( $index );
         }
+
+        $data = GSC_Client::get( $url );
 
         $result = array(
             'sitemaps' => $data['sitemap'] ?? array(),

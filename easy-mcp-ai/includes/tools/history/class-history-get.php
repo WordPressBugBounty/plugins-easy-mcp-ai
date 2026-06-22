@@ -28,7 +28,7 @@ class History_Get extends Base_Tool {
         $this->validate_required( $args, array( 'id' ) );
         $row = ( new Change_Log_Repository() )->find( (int) $args['id'] );
         if ( ! $row ) {
-            throw new \Exception( 'History entry not found' );
+            throw new \RuntimeException( 'History entry not found' );
         }
 
         
@@ -36,7 +36,7 @@ class History_Get extends Base_Tool {
         
         $can_view_all = \current_user_can( 'easy_mcp_ai_view_all_history' );
         if ( ! $can_view_all && (int) ( $row['wp_user_id'] ?? 0 ) !== (int) \get_current_user_id() ) {
-            throw new \Exception( 'History entry not found' );
+            throw new \RuntimeException( 'History entry not found' );
         }
 
         $out = array(
