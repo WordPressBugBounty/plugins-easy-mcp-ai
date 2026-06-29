@@ -96,6 +96,8 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/dfs/class-dataforseo-client.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-client.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-base-resource.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-resource-registry.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
@@ -127,6 +129,8 @@ class Plugin {
             'easy_mcp_ai_dfs_refresh_balance',
             'easy_mcp_ai_semrush_test',
             'easy_mcp_ai_semrush_refresh_balance',
+            'easy_mcp_ai_seranking_test',
+            'easy_mcp_ai_seranking_refresh_balance',
         );
         if ( in_array( $action, $external_data_actions, true ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
@@ -135,6 +139,8 @@ class Plugin {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/dfs/class-dataforseo-client.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-client.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
             new Admin\External_Data_Admin();
             return;
@@ -263,6 +269,17 @@ class Plugin {
         
         
         
+        
+        
+        
+        
+        
+        
+        ob_start();
+
+        
+        
+        
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-dynamic-tool-registrar.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
         
@@ -293,11 +310,26 @@ class Plugin {
             $body   = $response;
         }
 
-        \status_header( $status );
-        header( 'Content-Type: application/json; charset=utf-8' );
-        header( 'Access-Control-Allow-Origin: *' );
-        header( 'Cache-Control: no-store' );
-        header( 'Pragma: no-cache' );
+        
+        
+        
+        
+        while ( ob_get_level() > 0 ) {
+            if ( ! ob_end_clean() ) {
+                break;
+            }
+        }
+
+        
+        
+        
+        if ( ! headers_sent() ) {
+            \status_header( $status );
+            header( 'Content-Type: application/json; charset=utf-8' );
+            header( 'Access-Control-Allow-Origin: *' );
+            header( 'Cache-Control: no-store' );
+            header( 'Pragma: no-cache' );
+        }
         echo \wp_json_encode( $body ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded.
         exit;
     }
@@ -503,6 +535,10 @@ class Plugin {
             $tool_dirs[] = 'semrush';
         }
         
+        if ( ! empty( \get_option( \Easy_MCP_AI\SeRanking\SeRanking_Client::OPTION_API_KEY, '' ) ) ) {
+            $tool_dirs[] = 'seranking';
+        }
+        
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/users/trait-user-meta-auth-guard.php';
 
         foreach ( $tool_dirs as $dir ) {
@@ -528,6 +564,9 @@ class Plugin {
                 'yoast-seo'           => 'seo/yoast',
                 'rank-math'           => 'seo/rank-math',
                 'aioseo'              => 'seo/aioseo',
+                'seopress'            => 'seo/seopress',
+                'slim-seo'            => 'seo/slim-seo',
+                'the-seo-framework'   => 'seo/the-seo-framework',
             );
             $dirs_to_load = array();
             foreach ( $enabled_plugin_groups as $group_slug ) {

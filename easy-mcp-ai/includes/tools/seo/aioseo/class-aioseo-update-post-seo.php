@@ -18,7 +18,7 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates AIOSEO SEO metadata on a post or page via the WP REST API aioseo_meta_data field. Requires AIOSEO Plus plan or higher with the REST API addon active. Pass fields as an object: title, description, og_title, og_description, twitter_title, twitter_description, no_index (boolean), canonical_url.';
+		return 'Updates AIOSEO SEO metadata on a post or page via the WP REST API aioseo_meta_data field. AIOSEO 4.9.8+ — REST API is included free in core; on AIOSEO < 4.9.8 free, writes require the legacy REST API addon. Pass fields as an object keyed by AIOSEO friendly field-map keys (NOT column names): title, description, canonical_url, og_title, og_description, og_object_type, og_image_type, og_image_custom_url, og_article_section, og_article_tags, twitter_title, twitter_description, twitter_use_og, twitter_card, twitter_image_type, twitter_image_custom_url, FLAT robots keys noindex/nofollow/noarchive/nosnippet/noimageindex/notranslate (booleans), maxSnippet/maxVideoPreview (int, -1=default), maxImagePreview (string large/standard/none), pillar_content (boolean), primary_term, keyphrases (object), schema (object). Setting any robots flag auto-sets default:false so AIOSEO honours the per-post override (it ignores per-post robots while default is on). canonical_url may not persist on the AIOSEO free plan.';
 	}
 
 	public function get_category() {
@@ -52,8 +52,45 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 					'default'     => 'posts',
 				),
 				'fields'    => array(
-					'type'        => 'object',
-					'description' => 'AIOSEO fields to update. Supported: title, description, og_title, og_description, twitter_title, twitter_description, no_index (boolean), canonical_url.',
+					'type'                 => 'object',
+					'description'          => 'AIOSEO fields to update, keyed by friendly field-map keys (NOT column names). Freeform passthrough to the aioseo_meta_data REST field; patch semantics (only supplied keys are written, others preserved). Robots flags are FLAT top-level keys (e.g. {"noindex":true}), NOT nested under a "robots" object; the key is "noindex" (no underscore). Setting any robots flag auto-injects default:false (AIOSEO ignores per-post robots while robots_default is on). canonical_url may not persist on the AIOSEO free plan. Keys not listed below are still accepted (additionalProperties is allowed).',
+					
+					
+					
+					
+					'additionalProperties' => true,
+					'properties'           => array(
+						'title'                    => array( 'type' => 'string', 'description' => 'SEO title.' ),
+						'description'              => array( 'type' => 'string', 'description' => 'Meta description.' ),
+						'canonical_url'            => array( 'type' => 'string', 'description' => 'Canonical URL (may not persist on AIOSEO free).' ),
+						'og_title'                 => array( 'type' => 'string', 'description' => 'Open Graph title.' ),
+						'og_description'           => array( 'type' => 'string', 'description' => 'Open Graph description.' ),
+						'og_object_type'           => array( 'type' => 'string', 'description' => 'Open Graph object type (e.g. default, article).' ),
+						'og_image_type'            => array( 'type' => 'string', 'description' => 'OG image source (e.g. default, featured, custom); pair with og_image_custom_url for a custom image.' ),
+						'og_image_custom_url'      => array( 'type' => 'string', 'description' => 'Custom Open Graph image URL (used when og_image_type is the custom option).' ),
+						'og_article_section'       => array( 'type' => 'string', 'description' => 'Open Graph article section.' ),
+						'og_article_tags'          => array( 'type' => 'string', 'description' => 'Open Graph article tags (comma-separated).' ),
+						'twitter_title'            => array( 'type' => 'string', 'description' => 'Twitter card title.' ),
+						'twitter_description'      => array( 'type' => 'string', 'description' => 'Twitter card description.' ),
+						'twitter_use_og'           => array( 'type' => 'boolean', 'description' => 'Reuse the Open Graph values for Twitter.' ),
+						'twitter_card'             => array( 'type' => 'string', 'description' => 'Twitter card type (e.g. summary, summary_large_image).' ),
+						'twitter_image_type'       => array( 'type' => 'string', 'description' => 'Twitter image source (as og_image_type).' ),
+						'twitter_image_custom_url' => array( 'type' => 'string', 'description' => 'Custom Twitter image URL.' ),
+						'default'                  => array( 'type' => 'boolean', 'description' => 'Robots: use AIOSEO site defaults. Auto-set to false when any robots flag below is supplied.' ),
+						'noindex'                  => array( 'type' => 'boolean', 'description' => 'Robots: noindex this post.' ),
+						'nofollow'                 => array( 'type' => 'boolean', 'description' => 'Robots: nofollow.' ),
+						'noarchive'                => array( 'type' => 'boolean', 'description' => 'Robots: noarchive.' ),
+						'nosnippet'                => array( 'type' => 'boolean', 'description' => 'Robots: nosnippet.' ),
+						'noimageindex'             => array( 'type' => 'boolean', 'description' => 'Robots: noimageindex.' ),
+						'notranslate'              => array( 'type' => 'boolean', 'description' => 'Robots: notranslate.' ),
+						'maxSnippet'               => array( 'type' => 'integer', 'description' => 'Robots: max snippet length (-1 = default / no limit).' ),
+						'maxVideoPreview'          => array( 'type' => 'integer', 'description' => 'Robots: max video preview seconds (-1 = default).' ),
+						'maxImagePreview'          => array( 'type' => 'string', 'description' => 'Robots: max image preview size (large, standard, or none).' ),
+						'pillar_content'           => array( 'type' => 'boolean', 'description' => 'Mark as pillar / cornerstone content.' ),
+						'primary_term'             => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Primary term mapping (AIOSEO structure, keyed by taxonomy).' ),
+						'keyphrases'               => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Focus + additional keyphrases (AIOSEO structure: { focus: { keyphrase }, additional: [...] }).' ),
+						'schema'                   => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Schema / structured-data options (AIOSEO structure).' ),
+					),
 				),
 			),
 			'required'   => array( 'post_id', 'fields' ),
@@ -66,12 +103,19 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 		}
 
 		$aioseo_instance = aioseo();
-		$addon_active    = $aioseo_instance
+
+		
+		
+		
+		$rest_in_core = ( defined( 'AIOSEO_VERSION' ) && version_compare( AIOSEO_VERSION, '4.9.8', '>=' ) )
+			|| ( $aioseo_instance && isset( $aioseo_instance->version ) && version_compare( (string) $aioseo_instance->version, '4.9.8', '>=' ) );
+
+		$addon_active = $aioseo_instance
 			&& isset( $aioseo_instance->addons )
 			&& method_exists( $aioseo_instance->addons, 'isAddonActive' )
 			&& $aioseo_instance->addons->isAddonActive( 'aioseo-rest-api' );
 
-		if ( ! $addon_active ) {
+		if ( ! $rest_in_core && ! $addon_active ) {
 			
 			$plan = 'free';
 			if ( $aioseo_instance && isset( $aioseo_instance->license ) ) {
@@ -94,9 +138,29 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 
 		$this->validate_required( $arguments, array( 'post_id', 'fields' ) );
 
-		$post_id   = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+		$post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+		
+		
+		
+		if ( ! current_user_can( 'edit_post', $post_id ) ) {
+			throw new \RuntimeException( 'You do not have permission to edit this post.' );
+		}
 		$post_type = ! empty( $arguments['post_type'] ) ? $this->validate_rest_route_segment( $arguments['post_type'], 'post_type' ) : 'posts';
 		$fields    = $this->parse_json_param( $arguments['fields'], 'fields' );
+
+		
+		
+		
+		
+		if ( is_array( $fields ) && ! array_key_exists( 'default', $fields ) ) {
+			$robots_flags = array( 'noindex', 'nofollow', 'noarchive', 'nosnippet', 'noimageindex', 'notranslate', 'noodp', 'maxSnippet', 'maxVideoPreview', 'maxImagePreview' );
+			foreach ( $robots_flags as $robots_flag ) {
+				if ( array_key_exists( $robots_flag, $fields ) ) {
+					$fields['default'] = false;
+					break;
+				}
+			}
+		}
 
 		$data = $this->rest_request( 'POST', '/wp/v2/' . $post_type . '/' . $post_id, array( 'aioseo_meta_data' => $fields ) );
 

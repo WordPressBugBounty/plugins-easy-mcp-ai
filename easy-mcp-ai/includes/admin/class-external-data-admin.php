@@ -5,6 +5,7 @@ use Easy_MCP_AI\GSC\GSC_Client;
 use Easy_MCP_AI\GA\GA_Client;
 use Easy_MCP_AI\DFS\DataforSEO_Client;
 use Easy_MCP_AI\Semrush\Semrush_Client;
+use Easy_MCP_AI\SeRanking\SeRanking_Client;
 use Easy_MCP_AI\Tools\Tool_Registry;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -119,6 +120,9 @@ class External_Data_Admin {
         \add_action( 'admin_post_easy_mcp_ai_remove_semrush_key',     array( $this, 'handle_remove_semrush_key' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_semrush_test',              array( $this, 'handle_test_semrush_connection' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_semrush_refresh_balance',   array( $this, 'handle_refresh_semrush_balance' ) );
+        \add_action( 'admin_post_easy_mcp_ai_remove_seranking_key',     array( $this, 'handle_remove_seranking_key' ) );
+        \add_action( 'wp_ajax_easy_mcp_ai_seranking_test',              array( $this, 'handle_test_seranking_connection' ) );
+        \add_action( 'wp_ajax_easy_mcp_ai_seranking_refresh_balance',   array( $this, 'handle_refresh_seranking_balance' ) );
     }
 
     
@@ -305,10 +309,87 @@ class External_Data_Admin {
         }
 
         $registry = new Tool_Registry();
-        $registry->auto_discover();
+        $registry->auto_discover( true ); 
         $tools       = array();
         $by_category = $registry->get_tools_by_category();
         foreach ( $by_category['semrush'] ?? array() as $def ) {
+            $tools[ $def['name'] ] = $def['description'] ?? $def['name'];
+        }
+        $cached = $tools;
+        return $cached;
+    }
+
+    public function handle_remove_seranking_key(): void {
+        if ( ! \current_user_can( 'manage_options' ) ) {
+            \wp_die( 'Unauthorized' );
+        }
+        \check_admin_referer( 'easy_mcp_ai_remove_seranking_key' );
+
+        \delete_option( SeRanking_Client::OPTION_API_KEY );
+        \delete_option( 'easy_mcp_ai_disabled_seranking_tools' );
+
+        $all_seranking_names = array_keys( self::get_seranking_tools() );
+        $global_disabled     = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
+        \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_diff( $global_disabled, $all_seranking_names ) ) );
+
+        \wp_safe_redirect( \add_query_arg( 'message', 'seranking_removed', \admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) );
+        exit;
+    }
+
+    public function handle_test_seranking_connection(): void {
+        if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_seranking_test', 'nonce', false ) ) {
+            \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
+        }
+        try {
+            $r = ( new SeRanking_Client() )->test_connection();
+            \wp_send_json_success( array( 'message' => 'Connected. Balance: ' . (int) $r['units_left'] . ' credits.' ) );
+        } catch ( \RuntimeException $e ) {
+            \wp_send_json_error( array( 'message' => $e->getMessage() ) );
+        }
+    }
+
+    public function handle_refresh_seranking_balance(): void {
+        if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_seranking_refresh_balance', 'nonce', false ) ) {
+            \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
+        }
+        try {
+            $r = ( new SeRanking_Client() )->get_balance();
+            \wp_send_json_success( array(
+                'units_left' => (int) $r['units_left'],
+                'fetched_at' => $r['fetched_at'],
+            ) );
+        } catch ( \RuntimeException $e ) {
+            \wp_send_json_error( array( 'message' => $e->getMessage() ) );
+        }
+    }
+
+    public static function get_seranking_tools(): array {
+        static $cached = null;
+        if ( null !== $cached ) {
+            return $cached;
+        }
+
+        $seranking_dir = EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/seranking/';
+        if ( is_dir( $seranking_dir ) ) {
+            $client_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
+            $valid_file  = EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
+            if ( file_exists( $client_file ) ) { require_once $client_file; }
+            if ( file_exists( $valid_file ) )  { require_once $valid_file; }
+            foreach ( (array) glob( $seranking_dir . 'class-*.php' ) as $file ) {
+                require_once $file;
+            }
+        }
+
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_Registry' ) ) {
+            $cached = array();
+            return $cached;
+        }
+
+        $registry = new Tool_Registry();
+        $registry->auto_discover( true ); 
+        $tools       = array();
+        $by_category = $registry->get_tools_by_category();
+        foreach ( $by_category['seranking'] ?? array() as $def ) {
             $tools[ $def['name'] ] = $def['description'] ?? $def['name'];
         }
         $cached = $tools;
@@ -343,7 +424,7 @@ class External_Data_Admin {
         }
 
         $registry = new Tool_Registry();
-        $registry->auto_discover();
+        $registry->auto_discover( true ); 
         $tools       = array();
         $by_category = $registry->get_tools_by_category();
         foreach ( $by_category['ahrefs'] ?? array() as $def ) {
@@ -434,7 +515,7 @@ class External_Data_Admin {
         }
 
         $registry = new Tool_Registry();
-        $registry->auto_discover();
+        $registry->auto_discover( true ); 
         $tools        = array();
         $by_category  = $registry->get_tools_by_category();
         foreach ( $by_category['gsc'] ?? array() as $def ) {
@@ -473,7 +554,7 @@ class External_Data_Admin {
         }
 
         $registry = new Tool_Registry();
-        $registry->auto_discover();
+        $registry->auto_discover( true ); 
         $tools        = array();
         $by_category  = $registry->get_tools_by_category();
         foreach ( $by_category['ga'] ?? array() as $def ) {
@@ -516,7 +597,7 @@ class External_Data_Admin {
         }
 
         $registry = new Tool_Registry();
-        $registry->auto_discover();
+        $registry->auto_discover( true ); 
         $tools       = array();
         $by_category = $registry->get_tools_by_category();
         foreach ( $by_category['dfs'] ?? array() as $def ) {
@@ -586,6 +667,29 @@ class External_Data_Admin {
                 $decrypted = Semrush_Client::decrypt( \get_option( Semrush_Client::OPTION_API_KEY, '' ) );
                 if ( false !== $decrypted && '' !== $decrypted ) {
                     $semrush_api_key_masked = mb_substr( $decrypted, 0, 3 ) . '***';
+                }
+            } catch ( \RuntimeException $e ) {
+                
+            }
+        }
+        
+        $has_seranking_credentials = ! empty( \get_option( SeRanking_Client::OPTION_API_KEY, '' ) );
+        $seranking_tools           = self::get_seranking_tools();
+        $seranking_disabled_tools  = (array) \get_option( 'easy_mcp_ai_disabled_seranking_tools', array() );
+        $seranking_balance         = null;
+        if ( $has_seranking_credentials ) {
+            try {
+                $seranking_balance = ( new SeRanking_Client() )->get_balance();
+            } catch ( \Throwable $e ) {
+                
+            }
+        }
+        $seranking_api_key_masked = '';
+        if ( $has_seranking_credentials ) {
+            try {
+                $decrypted = SeRanking_Client::decrypt( \get_option( SeRanking_Client::OPTION_API_KEY, '' ) );
+                if ( false !== $decrypted && '' !== $decrypted ) {
+                    $seranking_api_key_masked = mb_substr( $decrypted, 0, 3 ) . '***';
                 }
             } catch ( \RuntimeException $e ) {
                 
@@ -831,6 +935,40 @@ class External_Data_Admin {
 
         
 
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- trimmed only; sanitize_text_field would mangle high-entropy API key.
+        $seranking_key_raw   = trim( (string) \wp_unslash( $_POST['seranking_api_key'] ?? '' ) );
+        $seranking_key_saved = false;
+        if ( '' !== $seranking_key_raw ) {
+            try {
+                \update_option( SeRanking_Client::OPTION_API_KEY, SeRanking_Client::encrypt( $seranking_key_raw ), false );
+            } catch ( \RuntimeException $e ) {
+                \wp_safe_redirect( \add_query_arg( 'message', 'seranking_weak_salts', $redirect_base ) );
+                exit;
+            }
+            try {
+                ( new SeRanking_Client() )->get_balance();
+                $seranking_key_saved = true;
+            } catch ( \RuntimeException $e ) {
+                \delete_option( SeRanking_Client::OPTION_API_KEY );
+                \wp_safe_redirect( \add_query_arg( array( 'message' => 'seranking_invalid_key', 'error' => rawurlencode( $e->getMessage() ) ), $redirect_base ) );
+                exit;
+            }
+        }
+
+        $seranking_tools     = self::get_seranking_tools();
+        $all_seranking_names = array_keys( $seranking_tools );
+        if ( isset( $_POST['seranking_enabled_tools'] ) ) {
+            $checked_seranking = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['seranking_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        } elseif ( '' !== $seranking_key_raw ) {
+            $checked_seranking = $all_seranking_names;
+        } else {
+            $checked_seranking = array();
+        }
+        $disabled_seranking = self::compute_disabled_tools( $all_seranking_names, $checked_seranking );
+        \update_option( 'easy_mcp_ai_disabled_seranking_tools', $disabled_seranking );
+
+        
+
         
         
         
@@ -848,13 +986,18 @@ class External_Data_Admin {
         
 
         $global_disabled = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
-        $other_disabled  = array_values( array_diff( $global_disabled, $all_gsc_names, $all_ga_names, $all_dfs_names, $all_semrush_names, $all_ahrefs_names ) );
+        $other_disabled  = array_values( array_diff( $global_disabled, $all_gsc_names, $all_ga_names, $all_dfs_names, $all_semrush_names, $all_seranking_names, $all_ahrefs_names ) );
         \update_option(
             'easy_mcp_ai_disabled_tools',
-            array_values( array_unique( array_merge( $other_disabled, $disabled_gsc, $disabled_ga, $disabled_dfs, $disabled_semrush, $disabled_ahrefs ) ) )
+            array_values( array_unique( array_merge( $other_disabled, $disabled_gsc, $disabled_ga, $disabled_dfs, $disabled_semrush, $disabled_seranking, $disabled_ahrefs ) ) )
         );
 
-        $message = $semrush_key_saved ? 'semrush_saved' : 'saved';
+        $message = 'saved';
+        if ( $semrush_key_saved ) {
+            $message = 'semrush_saved';
+        } elseif ( $seranking_key_saved ) {
+            $message = 'seranking_saved';
+        }
         \wp_safe_redirect( \add_query_arg( 'message', $message, $redirect_base ) );
         exit;
     }

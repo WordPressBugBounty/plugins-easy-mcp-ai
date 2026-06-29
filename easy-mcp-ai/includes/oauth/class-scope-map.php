@@ -51,10 +51,16 @@ class Scope_Map {
         'mcp:events:write'       => array( 'wp_tec_create_event', 'wp_tec_update_event', 'wp_tec_delete_event', 'wp_tec_create_venue', 'wp_tec_create_organizer' ),
         'mcp:yoast:read'         => array( 'wp_yoast_get_post_seo', 'wp_yoast_get_head' ),
         'mcp:yoast:write'        => array( 'wp_yoast_update_post_seo' ),
-        'mcp:aioseo:read'        => array( 'wp_aioseo_get_post_seo' ),
+        'mcp:aioseo:read'        => array( 'wp_aioseo_get_post_seo', 'wp_aioseo_get_breadcrumb' ),
         'mcp:aioseo:write'       => array( 'wp_aioseo_update_post_seo' ),
         'mcp:rankmath:read'      => array( 'wp_rm_get_post_seo', 'wp_rm_get_head' ),
         'mcp:rankmath:write'     => array( 'wp_rm_update_post_seo' ),
+        'mcp:seopress:read'      => array( 'wp_seopress_get_post_seo', 'wp_seopress_get_content_analysis', 'wp_seopress_get_term_seo' ),
+        'mcp:seopress:write'     => array( 'wp_seopress_update_post_title_desc', 'wp_seopress_update_post_robots', 'wp_seopress_update_post_social', 'wp_seopress_update_post_keywords' ),
+        'mcp:slimseo:read'       => array( 'wp_slimseo_get_post_seo' ),
+        'mcp:slimseo:write'      => array( 'wp_slimseo_update_post_seo' ),
+        'mcp:tsf:read'           => array( 'wp_tsf_get_post_seo' ),
+        'mcp:tsf:write'          => array( 'wp_tsf_update_post_seo' ),
         'mcp:gsc:read'           => array( 'wp_gsc_list_sites', 'wp_gsc_get_site', 'wp_gsc_query_performance', 'wp_gsc_list_sitemaps', 'wp_gsc_get_sitemap', 'wp_gsc_inspect_url' ),
         'mcp:ga:read'            => array( 'wp_ga_list_account_summaries', 'wp_ga_get_property', 'wp_ga_list_data_streams', 'wp_ga_list_custom_dimensions', 'wp_ga_list_custom_metrics', 'wp_ga_list_conversion_events', 'wp_ga_get_metadata', 'wp_ga_run_report', 'wp_ga_run_pivot_report', 'wp_ga_run_realtime_report', 'wp_ga_check_compatibility' ),
         'mcp:dfs:read'           => array(
@@ -85,6 +91,23 @@ class Scope_Map {
         ),
         'mcp:ahrefs:read'        => array(
             'wp_ahrefs_domain_rating_free',
+        ),
+        'mcp:seranking:read'     => array(
+            'wp_seranking_account_balance',
+            'wp_seranking_domain_overview',
+            'wp_seranking_domain_overview_worldwide',
+            'wp_seranking_domain_keywords',
+            'wp_seranking_domain_competitors',
+            'wp_seranking_domain_keyword_comparison',
+            'wp_seranking_domain_pages',
+            'wp_seranking_keyword_research',
+            'wp_seranking_keywords_overview',
+            'wp_seranking_backlinks_summary',
+            'wp_seranking_backlinks_list',
+            'wp_seranking_backlinks_domain_authority',
+            'wp_seranking_ai_overview',
+            'wp_seranking_ai_discover_brand',
+            'wp_seranking_ai_prompts',
         ),
     );
 
@@ -125,6 +148,10 @@ class Scope_Map {
         'dfs'         => 'DataforSEO',
         'semrush'     => 'Semrush',
         'ahrefs'      => 'Ahrefs (DR)',
+        'seranking'   => 'SE Ranking',
+        'seopress'    => 'SEOPress',
+        'slimseo'     => 'Slim SEO',
+        'tsf'         => 'The SEO Framework',
     );
 
     
@@ -147,6 +174,10 @@ class Scope_Map {
         'dfs'         => array(),
         'semrush'     => array(),
         'ahrefs'      => array(),
+        'seranking'   => array(),
+        'seopress'    => array(),
+        'slimseo'     => array( 'SlimSEO\\Container' ),
+        'tsf'         => array(),
     );
 
     
@@ -175,6 +206,16 @@ class Scope_Map {
         
         if ( 'ahrefs' === $slug ) {
             return (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
+        }
+        if ( 'seranking' === $slug ) {
+            return ! empty( \get_option( 'easy_mcp_ai_seranking_api_key', '' ) );
+        }
+        
+        if ( 'seopress' === $slug ) {
+            return \function_exists( 'seopress_get_service' );
+        }
+        if ( 'tsf' === $slug ) {
+            return \function_exists( 'tsf' );
         }
         if ( ! isset( self::PLUGIN_DETECTION_CLASSES[ $slug ] ) ) {
             return false;
@@ -544,6 +585,10 @@ class Scope_Map {
                 'dfs'         => __( 'DataforSEO', 'easy-mcp-ai' ),
                 'semrush'     => __( 'Semrush', 'easy-mcp-ai' ),
                 'ahrefs'      => __( 'Ahrefs (DR)', 'easy-mcp-ai' ),
+                'seranking'   => __( 'SE Ranking', 'easy-mcp-ai' ),
+                'seopress'    => __( 'SEOPress', 'easy-mcp-ai' ),
+                'slimseo'     => __( 'Slim SEO', 'easy-mcp-ai' ),
+                'tsf'         => __( 'The SEO Framework', 'easy-mcp-ai' ),
                 'term_meta'   => __( 'Term Meta', 'easy-mcp-ai' ),
                 'user_meta'   => __( 'User Meta', 'easy-mcp-ai' ),
                 'appearance'  => __( 'Site Appearance (templates & global styles)', 'easy-mcp-ai' ),

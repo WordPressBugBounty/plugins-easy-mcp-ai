@@ -55,6 +55,8 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_disabled_dfs_tools',       
     'easy_mcp_ai_semrush_api_key',          
     'easy_mcp_ai_disabled_semrush_tools',   
+    'easy_mcp_ai_seranking_api_key',        
+    'easy_mcp_ai_disabled_seranking_tools', 
     'easy_mcp_ai_disabled_ahrefs_tools',    
     'easy_mcp_ai_ahrefs_enabled',           
     'easy_mcp_ai_change_log_db_version',    

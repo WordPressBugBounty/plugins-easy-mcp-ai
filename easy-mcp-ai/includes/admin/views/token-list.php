@@ -141,7 +141,12 @@ function easy_mcp_ai_view_token_list( $tokens, $message, $new_raw_token, $total_
                             <strong><?php echo esc_html( $token['name'] ); ?></strong>
                         </td>
                         <td class="column-prefix">
-                            <code><?php echo esc_html( $token['token_prefix'] ); ?>...</code>
+                            <?php $easy_mcp_ai_prefix_hint = __( "Only the prefix is shown here. The full token appears once at creation and can't be retrieved later — lost it? Create a new token.", 'easy-mcp-ai' ); ?>
+                            <code class="easy-mcp-ai-token-prefix"><?php echo esc_html( $token['token_prefix'] ); ?>...</code>
+                            <span class="wp-mcp-tip" tabindex="0" role="note" aria-label="<?php echo esc_attr( $easy_mcp_ai_prefix_hint ); ?>">
+                                <span class="dashicons dashicons-info-outline wp-mcp-tip__icon" aria-hidden="true"></span>
+                                <span class="wp-mcp-tip__bubble" role="tooltip"><?php echo esc_html( $easy_mcp_ai_prefix_hint ); ?></span>
+                            </span>
                         </td>
                         <td class="column-user">
                             <?php echo esc_html( $user_display ); ?>

@@ -176,8 +176,14 @@ class Admin_Page {
 
     public function enqueue_assets( $hook ) {
         if ( false === strpos( $hook, 'easy-mcp-ai' ) ) { return; }
-        \wp_enqueue_style( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/css/admin.css', array(), EASY_MCP_AI_VERSION );
-        \wp_enqueue_script( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/js/admin.js', array( 'jquery' ), EASY_MCP_AI_VERSION, true );
+        
+        
+        $css_path = EASY_MCP_AI_PLUGIN_DIR . 'assets/css/admin.css';
+        $js_path  = EASY_MCP_AI_PLUGIN_DIR . 'assets/js/admin.js';
+        $css_ver  = file_exists( $css_path ) ? (string) filemtime( $css_path ) : EASY_MCP_AI_VERSION;
+        $js_ver   = file_exists( $js_path ) ? (string) filemtime( $js_path ) : EASY_MCP_AI_VERSION;
+        \wp_enqueue_style( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/css/admin.css', array(), $css_ver );
+        \wp_enqueue_script( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/js/admin.js', array( 'jquery' ), $js_ver, true );
         if ( false !== strpos( $hook, 'plugin-integrations' ) ) {
             \add_thickbox();
         }
@@ -508,6 +514,9 @@ class Admin_Page {
             'yoast-seo'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),
             'rank-math'       => array( 'label' => 'Rank Math SEO',               'class' => 'RankMath',                'fn' => '' ),
             'aioseo'          => array( 'label' => 'All in One SEO',              'class' => 'AIOSEO\Plugin\AIOSEO',    'fn' => 'aioseo' ),
+            'seopress'          => array( 'label' => 'SEOPress',            'class' => '',                  'fn' => 'seopress_get_service' ),
+            'slim-seo'          => array( 'label' => 'Slim SEO',            'class' => 'SlimSEO\Container', 'fn' => '' ),
+            'the-seo-framework' => array( 'label' => 'The SEO Framework',   'class' => '',                  'fn' => 'tsf' ),
         );
 
         
@@ -518,6 +527,7 @@ class Admin_Page {
             'ga'  => array( 'label' => 'Google Analytics',      'option' => 'easy_mcp_ai_ga_service_account_json' ),
             'dfs' => array( 'label' => 'DataforSEO',             'option' => 'easy_mcp_ai_dfs_login' ),
             'semrush' => array( 'label' => 'Semrush',             'option' => 'easy_mcp_ai_semrush_api_key' ),
+            'seranking' => array( 'label' => 'SE Ranking',         'option' => 'easy_mcp_ai_seranking_api_key' ),
             
             
             'ahrefs' => array( 'label' => 'Ahrefs (DR)',        'option' => 'easy_mcp_ai_ahrefs_enabled', 'keyless' => true ),

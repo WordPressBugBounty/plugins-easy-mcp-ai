@@ -224,7 +224,25 @@ class Activator {
             'ip_whitelist'           => '',
             'enabled_categories'     => array( 'posts', 'pages', 'media', 'taxonomy', 'comments', 'users', 'site', 'menus', 'plugins', 'themes' ),
             'allowed_tool_patterns'  => array(),
-            'disabled_tools'         => array( 'wp_delete_post', 'wp_delete_page', 'wp_delete_media', 'wp_delete_comment', 'wp_delete_category', 'wp_delete_tag', 'wp_delete_user', 'wp_delete_block', 'wp_delete_cpt_item', 'wp_delete_menu', 'wp_delete_menu_item', 'wp_delete_revision', 'wp_create_user', 'wp_update_user' ),
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            'disabled_tools'         => array(
+                'wp_update_site_settings',
+                'wp_create_user',
+                'wp_update_user',
+                'wp_delete_user',
+                'wp_update_user_meta',
+                'wp_update_template',
+                'wp_update_global_styles',
+                'wp_delete_user_meta',
+            ),
             'enabled_abilities'      => array(),
             'enabled_hooks'          => array(),
         );

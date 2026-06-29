@@ -205,8 +205,19 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                                                         }
                                                         ?>>
                                                     <code><?php echo esc_html( $tool['name'] ); ?></code>
-                                                    <?php if ( ! empty( $tool['description'] ) ) : ?>
-                                                        <span class="description">&mdash; <?php echo esc_html( $tool['description'] ); ?></span>
+                                                    <?php
+                                                    if ( ! empty( $tool['description'] ) ) :
+                                                        $easy_mcp_ai_full_desc = (string) $tool['description'];
+                                                        
+                                                        
+                                                        $easy_mcp_ai_short_desc = preg_match( '/^(.+?[.!?])(\s|$)/u', $easy_mcp_ai_full_desc, $easy_mcp_ai_desc_match )
+                                                            ? $easy_mcp_ai_desc_match[1]
+                                                            : $easy_mcp_ai_full_desc;
+                                                        if ( mb_strlen( $easy_mcp_ai_short_desc ) > 160 ) {
+                                                            $easy_mcp_ai_short_desc = rtrim( mb_substr( $easy_mcp_ai_short_desc, 0, 157 ) ) . '…';
+                                                        }
+                                                        ?>
+                                                        <span class="description">&mdash; <?php echo esc_html( $easy_mcp_ai_short_desc ); ?></span>
                                                     <?php endif; ?>
                                                 </label>
                                             <?php endforeach; ?>

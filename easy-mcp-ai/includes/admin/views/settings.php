@@ -199,30 +199,44 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
                 <th scope="row"><?php esc_html_e( 'Disabled Tools', 'easy-mcp-ai' ); ?></th>
                 <td>
                     <?php
-                    $delete_tools = array(
+                    
+                    
+                    
+                    
+                    
+                    $disableable_tools = array(
+                        
                         'wp_delete_post',
                         'wp_delete_page',
                         'wp_delete_media',
                         'wp_delete_comment',
                         'wp_delete_category',
                         'wp_delete_tag',
-                        'wp_delete_user',
                         'wp_delete_block',
                         'wp_delete_cpt_item',
                         'wp_delete_menu',
                         'wp_delete_menu_item',
                         'wp_delete_revision',
+                        'wp_delete_user_meta',
+                        
                         'wp_create_user',
                         'wp_update_user',
+                        'wp_delete_user',
+                        'wp_update_user_meta',
+                        'wp_update_site_settings',
+                        'wp_update_template',
+                        'wp_update_global_styles',
                     );
-                    foreach ( $delete_tools as $tool_name ) :
                     ?>
+                    <div class="wp-mcp-tool-grid">
+                    <?php foreach ( $disableable_tools as $tool_name ) : ?>
                         <label class="wp-mcp-block-label">
                             <input type="checkbox" name="disabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"
                                 <?php checked( in_array( $tool_name, $settings['disabled_tools'], true ) ); ?>>
                             <code><?php echo esc_html( $tool_name ); ?></code>
                         </label>
                     <?php endforeach; ?>
+                    </div>
                     <p class="description"><?php esc_html_e( 'Checked tools are globally disabled and will return an error when called, regardless of token permissions.', 'easy-mcp-ai' ); ?></p>
                 </td>
             </tr>

@@ -57,6 +57,10 @@ abstract class Base_Tool {
             'wp_tec_'      => 'Events Calendar',
             'wp_yoast_'    => 'Yoast',
             'wp_rm_'       => 'Rank Math',
+            'wp_seranking_' => 'SE Ranking',
+            'wp_seopress_' => 'SEOPress',
+            'wp_slimseo_'  => 'Slim SEO',
+            'wp_tsf_'      => 'The SEO Framework',
             'wp_ability_'  => 'Ability',
         );
 

@@ -4,11 +4,11 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.6
+Stable tag: 1.7.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 215 tools. Free.
+Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 242 tools. Free.
 
 == Description ==
 
@@ -18,13 +18,11 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 **At a glance:**
 
-* **215 tools** across posts, pages, media, users, comments, menus, Google Analytics 4, Google Search Console, Semrush, DataforSEO, Ahrefs, and more
+* **242 tools** — 96 core WordPress tools (posts, pages, media, users, comments, menus, taxonomies, change history, and more), 92 plugin-integration tools (WooCommerce, ACF, The Events Calendar, BuddyPress, and 6 SEO plugins), and 54 data-integration tools (Google Analytics 4, Google Search Console, Semrush, SE Ranking, DataforSEO, Ahrefs)
 * **1-click OAuth 2.0/2.1** with per-scope consent (Claude Desktop, Cursor, etc.)
-* **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, Yoast, Rank Math, AIOSEO
+* **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, and SEO plugins (Yoast, Rank Math, AIOSEO, SEOPress, Slim SEO, The SEO Framework)
 * **Google Analytics 4 & Google Search Console** — ask your AI about traffic, top pages, conversions, search queries, clicks, impressions, and indexing status
-* **Semrush** — ask your AI for keyword research, domain overviews, organic keywords, competitor research, keyword difficulty, related keywords, question phrases, and backlink analytics
-* **DataforSEO** — ask your AI for live SERP results, keyword search volumes, on-page SEO audits, backlink data, and ranked/site keywords
-* **Ahrefs** — ask your AI for the free Domain Rating of any domain or URL; no API key or account required
+* **Semrush, SE Ranking, DataforSEO & Ahrefs** — ask your AI for SEO and competitive research: keyword and backlink data, organic competitors, SERP results, rank tracking, and AI-search visibility (Ahrefs Domain Rating needs no API key)
 * **Auto-discovers WordPress 6.9+ Abilities API**
 * **Full audit trail** — every AI action on your site is logged in a searchable user activity log
 * **Change History** — every MCP-originated write (posts, meta, terms, users, options, comments, WooCommerce, BuddyPress) is recorded with before/after snapshots and queryable via 3 dedicated `wp_history_*` tools
@@ -59,7 +57,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 **WooCommerce AI Agent** — manage WooCommerce products, variations, attributes, orders, customers, coupons, and webhooks; view order refunds, shipping zones, shipping methods, tax rates, and payment gateways; pull sales, top-seller, and revenue reports; bulk update products, variations, and orders
 
-**SEO with Yoast, Rank Math & AIOSEO** — read and update Yoast SEO, Rank Math, and All in One SEO (AIOSEO) post metadata: SEO titles, meta descriptions, Open Graph and Twitter card fields, plus focus keywords (Yoast, Rank Math), canonical URLs (Rank Math, AIOSEO), no-index (AIOSEO), and cornerstone content flag (Yoast)
+**SEO with Yoast, Rank Math, AIOSEO, SEOPress, Slim SEO & The SEO Framework** — read and update post (and term) SEO metadata across all six major SEO plugins: SEO titles, meta descriptions, canonical URLs, robots and advanced-robots directives, Open Graph and Twitter card fields, focus / target keywords, primary term, breadcrumb titles, and schema / cornerstone / pillar settings
 
 **Advanced Custom Fields (ACF)** — read and write ACF custom field values on posts and users; read ACF fields on taxonomy terms; list ACF field groups
 
@@ -77,9 +75,11 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 **Google Search Console** — ask about top search queries, clicks, impressions, sitemaps, and URL indexing status
 
-**Semrush** — pull domain overviews, keyword research, organic competitors, keyword difficulty and related keywords, question phrases, and backlink overview / referring domains / anchors for any target
+**Semrush** — pull domain overviews, keyword research, organic keywords, organic competitors, keyword difficulty and related keywords, question phrases, and backlink overview / referring domains / anchors for any target
 
-**DataforSEO** — run on-page SEO audits on any URL, check keyword search volumes and trends, pull live SERP results, analyse backlinks, and look up ranked keywords for any domain
+**SE Ranking** — pull domain overviews (regional and worldwide), keyword and backlink research, organic competitors, top pages, keyword comparisons, and AI-search visibility (how a domain appears in Google AI Overviews, ChatGPT, Perplexity, and Gemini) for any domain
+
+**DataforSEO** — run on-page SEO audits on any URL, check keyword search volumes and trends, pull live SERP results, analyse backlinks, and look up ranked and site keywords for any domain
 
 **Ahrefs** — look up the free Domain Rating (backlink-profile strength, 0–100) for any domain or URL; no API key or account required
 
@@ -95,15 +95,9 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 = Tools =
 
-[**215 Tools, Ready to Use**](https://easymcpai.com/tools)
+[**242 Tools, Ready to Use**](https://easymcpai.com/tools)
 
 **93 core tools** cover every major WordPress content type — posts, pages, media, categories, tags, custom taxonomies, comments, users, menus, custom post types, post/term/user meta, revisions, Gutenberg blocks, templates, global styles, site settings, plugins, themes, and full-text search. Each type supports create, read, update, delete and more, plus conveniences like one-call full-post reads, find-and-replace in post content, and AI alt-text on media.
-
-= 3 Change History Tools =
-
-**wp_history_list** — query change records by user, object type, object id, tool name, or date range; supports `since` / `until` filters and pagination
-**wp_history_get** — fetch a single change record with full before/after JSON snapshots
-**wp_history_diff** — compute a structured diff between any recorded snapshot and either another snapshot or the current live state of the object
 
 = 11 Google Analytics 4 Tools =
 
@@ -125,6 +119,14 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 **Backlinks** — backlinks overview, backlinks list, referring domains, and anchors
 **Account** — check your Semrush API units balance at any time
 
+= 15 SE Ranking Tools =
+
+**Domain** — regional and worldwide domain overviews, organic keywords, organic competitors, top pages/subdomains, and keyword comparisons
+**Keywords** — keyword research (similar, related, questions, long-tail) and multi-keyword overview with volume, CPC, and difficulty
+**Backlinks** — backlink summary, detailed backlinks / anchors / referring domains, and domain authority (InLink Rank)
+**AI Search** — AI-search visibility across Google AI Overviews, ChatGPT, Perplexity, and Gemini, plus brand discovery and AI prompts
+**Account** — check your SE Ranking API credit balance at any time
+
 = 8 DataforSEO Tools =
 
 **SERP** — fetch live search engine results pages for any keyword and location
@@ -138,35 +140,22 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 **Domain Rating (free)** — look up the Ahrefs Domain Rating (0–100) for any domain or URL; no API key or account required. Attribution "Domain Rating by Ahrefs" is required when displaying the value.
 
-= 46 WooCommerce MCP Tools =
-
-**Products** — list, get, create, update, delete products
-**Product Variations** — list, get, create, update, delete product variations
-**Product Attributes** — list, create, and set product attributes
-**Product Categories** — list product categories
-**Orders** — list, get, create, update orders; list order notes, create order note; list order refunds (read-only)
-**Customers** — list, get, create, update, delete customers
-**Coupons** — list, get, create, update, delete coupons
-**Webhooks** — list, get, create, update, delete webhooks
-**Shipping** — list shipping zones, list shipping methods
-**Tax** — list tax rates
-**Payment** — list payment gateways
-**Reports** — sales, orders, products, top sellers, customers
-**Batch** — bulk create, update, or delete products, variations, and orders in a single request
-
-= 7 Plugin Integrations =
+= 10 Plugin Integrations =
 
 **WooCommerce** — 46 WooCommerce AI tools for products, orders, customers, coupons, shipping, reports, and more
 **Advanced Custom Fields (ACF)** — 6 tools to get and update ACF fields on posts, users, and terms; list ACF field groups
 **The Events Calendar** — 10 tools to create and manage events, venues, and organizers
 **BuddyPress** — 10 tools for members, activity stream, groups, group members, and private messages
-**Yoast SEO** — get and update post SEO metadata, meta description, and rendered SEO head output
-**Rank Math** — get and update post SEO metadata, meta description, and rendered SEO head output
-**All in One SEO (AIOSEO)** — get and update post SEO metadata
+**Yoast SEO** — get and update post SEO metadata, plus rendered SEO head output
+**Rank Math** — get and update post SEO metadata, plus rendered SEO head output
+**All in One SEO (AIOSEO)** — get and update post SEO metadata, plus breadcrumb data
+**SEOPress** — get and update post and term SEO metadata, plus content analysis
+**Slim SEO** — get and update post SEO metadata
+**The SEO Framework** — get and update post SEO metadata
 
 = Connect Any Plugin with Abilities API =
 
-WordPress 6.9+ introduces **Abilities API** — a standard way for plugins to declare what they can do. Easy MCP AI acts as an **MCP adapter** for any plugin that registers Abilities — automatically discovering and exposing them as MCP tools with no custom code needed. If a plugin supports the Abilities API, your AI can use it out of the box.
+WordPress 6.9+ introduces **Abilities API** — a standard way for plugins to declare what they can do. Easy MCP AI acts as an MCP adapter for any plugin that registers Abilities — automatically discovering and exposing them as MCP tools with no custom code needed. If a plugin supports the Abilities API, your AI can use it out of the box.
 
 = One-Click Connect with OAuth 2.0/2.1 =
 
@@ -253,17 +242,10 @@ This plugin connects to the following third-party services **only after a site a
 * Terms: https://dataforseo.com/terms-of-use
 * Privacy: https://dataforseo.com/privacy-policy
 
-**Google Analytics 4 Data API** — `analyticsdata.googleapis.com` (token exchange via `oauth2.googleapis.com`)
+**Google Analytics 4 Data API & Google Search Console API** — `analyticsdata.googleapis.com`, `searchconsole.googleapis.com` / `www.googleapis.com/webmasters/v3` (token exchange via `oauth2.googleapis.com`)
 
 * When: only if an admin uploads a Google service-account JSON.
-* What is sent: a signed JWT minted from the service-account key, plus the GA4 property id and report definition (dimensions, metrics, date range, filters) chosen per call.
-* Terms: https://policies.google.com/terms
-* Privacy: https://policies.google.com/privacy
-
-**Google Search Console API** — `searchconsole.googleapis.com` / `www.googleapis.com/webmasters/v3` (token exchange via `oauth2.googleapis.com`)
-
-* When: only if an admin uploads a Google service-account JSON.
-* What is sent: a signed JWT minted from the service-account key, plus the Google Search Console site URL and per-call parameters (date range, dimensions, URL to inspect, sitemap URL).
+* What is sent: a signed JWT minted from the service-account key, plus the chosen target and per-call parameters — for Analytics, the GA4 property id and report definition (dimensions, metrics, date range, filters); for Search Console, the site URL and query parameters (date range, dimensions, URL to inspect, sitemap URL).
 * Terms: https://policies.google.com/terms
 * Privacy: https://policies.google.com/privacy
 
@@ -277,11 +259,11 @@ This plugin connects to the following third-party services **only after a site a
 
 = What is Easy MCP AI? =
 
-Easy MCP AI is a free **WordPress AI connector** that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 215 ready-to-use tools. No Node.js, no proxy, no extra hosting.
+Easy MCP AI is a free **WordPress AI connector** that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 242 ready-to-use tools. No Node.js, no proxy, no extra hosting.
 
 = Is this a WordPress MCP server? =
 
-Yes. Easy MCP AI acts as a **WordPress MCP adapter** — a full MCP server implementing the Model Context Protocol spec (v2025-11-25, with backwards compatibility for v2025-06-18 and v2025-03-26) directly inside WordPress. Your site exposes a single MCP endpoint at `/wp-json/easy-mcp-ai/v1/mcp` that any MCP client can connect to over HTTPS.
+Yes. Easy MCP AI acts as a WordPress MCP adapter — a full MCP server implementing the Model Context Protocol spec (v2025-11-25, with backwards compatibility for v2025-06-18 and v2025-03-26) directly inside WordPress. Your site exposes a single MCP endpoint at `/wp-json/easy-mcp-ai/v1/mcp` that any MCP client can connect to over HTTPS.
 
 = What is the Model Context Protocol (MCP)? =
 
@@ -289,7 +271,7 @@ MCP is an open standard created by Anthropic that lets AI assistants and AI agen
 
 = How is Easy MCP AI different from other WordPress AI plugins? =
 
-Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 215 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
+Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 242 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
 
 = Is Easy MCP AI free? =
 
@@ -351,7 +333,7 @@ No configuration required — OAuth 2.0/2.1 endpoints are live as soon as the pl
 
 = Can I control what the AI is allowed to do? =
 
-Yes, fully. Each token has its own permission set — you choose exactly which of the 215 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
+Yes, fully. Each token has its own permission set — you choose exactly which of the 242 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
 
 = Can I limit which posts or pages the AI can edit? =
 
@@ -416,6 +398,15 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.7 =
+* New: **SEOPress** — read and update SEO titles, meta descriptions, robots, social cards, and target keywords on your posts.
+* New: **Slim SEO** — read and update SEO titles, descriptions, canonical URL, no-index, and social images.
+* New: **The SEO Framework** — read and update SEO titles, descriptions, canonical URL, robots, and social fields.
+* New: **SE Ranking** — ask your AI for domain overviews, keyword & backlink research, organic competitors, and AI-search visibility (add your SE Ranking API key under Easy MCP AI → External Data).
+* Improved: **All in One SEO** now supports SEO writes on the free plan (AIOSEO 4.9.8+) and adds a breadcrumb data tool.
+* Improved: **Yoast SEO** and **Rank Math** update tools gain more fields — robots and advanced robots, canonical URL, primary term, breadcrumb title, and schema/pillar settings.
+* Improved: Admin polish and safer defaults — refined Disabled Tools, Create Token, and External Data screens, and new installs now disable high-impact account & site tools by default (existing sites are unchanged).
 
 = 1.7.6 =
 * Fixed: WooCommerce product variations created or bulk-created by AI now honour the "Force draft on create" safety setting, just like products and posts.

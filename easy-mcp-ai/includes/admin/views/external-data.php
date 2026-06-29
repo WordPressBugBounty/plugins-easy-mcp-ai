@@ -28,6 +28,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             <p style="margin:.5em 0 0; color:#50575e; font-size:.9em;"><?php esc_html_e( 'Please check your login and API password and try again.', 'easy-mcp-ai' ); ?></p>
         </div>
         <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+    <?php elseif ( 'seranking_invalid_key' === $message ) : ?>
+        <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- template partial, $err is include-scoped not global. ?>
+        <?php $err = sanitize_text_field( wp_unslash( $_GET['error'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display of redirect param set by the save handler, no form processing. ?>
+        <div style="margin:1em 0; padding:1em 1.5em; background:#fef7f7; border-left:4px solid #d63638; border-radius:2px;">
+            <p style="margin:0; font-size:1em;"><strong style="color:#d63638;"><?php esc_html_e( '⚠ SE Ranking API key is invalid — the key was not saved.', 'easy-mcp-ai' ); ?></strong><?php if ( $err ) { echo ' <span style="color:#50575e;">(' . esc_html( $err ) . ')</span>'; } ?></p>
+            <p style="margin:.5em 0 0; color:#50575e; font-size:.9em;"><?php esc_html_e( 'Please check your API key and try again.', 'easy-mcp-ai' ); ?></p>
+        </div>
+        <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
     <?php endif; ?>
 
     <?php if ( ! empty( $weak_salts ) ) : ?>
@@ -85,6 +93,12 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Semrush API key saved.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'semrush_weak_salts' === $message ) : ?>
         <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Semrush API key could not be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></p></div>
+    <?php elseif ( 'seranking_removed' === $message ) : ?>
+        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'SE Ranking API key removed.', 'easy-mcp-ai' ); ?></p></div>
+    <?php elseif ( 'seranking_saved' === $message ) : ?>
+        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'SE Ranking API key saved.', 'easy-mcp-ai' ); ?></p></div>
+    <?php elseif ( 'seranking_weak_salts' === $message ) : ?>
+        <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'SE Ranking API key could not be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'dfs_invalid_credentials' === $message ) : ?>
     <?php elseif ( 'dfs_weak_salts' === $message ) : ?>
         <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'DataforSEO credentials could not be saved: WordPress security salts are missing or set to placeholder values. Fix: run "wp config shuffle-salts" via WP-CLI, or visit api.wordpress.org/secret-key/1.1/salt/, copy all 8 lines, and replace the matching lines in wp-config.php. Then return here and re-enter your DataforSEO credentials.', 'easy-mcp-ai' ); ?></p></div>
@@ -97,6 +111,318 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
         <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
         <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
+
+        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('semrush-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
+                <span>
+                    <?php esc_html_e( 'Semrush', 'easy-mcp-ai' ); ?>
+                    <?php if ( $has_semrush_credentials ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'API key saved', 'easy-mcp-ai' ); ?></span>
+                        <?php if ( null !== $semrush_balance ) : ?>
+                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;">
+                                <?php echo esc_html( 'Balance: ' . (int) $semrush_balance['balance'] . ' API units' ); ?>
+                                <button type="button" id="semrush-refresh-balance-btn" class="button button-small" style="margin-left:.5em;"><?php esc_html_e( 'Refresh', 'easy-mcp-ai' ); ?></button>
+                                <span id="semrush-balance-result" style="margin-left:.25em;"></span>
+                            </span>
+                        <?php else : ?>
+                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;"><?php esc_html_e( 'Balance: —', 'easy-mcp-ai' ); ?></span>
+                        <?php endif; ?>
+                    <?php else : ?>
+                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
+                        <span style="color:#2271b1; font-size:.8em; font-weight:normal; margin-left:.75em; background:#f0f6fc; border:1px solid #c2d4e8; border-radius:3px; padding:1px 6px;"><?php esc_html_e( '14-day free trial available', 'easy-mcp-ai' ); ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
+            </h2>
+
+            <div id="semrush-section-body" style="display:none;">
+            <p style="color:#646970; font-size:.9em; margin-top:0;">
+                <?php esc_html_e( 'Sign up at', 'easy-mcp-ai' ); ?> <a href="https://easymcpai.com/go/semrush" target="_blank" rel="noopener noreferrer">semrush.com</a><span aria-hidden="true">*</span> <?php esc_html_e( '— the Semrush One plan is recommended. Retrieve the key at Profile → Subscription info → API units.', 'easy-mcp-ai' ); ?>
+            </p>
+
+            <?php if ( ! $has_semrush_credentials ) : ?>
+            <p style="margin-top:0; margin-bottom:1em;">
+                <a href="https://easymcpai.com/go/semrush" target="_blank" rel="noopener noreferrer" class="button button-secondary"><?php esc_html_e( 'Start Your Free 14-Day Trial *', 'easy-mcp-ai' ); ?></a>
+                <span style="display:block; margin-top:.4em; color:#646970; font-size:.85em;"><?php esc_html_e( 'No API key yet? Try Semrush free for 14 days — no commitment required.', 'easy-mcp-ai' ); ?></span>
+            </p>
+            <?php endif; ?>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'API Key', 'easy-mcp-ai' ); ?></th>
+                    <td>
+                        <?php if ( $has_semrush_credentials ) : ?>
+                            <div id="semrush-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
+                                <span style="color:#00a32a; font-weight:600;"><?php echo esc_html( $semrush_api_key_masked ); ?></span>
+                                <button type="button" id="semrush-test-btn" class="button button-small"><?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small" onclick="document.getElementById('semrush-key-saved').style.display='none'; document.getElementById('semrush-key-edit').style.display='block';"><?php esc_html_e( 'Replace API key', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Semrush API key? AI clients will lose access to Semrush tools.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('semrush-remove-key-form').submit();}"><?php esc_html_e( 'Remove API key', 'easy-mcp-ai' ); ?></button>
+                                <span id="semrush-test-result" style="margin-left:.25em;"></span>
+                            </div>
+                            <div id="semrush-key-edit" style="display:none;">
+                                <input type="password" name="semrush_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                                <p class="description"><?php esc_html_e( 'Enter new API key to replace.', 'easy-mcp-ai' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <input type="password" name="semrush_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                            <p class="description" style="margin-top:.4em;">
+                                <?php
+                                echo wp_kses(
+                                    sprintf(
+                                        /* translators: %s: Semrush affiliate URL */
+                                        __( 'Get your API key from <a href="%s" target="_blank" rel="noopener noreferrer">Semrush</a><span aria-hidden="true">*</span> — go to Profile → Subscription info → API units.', 'easy-mcp-ai' ),
+                                        'https://easymcpai.com/go/semrush'
+                                    ),
+                                    array(
+                                        'a'    => array( 'href' => array(), 'target' => array(), 'rel' => array() ),
+                                        'span' => array( 'aria-hidden' => array() ),
+                                    )
+                                );
+                                ?>
+                            </p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
+            <?php if ( $has_semrush_credentials ) : ?>
+                <script>
+                (function(){
+                    var testBtn = document.getElementById('semrush-test-btn');
+                    if ( testBtn ) {
+                        testBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('semrush-test-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_semrush_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_semrush_test' ) ); ?>'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(data) {
+                                result.textContent = data.data.message;
+                                result.style.color = data.success ? '#00a32a' : '#d63638';
+                            })
+                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
+                            .finally(function(){ btn.disabled = false; });
+                        });
+                    }
+                    var refreshBtn = document.getElementById('semrush-refresh-balance-btn');
+                    if ( refreshBtn ) {
+                        refreshBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('semrush-balance-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Refreshing…', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_semrush_refresh_balance&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_semrush_refresh_balance' ) ); ?>'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(data) {
+                                if ( data.success ) {
+                                    result.textContent = data.data.balance + ' API units';
+                                    result.style.color = '#00a32a';
+                                } else {
+                                    result.textContent = data.data.message;
+                                    result.style.color = '#d63638';
+                                }
+                            })
+                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
+                            .finally(function(){ btn.disabled = false; });
+                        });
+                    }
+                })();
+                </script>
+            <?php endif; ?>
+
+            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('semrush-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_semrush_credentials ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="semrush-tools-body" style="display:none;">
+                <?php if ( $has_semrush_credentials ) : ?>
+                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php esc_html_e( 'Enable or disable individual Semrush tools.', 'easy-mcp-ai' ); ?></p>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_semrush_credentials ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
+                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                    <?php foreach ( $semrush_tools as $tool_name => $tool_label ) : ?>
+                        <?php $enabled = $has_semrush_credentials && ! in_array( $tool_name, $semrush_disabled_tools, true ); ?>
+                        <label style="display:block; margin-bottom:.5em;">
+                            <input type="checkbox" name="semrush_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_semrush_credentials ); ?>>
+                            <strong><?php echo esc_html( $tool_name ); ?></strong>
+                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                </fieldset>
+                </div>
+            </div>
+
+            <p style="margin-top:1.25em; padding:.75em 1em; background:#f6f7f7; border-left:3px solid #c3c4c7; border-radius:0 4px 4px 0; font-size:.85em; color:#646970; line-height:1.6;">
+                <strong>*</strong>
+                <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to Semrush through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
+            </p>
+            </div><!-- /semrush-section-body -->
+        </div>
+
+        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
+            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('seranking-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
+                <span>
+                    <?php esc_html_e( 'SE Ranking', 'easy-mcp-ai' ); ?>
+                    <?php if ( $has_seranking_credentials ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'API key saved', 'easy-mcp-ai' ); ?></span>
+                        <?php if ( null !== $seranking_balance ) : ?>
+                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;">
+                                <?php echo esc_html( 'Balance: ' . (int) $seranking_balance['units_left'] . ' credits' ); ?>
+                                <button type="button" id="seranking-refresh-balance-btn" class="button button-small" style="margin-left:.5em;"><?php esc_html_e( 'Refresh', 'easy-mcp-ai' ); ?></button>
+                                <span id="seranking-balance-result" style="margin-left:.25em;"></span>
+                            </span>
+                        <?php else : ?>
+                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;"><?php esc_html_e( 'Balance: —', 'easy-mcp-ai' ); ?></span>
+                        <?php endif; ?>
+                    <?php else : ?>
+                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
+                        <span style="color:#2271b1; font-size:.8em; font-weight:normal; margin-left:.75em; background:#f0f6fc; border:1px solid #c2d4e8; border-radius:3px; padding:1px 6px;"><?php esc_html_e( '14-day free trial · 100,000 API credits', 'easy-mcp-ai' ); ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
+            </h2>
+
+            <div id="seranking-section-body" style="display:none;">
+            <p style="color:#646970; font-size:.9em; margin-top:0;">
+                <?php esc_html_e( 'Sign up at', 'easy-mcp-ai' ); ?> <a href="<?php echo esc_url( 'https://seranking.com/?ga=206173&source=link' ); ?>" target="_blank" rel="noopener noreferrer">seranking.com</a><span aria-hidden="true">*</span> <?php esc_html_e( '— retrieve the key in your account under API.', 'easy-mcp-ai' ); ?>
+            </p>
+
+            <?php if ( ! $has_seranking_credentials ) : ?>
+            <p style="margin-top:0; margin-bottom:1em;">
+                <a href="<?php echo esc_url( 'https://seranking.com/?ga=206173&source=link' ); ?>" target="_blank" rel="noopener noreferrer" class="button button-secondary"><?php esc_html_e( 'Start Your Free 14-Day Trial *', 'easy-mcp-ai' ); ?></a>
+                <span style="display:block; margin-top:.4em; color:#646970; font-size:.85em;"><?php esc_html_e( 'No API key yet? Try SE Ranking free for 14 days — 100,000 API credits included, no commitment required.', 'easy-mcp-ai' ); ?></span>
+            </p>
+            <?php endif; ?>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'API Key', 'easy-mcp-ai' ); ?></th>
+                    <td>
+                        <?php if ( $has_seranking_credentials ) : ?>
+                            <div id="seranking-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
+                                <span style="color:#00a32a; font-weight:600;"><?php echo esc_html( $seranking_api_key_masked ); ?></span>
+                                <button type="button" id="seranking-test-btn" class="button button-small"><?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small" onclick="document.getElementById('seranking-key-saved').style.display='none'; document.getElementById('seranking-key-edit').style.display='block';"><?php esc_html_e( 'Replace API key', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved SE Ranking API key? AI clients will lose access to SE Ranking tools.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('seranking-remove-key-form').submit();}"><?php esc_html_e( 'Remove API key', 'easy-mcp-ai' ); ?></button>
+                                <span id="seranking-test-result" style="margin-left:.25em;"></span>
+                            </div>
+                            <div id="seranking-key-edit" style="display:none;">
+                                <input type="password" name="seranking_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                                <p class="description"><?php esc_html_e( 'Enter new API key to replace.', 'easy-mcp-ai' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <input type="password" name="seranking_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                            <p class="description" style="margin-top:.4em;"><?php esc_html_e( 'Get your API key from your SE Ranking account under API.', 'easy-mcp-ai' ); ?></p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( __( 'Save SE Ranking Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+
+            <?php if ( $has_seranking_credentials ) : ?>
+                <script>
+                (function(){
+                    var testBtn = document.getElementById('seranking-test-btn');
+                    if ( testBtn ) {
+                        testBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('seranking-test-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_seranking_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_seranking_test' ) ); ?>'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(data) {
+                                result.textContent = data.data.message;
+                                result.style.color = data.success ? '#00a32a' : '#d63638';
+                            })
+                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
+                            .finally(function(){ btn.disabled = false; });
+                        });
+                    }
+                    var refreshBtn = document.getElementById('seranking-refresh-balance-btn');
+                    if ( refreshBtn ) {
+                        refreshBtn.addEventListener('click', function() {
+                            var btn    = this;
+                            var result = document.getElementById('seranking-balance-result');
+                            btn.disabled = true;
+                            result.textContent = '<?php echo esc_js( __( 'Refreshing…', 'easy-mcp-ai' ) ); ?>';
+                            result.style.color = '#646970';
+                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: 'action=easy_mcp_ai_seranking_refresh_balance&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_seranking_refresh_balance' ) ); ?>'
+                            })
+                            .then(function(r){ return r.json(); })
+                            .then(function(data) {
+                                if ( data.success ) {
+                                    result.textContent = data.data.units_left + ' credits';
+                                    result.style.color = '#00a32a';
+                                } else {
+                                    result.textContent = data.data.message;
+                                    result.style.color = '#d63638';
+                                }
+                            })
+                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
+                            .finally(function(){ btn.disabled = false; });
+                        });
+                    }
+                })();
+                </script>
+            <?php endif; ?>
+
+            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('seranking-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
+                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
+                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
+                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_seranking_credentials ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
+                </button>
+                <div id="seranking-tools-body" style="display:none;">
+                <?php if ( $has_seranking_credentials ) : ?>
+                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php esc_html_e( 'Enable or disable individual SE Ranking tools.', 'easy-mcp-ai' ); ?></p>
+                <?php endif; ?>
+                <fieldset<?php if ( ! $has_seranking_credentials ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
+                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                    <?php foreach ( $seranking_tools as $tool_name => $tool_label ) : ?>
+                        <?php $enabled = $has_seranking_credentials && ! in_array( $tool_name, $seranking_disabled_tools, true ); ?>
+                        <label style="display:block; margin-bottom:.5em;">
+                            <input type="checkbox" name="seranking_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_seranking_credentials ); ?>>
+                            <strong><?php echo esc_html( $tool_name ); ?></strong>
+                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+                </fieldset>
+                </div>
+            </div>
+
+            <p style="margin-top:1.25em; padding:.75em 1em; background:#f6f7f7; border-left:3px solid #c3c4c7; border-radius:0 4px 4px 0; font-size:.85em; color:#646970; line-height:1.6;">
+                <strong>*</strong>
+                <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to SE Ranking through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
+            </p>
+            </div><!-- /seranking-section-body -->
+        </div>
 
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('dfs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
@@ -319,169 +645,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </div>
             </div>
             </div><!-- /dfs-section-body -->
-        </div>
-
-        <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
-            <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('semrush-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
-                <span>
-                    <?php esc_html_e( 'Semrush', 'easy-mcp-ai' ); ?>
-                    <?php if ( $has_semrush_credentials ) : ?>
-                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'API key saved', 'easy-mcp-ai' ); ?></span>
-                        <?php if ( null !== $semrush_balance ) : ?>
-                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;">
-                                <?php echo esc_html( 'Balance: ' . (int) $semrush_balance['balance'] . ' API units' ); ?>
-                                <button type="button" id="semrush-refresh-balance-btn" class="button button-small" style="margin-left:.5em;"><?php esc_html_e( 'Refresh', 'easy-mcp-ai' ); ?></button>
-                                <span id="semrush-balance-result" style="margin-left:.25em;"></span>
-                            </span>
-                        <?php else : ?>
-                            <span style="font-size:.85em; font-weight:normal; margin-left:1em; color:#646970;"><?php esc_html_e( 'Balance: —', 'easy-mcp-ai' ); ?></span>
-                        <?php endif; ?>
-                    <?php else : ?>
-                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
-                        <span style="color:#2271b1; font-size:.8em; font-weight:normal; margin-left:.75em; background:#f0f6fc; border:1px solid #c2d4e8; border-radius:3px; padding:1px 6px;"><?php esc_html_e( '14-day free trial available', 'easy-mcp-ai' ); ?></span>
-                    <?php endif; ?>
-                </span>
-                <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
-            </h2>
-
-            <div id="semrush-section-body" style="display:none;">
-            <p style="color:#646970; font-size:.9em; margin-top:0;">
-                <?php esc_html_e( 'Sign up at', 'easy-mcp-ai' ); ?> <a href="https://easymcpai.com/go/semrush" target="_blank" rel="noopener noreferrer">semrush.com</a><span aria-hidden="true">*</span> <?php esc_html_e( 'on a plan that includes API access — the Semrush One plan is recommended. Retrieve the key at Profile → Subscription info → API units.', 'easy-mcp-ai' ); ?>
-            </p>
-
-            <?php if ( ! $has_semrush_credentials ) : ?>
-            <p style="margin-top:0; margin-bottom:1em;">
-                <a href="https://easymcpai.com/go/semrush" target="_blank" rel="noopener noreferrer" class="button button-secondary"><?php esc_html_e( 'Start Your Free 14-Day Trial *', 'easy-mcp-ai' ); ?></a>
-                <span style="display:block; margin-top:.4em; color:#646970; font-size:.85em;"><?php esc_html_e( 'No API key yet? Try Semrush free for 14 days — no commitment required.', 'easy-mcp-ai' ); ?></span>
-            </p>
-            <?php endif; ?>
-
-            <table class="form-table" role="presentation">
-                <tr>
-                    <th scope="row"><?php esc_html_e( 'API Key', 'easy-mcp-ai' ); ?></th>
-                    <td>
-                        <?php if ( $has_semrush_credentials ) : ?>
-                            <div id="semrush-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
-                                <span style="color:#00a32a; font-weight:600;"><?php echo esc_html( $semrush_api_key_masked ); ?></span>
-                                <button type="button" id="semrush-test-btn" class="button button-small"><?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?></button>
-                                <button type="button" class="button button-small" onclick="document.getElementById('semrush-key-saved').style.display='none'; document.getElementById('semrush-key-edit').style.display='block';"><?php esc_html_e( 'Replace API key', 'easy-mcp-ai' ); ?></button>
-                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Semrush API key? AI clients will lose access to Semrush tools.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('semrush-remove-key-form').submit();}"><?php esc_html_e( 'Remove API key', 'easy-mcp-ai' ); ?></button>
-                                <span id="semrush-test-result" style="margin-left:.25em;"></span>
-                            </div>
-                            <div id="semrush-key-edit" style="display:none;">
-                                <input type="password" name="semrush_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
-                                <p class="description"><?php esc_html_e( 'Enter new API key to replace.', 'easy-mcp-ai' ); ?></p>
-                            </div>
-                        <?php else : ?>
-                            <input type="password" name="semrush_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
-                            <p class="description" style="margin-top:.4em;">
-                                <?php
-                                echo wp_kses(
-                                    sprintf(
-                                        /* translators: %s: Semrush affiliate URL */
-                                        __( 'Get your API key from <a href="%s" target="_blank" rel="noopener noreferrer">Semrush</a><span aria-hidden="true">*</span> — go to Profile → Subscription info → API units.', 'easy-mcp-ai' ),
-                                        'https://easymcpai.com/go/semrush'
-                                    ),
-                                    array(
-                                        'a'    => array( 'href' => array(), 'target' => array(), 'rel' => array() ),
-                                        'span' => array( 'aria-hidden' => array() ),
-                                    )
-                                );
-                                ?>
-                            </p>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-            </table>
-
-            <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-
-            <?php if ( $has_semrush_credentials ) : ?>
-                <script>
-                (function(){
-                    var testBtn = document.getElementById('semrush-test-btn');
-                    if ( testBtn ) {
-                        testBtn.addEventListener('click', function() {
-                            var btn    = this;
-                            var result = document.getElementById('semrush-test-result');
-                            btn.disabled = true;
-                            result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
-                            result.style.color = '#646970';
-                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: 'action=easy_mcp_ai_semrush_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_semrush_test' ) ); ?>'
-                            })
-                            .then(function(r){ return r.json(); })
-                            .then(function(data) {
-                                result.textContent = data.data.message;
-                                result.style.color = data.success ? '#00a32a' : '#d63638';
-                            })
-                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
-                            .finally(function(){ btn.disabled = false; });
-                        });
-                    }
-                    var refreshBtn = document.getElementById('semrush-refresh-balance-btn');
-                    if ( refreshBtn ) {
-                        refreshBtn.addEventListener('click', function() {
-                            var btn    = this;
-                            var result = document.getElementById('semrush-balance-result');
-                            btn.disabled = true;
-                            result.textContent = '<?php echo esc_js( __( 'Refreshing…', 'easy-mcp-ai' ) ); ?>';
-                            result.style.color = '#646970';
-                            fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                                body: 'action=easy_mcp_ai_semrush_refresh_balance&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_semrush_refresh_balance' ) ); ?>'
-                            })
-                            .then(function(r){ return r.json(); })
-                            .then(function(data) {
-                                if ( data.success ) {
-                                    result.textContent = data.data.balance + ' API units';
-                                    result.style.color = '#00a32a';
-                                } else {
-                                    result.textContent = data.data.message;
-                                    result.style.color = '#d63638';
-                                }
-                            })
-                            .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
-                            .finally(function(){ btn.disabled = false; });
-                        });
-                    }
-                })();
-                </script>
-            <?php endif; ?>
-
-            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <button type="button" style="width:100%; text-align:left; background:#f6f7f7; border:1px solid #c3c4c7; border-radius:4px; padding:.6em .9em; cursor:pointer; display:flex; align-items:baseline; gap:.5em;" onmouseover="this.style.background='#edeeee'" onmouseout="this.style.background='#f6f7f7'" onclick="(function(el){var body=document.getElementById('semrush-tools-body');var open=body.style.display!=='none';body.style.display=open?'none':'block';el.querySelector('.easy-mcp-tools-toggle').textContent=open?'▶':'▼';el.querySelector('.easy-mcp-tools-hint').style.display=open?'inline':'none';})(this)">
-                    <span class="easy-mcp-tools-toggle" style="font-size:.75em; color:#646970; user-select:none; flex-shrink:0;">▶</span>
-                    <span style="font-size:1em; font-weight:600; color:#1d2327;"><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></span>
-                    <span class="easy-mcp-tools-hint" style="font-size:.85em; font-weight:normal; color:#646970;"><?php echo $has_semrush_credentials ? esc_html__( 'click to expand', 'easy-mcp-ai' ) : esc_html__( 'Save credentials above to enable or disable individual tools. Tools are shown below for reference.', 'easy-mcp-ai' ); ?></span>
-                </button>
-                <div id="semrush-tools-body" style="display:none;">
-                <?php if ( $has_semrush_credentials ) : ?>
-                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php esc_html_e( 'Enable or disable individual Semrush tools.', 'easy-mcp-ai' ); ?></p>
-                <?php endif; ?>
-                <fieldset<?php if ( ! $has_semrush_credentials ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
-                    <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                    <?php foreach ( $semrush_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = $has_semrush_credentials && ! in_array( $tool_name, $semrush_disabled_tools, true ); ?>
-                        <label style="display:block; margin-bottom:.5em;">
-                            <input type="checkbox" name="semrush_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $has_semrush_credentials ); ?>>
-                            <strong><?php echo esc_html( $tool_name ); ?></strong>
-                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                    <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
-                </fieldset>
-                </div>
-            </div>
-
-            <p style="margin-top:1.25em; padding:.75em 1em; background:#f6f7f7; border-left:3px solid #c3c4c7; border-radius:0 4px 4px 0; font-size:.85em; color:#646970; line-height:1.6;">
-                <strong>*</strong>
-                <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to Semrush through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
-            </p>
-            </div><!-- /semrush-section-body -->
         </div>
 
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
@@ -893,6 +1056,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <form id="semrush-remove-key-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
         <input type="hidden" name="action" value="easy_mcp_ai_remove_semrush_key">
         <?php wp_nonce_field( 'easy_mcp_ai_remove_semrush_key' ); ?>
+    </form>
+    <?php endif; ?>
+
+    <?php if ( $has_seranking_credentials ) : ?>
+    <form id="seranking-remove-key-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_remove_seranking_key">
+        <?php wp_nonce_field( 'easy_mcp_ai_remove_seranking_key' ); ?>
     </form>
     <?php endif; ?>
 </div>

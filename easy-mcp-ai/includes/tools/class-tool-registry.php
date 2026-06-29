@@ -112,7 +112,19 @@ class Tool_Registry {
         }
     }
 
-    public function auto_discover() {
+    
+
+
+
+
+
+
+
+
+
+
+
+    public function auto_discover( $quiet = false ) {
         $tool_classes = array(
             'Easy_MCP_AI\\Tools\\Posts\\List_Posts',
             'Easy_MCP_AI\\Tools\\Posts\\Get_Post',
@@ -276,6 +288,22 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Update_Post_Seo',
             'Easy_MCP_AI\\Tools\\SEO\\Aioseo_Get_Post_Seo',
             'Easy_MCP_AI\\Tools\\SEO\\Aioseo_Update_Post_Seo',
+            
+            'Easy_MCP_AI\\Tools\\SEO\\Aioseo_Get_Breadcrumb',
+            
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Get_Post_Seo',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Title_Desc',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Robots',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Social',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Keywords',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Get_Content_Analysis',
+            'Easy_MCP_AI\\Tools\\SEO\\Seopress_Get_Term_Seo',
+            
+            'Easy_MCP_AI\\Tools\\SEO\\Slimseo_Get_Post_Seo',
+            'Easy_MCP_AI\\Tools\\SEO\\Slimseo_Update_Post_Seo',
+            
+            'Easy_MCP_AI\\Tools\\SEO\\Tsf_Get_Post_Seo',
+            'Easy_MCP_AI\\Tools\\SEO\\Tsf_Update_Post_Seo',
             'Easy_MCP_AI\\Tools\\GSC\\List_Sites',
             'Easy_MCP_AI\\Tools\\GSC\\Get_Site',
             'Easy_MCP_AI\\Tools\\GSC\\Query_Performance',
@@ -364,6 +392,23 @@ class Tool_Registry {
             
             'Easy_MCP_AI\\Tools\\Ahrefs\\Domain_Rating_Free',
 
+            
+            'Easy_MCP_AI\\Tools\\SeRanking\\Account_Balance',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Overview',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Overview_Worldwide',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Keywords',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Competitors',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Keyword_Comparison',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Domain_Pages',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Keyword_Research',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Keywords_Overview',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Backlinks_Summary',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Backlinks_List',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Backlinks_Domain_Authority',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Ai_Overview',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Ai_Discover_Brand',
+            'Easy_MCP_AI\\Tools\\SeRanking\\Ai_Prompts',
+
         );
         $plugin_namespaces = array(
             'Easy_MCP_AI\\Tools\\WooCommerce\\',
@@ -376,6 +421,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\DFS\\',
             'Easy_MCP_AI\\Tools\\Semrush\\',
             'Easy_MCP_AI\\Tools\\Ahrefs\\',
+            'Easy_MCP_AI\\Tools\\SeRanking\\',
         );
 
         foreach ( $tool_classes as $class ) {
@@ -387,7 +433,7 @@ class Tool_Registry {
                         break;
                     }
                 }
-                if ( ! $is_plugin_class ) {
+                if ( ! $is_plugin_class && ! $quiet ) {
                     // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
                     error_log( 'Easy MCP AI: Tool class not found, skipping: ' . $class );
                 }

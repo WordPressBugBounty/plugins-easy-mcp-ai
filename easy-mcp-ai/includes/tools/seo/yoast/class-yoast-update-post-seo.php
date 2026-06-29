@@ -18,7 +18,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates Yoast SEO metadata on a post or page by writing to the Yoast postmeta keys directly. Fields: seo_title, meta_description, focus_keyword, is_cornerstone, og_title, og_description, og_image, twitter_title, twitter_description, twitter_image.';
+		return 'Updates Yoast SEO metadata on a post or page by writing to the Yoast postmeta keys directly. Fields: seo_title, meta_description, focus_keyword, is_cornerstone, og_title, og_description, og_image, twitter_title, twitter_description, twitter_image, noindex (int 0=default/1=noindex/2=index), nofollow (int 0/1), advanced_robots (csv of noimageindex,noarchive,nosnippet), canonical (URL), primary_term + taxonomy, breadcrumb_title, schema_page_type, schema_article_type.';
 	}
 
 	public function get_category() {
@@ -86,6 +86,44 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 					'type'        => 'string',
 					'description' => 'The Twitter card image URL (_yoast_wpseo_twitter-image).',
 				),
+				'noindex'             => array(
+					'type'        => 'integer',
+					'enum'        => array( 0, 1, 2 ),
+					'description' => 'Robots noindex (_yoast_wpseo_meta-robots-noindex). Tri-state: 0=default, 1=noindex, 2=index. NOT a boolean.',
+				),
+				'nofollow'            => array(
+					'type'        => 'integer',
+					'enum'        => array( 0, 1 ),
+					'description' => 'Robots nofollow (_yoast_wpseo_meta-robots-nofollow). 0=default, 1=nofollow.',
+				),
+				'advanced_robots'     => array(
+					'type'        => 'string',
+					'description' => 'Advanced robots directives (_yoast_wpseo_meta-robots-adv), comma-separated. Allowed tokens: noimageindex, noarchive, nosnippet.',
+				),
+				'canonical'           => array(
+					'type'        => 'string',
+					'description' => 'The canonical URL (_yoast_wpseo_canonical).',
+				),
+				'primary_term'        => array(
+					'type'        => 'integer',
+					'description' => 'The primary term ID (_yoast_wpseo_primary_{taxonomy}). Requires taxonomy.',
+				),
+				'taxonomy'            => array(
+					'type'        => 'string',
+					'description' => 'The taxonomy slug for primary_term (e.g. category). Required when primary_term is set.',
+				),
+				'breadcrumb_title'    => array(
+					'type'        => 'string',
+					'description' => 'The breadcrumb title (_yoast_wpseo_bctitle).',
+				),
+				'schema_page_type'    => array(
+					'type'        => 'string',
+					'description' => 'The schema page type (_yoast_wpseo_schema_page_type), e.g. WebPage, AboutPage.',
+				),
+				'schema_article_type' => array(
+					'type'        => 'string',
+					'description' => 'The schema article type (_yoast_wpseo_schema_article_type), e.g. Article, NewsArticle.',
+				),
 			),
 			'required'   => array( 'post_id' ),
 		);
@@ -142,6 +180,76 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 		if ( isset( $arguments['is_cornerstone'] ) ) {
 			update_post_meta( $post_id, '_yoast_wpseo_is_cornerstone', (bool) $arguments['is_cornerstone'] ? '1' : '' );
 			$updated[] = 'is_cornerstone';
+		}
+
+		if ( isset( $arguments['noindex'] ) ) {
+			$noindex = (int) $arguments['noindex'];
+			if ( ! in_array( $noindex, array( 0, 1, 2 ), true ) ) {
+				throw new \InvalidArgumentException( 'noindex must be one of 0 (default), 1 (noindex), or 2 (index).' );
+			}
+			update_post_meta( $post_id, '_yoast_wpseo_meta-robots-noindex', (string) $noindex );
+			$updated[] = 'noindex';
+		}
+
+		if ( isset( $arguments['nofollow'] ) ) {
+			$nofollow = (int) $arguments['nofollow'];
+			if ( ! in_array( $nofollow, array( 0, 1 ), true ) ) {
+				throw new \InvalidArgumentException( 'nofollow must be one of 0 (default) or 1 (nofollow).' );
+			}
+			update_post_meta( $post_id, '_yoast_wpseo_meta-robots-nofollow', (string) $nofollow );
+			$updated[] = 'nofollow';
+		}
+
+		if ( isset( $arguments['advanced_robots'] ) ) {
+			$allowed_adv = array( 'noimageindex', 'noarchive', 'nosnippet' );
+			$tokens      = array_filter( array_map( 'trim', explode( ',', (string) $arguments['advanced_robots'] ) ) );
+			$clean       = array();
+			foreach ( $tokens as $token ) {
+				if ( ! in_array( $token, $allowed_adv, true ) ) {
+					throw new \InvalidArgumentException( 'advanced_robots tokens must be among: ' . implode( ', ', $allowed_adv ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				}
+				if ( ! in_array( $token, $clean, true ) ) {
+					$clean[] = $token;
+				}
+			}
+			update_post_meta( $post_id, '_yoast_wpseo_meta-robots-adv', implode( ',', $clean ) );
+			$updated[] = 'advanced_robots';
+		}
+
+		if ( isset( $arguments['canonical'] ) ) {
+			update_post_meta( $post_id, '_yoast_wpseo_canonical', esc_url_raw( $arguments['canonical'] ) );
+			$updated[] = 'canonical';
+		}
+
+		if ( isset( $arguments['breadcrumb_title'] ) ) {
+			update_post_meta( $post_id, '_yoast_wpseo_bctitle', sanitize_text_field( $arguments['breadcrumb_title'] ) );
+			$updated[] = 'breadcrumb_title';
+		}
+
+		if ( isset( $arguments['schema_page_type'] ) ) {
+			update_post_meta( $post_id, '_yoast_wpseo_schema_page_type', sanitize_text_field( $arguments['schema_page_type'] ) );
+			$updated[] = 'schema_page_type';
+		}
+
+		if ( isset( $arguments['schema_article_type'] ) ) {
+			update_post_meta( $post_id, '_yoast_wpseo_schema_article_type', sanitize_text_field( $arguments['schema_article_type'] ) );
+			$updated[] = 'schema_article_type';
+		}
+
+		if ( isset( $arguments['primary_term'] ) ) {
+			if ( empty( $arguments['taxonomy'] ) ) {
+				throw new \InvalidArgumentException( 'taxonomy is required when primary_term is provided.' );
+			}
+			$taxonomy = $this->validate_rest_route_segment( $arguments['taxonomy'], 'taxonomy' );
+			if ( ! taxonomy_exists( $taxonomy ) ) {
+				throw new \InvalidArgumentException( 'Unknown taxonomy: ' . $taxonomy ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$primary_term = (int) $arguments['primary_term'];
+			if ( ! term_exists( $primary_term, $taxonomy ) ) {
+				throw new \InvalidArgumentException( 'primary_term does not exist in taxonomy ' . $taxonomy . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			update_post_meta( $post_id, '_yoast_wpseo_primary_' . $taxonomy, (string) $primary_term );
+			$updated[] = 'primary_term';
 		}
 
 		return array(

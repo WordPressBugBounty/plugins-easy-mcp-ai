@@ -18,7 +18,7 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates Rank Math SEO fields on a post by writing to the Rank Math postmeta keys. Fields: title (rank_math_title), description (rank_math_description), focus_keyword (rank_math_focus_keyword), canonical_url (rank_math_canonical_url), facebook_title, facebook_description, facebook_image, twitter_title, twitter_description, twitter_image. Note: rank_math_robots is not supported as it uses serialized array format.';
+		return 'Updates Rank Math SEO fields on a post by writing to the Rank Math postmeta keys. Fields: title (rank_math_title), description (rank_math_description), focus_keyword (rank_math_focus_keyword), canonical_url (rank_math_canonical_url), facebook_title, facebook_description, facebook_image, twitter_title, twitter_description, twitter_image, robots (array of index/noindex/nofollow/noarchive/noimageindex/nosnippet), advanced_robots (array), breadcrumb_title, primary_term + taxonomy, pillar_content (boolean).';
 	}
 
 	public function get_category() {
@@ -86,6 +86,31 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 					'type'        => 'string',
 					'description' => 'The Twitter card image URL (rank_math_twitter_image).',
 				),
+				'robots'               => array(
+					'type'        => 'array',
+					'items'       => array( 'type' => 'string' ),
+					'description' => 'Robots meta (rank_math_robots) as an array of tokens. Allowed: index, noindex, nofollow, noarchive, noimageindex, nosnippet. A comma-separated string is also accepted and split on ",".',
+				),
+				'advanced_robots'      => array(
+					'type'        => 'object',
+					'description' => 'Advanced robots (rank_math_advanced_robots), e.g. keys max-snippet, max-video-preview, max-image-preview.',
+				),
+				'breadcrumb_title'     => array(
+					'type'        => 'string',
+					'description' => 'The breadcrumb title (rank_math_breadcrumb_title).',
+				),
+				'primary_term'         => array(
+					'type'        => 'integer',
+					'description' => 'The primary term ID (rank_math_primary_{taxonomy}). Requires taxonomy.',
+				),
+				'taxonomy'             => array(
+					'type'        => 'string',
+					'description' => 'The taxonomy slug for primary_term (e.g. category). Required when primary_term is set.',
+				),
+				'pillar_content'       => array(
+					'type'        => 'boolean',
+					'description' => 'Whether this is pillar content (rank_math_pillar_content).',
+				),
 			),
 			'required'   => array( 'post_id' ),
 		);
@@ -132,6 +157,67 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 					$updated[] = $arg_key;
 				}
 			}
+		}
+
+		if ( isset( $arguments['robots'] ) ) {
+			$allowed_robots = array( 'index', 'noindex', 'nofollow', 'noarchive', 'noimageindex', 'nosnippet' );
+			$robots_in      = $arguments['robots'];
+			if ( is_string( $robots_in ) ) {
+				$robots_in = explode( ',', $robots_in );
+			}
+			if ( ! is_array( $robots_in ) ) {
+				throw new \InvalidArgumentException( 'robots must be an array of tokens or a comma-separated string.' );
+			}
+			$robots = array();
+			foreach ( $robots_in as $token ) {
+				$token = sanitize_text_field( trim( (string) $token ) );
+				if ( '' === $token ) {
+					continue;
+				}
+				if ( ! in_array( $token, $allowed_robots, true ) ) {
+					throw new \InvalidArgumentException( 'robots tokens must be among: ' . implode( ', ', $allowed_robots ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				}
+				if ( ! in_array( $token, $robots, true ) ) {
+					$robots[] = $token;
+				}
+			}
+			update_post_meta( $post_id, 'rank_math_robots', $robots );
+			$updated[] = 'robots';
+		}
+
+		if ( isset( $arguments['advanced_robots'] ) ) {
+			$advanced = $arguments['advanced_robots'];
+			if ( ! is_array( $advanced ) ) {
+				throw new \InvalidArgumentException( 'advanced_robots must be an object/array.' );
+			}
+			update_post_meta( $post_id, 'rank_math_advanced_robots', $advanced );
+			$updated[] = 'advanced_robots';
+		}
+
+		if ( isset( $arguments['breadcrumb_title'] ) ) {
+			update_post_meta( $post_id, 'rank_math_breadcrumb_title', sanitize_text_field( $arguments['breadcrumb_title'] ) );
+			$updated[] = 'breadcrumb_title';
+		}
+
+		if ( isset( $arguments['pillar_content'] ) ) {
+			update_post_meta( $post_id, 'rank_math_pillar_content', (bool) $arguments['pillar_content'] ? 'on' : '' );
+			$updated[] = 'pillar_content';
+		}
+
+		if ( isset( $arguments['primary_term'] ) ) {
+			if ( empty( $arguments['taxonomy'] ) ) {
+				throw new \InvalidArgumentException( 'taxonomy is required when primary_term is provided.' );
+			}
+			$taxonomy = $this->validate_rest_route_segment( $arguments['taxonomy'], 'taxonomy' );
+			if ( ! taxonomy_exists( $taxonomy ) ) {
+				throw new \InvalidArgumentException( 'Unknown taxonomy: ' . $taxonomy ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$primary_term = (int) $arguments['primary_term'];
+			if ( ! term_exists( $primary_term, $taxonomy ) ) {
+				throw new \InvalidArgumentException( 'primary_term does not exist in taxonomy ' . $taxonomy . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			update_post_meta( $post_id, 'rank_math_primary_' . $taxonomy, (string) $primary_term );
+			$updated[] = 'primary_term';
 		}
 
 		return array(
