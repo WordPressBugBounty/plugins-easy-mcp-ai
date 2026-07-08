@@ -13,7 +13,7 @@ class Backlinks_Overview extends Base_Tool {
 
 	public function get_name() { return 'wp_semrush_backlinks_overview'; }
 	public function get_description() {
-		return 'Semrush aggregate backlinks summary for a target — Authority Score (ascore), total backlinks, distinct referring domains and IPs, follow vs nofollow split, sponsored/UGC counts, plus link-type counts (text, image, form, frame). target_type must be one of: root_domain (entire root domain like example.com), domain (a specific SUBDOMAIN like blog.example.com — yes, "domain" in Semrush\'s API means subdomain), or url (a specific page URL with https://). Backlinks reports do not take a database parameter; data is global. Requires a Semrush plan that includes the Backlinks API; otherwise returns ERROR 133 :: DB ACCESS DENIED. (meter: 40 units flat — cheap one-shot health summary)';
+		return 'Semrush aggregate backlinks summary for a target — Authority Score (ascore), total backlinks, distinct referring domains and IPs, follow vs nofollow split, sponsored/UGC counts, plus link-type counts (text, image, form, frame). target_type must be one of: root_domain (entire root domain like example.com), domain (a specific SUBDOMAIN like blog.example.com — yes, "domain" in Semrush\'s API means subdomain), or url (a specific page URL with http:// or https://). Backlinks reports do not take a database parameter; data is global. Requires a Semrush plan that includes the Backlinks API; otherwise returns ERROR 133 :: DB ACCESS DENIED. (meter: 40 units flat — cheap one-shot health summary)';
 	}
 	public function get_category() { return 'semrush'; }
 	public function get_required_capability() { return 'manage_options'; }

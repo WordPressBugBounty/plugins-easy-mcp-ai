@@ -13,7 +13,7 @@ class Keyword_Overview extends Base_Tool {
 
 	public function get_name() { return 'wp_semrush_keyword_overview'; }
 	public function get_description() {
-		return 'Semrush single-keyword overview — monthly search volume, CPC, competition density (0–1), results count, and 12-month trend. phrase must be 1–80 characters and ≤10 whitespace-separated tokens. database defaults to us; use a Semrush region code (us, uk, de, fr, it, es, br, au, ca, in, etc.) for that country\'s SERP. Returns a single row. (meter: 10 units flat)';
+		return 'Semrush single-keyword overview — monthly search volume, CPC, competition density (0–1), and results count. phrase must be 1–80 characters and ≤10 whitespace-separated tokens. database defaults to us; use a Semrush region code (us, uk, de, fr, it, es, br, au, ca, in, etc.) for that country\'s SERP. Returns a single row. (meter: 10 units flat)';
 	}
 	public function get_category() { return 'semrush'; }
 	public function get_required_capability() { return 'manage_options'; }

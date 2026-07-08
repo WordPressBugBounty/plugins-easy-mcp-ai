@@ -16,6 +16,16 @@ class History_Diff extends Base_Tool {
     public function get_category() { return 'history'; }
     public function get_required_capability() { return 'read'; }
 
+    public function get_annotations() {
+        
+        return array(
+            'title'           => $this->get_title(),
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'openWorldHint'   => false,
+        );
+    }
+
     public function get_input_schema() {
         return array(
             'type'       => 'object',

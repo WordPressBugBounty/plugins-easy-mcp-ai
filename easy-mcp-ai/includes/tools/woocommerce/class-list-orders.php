@@ -14,7 +14,7 @@ class List_Orders extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WooCommerce orders with optional filtering by status, customer, and date range. Returns id, number, status, total, billing name, date_created, and permalink.';
+        return 'Lists WooCommerce orders with optional filtering by status, customer, and date range. Returns id, number, status, total, customer_id, billing (name, email), date_created, and rest_url (the REST API self-link for the order, not a public permalink).';
     }
 
     public function get_category() {
@@ -109,7 +109,30 @@ class List_Orders extends Base_Tool {
             $params['before'] = sanitize_text_field( $arguments['before'] );
         }
 
-        $data = $this->rest_request( 'GET', '/wc/v3/orders', $params );
+        
+        
+        
+        
+        $request = new \WP_REST_Request( 'GET', '/wc/v3/orders' );
+        foreach ( $params as $key => $value ) {
+            $request->set_param( $key, $value );
+        }
+
+        $response = rest_do_request( $request );
+
+        if ( $response->is_error() ) {
+            $error = $response->as_error();
+            
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'orders' => array() ),
+                    $this->pagination_meta( null, $page, $params['per_page'], 0 )
+                );
+            }
+            throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+
+        $data = $response->get_data();
 
         $orders = array_map( function( $order ) {
             return array(
@@ -123,13 +146,13 @@ class List_Orders extends Base_Tool {
                     'email' => $order['billing']['email'] ?? '',
                 ),
                 'date_created' => $order['date_created'],
-                'permalink'    => $order['_links']['self'][0]['href'] ?? '',
+                'rest_url'     => $order['_links']['self'][0]['href'] ?? '',
             );
         }, $data );
 
-        return array(
-            'orders' => $orders,
-            'page'   => $page,
+        return array_merge(
+            array( 'orders' => $orders ),
+            $this->pagination_meta( $response, $page, $params['per_page'], count( $data ) )
         );
     }
 }

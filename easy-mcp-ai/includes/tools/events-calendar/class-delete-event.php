@@ -14,7 +14,7 @@ class Delete_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes an event from The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). Deletion is irreversible; the event post is removed from WordPress entirely. Returns { deleted: true, id }. To hide an event temporarily, use `wp_update_post` to set status="draft" on the event post instead. Requires The Events Calendar plugin active.';
+        return 'Moves an event to the Trash in The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). This calls wp_trash_post() — the event is trashed, not permanently erased, so it can be restored from the WordPress Trash. Returns { deleted: true, id }. To hide an event temporarily, use `wp_update_post` to set status="draft" on the event post instead. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

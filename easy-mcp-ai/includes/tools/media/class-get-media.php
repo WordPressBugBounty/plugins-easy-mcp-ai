@@ -14,7 +14,7 @@ class Get_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WordPress media attachment by ID. Returns { id, title, alt_text, caption, description, mime_type, source_url (original file URL), media_type (image/video/audio/file), date, author, post (ID of the post it\'s attached to, 0 if unattached), media_details: { width, height, sizes: { thumbnail, medium, large, full } } }.';
+        return 'Gets a single WordPress media attachment by ID. Returns { id, title, alt_text, caption, description, mime_type, source_url (original file URL), media_type (image/video/audio/file), date, post (ID of the post it\'s attached to, 0 if unattached) }. For image attachments the response also includes top-level `width`, `height`, and `file_size` (in bytes) when those details are available.';
     }
 
     public function get_category() {

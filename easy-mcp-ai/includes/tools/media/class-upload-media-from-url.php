@@ -57,7 +57,7 @@ class Upload_Media_From_Url extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Downloads a file from a public HTTPS URL and imports it into the WordPress media library. Required: `url` (http/https only — local/private IPs blocked via DNS-resolved SSRF check). Optional: `filename` (defaults to URL basename), `title`, `alt_text`, `caption`, `post_id` (attach to a parent post). Size limit: site `wp_max_upload_size()`. Returns { id, source_url, mime_type, title, file_size }. Avoids the ~33% base64 overhead of wp_upload_media.';
+        return 'Downloads a file from a public HTTPS URL and imports it into the WordPress media library. Required: `url` (HTTPS only by default — local/private IPs blocked via DNS-resolved SSRF check; site owners can allow http via the easy_mcp_ai_allow_http_media_url filter). Optional: `filename` (defaults to URL basename), `title`, `alt_text`, `caption`, `post_id` (attach to a parent post). Size limit: site `wp_max_upload_size()`. Returns { id, source_url, mime_type, title, file_size }. Avoids the ~33% base64 overhead of wp_upload_media.';
     }
 
     public function get_category() {
@@ -83,7 +83,7 @@ class Upload_Media_From_Url extends Base_Tool {
             'properties' => array(
                 'url'      => array(
                     'type'        => 'string',
-                    'description' => 'Public http/https URL to the file. Private/internal IPs are rejected.',
+                    'description' => 'Public HTTPS URL to the file (http allowed only if the site enables the easy_mcp_ai_allow_http_media_url filter). Private/internal IPs are rejected.',
                 ),
                 'filename' => array(
                     'type'        => 'string',
@@ -316,8 +316,15 @@ class Upload_Media_From_Url extends Base_Tool {
             throw new \InvalidArgumentException( 'Invalid URL.' );
         }
         $scheme = strtolower( isset( $parsed['scheme'] ) ? $parsed['scheme'] : '' );
-        if ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
-            throw new \InvalidArgumentException( 'URL must use http or https.' );
+        
+        
+        
+        
+        
+        $allow_http      = (bool) apply_filters( 'easy_mcp_ai_allow_http_media_url', false );
+        $allowed_schemes = $allow_http ? array( 'http', 'https' ) : array( 'https' );
+        if ( ! in_array( $scheme, $allowed_schemes, true ) ) {
+            throw new \InvalidArgumentException( $allow_http ? 'URL must use http or https.' : 'URL must use HTTPS.' );
         }
         if ( ! empty( $parsed['user'] ) || ! empty( $parsed['pass'] ) ) {
             throw new \InvalidArgumentException( 'URLs containing userinfo are not allowed.' );

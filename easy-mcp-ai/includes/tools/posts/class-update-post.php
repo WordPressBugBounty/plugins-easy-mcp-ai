@@ -14,7 +14,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future/trash — setting "trash" is equivalent to trashing via `wp_delete_post` with force=false), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `comment_status`, `sticky`. Returns { id, title, status, link, date }.';
+        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `comment_status`, `sticky`. Returns { id, title, status, link, modified }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -125,11 +125,15 @@ class Update_Post extends Base_Tool {
         $post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
         $params  = array();
 
-        if ( isset( $arguments['title'] ) ) {
+        
+        
+        
+        
+        if ( isset( $arguments['title'] ) && '' !== $arguments['title'] ) {
             $params['title'] = sanitize_text_field( $arguments['title'] );
         }
 
-        if ( isset( $arguments['content'] ) ) {
+        if ( isset( $arguments['content'] ) && '' !== $arguments['content'] ) {
             
             
             
@@ -141,7 +145,7 @@ class Update_Post extends Base_Tool {
             $params['status'] = sanitize_text_field( $arguments['status'] );
         }
 
-        if ( isset( $arguments['excerpt'] ) ) {
+        if ( isset( $arguments['excerpt'] ) && '' !== $arguments['excerpt'] ) {
             $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
         }
 

@@ -14,7 +14,7 @@ class Get_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WordPress tag by ID. Returns { id, name, slug, description, count (number of posts tagged), link }. Tags are flat (no parent). To look up a tag by name/slug, use `wp_list_tags` with `search` parameter.';
+        return 'Gets a single WordPress tag by ID. Returns { id, name, slug, description, count (number of posts tagged) }. Tags are flat (no parent). To look up a tag by name/slug, use `wp_list_tags` with `search` parameter.';
     }
 
     public function get_category() {

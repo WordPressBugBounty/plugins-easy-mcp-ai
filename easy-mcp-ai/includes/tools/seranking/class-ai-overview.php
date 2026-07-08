@@ -33,7 +33,7 @@ class Ai_Overview extends Base_Tool {
 				'engine' => array( 'type' => 'string', 'enum' => array( 'ai-overview', 'chatgpt', 'perplexity', 'gemini', 'ai-mode' ), 'description' => 'AI engine to report on.' ),
 				'target' => array( 'type' => 'string', 'description' => 'Domain or URL to analyse.' ),
 				'source' => array( 'type' => 'string', 'description' => 'ISO alpha-2 country code (e.g. us, uk, de).' ),
-				'scope'  => array( 'type' => 'string', 'description' => 'How target is interpreted; default base_domain.' ),
+				'scope'  => array( 'type' => 'string', 'enum' => array( 'base_domain', 'domain', 'url' ), 'description' => 'How target is interpreted; default base_domain.' ),
 				'brand'  => array( 'type' => 'string', 'description' => 'Optional brand name filter.' ),
 			),
 		);

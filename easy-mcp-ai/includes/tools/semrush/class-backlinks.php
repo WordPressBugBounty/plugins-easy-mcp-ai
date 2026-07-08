@@ -13,7 +13,7 @@ class Backlinks extends Base_Tool {
 
 	public function get_name() { return 'wp_semrush_backlinks'; }
 	public function get_description() {
-		return 'Semrush list of individual backlinks pointing to a target. Each row includes source page URL and title, anchor text, source-page Authority Score, first-seen and last-seen dates, follow/nofollow/sponsored/ugc flags, and the target URL. target_type: root_domain (root domain) | domain (subdomain only — Semrush uses "domain" to mean subdomain) | url (specific page; must be a full https:// URL). display_limit max 10,000 (default 100). display_sort: page_ascore_desc | last_seen_desc | first_seen_desc. Requires Semrush Backlinks API tier; otherwise returns ERROR 133 :: DB ACCESS DENIED. (meter: 40 units × rows returned)';
+		return 'Semrush list of individual backlinks pointing to a target. Each row includes source page URL and title, anchor text, source-page Authority Score, first-seen and last-seen dates, follow/nofollow/sponsored/ugc flags, and the target URL. target_type: root_domain (root domain) | domain (subdomain only — Semrush uses "domain" to mean subdomain) | url (specific page; must be a full http:// or https:// URL). display_limit max 10,000 (default 100). display_sort: page_ascore_desc | last_seen_desc | first_seen_desc. Requires Semrush Backlinks API tier; otherwise returns ERROR 133 :: DB ACCESS DENIED. (meter: 40 units × rows returned)';
 	}
 	public function get_category() { return 'semrush'; }
 	public function get_required_capability() { return 'manage_options'; }

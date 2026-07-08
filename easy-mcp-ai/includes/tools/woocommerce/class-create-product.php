@@ -212,16 +212,16 @@ class Create_Product extends Base_Tool {
             $params['regular_price'] = sanitize_text_field( $arguments['regular_price'] );
         }
         if ( isset( $arguments['description'] ) ) {
-            $params['description'] = sanitize_text_field( $arguments['description'] );
+            $params['description'] = wp_kses_post( $arguments['description'] );
         }
         if ( isset( $arguments['short_description'] ) ) {
-            $params['short_description'] = sanitize_text_field( $arguments['short_description'] );
+            $params['short_description'] = wp_kses_post( $arguments['short_description'] );
         }
         if ( isset( $arguments['sku'] ) ) {
             $params['sku'] = sanitize_text_field( $arguments['sku'] );
         }
         if ( isset( $arguments['stock_quantity'] ) ) {
-            $params['stock_quantity'] = absint( $arguments['stock_quantity'] );
+            $params['stock_quantity'] = (int) $arguments['stock_quantity']; 
         }
         if ( isset( $arguments['manage_stock'] ) ) {
             $params['manage_stock'] = (bool) $arguments['manage_stock'];

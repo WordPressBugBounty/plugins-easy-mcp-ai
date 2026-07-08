@@ -14,7 +14,7 @@ class List_Comments extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress comments. Optional: `post_id` (filter by post — omit for all posts), `status` (approve/hold/spam/trash/all — default "approve" for published comments; use "hold" to list pending moderation queue), `search`, `per_page` (default 10, max 100), `page`. Returns { comments: [{ id, post, author_name, author_email, content, status, date, parent }], total, page }.';
+        return 'Lists WordPress comments. Optional: `post_id` (filter by post — omit for all posts), `status` (approve/hold/spam/trash/all — default "approve" for published comments; use "hold" to list pending moderation queue), `search`, `author` (filter to a registered author user ID), `author_exclude` (array of author user IDs to exclude), `after`/`before` (ISO 8601 date-time bounds), `per_page` (default 10, max 100), `page`. Returns { comments: [{ id, post, author_name, author_email, content, status, date, parent }], total, total_pages, page, per_page }.';
     }
 
     public function get_category() {
@@ -65,6 +65,23 @@ class List_Comments extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Search query to filter comments.',
                 ),
+                'author'   => array(
+                    'type'        => 'integer',
+                    'description' => 'Filter to comments by this registered (logged-in) author user ID.',
+                ),
+                'author_exclude' => array(
+                    'type'        => 'array',
+                    'items'       => array( 'type' => 'integer' ),
+                    'description' => 'Array of author user IDs to EXCLUDE from results.',
+                ),
+                'after'    => array(
+                    'type'        => 'string',
+                    'description' => 'Only comments posted on or after this ISO 8601 date-time (e.g. "2026-01-01T00:00:00").',
+                ),
+                'before'   => array(
+                    'type'        => 'string',
+                    'description' => 'Only comments posted on or before this ISO 8601 date-time (e.g. "2026-12-31T23:59:59").',
+                ),
             ),
         );
     }
@@ -89,6 +106,22 @@ class List_Comments extends Base_Tool {
             $params['search'] = sanitize_text_field( $arguments['search'] );
         }
 
+        if ( ! empty( $arguments['author'] ) ) {
+            $params['author'] = absint( $arguments['author'] );
+        }
+
+        if ( ! empty( $arguments['author_exclude'] ) ) {
+            $params['author_exclude'] = array_map( 'absint', $this->parse_json_param( $arguments['author_exclude'], 'author_exclude' ) );
+        }
+
+        if ( ! empty( $arguments['after'] ) ) {
+            $params['after'] = sanitize_text_field( $arguments['after'] );
+        }
+
+        if ( ! empty( $arguments['before'] ) ) {
+            $params['before'] = sanitize_text_field( $arguments['before'] );
+        }
+
         $request = new \WP_REST_Request( 'GET', '/wp/v2/comments' );
         foreach ( $params as $key => $value ) {
             $request->set_param( $key, $value );
@@ -98,12 +131,17 @@ class List_Comments extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'comments' => array() ),
+                    $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $comments = $response->get_data();
-        $headers  = $response->get_headers();
-        $total    = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $comments );
 
         $result = array();
         foreach ( $comments as $comment ) {
@@ -119,10 +157,9 @@ class List_Comments extends Base_Tool {
             );
         }
 
-        return array(
-            'comments' => $result,
-            'total'    => (int) $total,
-            'page'     => $params['page'],
+        return array_merge(
+            array( 'comments' => $result ),
+            $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $comments ) )
         );
     }
 }

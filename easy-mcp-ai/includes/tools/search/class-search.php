@@ -14,7 +14,7 @@ class Search extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Searches across all WordPress content types using a single query. Required: `query`. Optional: `type` (filter by type — "post", "term", or "post-format"; default: all), `subtype` (further filter by post type slug or taxonomy slug), `per_page` (default 10), `page`. Returns array of { id, title, url, type, subtype }. For post-only search with status filtering use `wp_search_posts` instead.';
+        return 'Searches across all WordPress content types using a single query. Required: `query`. Optional: `type` (filter by type — "post", "term", or "post-format"; default: all), `subtype` (further filter by post type slug or taxonomy slug), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` to POST results windowed around the first match; terms never carry one; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only on post results when snippet=true) }], total, total_pages, page, per_page, query }. For post-only search with status filtering use `wp_search_posts` instead.';
     }
 
     public function get_category() {
@@ -63,6 +63,18 @@ class Search extends Base_Tool {
                     'description' => 'Page number for pagination.',
                     'default'     => 1,
                 ),
+                'snippet'        => array(
+                    'type'        => 'boolean',
+                    'description' => 'When true, include a `snippet` field on each POST result: a plain-text excerpt (HTML, shortcodes, and block markup stripped) windowed around the first match of the query, so you can judge relevance without a follow-up wp_get_post. Non-post results (terms) never carry a snippet. Default false (response is unchanged when omitted).',
+                    'default'     => false,
+                ),
+                'snippet_length' => array(
+                    'type'        => 'integer',
+                    'description' => 'Maximum snippet length in characters (20-1000, default 200). Only used when snippet is true.',
+                    'default'     => 200,
+                    'minimum'     => 20,
+                    'maximum'     => 1000,
+                ),
             ),
             'required'   => array( 'query' ),
         );
@@ -73,9 +85,11 @@ class Search extends Base_Tool {
 
         $query   = sanitize_text_field( $arguments['query'] );
         $request = new \WP_REST_Request( 'GET', '/wp/v2/search' );
+        $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
+        $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $request->set_param( 'search', $query );
-        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10 );
-        $request->set_param( 'page', isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1 );
+        $request->set_param( 'per_page', $per_page );
+        $request->set_param( 'page', $page );
 
         if ( ! empty( $arguments['type'] ) ) {
             $request->set_param( 'type', sanitize_text_field( $arguments['type'] ) );
@@ -89,29 +103,48 @@ class Search extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'results' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 ),
+                    array( 'query' => $query )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $items   = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $items );
+
+        $want_snippet = ! empty( $arguments['snippet'] );
+        $snippet_len  = isset( $arguments['snippet_length'] ) ? (int) $arguments['snippet_length'] : 200;
 
         $results = array();
         foreach ( $items as $item ) {
-            $results[] = array(
+            $row = array(
                 'id'      => $item['id'],
                 'title'   => $item['title'],
                 'url'     => $item['url'],
                 'type'    => $item['type'],
                 'subtype' => isset( $item['subtype'] ) ? $item['subtype'] : '',
             );
+            
+            
+            
+            if ( $want_snippet && 'post' === ( $item['type'] ?? '' ) ) {
+                $post = get_post( (int) $item['id'] );
+                if ( $post && isset( $post->post_content ) && ! post_password_required( $post ) ) {
+                    $row['snippet'] = $this->build_search_snippet( $post->post_content, $query, $snippet_len );
+                } else {
+                    $row['snippet'] = '';
+                }
+            }
+            $results[] = $row;
         }
 
-        return array(
-            'results' => $results,
-            'total'   => $total,
-            'page'    => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
-            'query'   => $query,
+        return array_merge(
+            array( 'results' => $results ),
+            $this->pagination_meta( $response, $page, $per_page, count( $items ) ),
+            array( 'query' => $query )
         );
     }
 }

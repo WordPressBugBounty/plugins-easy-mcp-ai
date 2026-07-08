@@ -105,7 +105,7 @@ class Create_Event extends Base_Tool {
             $params['description'] = sanitize_textarea_field( $arguments['description'] );
         }
         if ( isset( $arguments['url'] ) ) {
-            $params['url'] = sanitize_url( $arguments['url'] );
+            $params['website'] = sanitize_url( $arguments['url'] );
         }
         if ( isset( $arguments['all_day'] ) ) {
             $params['all_day'] = (bool) $arguments['all_day'];

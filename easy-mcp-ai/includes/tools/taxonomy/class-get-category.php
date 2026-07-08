@@ -14,7 +14,7 @@ class Get_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WordPress category by ID. Returns { id, name, slug, description, parent (0 if top-level), count (number of posts assigned), link }. To get children, call `wp_list_categories` with `parent` = this ID.';
+        return 'Gets a single WordPress category by ID. Returns { id, name, slug, description, parent (0 if top-level), count (number of posts assigned) }. To get children, call `wp_list_categories` with `parent` = this ID.';
     }
 
     public function get_category() {

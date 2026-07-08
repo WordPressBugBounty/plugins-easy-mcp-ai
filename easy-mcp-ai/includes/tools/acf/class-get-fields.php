@@ -14,7 +14,7 @@ class Get_Fields extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page. Returns fields under the "acf" key keyed by field name (e.g. "my_field_name"). Field groups must have "Show in REST API" enabled in ACF settings. To update fields with wp_acf_update_fields, use the field key (e.g. "field_abc123"), not the field name — use the key visible in ACF field group settings. Works with ACF and Secure Custom Fields (SCF).';
+        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page. Returns fields under the "acf_fields" key keyed by field name (e.g. "my_field_name"). Field groups must have "Show in REST API" enabled in ACF settings. To update fields with wp_acf_update_fields, pass these same field names (field keys like "field_abc123" also work). Works with ACF and Secure Custom Fields (SCF).';
     }
 
     public function get_category() {

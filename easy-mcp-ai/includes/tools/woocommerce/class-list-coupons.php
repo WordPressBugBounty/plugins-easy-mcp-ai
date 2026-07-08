@@ -14,7 +14,7 @@ class List_Coupons extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WooCommerce coupons. Optional: `search`, `code` (filter by exact coupon code), `per_page` (default 10), `page`. Returns array of { id, code, discount_type (percent/fixed_cart/fixed_product), amount, date_expires, usage_count, usage_limit, usage_limit_per_user, free_shipping, individual_use }. Requires WooCommerce active.';
+        return 'Lists WooCommerce coupons. Optional: `search`, `code` (filter by exact coupon code), `per_page` (default 10), `page`. Returns `{ coupons, page }` where each coupon has { id, code, discount_type (percent/fixed_cart/fixed_product), amount, usage_count, usage_limit, date_expires }. Requires WooCommerce active.';
     }
 
     public function get_category() {

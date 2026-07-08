@@ -103,7 +103,9 @@ class Query_Performance extends Base_Tool {
 
         if ( ! empty( $arguments['filters'] ) ) {
             $allowed_ops  = array( 'equals', 'notEquals', 'contains', 'notContains', 'includingRegex', 'excludingRegex' );
-            $allowed_dims = array( 'query', 'page', 'country', 'device', 'date', 'hour', 'searchAppearance' );
+            
+            
+            $allowed_dims = array( 'query', 'page', 'country', 'device', 'searchAppearance' );
             $filters      = array();
             foreach ( $arguments['filters'] as $f ) {
                 $dim  = (string) ( $f['dimension'] ?? '' );

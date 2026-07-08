@@ -18,7 +18,7 @@ class Aioseo_Get_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets AIOSEO SEO metadata for a post or page. Returns two fields: aioseo_head_json (available on free plan, read-only rendered JSON of SEO head tags) and aioseo_meta_data (available on Plus plan and above with REST API addon, writable SEO fields including title, description, og_title, og_description, twitter_title, twitter_description, no_index, canonical_url).';
+		return 'Gets AIOSEO SEO metadata for a post or page. Returns two fields: aioseo_head_json (available on free plan, read-only rendered JSON of SEO head tags) and aioseo_meta_data (writable SEO fields including title, description, og_title, og_description, twitter_title, twitter_description, no_index, canonical_url). The AIOSEO REST API is included free in core since AIOSEO 4.9.8+ for all plans; on AIOSEO < 4.9.8 free it required the legacy REST API addon.';
 	}
 
 	public function get_category() {

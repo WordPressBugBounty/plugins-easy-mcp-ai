@@ -14,7 +14,7 @@ class List_Pages extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress pages. Optional: `status` (publish/draft/pending/private/future/trash/any — default publish), `search`, `parent` (filter by parent page ID; use 0 for top-level only), `per_page` (default 10, max 100), `page`, `orderby` (date/id/title/slug/modified/menu_order/parent — default date), `order` (asc/desc). Returns array of { id, title, status, date, modified, slug, link, parent, menu_order }. Pages are hierarchical — use `parent` to browse the tree.';
+        return 'Lists WordPress pages. Optional: `status` (publish/draft/pending/private/future/trash/any — default publish), `search`, `parent` (filter by parent page ID; use 0 for top-level only), `author` (user ID), `author_exclude` (array of user IDs to exclude), `after` / `before` (ISO 8601 date-time range on publish date), `per_page` (default 10, max 100), `page`, `orderby` (date/id/title/slug/modified/menu_order/parent — default date), `order` (asc/desc). Returns { pages: [{ id, title, status, date, modified, slug, parent, menu_order, link }], total, total_pages, page, per_page }. Pages are hierarchical — use `parent` to browse the tree.';
     }
 
     public function get_category() {
@@ -63,6 +63,23 @@ class List_Pages extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Parent page ID to filter by.',
                 ),
+                'author'   => array(
+                    'type'        => 'integer',
+                    'description' => 'Author user ID to filter by.',
+                ),
+                'author_exclude' => array(
+                    'type'        => 'array',
+                    'items'       => array( 'type' => 'integer' ),
+                    'description' => 'Array of author user IDs to EXCLUDE from results.',
+                ),
+                'after'    => array(
+                    'type'        => 'string',
+                    'description' => 'Only pages published on or after this ISO 8601 date-time (e.g. "2026-01-01T00:00:00").',
+                ),
+                'before'   => array(
+                    'type'        => 'string',
+                    'description' => 'Only pages published on or before this ISO 8601 date-time (e.g. "2026-12-31T23:59:59").',
+                ),
                 'orderby'  => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
@@ -97,6 +114,22 @@ class List_Pages extends Base_Tool {
             $params['parent'] = absint( $arguments['parent'] );
         }
 
+        if ( ! empty( $arguments['author'] ) ) {
+            $params['author'] = absint( $arguments['author'] );
+        }
+
+        if ( ! empty( $arguments['author_exclude'] ) ) {
+            $params['author_exclude'] = array_map( 'absint', $this->parse_json_param( $arguments['author_exclude'], 'author_exclude' ) );
+        }
+
+        if ( ! empty( $arguments['after'] ) ) {
+            $params['after'] = sanitize_text_field( $arguments['after'] );
+        }
+
+        if ( ! empty( $arguments['before'] ) ) {
+            $params['before'] = sanitize_text_field( $arguments['before'] );
+        }
+
         if ( ! empty( $arguments['orderby'] ) ) {
             $params['orderby'] = $arguments['orderby'];
         }
@@ -114,12 +147,16 @@ class List_Pages extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'pages' => array() ),
+                    $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $pages = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $pages );
 
         $result = array();
         foreach ( $pages as $page ) {
@@ -136,10 +173,9 @@ class List_Pages extends Base_Tool {
             );
         }
 
-        return array(
-            'pages' => $result,
-            'total' => (int) $total,
-            'page'  => $params['page'],
+        return array_merge(
+            array( 'pages' => $result ),
+            $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $pages ) )
         );
     }
 }

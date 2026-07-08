@@ -217,7 +217,11 @@ class Replace_In_Post extends Base_Tool {
             'ID'   => $post_id,
             $field => $new_value,
         );
-        $updated = wp_update_post( $update, true );
+        
+        
+        
+        
+        $updated = wp_update_post( wp_slash( $update ), true );
         if ( is_wp_error( $updated ) ) {
             throw new \RuntimeException( $updated->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }

@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.7
+Stable tag: 1.7.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -23,7 +23,7 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 * **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, and SEO plugins (Yoast, Rank Math, AIOSEO, SEOPress, Slim SEO, The SEO Framework)
 * **Google Analytics 4 & Google Search Console** — ask your AI about traffic, top pages, conversions, search queries, clicks, impressions, and indexing status
 * **Semrush, SE Ranking, DataforSEO & Ahrefs** — ask your AI for SEO and competitive research: keyword and backlink data, organic competitors, SERP results, rank tracking, and AI-search visibility (Ahrefs Domain Rating needs no API key)
-* **Auto-discovers WordPress 6.9+ Abilities API**
+* **[Auto-discovers WordPress 6.9+ Abilities API](https://easymcpai.com/abilities-directory)**
 * **Full audit trail** — every AI action on your site is logged in a searchable user activity log
 * **Change History** — every MCP-originated write (posts, meta, terms, users, options, comments, WooCommerce, BuddyPress) is recorded with before/after snapshots and queryable via 3 dedicated `wp_history_*` tools
 
@@ -88,10 +88,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 **Ask your AI anything — for example:**
 * "Write a 500-word blog post about healthy eating and publish it as a draft"
 * "Show me today's WooCommerce orders and their total revenue"
-* "What are the top 10 search queries bringing traffic to my site this month?"
-* "Update all product prices in the Summer Sale category by -20%"
 * "What keywords does my homepage rank for and what are the click counts?"
-* "Rewrite the introduction of my About page to sound more professional"
 
 = Tools =
 
@@ -117,7 +114,6 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 **Domain** — domain overview and organic competitor research
 **Keywords** — keyword research tools: domain organic keywords, URL organic keywords, keyword overview, related keywords, keyword difficulty, and phrase questions
 **Backlinks** — backlinks overview, backlinks list, referring domains, and anchors
-**Account** — check your Semrush API units balance at any time
 
 = 15 SE Ranking Tools =
 
@@ -125,7 +121,6 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 **Keywords** — keyword research (similar, related, questions, long-tail) and multi-keyword overview with volume, CPC, and difficulty
 **Backlinks** — backlink summary, detailed backlinks / anchors / referring domains, and domain authority (InLink Rank)
 **AI Search** — AI-search visibility across Google AI Overviews, ChatGPT, Perplexity, and Gemini, plus brand discovery and AI prompts
-**Account** — check your SE Ranking API credit balance at any time
 
 = 8 DataforSEO Tools =
 
@@ -134,7 +129,6 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 **Labs** — get ranked keywords for any domain, or find keywords a specific page ranks for
 **Backlinks** — get a backlink summary and list of referring domains for any target URL
 **On-Page** — run a full on-page SEO audit on any URL and get a list of actionable issues
-**Account** — check your DataforSEO API account balance at any time
 
 = 1 Ahrefs Tool =
 
@@ -241,6 +235,13 @@ This plugin connects to the following third-party services **only after a site a
 * What is sent: the configured DataForSEO login + API password (HTTP Basic auth), plus the parameters supplied per call (keyword, target domain, target URL, location code, language code).
 * Terms: https://dataforseo.com/terms-of-use
 * Privacy: https://dataforseo.com/privacy-policy
+
+**SE Ranking API** — `api.seranking.com`
+
+* When: only if an admin saves a SE Ranking API key.
+* What is sent: the configured SE Ranking API key (sent as an Authorization token) plus the parameters supplied per call (target domain, target URL, keyword, region/source code, search engine, display limits).
+* Terms: https://seranking.com/legal/terms-of-service.html
+* Privacy: https://seranking.com/legal/privacy-statement.html
 
 **Google Analytics 4 Data API & Google Search Console API** — `analyticsdata.googleapis.com`, `searchconsole.googleapis.com` / `www.googleapis.com/webmasters/v3` (token exchange via `oauth2.googleapis.com`)
 
@@ -398,6 +399,12 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.8 =
+* **Note: After updating, reconnect (or refresh) your AI connector so it picks up the improved tools.**
+* New: The Abilities page adds a [Browse Plugins with Abilities](https://easymcpai.com/abilities-directory) button to help you find plugins that expose their own WordPress Abilities.
+* Improved: Your AI assistant now searches, filters, and pages through your content faster and more reliably.
+* Fixed: Safer editing — leaving a field blank no longer erases existing content, plus other reliability and security fixes.
 
 = 1.7.7 =
 * New: **SEOPress** — read and update SEO titles, meta descriptions, robots, social cards, and target keywords on your posts.

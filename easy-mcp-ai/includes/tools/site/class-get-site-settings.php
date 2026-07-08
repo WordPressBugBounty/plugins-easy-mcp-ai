@@ -14,7 +14,7 @@ class Get_Site_Settings extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Retrieves the current WordPress site settings. Returns { title, description, url, email (admin email), timezone, date_format, time_format, start_of_week, language, use_smilies, default_category, posts_per_page, default_ping_status, default_comment_status }. Requires `manage_options` capability (administrators only).';
+        return 'Retrieves the current WordPress site settings. Returns { title, description, url, email (admin email), timezone, date_format, time_format, start_of_week, language, use_smilies, default_category, default_post_format, posts_per_page, show_on_front, page_on_front, page_for_posts, default_ping_status, default_comment_status, site_logo, site_icon }. Requires `manage_options` capability (administrators only).';
     }
 
     public function get_category() {

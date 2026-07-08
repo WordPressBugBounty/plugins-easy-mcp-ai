@@ -382,9 +382,21 @@ class Transport {
     }
 
     public function handle_get( \WP_REST_Request $request ) {
+        $this->inject_url_token( $request );
+
         $origin_error = $this->validate_origin( $request );
         if ( $origin_error ) {
             return $origin_error;
+        }
+
+        
+        
+        
+        
+        
+        
+        if ( ! $request->get_header( 'authorization' ) ) {
+            return $this->make_unauthorized_response( null );
         }
 
         $response = new \WP_REST_Response( array( 'error' => 'SSE streaming not supported. Use POST for MCP communication.' ), 405 );

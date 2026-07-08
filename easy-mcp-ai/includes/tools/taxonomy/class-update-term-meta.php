@@ -22,7 +22,11 @@ class Update_Term_Meta extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'edit_posts';
+        
+        
+        
+        
+        return 'read';
     }
 
     public function get_annotations() {

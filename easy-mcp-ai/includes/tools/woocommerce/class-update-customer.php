@@ -14,7 +14,7 @@ class Update_Customer extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce customer account (PATCH semantics). Required: `id`. Optional: `email`, `first_name`, `last_name`, `username`, `password` (hashed on save, not returned), `role`, `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country). Returns the updated customer object. Requires WooCommerce active.';
+        return 'Updates a WooCommerce customer account (PATCH semantics). Required: `id`. Optional: `email`, `first_name`, `last_name`, `username`, `password` (hashed on save, not returned), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country). Returns a summary of the updated customer: `id`, `email`, `first_name`, `last_name`. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -70,10 +70,6 @@ class Update_Customer extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Customer username.',
                 ),
-                'role'       => array(
-                    'type'        => 'string',
-                    'description' => 'Customer WordPress role.',
-                ),
             ),
             'required'   => array( 'id' ),
         );
@@ -108,9 +104,6 @@ class Update_Customer extends Base_Tool {
         }
         if ( isset( $arguments['username'] ) ) {
             $params['username'] = sanitize_text_field( $arguments['username'] );
-        }
-        if ( isset( $arguments['role'] ) ) {
-            $params['role'] = sanitize_text_field( $arguments['role'] );
         }
 
         $data = $this->rest_request( 'PUT', '/wc/v3/customers/' . $id, $params );

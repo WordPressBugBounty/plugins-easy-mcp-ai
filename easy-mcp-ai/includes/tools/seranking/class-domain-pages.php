@@ -38,7 +38,7 @@ class Domain_Pages extends Base_Tool {
 				'order_field' => array( 'type' => 'string', 'description' => 'Sort field; default keywords_count.' ),
 				'order_type'  => array( 'type' => 'string', 'description' => 'Sort direction; default desc.' ),
 				'offset'      => array( 'type' => 'integer', 'description' => 'Row offset.' ),
-				'limit'       => array( 'type' => 'integer', 'default' => 1000, 'description' => 'Rows to return; default 1000.' ),
+				'limit'       => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 10000, 'default' => 1000, 'description' => 'Rows to return (1–10000); default 1000.' ),
 			),
 		);
 	}
@@ -74,7 +74,9 @@ class Domain_Pages extends Base_Tool {
 				$query['offset'] = (int) $arguments['offset'];
 			}
 			if ( isset( $arguments['limit'] ) && '' !== $arguments['limit'] ) {
-				$query['limit'] = (int) $arguments['limit'];
+				$limit = (int) $arguments['limit'];
+				SeRanking_Validators::validate_limit( $limit, 10000 );
+				$query['limit'] = $limit;
 			}
 
 			$json = ( new SeRanking_Client() )->request( 'GET', $path, $query );

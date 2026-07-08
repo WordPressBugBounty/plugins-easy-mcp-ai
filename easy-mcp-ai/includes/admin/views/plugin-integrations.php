@@ -32,6 +32,18 @@ function easy_mcp_ai_view_plugin_integrations( $groups, $enabled_groups, $disabl
         <?php esc_html_e( 'Enable MCP tool groups for third-party plugins. Only plugins that are installed and active can be enabled. Disabled tools return an error when called by an AI agent.', 'easy-mcp-ai' ); ?>
     </p>
 
+    <div class="notice notice-info inline wp-mcp-mt-16 wp-mcp-mb-16 wp-mcp-p-10-14">
+        <p class="wp-mcp-m-0">
+            <?php
+            printf(
+                /* translators: %s: URL of the Abilities admin page. */
+                wp_kses( __( 'Need a plugin that isn\'t here? Its author may expose it directly through <a href="%s">WordPress Abilities</a> — the future of how WordPress plugins connect to AI.', 'easy-mcp-ai' ), array( 'a' => array( 'href' => array() ) ) ),
+                esc_url( admin_url( 'admin.php?page=easy-mcp-ai-abilities' ) )
+            );
+            ?>
+        </p>
+    </div>
+
     <?php if ( 'saved' === $message ) : ?>
         <div class="notice notice-success is-dismissible"><p><strong><?php esc_html_e( 'Plugin integration settings saved.', 'easy-mcp-ai' ); ?></strong> <?php echo \Easy_MCP_AI\Admin\Admin_Page::tool_cache_hint_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- pre-escaped static HTML ?></p></div>
     <?php endif; ?>

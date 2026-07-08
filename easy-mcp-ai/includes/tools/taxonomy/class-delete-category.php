@@ -14,7 +14,7 @@ class Delete_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress category. Required: `category_id`. Posts assigned to the deleted category are moved to the default "Uncategorized" category. Child categories are NOT deleted — they become top-level (parent becomes 0). There is no trash for categories; deletion is irreversible. Use `wp_list_categories` to find the category_id first.';
+        return 'Permanently deletes a WordPress category. Required: `category_id`. Posts assigned to the deleted category are moved to the default "Uncategorized" category. Child categories are NOT deleted — they are reparented to the deleted category\'s parent (so a deleted top-level category\'s children become top-level, but a deleted sub-category\'s children move up to its parent, not to 0). There is no trash for categories; deletion is irreversible. Use `wp_list_categories` to find the category_id first.';
     }
 
     public function get_category() {

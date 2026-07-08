@@ -14,7 +14,7 @@ class Get_Term_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets meta for a term. Required: `term_id`. Optional: `key` (single key — omit to return all meta). Returns { term_id, taxonomy, key (if filtered), meta (array of key=>values) }. Useful for reading per-tag/per-category SEO meta from Yoast (_yoast_wpseo_*), Rank Math (rank_math_*), AIOSEO (_aioseo_*), or WooCommerce category images / brand logos.';
+        return 'Gets meta for a term. Required: `term_id`. Optional: `key` (single key — omit to return all meta). When `key` is given, returns { term_id, taxonomy, key, value }; when `key` is omitted, returns { term_id, taxonomy, meta (array of key=>values) }. Read access is governed by the taxonomy\'s `edit_terms` capability. Useful for reading per-tag/per-category SEO meta from Yoast (_yoast_wpseo_*), Rank Math (rank_math_*), AIOSEO (_aioseo_*), or WooCommerce category images / brand logos.';
     }
 
     public function get_category() {
@@ -22,7 +22,11 @@ class Get_Term_Meta extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'edit_posts';
+        
+        
+        
+        
+        return 'read';
     }
 
     public function get_annotations() {

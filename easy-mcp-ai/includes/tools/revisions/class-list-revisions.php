@@ -14,7 +14,7 @@ class List_Revisions extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all saved revisions of a WordPress post. Required: `post_id`. Optional: `per_page` (default 10, max 100), `page`. Returns { revisions: [{ id, author, date, title, excerpt, content_length }], post_id, total, page } — `content_length` is the character count of the revision content (full content is omitted for performance; use `wp_get_revision` with both `post_id` + `revision_id` to read full content). To restore, pass title, content, and excerpt to `wp_update_post`.';
+        return 'Lists all saved revisions of a WordPress post. Required: `post_id`. Optional: `per_page` (default 10, max 100), `page`. Returns { revisions: [{ id, author, date, title, excerpt, content_length }], post_id, total, total_pages, page, per_page } — `content_length` is the character count of the revision content (full content is omitted for performance; use `wp_get_revision` with both `post_id` + `revision_id` to read full content). To restore, pass title, content, and excerpt to `wp_update_post`.';
     }
 
     public function get_category() {
@@ -76,12 +76,17 @@ class List_Revisions extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'revisions' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 ),
+                    array( 'post_id' => $post_id )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $revisions = $response->get_data();
-        $headers   = $response->get_headers();
-        $total     = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $revisions );
 
         $result = array();
         foreach ( $revisions as $rev ) {
@@ -95,11 +100,10 @@ class List_Revisions extends Base_Tool {
             );
         }
 
-        return array(
-            'revisions' => $result,
-            'total'     => $total,
-            'page'      => $page,
-            'post_id'   => $post_id,
+        return array_merge(
+            array( 'revisions' => $result ),
+            $this->pagination_meta( $response, $page, $per_page, count( $revisions ) ),
+            array( 'post_id' => $post_id )
         );
     }
 }

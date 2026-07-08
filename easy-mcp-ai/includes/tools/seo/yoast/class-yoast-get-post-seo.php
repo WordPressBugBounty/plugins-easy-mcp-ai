@@ -18,7 +18,7 @@ class Yoast_Get_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets structured Yoast SEO metadata for a specific post or page: SEO title, meta description, focus keyword, robots settings, canonical URL, Open Graph fields, Twitter card fields, and schema data. Returns data from the yoast_head_json field appended by Yoast to WP REST responses.';
+		return 'Gets structured Yoast SEO metadata for a specific post or page: SEO title, meta description, focus keyword, robots settings, canonical URL, Open Graph fields, Twitter card fields, and schema data. The primary path returns the yoast_head_json field (Yoast\'s rendered head JSON) appended by Yoast to WP REST responses. For post types not registered with the WP REST API (e.g. tribe_events), it falls back to raw Yoast postmeta returned under a distinct yoast_meta_fallback key (a flat map of seo_title/meta_description/focus_keyword/og_*/twitter_* values) — a different shape from yoast_head_json.';
 	}
 
 	public function get_category() {
@@ -113,9 +113,11 @@ class Yoast_Get_Post_Seo extends Base_Tool {
 			}
 		}
 
+		
+		
 		return array(
-			'post_id'         => $post_id,
-			'yoast_head_json' => $yoast_data,
+			'post_id'              => $post_id,
+			'yoast_meta_fallback' => $yoast_data,
 		);
 	}
 }

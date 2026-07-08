@@ -14,7 +14,7 @@ class List_Tags extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress tags (flat taxonomy). Optional: `search`, `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include/term_order — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns array of { id, name, slug, description, count, link }. Tags have no hierarchy; use `wp_list_categories` for hierarchical terms.';
+        return 'Lists WordPress tags (flat taxonomy). Optional: `search`, `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include/term_order — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns { tags: [{ id, name, slug, description, count }], total, total_pages, page, per_page }. Tags have no hierarchy; use `wp_list_categories` for hierarchical terms.';
     }
 
     public function get_category() {
@@ -106,12 +106,16 @@ class List_Tags extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'tags' => array() ),
+                    $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $tags  = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $tags );
 
         $result = array();
         foreach ( $tags as $tag ) {
@@ -124,9 +128,9 @@ class List_Tags extends Base_Tool {
             );
         }
 
-        return array(
-            'tags'  => $result,
-            'total' => (int) $total,
+        return array_merge(
+            array( 'tags' => $result ),
+            $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $tags ) )
         );
     }
 }

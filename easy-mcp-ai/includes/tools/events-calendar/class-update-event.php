@@ -14,7 +14,7 @@ class Update_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing event in The Events Calendar (PUT semantics — supply all fields you want to keep, not just the changed ones). Required: `id` (event post ID). Optional: `title`, `start_date` (YYYY-MM-DD HH:MM:SS), `end_date` (YYYY-MM-DD HH:MM:SS), `description`, `all_day` (boolean), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`), `cost` (string, e.g. "10.00"), `url` (event website URL), `status` (publish/draft/private). Returns { id, title, start_date, end_date, url }. Requires The Events Calendar plugin active.';
+        return 'Updates an existing event in The Events Calendar (PUT semantics — supply all fields you want to keep, not just the changed ones). Required: `id` (event post ID). Optional: `title`, `start_date` (YYYY-MM-DD HH:MM:SS), `end_date` (YYYY-MM-DD HH:MM:SS), `description`, `all_day` (boolean), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`), `cost` (string, e.g. "10.00"), `url` (event website URL), `status` (publish/draft/pending). Returns { id, title, start_date, end_date, url }. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -82,6 +82,7 @@ class Update_Event extends Base_Tool {
                 'status'      => array(
                     'type'        => 'string',
                     'description' => 'Event post status.',
+                    'enum'        => array( 'publish', 'draft', 'pending' ),
                 ),
             ),
             'required'   => array( 'id' ),
@@ -128,7 +129,7 @@ class Update_Event extends Base_Tool {
             $params['cost'] = sanitize_text_field( $arguments['cost'] );
         }
         if ( isset( $arguments['url'] ) ) {
-            $params['url'] = sanitize_url( $arguments['url'] );
+            $params['website'] = sanitize_url( $arguments['url'] );
         }
         if ( isset( $arguments['status'] ) ) {
             $params['status'] = sanitize_text_field( $arguments['status'] );

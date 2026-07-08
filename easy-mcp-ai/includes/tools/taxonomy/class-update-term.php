@@ -19,7 +19,7 @@ class Update_Term extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a term in any taxonomy. Required: `term_id`, `taxonomy`. Optional updateable fields: `name`, `slug`, `description`, `parent`. Returns { id, name, slug, taxonomy }. Capability resolved dynamically via taxonomy cap->edit_terms.';
+        return 'Updates a term in any taxonomy. Required: `term_id`, `taxonomy`. Optional updateable fields: `name`, `slug`, `description`, `parent`. Returns { id, name, slug, description, parent, count, taxonomy }. Capability resolved dynamically via taxonomy cap->edit_terms. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -102,7 +102,8 @@ class Update_Term extends Base_Tool {
                 throw new \InvalidArgumentException( 'slug cannot be empty.' );
             }
         }
-        if ( isset( $arguments['description'] ) ) {
+        
+        if ( isset( $arguments['description'] ) && '' !== $arguments['description'] ) {
             $params['description'] = wp_kses_post( (string) $arguments['description'] );
         }
         if ( array_key_exists( 'parent', $arguments ) ) {

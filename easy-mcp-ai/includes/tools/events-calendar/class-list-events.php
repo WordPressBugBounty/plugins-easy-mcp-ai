@@ -14,7 +14,7 @@ class List_Events extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists events from The Events Calendar with optional filtering by date range, venue, organizer, category, and search. Returns id, title, start_date, end_date, venue, organizer, and permalink.';
+        return 'Lists events from The Events Calendar with optional filtering by date range, venue, organizer, category, tag, post status, featured flag, and search. `per_page` is capped at 50 (TEC hard limit). Returns id, title, start_date, end_date, venue, organizer, and permalink.';
     }
 
     public function get_category() {
@@ -40,10 +40,10 @@ class List_Events extends Base_Tool {
             'properties' => array(
                 'per_page'   => array(
                     'type'        => 'integer',
-                    'description' => 'Number of events per page.',
+                    'description' => 'Number of events per page (TEC caps this at 50).',
                     'default'     => 10,
                     'minimum'     => 1,
-                    'maximum'     => 100,
+                    'maximum'     => 50,
                 ),
                 'page'       => array(
                     'type'        => 'integer',
@@ -99,96 +99,86 @@ class List_Events extends Base_Tool {
         }
 
         $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
-        $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
+        $per_page = isset( $arguments['per_page'] ) ? min( 50, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
 
         
         
-        $use_wp_query = ! empty( $arguments['categories'] ) || ! empty( $arguments['tags'] ) || isset( $arguments['status'] );
-
-        if ( ! $use_wp_query ) {
-            $params = array(
-                'per_page' => $per_page,
-                'page'     => $page,
-            );
-            if ( isset( $arguments['search'] ) )     $params['search']     = sanitize_text_field( $arguments['search'] );
-            if ( isset( $arguments['start_date'] ) ) $params['start_date'] = sanitize_text_field( $arguments['start_date'] );
-            if ( isset( $arguments['end_date'] ) )   $params['end_date']   = sanitize_text_field( $arguments['end_date'] );
-            if ( isset( $arguments['venue'] ) )      $params['venue']      = absint( $arguments['venue'] );
-            if ( isset( $arguments['organizer'] ) )  $params['organizer']  = absint( $arguments['organizer'] );
-            if ( isset( $arguments['featured'] ) )   $params['featured']   = (bool) $arguments['featured'];
-
-            $data   = $this->rest_request( 'GET', '/tribe/events/v1/events', $params );
-            $events = $data['events'] ?? $data;
-
-            if ( ! is_array( $events ) ) {
-                return array( 'events' => array(), 'page' => $page );
-            }
-
-            return array(
-                'events' => array_map( function ( $e ) {
-                    return array(
-                        'id'         => $e['id'],
-                        'title'      => $e['title'],
-                        'start_date' => $e['start_date'],
-                        'end_date'   => $e['end_date'],
-                        'all_day'    => $e['all_day'],
-                        'venue'      => $e['venue']['venue'] ?? null,
-                        'organizer'  => $e['organizer'][0]['organizer'] ?? null,
-                        'permalink'  => $e['url'],
-                    );
-                }, $events ),
-                'page' => $page,
-            );
-        }
-
         
-        $args = array(
-            'post_type'      => \Tribe__Events__Main::POSTTYPE,
-            'posts_per_page' => $per_page,
-            'paged'          => $page,
-            'post_status'    => isset( $arguments['status'] ) ? sanitize_key( $arguments['status'] ) : 'publish',
+        $params = array(
+            'per_page' => $per_page,
+            'page'     => $page,
         );
-
-        $tax_query = array();
+        if ( isset( $arguments['search'] ) )     $params['search']     = sanitize_text_field( $arguments['search'] );
+        if ( isset( $arguments['start_date'] ) ) $params['start_date'] = sanitize_text_field( $arguments['start_date'] );
+        if ( isset( $arguments['end_date'] ) )   $params['end_date']   = sanitize_text_field( $arguments['end_date'] );
+        if ( isset( $arguments['venue'] ) )      $params['venue']      = absint( $arguments['venue'] );
+        if ( isset( $arguments['organizer'] ) )  $params['organizer']  = absint( $arguments['organizer'] );
+        if ( isset( $arguments['featured'] ) )   $params['featured']   = (bool) $arguments['featured'];
+        if ( isset( $arguments['status'] ) )     $params['status']     = sanitize_key( $arguments['status'] );
         if ( ! empty( $arguments['categories'] ) ) {
-            $tax_query[] = array(
-                'taxonomy' => \Tribe__Events__Main::TAXONOMY,
-                'field'    => 'term_id',
-                'terms'    => array_map( 'absint', $this->parse_json_param( $arguments['categories'], 'categories' ) ),
-            );
+            $params['categories'] = array_values( array_filter( array_map( 'absint', $this->parse_json_param( $arguments['categories'], 'categories' ) ) ) );
         }
         if ( ! empty( $arguments['tags'] ) ) {
-            $tax_query[] = array(
-                'taxonomy' => 'post_tag',
-                'field'    => 'term_id',
-                'terms'    => array_map( 'absint', $this->parse_json_param( $arguments['tags'], 'tags' ) ),
-            );
-        }
-        if ( ! empty( $tax_query ) ) {
-            // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query -- Required to filter events by category/tag via WP_Query.
-            $args['tax_query'] = $tax_query;
-        }
-        if ( isset( $arguments['search'] ) ) {
-            $args['s'] = sanitize_text_field( $arguments['search'] );
+            $params['tags'] = array_values( array_filter( array_map( 'absint', $this->parse_json_param( $arguments['tags'], 'tags' ) ) ) );
         }
 
-        $query  = new \WP_Query( $args );
-        $result = array();
-        foreach ( $query->posts as $post ) {
-            $venue_id = get_post_meta( $post->ID, '_EventVenueID', true );
-            $org_id   = get_post_meta( $post->ID, '_EventOrganizerID', true );
-            $result[] = array(
-                'id'         => $post->ID,
-                'title'      => $post->post_title,
-                'start_date' => get_post_meta( $post->ID, '_EventStartDate', true ),
-                'end_date'   => get_post_meta( $post->ID, '_EventEndDate', true ),
-                'all_day'    => (bool) get_post_meta( $post->ID, '_EventAllDay', true ),
-                'venue'      => $venue_id ? get_the_title( (int) $venue_id ) : null,
-                'organizer'  => $org_id ? get_the_title( (int) $org_id ) : null,
-                'permalink'  => get_permalink( $post->ID ),
+        
+        
+        
+        
+        
+        $request = new \WP_REST_Request( 'GET', '/tribe/events/v1/events' );
+        foreach ( $params as $key => $value ) {
+            $request->set_param( $key, $value );
+        }
+
+        $response = rest_do_request( $request );
+
+        if ( $response->is_error() ) {
+            $error = $response->as_error();
+            $code  = (string) $error->get_error_code();
+            $status = $error->get_error_data();
+            $status = is_array( $status ) && isset( $status['status'] ) ? (int) $status['status'] : 0;
+            if (
+                'event-archive-page-not-found' === $code
+                || false !== strpos( $code, 'not-found' )
+                || false !== strpos( $code, 'not_found' )
+                || 404 === $status
+            ) {
+                return array_merge(
+                    array( 'events' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 )
+                );
+            }
+            throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+
+        $data   = $response->get_data();
+        $events = $data['events'] ?? $data;
+
+        if ( ! is_array( $events ) ) {
+            return array_merge(
+                array( 'events' => array() ),
+                $this->pagination_meta( $response, $page, $per_page, 0 )
             );
         }
 
-        return array( 'events' => $result, 'page' => $page );
+        $mapped = array_map( function ( $e ) {
+            return array(
+                'id'         => $e['id'],
+                'title'      => $e['title'],
+                'start_date' => $e['start_date'],
+                'end_date'   => $e['end_date'],
+                'all_day'    => $e['all_day'],
+                'venue'      => $e['venue']['venue'] ?? null,
+                'organizer'  => $e['organizer'][0]['organizer'] ?? null,
+                'permalink'  => $e['url'],
+            );
+        }, $events );
+
+        return array_merge(
+            array( 'events' => $mapped ),
+            $this->pagination_meta( $response, $page, $per_page, count( $mapped ) )
+        );
     }
 }

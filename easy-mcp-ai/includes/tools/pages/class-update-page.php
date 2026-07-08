@@ -14,7 +14,7 @@ class Update_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future/trash), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`. Returns { id, title, status, modified, link }.';
+        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future/trash), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`. Returns { id, title, status, modified, link }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -110,11 +110,15 @@ class Update_Page extends Base_Tool {
         $page_id = $this->parse_required_id( $arguments['page_id'], 'page_id' );
         $params  = array();
 
-        if ( isset( $arguments['title'] ) ) {
+        
+        
+        
+        
+        if ( isset( $arguments['title'] ) && '' !== $arguments['title'] ) {
             $params['title'] = sanitize_text_field( $arguments['title'] );
         }
 
-        if ( isset( $arguments['content'] ) ) {
+        if ( isset( $arguments['content'] ) && '' !== $arguments['content'] ) {
             
             
             
@@ -146,7 +150,7 @@ class Update_Page extends Base_Tool {
             $params['date'] = sanitize_text_field( $arguments['date'] );
         }
 
-        if ( isset( $arguments['excerpt'] ) ) {
+        if ( isset( $arguments['excerpt'] ) && '' !== $arguments['excerpt'] ) {
             $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
         }
 

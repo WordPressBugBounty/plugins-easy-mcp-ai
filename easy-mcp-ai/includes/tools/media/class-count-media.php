@@ -14,7 +14,7 @@ class Count_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns attachment counts grouped by MIME type, plus a total. Optional: `mime_type` (e.g. \'image/jpeg\') to filter to a single type. Returns the full `wp_count_attachments()` object: { \'image/jpeg\': 12, \'image/png\': 5, ..., \'trash\': {...} }.';
+        return 'Returns attachment counts grouped by MIME type. Optional: `mime_type` (e.g. \'image/jpeg\') to filter to a single type. Returns { mime_type_filter (the `mime_type` echoed back, or "" when unfiltered), counts } where `counts` is the `wp_count_attachments()` object: { \'image/jpeg\': 12, \'image/png\': 5, ..., \'trash\': {...} }.';
     }
 
     public function get_category() {

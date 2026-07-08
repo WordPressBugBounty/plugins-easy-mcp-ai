@@ -14,7 +14,7 @@ class Delete_Menu_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a single menu item from a navigation menu. Required: `item_id` (the menu_item id, NOT the linked post/term id — get it from `wp_list_menu_items`). Deleting a parent item leaves its children orphaned at top-level (`parent` becomes 0); re-parent them first if you want them moved. Does NOT delete the linked post or term — only the menu entry. Action is permanent (no trash for menu items).';
+        return 'Deletes a single menu item from a navigation menu. Required: `item_id` (the menu_item id, NOT the linked post/term id — get it from `wp_list_menu_items`). Deletion is always permanent — WordPress has no trash for menu items, so this is irreversible. Deleting a parent item leaves its children orphaned at top-level (`parent` becomes 0); re-parent them first if you want them moved. Does NOT delete the linked post or term — only the menu entry.';
     }
 
     public function get_category() {
@@ -42,11 +42,6 @@ class Delete_Menu_Item extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'The ID of the menu item to delete.',
                 ),
-                'force'   => array(
-                    'type'        => 'boolean',
-                    'description' => 'Whether to bypass the trash and force deletion.',
-                    'default'     => false,
-                ),
             ),
             'required'   => array( 'item_id' ),
         );
@@ -57,10 +52,9 @@ class Delete_Menu_Item extends Base_Tool {
 
         $item_id = $this->parse_required_id( $arguments['item_id'], 'item_id' );
         $request = new \WP_REST_Request( 'DELETE', '/wp/v2/menu-items/' . $item_id );
-
-        if ( isset( $arguments['force'] ) ) {
-            $request->set_param( 'force', (bool) $arguments['force'] );
-        }
+        
+        
+        $request->set_param( 'force', true );
 
         $response = rest_do_request( $request );
 

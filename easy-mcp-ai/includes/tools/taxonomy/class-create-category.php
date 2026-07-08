@@ -14,7 +14,7 @@ class Create_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress category (hierarchical taxonomy). Required: `name`. Optional: `slug` (auto-derived from name if omitted), `description`, `parent` (ID of parent category — 0 = top-level; categories support nesting unlike tags). Returns { id, name, slug, description, parent, count }. Category names must be unique; duplicate names auto-disambiguate via slug suffix.';
+        return 'Creates a new WordPress category (hierarchical taxonomy). Required: `name`. Optional: `slug` (auto-derived from name if omitted), `description`, `parent` (ID of parent category — 0 = top-level; categories support nesting unlike tags). Returns { id, name, slug }. A duplicate name under the same parent is rejected with a term_exists error; a same-named category under a different parent is allowed and its slug gets a numeric suffix (e.g. news-2) to stay unique.';
     }
 
     public function get_category() {

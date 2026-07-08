@@ -22,7 +22,9 @@ class Get_Comment extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'read'; 
+        
+        
+        return 'moderate_comments';
     }
 
     public function get_annotations() {

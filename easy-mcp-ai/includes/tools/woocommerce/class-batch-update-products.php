@@ -77,7 +77,9 @@ class Batch_Update_Products extends Base_Tool {
             }
             $create_items = array();
             foreach ( $arguments['create'] as $item ) {
-                $this->maybe_force_draft( $item );
+                if ( is_array( $item ) ) {
+                    $this->maybe_force_draft( $item );
+                }
                 $create_items[] = $item;
             }
             $body['create'] = $create_items;

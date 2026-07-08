@@ -462,6 +462,152 @@ abstract class Base_Tool {
         self::$already_invalidated = array();
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function pagination_meta( $response, $page, $per_page, $count = 0 ) {
+        $headers  = ( is_object( $response ) && method_exists( $response, 'get_headers' ) ) ? $response->get_headers() : array();
+        $per_page = max( 1, (int) $per_page );
+        $total    = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : (int) $count;
+        $total_pages = isset( $headers['X-WP-TotalPages'] )
+            ? (int) $headers['X-WP-TotalPages']
+            : (int) ceil( $total / $per_page );
+
+        return array(
+            'total'       => $total,
+            'total_pages' => $total_pages,
+            'page'        => (int) $page,
+            'per_page'    => $per_page,
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    protected function is_invalid_page_error( $error ) {
+        return \is_wp_error( $error ) && false !== strpos( (string) $error->get_error_code(), 'invalid_page_number' );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function build_search_snippet( $content, $query, $length = 200 ) {
+        $length  = max( 20, min( 1000, (int) $length ) );
+        $content = (string) $content;
+        if ( '' === $content ) {
+            return '';
+        }
+        
+        
+        
+        $cap = 20000;
+        if ( strlen( $content ) > $cap ) {
+            $window = min( $cap, $length + 4000 );
+            
+            
+            $raw_needle = trim( (string) $query );
+            
+            
+            
+            $use_mb  = function_exists( 'mb_stripos' ) && function_exists( 'mb_substr' );
+            $raw_pos = false;
+            if ( '' !== $raw_needle ) {
+                $raw_pos = $use_mb
+                    ? mb_stripos( $content, $raw_needle, 0, 'UTF-8' )
+                    : stripos( $content, $raw_needle );
+            }
+            $raw_start = ( false !== $raw_pos ) ? (int) max( 0, $raw_pos - 2000 ) : 0;
+            $content   = $use_mb
+                ? mb_substr( $content, $raw_start, $window, 'UTF-8' )
+                : substr( $content, $raw_start, $window );
+        }
+
+        
+        
+        $text = function_exists( 'strip_shortcodes' ) ? strip_shortcodes( $content ) : $content;
+        $text = preg_replace( '/<!--.*?-->/s', ' ', $text );
+        $text = wp_strip_all_tags( (string) $text );
+        $text = html_entity_decode( $text, ENT_QUOTES, 'UTF-8' );
+        
+        
+        $collapsed = preg_replace( '/\s+/u', ' ', $text );
+        if ( null === $collapsed ) {
+            $collapsed = preg_replace( '/\s+/', ' ', $text );
+        }
+        $text = trim( (string) $collapsed );
+        if ( '' === $text ) {
+            return '';
+        }
+
+        $have_mb = function_exists( 'mb_stripos' ) && function_exists( 'mb_substr' ) && function_exists( 'mb_strlen' );
+
+        
+        $pos    = false;
+        $needle = trim( (string) $query );
+        if ( '' !== $needle ) {
+            $pos = $have_mb ? mb_stripos( $text, $needle, 0, 'UTF-8' ) : stripos( $text, $needle );
+            if ( false === $pos && false !== strpos( $needle, ' ' ) ) {
+                $first_word = strtok( $needle, ' ' );
+                if ( '' !== (string) $first_word ) {
+                    $pos = $have_mb ? mb_stripos( $text, $first_word, 0, 'UTF-8' ) : stripos( $text, $first_word );
+                }
+            }
+        }
+        if ( false === $pos ) {
+            $pos = 0; 
+        }
+
+        $total = $have_mb ? mb_strlen( $text, 'UTF-8' ) : strlen( $text );
+        if ( $total <= $length ) {
+            return $text;
+        }
+
+        $start = (int) max( 0, $pos - (int) floor( $length / 2 ) );
+        if ( $start + $length > $total ) {
+            $start = (int) max( 0, $total - $length );
+        }
+        $snippet = $have_mb ? mb_substr( $text, $start, $length, 'UTF-8' ) : substr( $text, $start, $length );
+        $snippet = trim( (string) $snippet );
+
+        $prefix = $start > 0 ? "\xE2\x80\xA6" : '';                       
+        $suffix = ( $start + $length ) < $total ? "\xE2\x80\xA6" : '';    
+        return $prefix . $snippet . $suffix;
+    }
+
     protected function rest_request( $method, $route, $params = array(), $fields = null ) {
         $request = new \WP_REST_Request( $method, $route );
         if ( in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) && ! empty( $params ) ) {

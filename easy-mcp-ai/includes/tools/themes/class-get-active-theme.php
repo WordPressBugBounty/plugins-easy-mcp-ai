@@ -14,7 +14,7 @@ class Get_Active_Theme extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets the currently active WordPress theme. Returns { stylesheet (theme folder identifier), name, version, author, description, tags, screenshot_url, template (parent theme stylesheet if child theme, else same as stylesheet) }. No parameters required. Use `wp_list_themes` to see all installed themes.';
+        return 'Gets the currently active WordPress theme. Returns { stylesheet (theme folder identifier), name, version, author, description }. No parameters required. Use `wp_list_themes` to see all installed themes.';
     }
 
     public function get_category() {

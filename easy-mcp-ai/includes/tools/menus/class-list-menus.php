@@ -14,7 +14,7 @@ class List_Menus extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all registered WordPress navigation menus (`nav_menu` taxonomy terms). Each row: { id, name, slug, description, count } where count is the number of items in the menu. Does not return the items themselves — use `wp_list_menu_items` for that. No input parameters. Requires WordPress 5.9+.';
+        return 'Lists all registered WordPress navigation menus (`nav_menu` taxonomy terms). Returns { menus: [{ id, name, slug, description }], total, total_pages, page, per_page }. Does not return the items themselves — use `wp_list_menu_items` for that. No input parameters (up to 100 menus are returned in a single page). Requires WordPress 5.9+.';
     }
 
     public function get_category() {
@@ -54,8 +54,6 @@ class List_Menus extends Base_Tool {
         }
 
         $menus = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $menus );
 
         $result = array();
         foreach ( $menus as $menu ) {
@@ -67,9 +65,10 @@ class List_Menus extends Base_Tool {
             );
         }
 
-        return array(
-            'menus' => $result,
-            'total' => (int) $total,
+        
+        return array_merge(
+            array( 'menus' => $result ),
+            $this->pagination_meta( $response, 1, 100, count( $menus ) )
         );
     }
 }

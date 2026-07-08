@@ -14,7 +14,7 @@ class List_Posts extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress posts. Optional filters: `status` (publish/draft/pending/private/future/trash — default publish; use "any" to get all statuses), `search`, `categories` (array of category IDs), `tags` (array of tag IDs), `author` (user ID), `per_page` (max 100, default 10), `page`, `orderby` (date/id/title/slug/modified/author — default date), `order` (asc/desc). Returns array of { id, title, status, date, modified, slug, link, excerpt, author }. For CPT items use `wp_list_cpt_items`.';
+        return 'Lists WordPress posts. Optional filters: `status` (publish/draft/pending/private/future/trash — default publish; use "any" to get all statuses), `search`, `categories` (array of category IDs), `tags` (array of tag IDs), `author` (user ID), `author_exclude` (array of user IDs to exclude), `after` / `before` (ISO 8601 date-time range on publish date), `per_page` (max 100, default 10), `page`, `orderby` (date/id/title/slug/modified/author — default date), `order` (asc/desc). Returns { posts: [{ id, title, status, date, modified, slug, excerpt, author, categories (array of IDs), tags (array of IDs), featured_media, link }], total, total_pages, page, per_page }. For CPT items use `wp_list_cpt_items`.';
     }
 
     public function get_category() {
@@ -73,6 +73,19 @@ class List_Posts extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Author user ID to filter by.',
                 ),
+                'author_exclude' => array(
+                    'type'        => 'array',
+                    'items'       => array( 'type' => 'integer' ),
+                    'description' => 'Array of author user IDs to EXCLUDE from results.',
+                ),
+                'after'      => array(
+                    'type'        => 'string',
+                    'description' => 'Only posts published on or after this ISO 8601 date-time (e.g. "2026-01-01T00:00:00").',
+                ),
+                'before'     => array(
+                    'type'        => 'string',
+                    'description' => 'Only posts published on or before this ISO 8601 date-time (e.g. "2026-12-31T23:59:59").',
+                ),
                 'orderby'    => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
@@ -115,6 +128,18 @@ class List_Posts extends Base_Tool {
             $params['author'] = absint( $arguments['author'] );
         }
 
+        if ( ! empty( $arguments['author_exclude'] ) ) {
+            $params['author_exclude'] = array_map( 'absint', $this->parse_json_param( $arguments['author_exclude'], 'author_exclude' ) );
+        }
+
+        if ( ! empty( $arguments['after'] ) ) {
+            $params['after'] = sanitize_text_field( $arguments['after'] );
+        }
+
+        if ( ! empty( $arguments['before'] ) ) {
+            $params['before'] = sanitize_text_field( $arguments['before'] );
+        }
+
         if ( ! empty( $arguments['orderby'] ) ) {
             $params['orderby'] = $arguments['orderby'];
         }
@@ -133,19 +158,16 @@ class List_Posts extends Base_Tool {
         if ( $response->is_error() ) {
             $error = $response->as_error();
             
-            if ( 'rest_post_invalid_page_number' === $error->get_error_code() ) {
-                return array(
-                    'posts' => array(),
-                    'total' => 0,
-                    'page'  => $params['page'],
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'posts' => array() ),
+                    $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
                 );
             }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $posts = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $posts );
 
         $result = array();
         foreach ( $posts as $post ) {
@@ -165,10 +187,9 @@ class List_Posts extends Base_Tool {
             );
         }
 
-        return array(
-            'posts' => $result,
-            'total' => (int) $total,
-            'page'  => $params['page'],
+        return array_merge(
+            array( 'posts' => $result ),
+            $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $posts ) )
         );
     }
 }

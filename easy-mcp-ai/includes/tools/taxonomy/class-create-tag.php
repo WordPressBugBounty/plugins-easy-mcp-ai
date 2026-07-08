@@ -14,7 +14,7 @@ class Create_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress tag (flat taxonomy — no hierarchy, no `parent`). Required: `name`. Optional: `slug` (auto-derived from name if omitted), `description`. Returns { id, name, slug, description, count }. Tags are unique by slug; a duplicate slug triggers an error. For hierarchical terms use `wp_create_category` instead.';
+        return 'Creates a new WordPress tag (flat taxonomy — no hierarchy, no `parent`). Required: `name`. Optional: `slug` (auto-derived from name if omitted), `description`. Returns { id, name, slug }. Tags are unique by slug; a duplicate slug triggers an error. For hierarchical terms use `wp_create_category` instead.';
     }
 
     public function get_category() {

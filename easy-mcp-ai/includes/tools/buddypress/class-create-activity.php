@@ -14,7 +14,7 @@ class Create_Activity extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Posts a new activity item to the BuddyPress activity stream. Required: `content`. Optional: `type` (activity type slug — default "activity_update"; other values include new_blog_post, new_blog_comment, friendship_created), `component` (default "activity"), `item_id` (primary object ID, e.g. group ID for group-scoped activity), `secondary_item_id`, `primary_link` (canonical URL the activity points to), `hide_sitewide` (boolean — hides from sitewide stream, shows only in group/member streams). Returns { id, type, content }. Requires BuddyPress Activity component enabled.';
+        return 'Posts a new activity item to the BuddyPress activity stream. Required: `content`. Optional: `type` (activity type slug — default "activity_update"; other values include new_blog_post, new_blog_comment, friendship_created), `component` (default "activity"), `primary_item_id` (primary object ID, e.g. group ID for group-scoped activity), `secondary_item_id`, `hidden` (boolean — hides from sitewide stream, shows only in group/member streams). Returns { id, type, content }. Requires BuddyPress Activity component enabled.';
     }
 
     public function get_category() {
@@ -49,19 +49,15 @@ class Create_Activity extends Base_Tool {
                     'type'    => 'string',
                     'default' => 'activity',
                 ),
-                'item_id'           => array(
+                'primary_item_id'   => array(
                     'type'        => 'integer',
-                    'description' => 'ID of the item being acted on (e.g. group ID). Maps to the BuddyPress API item_id field.',
+                    'description' => 'ID of the primary item being acted on (e.g. group ID). Maps to the BuddyPress REST primary_item_id field.',
                 ),
                 'secondary_item_id' => array(
                     'type'        => 'integer',
                     'description' => 'ID of a secondary item.',
                 ),
-                'primary_link'      => array(
-                    'type'        => 'string',
-                    'description' => 'The canonical URL this activity item points to.',
-                ),
-                'hide_sitewide'     => array(
+                'hidden'            => array(
                     'type'        => 'boolean',
                     'description' => 'Whether to hide the activity from the global sitewide stream.',
                 ),
@@ -87,17 +83,14 @@ class Create_Activity extends Base_Tool {
             'component' => sanitize_text_field( $arguments['component'] ?? 'activity' ),
         );
 
-        if ( isset( $arguments['item_id'] ) && absint( $arguments['item_id'] ) > 0 ) {
-            $params['item_id'] = absint( $arguments['item_id'] );
+        if ( isset( $arguments['primary_item_id'] ) && absint( $arguments['primary_item_id'] ) > 0 ) {
+            $params['primary_item_id'] = absint( $arguments['primary_item_id'] );
         }
         if ( isset( $arguments['secondary_item_id'] ) && absint( $arguments['secondary_item_id'] ) > 0 ) {
             $params['secondary_item_id'] = absint( $arguments['secondary_item_id'] );
         }
-        if ( isset( $arguments['primary_link'] ) ) {
-            $params['primary_link'] = esc_url_raw( $arguments['primary_link'] );
-        }
-        if ( isset( $arguments['hide_sitewide'] ) ) {
-            $params['hide_sitewide'] = (bool) $arguments['hide_sitewide'];
+        if ( isset( $arguments['hidden'] ) ) {
+            $params['hidden'] = (bool) $arguments['hidden'];
         }
 
         $data = $this->rest_request( 'POST', '/buddypress/v1/activity', $params );

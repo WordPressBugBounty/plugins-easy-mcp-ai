@@ -59,6 +59,24 @@ class OAuth_Routes {
 
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/oauth/authorize',
+            array(
+                'methods'             => \WP_REST_Server::READABLE,
+                'callback'            => array( $this, 'handle_authorize_redirect' ),
+                'permission_callback' => '__return_true',
+            )
+        );
 
         
 
@@ -83,6 +101,61 @@ class OAuth_Routes {
                 'permission_callback' => '__return_true',
             )
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public function handle_authorize_redirect( \WP_REST_Request $request ) {
+        $url = self::build_authorize_redirect_url( (array) $request->get_query_params() );
+        
+        
+        
+        \nocache_headers();
+        
+        
+        
+        \wp_safe_redirect( $url, 302 );
+        exit;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function build_authorize_redirect_url( array $query_params ) {
+        
+        unset( $query_params['rest_route'], $query_params['_locale'] );
+
+        
+        $query_params['easy_mcp_ai_oauth'] = 'authorize';
+
+        return \home_url( '/' ) . '?' . http_build_query( $query_params );
     }
 
     

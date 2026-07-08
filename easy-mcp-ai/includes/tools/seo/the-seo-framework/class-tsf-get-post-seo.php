@@ -78,6 +78,10 @@ class Tsf_Get_Post_Seo extends Base_Tool {
 
 		$post_id = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
 
+		if ( ! get_post( $post_id ) ) {
+			throw new \RuntimeException( 'Invalid post ID.' );
+		}
+
 		$seo = array();
 		foreach ( self::META_KEYS as $key ) {
 			$seo[ $key ] = get_post_meta( $post_id, $key, true );

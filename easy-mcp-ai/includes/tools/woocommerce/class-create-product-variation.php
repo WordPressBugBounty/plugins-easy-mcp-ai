@@ -138,7 +138,7 @@ class Create_Product_Variation extends Base_Tool {
 			$params['sku'] = sanitize_text_field( $arguments['sku'] );
 		}
 		if ( isset( $arguments['stock_quantity'] ) ) {
-			$params['stock_quantity'] = absint( $arguments['stock_quantity'] );
+			$params['stock_quantity'] = (int) $arguments['stock_quantity']; 
 		}
 		if ( isset( $arguments['manage_stock'] ) ) {
 			$params['manage_stock'] = (bool) $arguments['manage_stock'];

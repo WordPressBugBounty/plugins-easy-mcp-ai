@@ -14,7 +14,7 @@ class Get_Menu extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WordPress navigation menu by ID. Returns { id, name, slug, description, count }. Does not include menu items — call `wp_list_menu_items` with the same id for the items themselves. To find a menu by name/slug first, use `wp_list_menus`. Requires WordPress 5.9+.';
+        return 'Gets a single WordPress navigation menu by ID. Returns { id, name, slug, description }. Does not include menu items — call `wp_list_menu_items` with the same id for the items themselves. To find a menu by name/slug first, use `wp_list_menus`. Requires WordPress 5.9+.';
     }
 
     public function get_category() {

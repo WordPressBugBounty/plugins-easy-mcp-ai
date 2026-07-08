@@ -14,7 +14,7 @@ class Get_Post_Statuses extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all registered WordPress post statuses (built-in and plugin-added). Returns array of { slug, name }. Built-in statuses: publish, future, draft, pending, private, trash. Plugin statuses (e.g. WooCommerce order statuses like wc-processing) are included if registered. Use this to discover valid values before filtering by status.';
+        return 'Lists all registered WordPress post statuses (built-in and plugin-added). Returns { statuses: [{ slug, name, public, queryable }] }. Built-in statuses: publish, future, draft, pending, private, trash. Plugin statuses (e.g. WooCommerce order statuses like wc-processing) are included if registered. Use this to discover valid values before filtering by status.';
     }
 
     public function get_category() {

@@ -77,12 +77,16 @@ class List_Menu_Items extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'items' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $items = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $items );
 
         $result = array();
         foreach ( $items as $item ) {
@@ -98,9 +102,9 @@ class List_Menu_Items extends Base_Tool {
             );
         }
 
-        return array(
-            'items' => $result,
-            'total' => (int) $total,
+        return array_merge(
+            array( 'items' => $result ),
+            $this->pagination_meta( $response, $page, $per_page, count( $items ) )
         );
     }
 }

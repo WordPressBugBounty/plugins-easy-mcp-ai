@@ -382,6 +382,69 @@
             .addClass( expanded ? 'dashicons-arrow-right-alt2' : 'dashicons-arrow-down-alt2' );
     });
 
+    // Abilities Browser — clicking anywhere on a group header (except the collapse
+    // button or the "select all" checkbox/label) toggles the section.
+    $(document).on('click', '.wp-mcp-plugin-header', function (e) {
+        if ($(e.target).closest('.wp-mcp-collapse-btn, .wp-mcp-group-toggle').length) { return; }
+        $(this).find('.wp-mcp-collapse-btn').first().trigger('click');
+    });
+
+    // Abilities Browser — per-group "select all" checkbox + live read/write counts.
+    function updateAbilityGroup(id) {
+        var $body   = $('#' + id);
+        var $boxes  = $body.find('.wp-mcp-ability-checkbox');
+        var total   = $boxes.length;
+        var enabled = $boxes.filter(':checked').length;
+        var $group  = $('.wp-mcp-abilities-group-checkbox[data-group="' + id + '"]');
+        $group.prop('checked', total > 0 && enabled === total);
+        $group.prop('indeterminate', enabled > 0 && enabled < total);
+        var $counts = $('.wp-mcp-abilities-group-counts[data-group="' + id + '"]');
+        var tmpl = $counts.attr('data-tmpl') || '%1$d / %2$d enabled · %3$d read, %4$d write';
+        $counts.text(
+            tmpl
+                .replace('%1$d', enabled)
+                .replace('%2$d', total)
+                .replace('%3$d', (parseInt($counts.attr('data-read'), 10) || 0))
+                .replace('%4$d', (parseInt($counts.attr('data-write'), 10) || 0))
+        );
+    }
+
+    // Group checkbox toggles every ability in its section.
+    $(document).on('change', '.wp-mcp-abilities-group-checkbox', function () {
+        var id = $(this).attr('data-group');
+        $(this).prop('indeterminate', false);
+        $('#' + id).find('.wp-mcp-ability-checkbox').prop('checked', $(this).is(':checked'));
+        updateAbilityGroup(id);
+    });
+
+    // A single ability toggle re-syncs its group's checkbox state + enabled count.
+    $(document).on('change', '.wp-mcp-ability-checkbox', function () {
+        var id = $(this).closest('.wp-mcp-plugin-body').attr('id');
+        if (id) { updateAbilityGroup(id); }
+    });
+
+    // Initialise each group's checkbox (indeterminate state) + counts on load.
+    $('.wp-mcp-abilities-group-checkbox').each(function () {
+        updateAbilityGroup($(this).attr('data-group'));
+    });
+
+    // Abilities Browser — on submit, consolidate the CHECKED set into ONE hidden JSON
+    // field and strip the `name` from every per-box checkbox so they no longer post
+    // individually. With >~1000 checked boxes the per-box enabled_abilities[] array would
+    // exceed PHP's max_input_vars and be silently truncated; a single var is immune.
+    $(document).on('submit', function (e) {
+        var $json = $('#wp-mcp-enabled-abilities-json');
+        if (!$json.length) { return; }
+        var $form = $json.closest('form');
+        if ($form[0] !== e.target) { return; }
+        var checked = [];
+        $form.find('.wp-mcp-ability-checkbox').each(function () {
+            if (this.checked) { checked.push($(this).val()); }
+            $(this).removeAttr('name');
+        });
+        $json.val(JSON.stringify(checked));
+    });
+
     // Group checkbox: only act when plugin is installed (disabled checkboxes can't fire, but guard anyway).
     $(document).on('change', '.wp-mcp-group-checkbox', function () {
         var $card   = $(this).closest('.wp-mcp-plugin-card');

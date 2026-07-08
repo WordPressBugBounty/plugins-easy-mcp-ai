@@ -14,7 +14,7 @@ class Update_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug, description, count, link }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page.';
+        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -73,7 +73,8 @@ class Update_Tag extends Base_Tool {
             $params['slug'] = sanitize_title( $arguments['slug'] );
         }
 
-        if ( isset( $arguments['description'] ) ) {
+        
+        if ( isset( $arguments['description'] ) && '' !== $arguments['description'] ) {
             $params['description'] = sanitize_text_field( $arguments['description'] );
         }
 

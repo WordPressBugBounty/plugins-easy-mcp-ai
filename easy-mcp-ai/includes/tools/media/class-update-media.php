@@ -14,7 +14,7 @@ class Update_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates metadata of an existing WordPress media attachment (PATCH semantics — does NOT replace the file). Required: `media_id`. Optional: `title`, `alt_text` (important for accessibility and SEO), `caption`, `description`. Returns { id, title, alt_text, caption, source_url }. To replace the file itself, delete and re-upload.';
+        return 'Updates metadata of an existing WordPress media attachment (PATCH semantics — does NOT replace the file). Required: `media_id`. Optional: `title`, `alt_text` (important for accessibility and SEO), `caption`, `description`. Returns { id, title, alt_text, source_url }. To replace the file itself, delete and re-upload. Passing an empty string for a text field (`title`, `alt_text`, `caption`, `description`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -69,19 +69,23 @@ class Update_Media extends Base_Tool {
         $media_id = $this->parse_required_id( $arguments['media_id'], 'media_id' );
         $params   = array();
 
-        if ( isset( $arguments['title'] ) ) {
+        
+        
+        
+        
+        if ( isset( $arguments['title'] ) && '' !== $arguments['title'] ) {
             $params['title'] = sanitize_text_field( $arguments['title'] );
         }
 
-        if ( isset( $arguments['alt_text'] ) ) {
+        if ( isset( $arguments['alt_text'] ) && '' !== $arguments['alt_text'] ) {
             $params['alt_text'] = sanitize_text_field( $arguments['alt_text'] );
         }
 
-        if ( isset( $arguments['caption'] ) ) {
+        if ( isset( $arguments['caption'] ) && '' !== $arguments['caption'] ) {
             $params['caption'] = sanitize_text_field( $arguments['caption'] );
         }
 
-        if ( isset( $arguments['description'] ) ) {
+        if ( isset( $arguments['description'] ) && '' !== $arguments['description'] ) {
             $params['description'] = sanitize_text_field( $arguments['description'] );
         }
 

@@ -14,7 +14,7 @@ class Update_Coupon extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WooCommerce coupon (PATCH semantics). Required: `id`. Optional: `code`, `discount_type` (percent/fixed_cart/fixed_product), `amount` (string, e.g. "10" = 10% or $10), `date_expires` (ISO 8601 or null to remove expiry), `usage_limit` (max total uses, null = unlimited), `usage_limit_per_user`, `minimum_amount`, `maximum_amount`, `free_shipping` (boolean), `individual_use`, `exclude_sale_items`, `product_ids`, `excluded_product_ids`. Returns the updated coupon object.';
+        return 'Updates an existing WooCommerce coupon (PATCH semantics). Required: `id`. Optional: `code`, `discount_type` (percent/fixed_cart/fixed_product), `amount` (string, e.g. "10" = 10% or $10), `date_expires` (ISO 8601 or null to remove expiry), `usage_limit` (max total uses, null = unlimited), `usage_limit_per_user`, `minimum_amount`, `maximum_amount`, `free_shipping` (boolean), `individual_use`, `exclude_sale_items`, `product_ids`, `excluded_product_ids`. Returns a summary of the updated coupon: `id`, `code`, `discount_type`, `amount`.';
     }
 
     public function get_category() {
@@ -49,6 +49,7 @@ class Update_Coupon extends Base_Tool {
                 'discount_type' => array(
                     'type'        => 'string',
                     'description' => 'Discount type.',
+                    'enum'        => array( 'percent', 'fixed_cart', 'fixed_product' ),
                 ),
                 'amount'        => array(
                     'type'        => 'string',

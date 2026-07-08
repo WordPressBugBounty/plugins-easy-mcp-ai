@@ -14,7 +14,7 @@ class Update_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress category (PATCH semantics). Required: `category_id`. Optional: `name`, `slug`, `description`, `parent` (set to 0 to make top-level, or another category ID to re-nest). Returns { id, name, slug, description, parent, count, link }. Changing `parent` restructures the category tree immediately.';
+        return 'Updates an existing WordPress category (PATCH semantics). Required: `category_id`. Optional: `name`, `slug`, `description`, `parent` (set to 0 to make top-level, or another category ID to re-nest). Returns { id, name, slug }. Changing `parent` restructures the category tree immediately. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -77,7 +77,8 @@ class Update_Category extends Base_Tool {
             $params['slug'] = sanitize_title( $arguments['slug'] );
         }
 
-        if ( isset( $arguments['description'] ) ) {
+        
+        if ( isset( $arguments['description'] ) && '' !== $arguments['description'] ) {
             $params['description'] = sanitize_text_field( $arguments['description'] );
         }
 

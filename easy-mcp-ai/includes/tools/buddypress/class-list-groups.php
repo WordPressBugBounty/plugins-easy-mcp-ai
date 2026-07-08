@@ -14,7 +14,7 @@ class List_Groups extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists BuddyPress groups. Optional: `search`, `status` (public/private/hidden — default: all visible to user), `per_page` (default 20), `page`. Returns { groups: [...], page } where each group includes id, name, slug, description, status, members_count, date_created, link. Private and hidden groups are only returned if the authenticated user is a member or admin. Requires BuddyPress Groups component enabled.';
+        return 'Lists BuddyPress groups. Optional: `search`, `status` (public/private/hidden — default: all visible to user), `per_page` (default 20), `page`. Returns { groups: [...], page } where each group includes id, name, slug, description, status, total_member_count, date_created, link. Private and hidden groups are only returned if the authenticated user is a member or admin. Requires BuddyPress Groups component enabled.';
     }
 
     public function get_category() {
@@ -71,8 +71,10 @@ class List_Groups extends Base_Tool {
 
         $page   = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $params = array(
-            'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 20,
-            'page'     => $page,
+            'per_page'        => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 20,
+            'page'            => $page,
+            
+            'populate_extras' => true,
         );
 
         if ( isset( $arguments['search'] ) ) {

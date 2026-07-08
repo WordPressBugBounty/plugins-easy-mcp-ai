@@ -776,6 +776,11 @@ class Authorization_Endpoint {
 
 
     private function add_security_headers( \WP_REST_Response $response, $script_nonce = null, $form_action_uri = null ) {
+        
+        
+        
+        $response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, private' );
+        $response->header( 'Pragma', 'no-cache' );
         $response->header( 'Referrer-Policy', 'no-referrer' );
         $response->header( 'X-Frame-Options', 'DENY' );
         

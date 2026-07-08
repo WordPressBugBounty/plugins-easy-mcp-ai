@@ -14,7 +14,7 @@ class List_Blocks extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all reusable blocks (synced patterns / wp_block post type). Optional: `search`, `status` (publish/draft/trash — default publish), `per_page` (default 10, max 100), `page`. Returns { blocks: [{ id, title, content, status, date }], total, page }. Reusable blocks are shared across posts — a single block can be embedded in many posts simultaneously.';
+        return 'Lists all reusable blocks (synced patterns / wp_block post type). Optional: `search`, `status` (publish/draft/trash — default publish), `per_page` (default 10, max 100), `page`. Returns { blocks: [{ id, title, content, status, date }], total, total_pages, page, per_page }. Reusable blocks are shared across posts — a single block can be embedded in many posts simultaneously.';
     }
 
     public function get_category() {
@@ -65,9 +65,11 @@ class List_Blocks extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
+        $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
+        $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $request = new \WP_REST_Request( 'GET', '/wp/v2/blocks' );
-        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10 );
-        $request->set_param( 'page', isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1 );
+        $request->set_param( 'per_page', $per_page );
+        $request->set_param( 'page', $page );
         $request->set_param( 'status', isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish' );
         $request->set_param( 'context', 'edit' );
 
@@ -79,12 +81,16 @@ class List_Blocks extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'blocks' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $blocks  = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $blocks );
 
         $result = array();
         foreach ( $blocks as $block ) {
@@ -97,10 +103,9 @@ class List_Blocks extends Base_Tool {
             );
         }
 
-        return array(
-            'blocks' => $result,
-            'total'  => $total,
-            'page'   => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
+        return array_merge(
+            array( 'blocks' => $result ),
+            $this->pagination_meta( $response, $page, $per_page, count( $blocks ) )
         );
     }
 }

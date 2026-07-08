@@ -14,7 +14,7 @@ class Update_Order extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce order (PATCH semantics). Required: `id`. Optional: `status` (pending/processing/on-hold/completed/cancelled/refunded/failed — changing to "completed" triggers completion hooks including stock reduction and download access), `customer_note` (visible to customer), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (same fields minus email/phone). Line items cannot be changed after order creation — cancel and recreate instead. Returns the updated order object. Requires WooCommerce active.';
+        return 'Updates a WooCommerce order (PATCH semantics). Required: `id`. Optional: `status` (pending/processing/on-hold/completed/cancelled/refunded/failed — changing to "completed" triggers completion hooks including stock reduction and download access), `customer_note` (visible to customer), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (same fields minus email/phone). This tool does not currently support editing order line items (WooCommerce itself allows it via REST, but this tool does not expose those parameters). Returns a summary of the updated order: `id`, `number`, `status`, `total`. Requires WooCommerce active.';
     }
 
     public function get_category() {

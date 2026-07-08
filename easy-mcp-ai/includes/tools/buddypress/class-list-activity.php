@@ -14,7 +14,7 @@ class List_Activity extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists the BuddyPress sitewide activity stream. Optional: `type` (filter by activity type slug, e.g. activity_update/new_blog_post/friendship_created), `component` (filter by component, e.g. activity/groups/friends), `user_id` (filter by author), `item_id` (filter by primary object ID, e.g. group ID), `per_page` (default 20), `page`. Returns { activity: [...], page } where each item includes id, type, component, content, date_recorded, user_id, link. Requires BuddyPress Activity component enabled.';
+        return 'Lists the BuddyPress sitewide activity stream. Optional: `type` (filter by activity type slug, e.g. activity_update/new_blog_post/friendship_created), `component` (filter by component, e.g. activity/groups/friends), `user_id` (filter by author), `primary_id` (filter by primary object ID, e.g. group ID), `secondary_id` (filter by secondary object ID), `per_page` (default 20), `page`. Returns { activity: [...], page } where each item includes id, type, component, content ({ raw, rendered }), date (+ date_gmt), user_id, and link. Requires BuddyPress Activity component enabled.';
     }
 
     public function get_category() {
@@ -60,11 +60,11 @@ class List_Activity extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Filter activity by author user ID.',
                 ),
-                'item_id'   => array(
+                'primary_id'   => array(
                     'type'        => 'integer',
                     'description' => 'Filter by primary item ID (e.g. group ID for group activity).',
                 ),
-                'secondary_item_id' => array(
+                'secondary_id' => array(
                     'type'        => 'integer',
                     'description' => 'Filter by secondary item ID.',
                 ),
@@ -101,11 +101,11 @@ class List_Activity extends Base_Tool {
         if ( isset( $arguments['user_id'] ) ) {
             $params['user_id'] = absint( $arguments['user_id'] );
         }
-        if ( isset( $arguments['item_id'] ) ) {
-            $params['item_id'] = absint( $arguments['item_id'] );
+        if ( isset( $arguments['primary_id'] ) ) {
+            $params['primary_id'] = absint( $arguments['primary_id'] );
         }
-        if ( isset( $arguments['secondary_item_id'] ) ) {
-            $params['secondary_item_id'] = absint( $arguments['secondary_item_id'] );
+        if ( isset( $arguments['secondary_id'] ) ) {
+            $params['secondary_id'] = absint( $arguments['secondary_id'] );
         }
         if ( isset( $arguments['search'] ) ) {
             $params['search'] = sanitize_text_field( $arguments['search'] );

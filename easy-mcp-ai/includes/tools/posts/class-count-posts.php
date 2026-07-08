@@ -14,7 +14,7 @@ class Count_Posts extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns post counts grouped by status (publish, draft, pending, future, private, trash, auto-draft, inherit) for a given post type. Optional: `post_type` (default \'post\'). Returns the full WP `wp_count_posts()` object. Useful for dashboard-style summaries — `wp_list_posts` only returns one filtered total per call.';
+        return 'Returns post counts grouped by status (publish, draft, pending, future, private, trash, auto-draft, inherit) for a given post type. Optional: `post_type` (default \'post\'). Returns { post_type (the `post_type` echoed back), counts } where `counts` is the WP `wp_count_posts()` object keyed by status. Useful for dashboard-style summaries — `wp_list_posts` only returns one filtered total per call.';
     }
 
     public function get_category() {

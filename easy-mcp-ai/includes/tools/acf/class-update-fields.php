@@ -14,7 +14,7 @@ class Update_Fields extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates one or more ACF field values on a post or page. Pass field keys and values as an object in the "fields" parameter (e.g. {"field_abc123": "value"}). Fields must be registered with Show in REST API enabled.';
+        return 'Updates one or more ACF field values on a post or page. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path; field keys (e.g. field_abc123) also work. Fields must be registered with Show in REST API enabled.';
     }
 
     public function get_category() {
@@ -35,7 +35,7 @@ class Update_Fields extends Base_Tool {
             'properties' => array(
                 'post_id'   => array( 'type' => 'integer', 'description' => 'The ID of the post, page, or CPT item to update ACF fields on.' ),
                 'post_type' => array( 'type' => 'string',  'description' => 'REST base of the post type (e.g. "posts", "pages"). Defaults to "posts".', 'default' => 'posts' ),
-                'fields'    => array( 'type' => 'object',  'description' => 'Key-value pairs of ACF field keys and their new values. Use field keys (e.g. field_abc123) not field names.' ),
+                'fields'    => array( 'type' => 'object',  'description' => 'Key-value pairs of ACF field names and their new values. Use field names (e.g. my_field_name); field keys (e.g. field_abc123) also work.' ),
             ),
             'required' => array( 'post_id', 'fields' ),
         );

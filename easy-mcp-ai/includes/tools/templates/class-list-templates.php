@@ -14,7 +14,7 @@ class List_Templates extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all block templates. Requires an active block theme (Full Site Editing).';
+        return 'Lists all block templates. Optional: `search` (case-insensitive match on title, slug, or description, applied locally), `per_page` (default 10, max 100), `page` (pagination applied locally). Returns { templates: [{ id, slug, title, description, type, status, has_theme_file }], total, total_pages, page, per_page }. Requires an active block theme (Full Site Editing).';
     }
 
     public function get_category() {
@@ -63,14 +63,14 @@ class List_Templates extends Base_Tool {
             throw new \RuntimeException( 'Templates are not available. This requires an active block theme (Full Site Editing). The current theme is a classic theme.' );
         }
 
-        $request = new \WP_REST_Request( 'GET', '/wp/v2/templates' );
-        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10 );
-        $request->set_param( 'page', isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1 );
-        $request->set_param( 'context', 'edit' );
+        $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
+        $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
 
-        if ( ! empty( $arguments['search'] ) ) {
-            $request->set_param( 'search', sanitize_text_field( $arguments['search'] ) );
-        }
+        
+        
+        
+        $request = new \WP_REST_Request( 'GET', '/wp/v2/templates' );
+        $request->set_param( 'context', 'edit' );
 
         $response = rest_do_request( $request );
 
@@ -86,8 +86,6 @@ class List_Templates extends Base_Tool {
         }
 
         $templates = $response->get_data();
-        $headers   = $response->get_headers();
-        $total     = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $templates );
 
         $result = array();
         foreach ( $templates as $template ) {
@@ -102,10 +100,31 @@ class List_Templates extends Base_Tool {
             );
         }
 
+        
+        
+        if ( ! empty( $arguments['search'] ) ) {
+            $needle = strtolower( sanitize_text_field( $arguments['search'] ) );
+            $result = array_values( array_filter(
+                $result,
+                function ( $tpl ) use ( $needle ) {
+                    return false !== strpos( strtolower( (string) $tpl['title'] ), $needle )
+                        || false !== strpos( strtolower( (string) $tpl['slug'] ), $needle )
+                        || false !== strpos( strtolower( (string) $tpl['description'] ), $needle );
+                }
+            ) );
+        }
+
+        $total       = count( $result );
+        $total_pages = (int) ceil( $total / $per_page );
+        $offset      = ( max( 1, $page ) - 1 ) * $per_page;
+        $paged       = array_slice( $result, $offset, $per_page );
+
         return array(
-            'templates' => $result,
-            'total'     => $total,
-            'page'      => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
+            'templates'   => array_values( $paged ),
+            'total'       => $total,
+            'total_pages' => $total_pages,
+            'page'        => (int) $page,
+            'per_page'    => (int) $per_page,
         );
     }
 }

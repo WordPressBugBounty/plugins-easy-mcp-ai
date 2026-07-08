@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $message, $search_query, $flat_abilities, $page_abilities, $page_links, $total_items, $current_page ) {
+function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $message, $flat_abilities ) {
 ?>
 <div class="wrap wp-mcp-admin">
     <h1><?php esc_html_e( 'Easy MCP AI - Abilities Browser', 'easy-mcp-ai' ); ?></h1>
@@ -18,6 +18,10 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
 
     <p class="description wp-mcp-mb-16">
         <?php esc_html_e( 'Each enabled ability becomes its own MCP tool, discoverable by AI assistants via tools/list.', 'easy-mcp-ai' ); ?>
+    </p>
+
+    <p class="wp-mcp-mb-16">
+        <a href="<?php echo esc_url( 'https://easymcpai.com/abilities-directory' ); ?>" class="button button-secondary" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Browse Plugins with Abilities', 'easy-mcp-ai' ); ?></a>
     </p>
 
     <!-- ===== ABILITIES ===== -->
@@ -40,70 +44,84 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
             </div>
         <?php else : ?>
 
-            <?php if ( empty( $flat_abilities ) && empty( $search_query ) ) : ?>
+            <?php if ( empty( $flat_abilities ) ) : ?>
                 <div class="wp-mcp-card wp-mcp-mt-16">
                     <p><?php esc_html_e( 'No WordPress Abilities registered yet.', 'easy-mcp-ai' ); ?></p>
                 </div>
             <?php else : ?>
 
-                <div class="wp-mcp-card wp-mcp-mt-16">
-                    <div class="notice notice-info inline wp-mcp-m-0 wp-mcp-p-10-14">
-                        <p class="wp-mcp-m-0">
-                            <?php esc_html_e( 'Select the abilities you want to expose to AI assistants. They will be registered as tools prefixed with', 'easy-mcp-ai' ); ?>
-                            <code>wp_ability_</code>.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="wp-mcp-my-16">
-                    <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
-                        <input type="hidden" name="page" value="easy-mcp-ai-abilities">
-                        <p class="search-box">
-                            <label class="screen-reader-text" for="wp-mcp-ability-search"><?php esc_html_e( 'Search Abilities:', 'easy-mcp-ai' ); ?></label>
-                            <input type="search" id="wp-mcp-ability-search" name="s" class="regular-text wp-mcp-w-320"
-                                value="<?php echo esc_attr( $search_query ); ?>"
-                                placeholder="<?php esc_attr_e( 'Filter abilities by name…', 'easy-mcp-ai' ); ?>">
-                            <?php submit_button( __( 'Search Abilities', 'easy-mcp-ai' ), '', '', false, array( 'id' => 'search-submit' ) ); ?>
-                        </p>
-                    </form>
-                </div>
-
                 <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-abilities' ) ); ?>">
                     <?php wp_nonce_field( 'easy_mcp_ai_save_abilities' ); ?>
                     <input type="hidden" name="easy_mcp_ai_save_abilities" value="1">
-                    <input type="hidden" name="s" value="<?php echo esc_attr( $search_query ); ?>">
-                    <input type="hidden" name="paged" value="<?php echo esc_attr( $current_page ); ?>">
-
-                    <?php if ( ! empty($page_links) ) : ?>
-                        <div class="tablenav top">
-                            <div class="tablenav-pages">
-                                <span class="displaying-num"><?php
-                                /* translators: %s: number of items */
-                                echo esc_html( sprintf( _n( '%s item', '%s items', $total_items, 'easy-mcp-ai' ), number_format_i18n( $total_items ) ) ); ?></span>
-                                <span class="pagination-links"><?php echo wp_kses_post( $page_links ); ?></span>
-                            </div>
-                        </div>
-                    <?php endif; ?>
 
                     <?php
                     
                     
-                    foreach ( $page_abilities as $item ) {
-                        echo '<input type="hidden" name="abilities_on_page[]" value="' . esc_attr( $item['ability']->get_name() ) . '">';
+                    
+                    
+                    $rendered_ability_names = array();
+                    $grouped_abilities      = array();
+                    foreach ( $flat_abilities as $item ) {
+                        $rendered_ability_names[]               = $item['ability']->get_name();
+                        $grouped_abilities[ $item['prefix'] ][] = $item;
                     }
                     ?>
-
-                    <?php if ( empty( $page_abilities ) ) : ?>
-                        <div class="wp-mcp-card wp-mcp-mt-16">
-                            <p><?php esc_html_e( 'No abilities found matching your search.', 'easy-mcp-ai' ); ?></p>
-                        </div>
-                    <?php else : ?>
+                    <input type="hidden" name="abilities_rendered" value="<?php echo esc_attr( wp_json_encode( $rendered_ability_names ) ); ?>">
+                    <?php
+                    
+                    
+                    
+                    
+                    ?>
+                    <input type="hidden" name="enabled_abilities_json" id="wp-mcp-enabled-abilities-json" value="">
+                    <?php foreach ( $grouped_abilities as $group_prefix => $group_items ) :
+                        $group_id      = sanitize_html_class( 'abilities-group-' . $group_prefix );
+                        $group_total   = count( $group_items );
+                        $group_enabled = 0;
+                        $group_read    = 0;
+                        $group_write   = 0;
+                        foreach ( $group_items as $group_item ) {
+                            $group_ability = $group_item['ability'];
+                            if ( in_array( $group_ability->get_name(), $enabled_abilities, true ) ) {
+                                $group_enabled++;
+                            }
+                            $group_ann = \Easy_MCP_AI\Admin\Abilities_Page::ability_annotations( $group_ability );
+                            if ( ! empty( $group_ann['readonly'] ) ) {
+                                $group_read++;
+                            } else {
+                                $group_write++;
+                            }
+                        }
+                        $group_all_enabled = ( $group_total > 0 && $group_enabled === $group_total );
+                        /* translators: 1: enabled count, 2: total count, 3: read-only count, 4: write count */
+                        $group_counts_tmpl = __( '%1$d / %2$d enabled · %3$d read, %4$d write', 'easy-mcp-ai' );
+                    ?>
                         <div class="wp-mcp-card wp-mcp-plugin-section">
-                            <div class="wp-mcp-plugin-body">
+                            <div class="wp-mcp-plugin-header">
+                                <h3>
+                                    <button type="button" class="wp-mcp-collapse-btn" aria-expanded="false"
+                                        aria-controls="<?php echo esc_attr( $group_id ); ?>">
+                                        <span class="wp-mcp-collapse-icon dashicons dashicons-arrow-right-alt2"></span>
+                                    </button>
+                                    <label class="wp-mcp-group-toggle">
+                                        <input type="checkbox" class="wp-mcp-abilities-group-checkbox"
+                                            data-group="<?php echo esc_attr( $group_id ); ?>"
+                                            <?php checked( $group_all_enabled ); ?>>
+                                        <strong><?php echo esc_html( ucfirst( $group_prefix ) ); ?></strong>
+                                    </label>
+                                </h3>
+                                <span class="description wp-mcp-abilities-group-counts"
+                                    data-group="<?php echo esc_attr( $group_id ); ?>"
+                                    data-read="<?php echo (int) $group_read; ?>"
+                                    data-write="<?php echo (int) $group_write; ?>"
+                                    data-tmpl="<?php echo esc_attr( $group_counts_tmpl ); ?>">
+                                    <?php echo esc_html( sprintf( $group_counts_tmpl, $group_enabled, $group_total, $group_read, $group_write ) ); ?>
+                                </span>
+                            </div>
+                            <div class="wp-mcp-plugin-body" id="<?php echo esc_attr( $group_id ); ?>" hidden>
                                 <table class="widefat striped">
                                     <thead>
                                         <tr>
-                                            <th><?php esc_html_e( 'Prefix', 'easy-mcp-ai' ); ?></th>
                                             <th><?php esc_html_e( 'Slug', 'easy-mcp-ai' ); ?></th>
                                             <th><?php esc_html_e( 'Label', 'easy-mcp-ai' ); ?></th>
                                             <th><?php esc_html_e( 'Description', 'easy-mcp-ai' ); ?></th>
@@ -112,21 +130,14 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ( $page_abilities as $item ) :
-                                            $prefix      = $item['prefix'];
+                                        <?php foreach ( $group_items as $item ) :
                                             $ability     = $item['ability'];
                                             $slug        = $ability->get_name();
-                                            $annotations = array();
-                                            if ( method_exists( $ability, 'get_meta_item' ) ) {
-                                                $annotations = (array) $ability->get_meta_item( 'annotations' );
-                                            } elseif ( method_exists( $ability, 'get_annotations' ) ) {
-                                                $annotations = (array) $ability->get_annotations();
-                                            }
+                                            $annotations = \Easy_MCP_AI\Admin\Abilities_Page::ability_annotations( $ability );
                                             $readonly    = isset( $annotations['readonly'] ) && $annotations['readonly'];
                                             $tool_name   = 'wp_ability_' . \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::normalize_identifier( $slug );
                                         ?>
                                             <tr>
-                                                <td><strong><?php echo esc_html( ucfirst( $prefix ) ); ?></strong></td>
                                                 <td><code><?php echo esc_html( $slug ); ?></code></td>
                                                 <td><?php echo esc_html( $ability->get_label() ?: $slug ); ?></td>
                                                 <td class="wp-mcp-mw-280"><?php echo esc_html( $ability->get_description() ); ?></td>
@@ -140,6 +151,7 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
                                                 <td>
                                                     <label>
                                                         <input type="checkbox"
+                                                            class="wp-mcp-ability-checkbox"
                                                             name="enabled_abilities[]"
                                                             value="<?php echo esc_attr( $slug ); ?>"
                                                             <?php checked( in_array( $slug, $enabled_abilities, true ) ); ?>>
@@ -152,18 +164,7 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
                                 </table>
                             </div>
                         </div>
-                    <?php endif; ?>
-
-                    <?php if ( ! empty($page_links) ) : ?>
-                        <div class="tablenav bottom">
-                            <div class="tablenav-pages">
-                                <span class="displaying-num"><?php
-                                /* translators: %s: number of items */
-                                echo esc_html( sprintf( _n( '%s item', '%s items', $total_items, 'easy-mcp-ai' ), number_format_i18n( $total_items ) ) ); ?></span>
-                                <span class="pagination-links"><?php echo wp_kses_post( $page_links ); ?></span>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
 
                     <?php submit_button( __( 'Save Ability Settings', 'easy-mcp-ai' ) ); ?>
                 </form>
@@ -175,4 +176,4 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
 </div><!-- /.wrap -->
 <?php
 }
-easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $message, $search_query, $flat_abilities, $page_abilities, $page_links, $total_items, $current_page );
+easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $message, $flat_abilities );

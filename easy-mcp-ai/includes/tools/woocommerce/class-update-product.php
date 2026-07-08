@@ -14,7 +14,7 @@ class Update_Product extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WooCommerce product (PATCH semantics). Required: `id`. Optional: `name`, `status` (draft/publish/pending/private), `regular_price` (string, e.g. "29.99"), `sale_price` (string — set to "" to remove a sale), `description`, `short_description`, `sku`, `manage_stock` (boolean), `stock_quantity` (integer), `stock_status` (instock/outofstock/onbackorder), `categories` (array of { id } — replaces existing), `tags` (array of { id }). Returns the updated product object. To unpublish/hide without deleting set status="draft". Requires WooCommerce active.';
+        return 'Updates an existing WooCommerce product (PATCH semantics). Required: `id`. Optional: `name`, `status` (draft/publish/pending/private), `regular_price` (string, e.g. "29.99"), `sale_price` (string — set to "" to remove a sale), `description`, `short_description`, `sku`, `manage_stock` (boolean), `stock_quantity` (integer), `stock_status` (instock/outofstock/onbackorder), `categories` (array of { id } — replaces existing), `tags` (array of { id }). Returns a summary of the updated product: `id`, `name`, `status`, `permalink`. To unpublish/hide without deleting set status="draft". Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -201,16 +201,16 @@ class Update_Product extends Base_Tool {
             $params['sale_price'] = sanitize_text_field( $arguments['sale_price'] );
         }
         if ( isset( $arguments['description'] ) ) {
-            $params['description'] = sanitize_text_field( $arguments['description'] );
+            $params['description'] = wp_kses_post( $arguments['description'] );
         }
         if ( isset( $arguments['short_description'] ) ) {
-            $params['short_description'] = sanitize_text_field( $arguments['short_description'] );
+            $params['short_description'] = wp_kses_post( $arguments['short_description'] );
         }
         if ( isset( $arguments['sku'] ) ) {
             $params['sku'] = sanitize_text_field( $arguments['sku'] );
         }
         if ( isset( $arguments['stock_quantity'] ) ) {
-            $params['stock_quantity'] = absint( $arguments['stock_quantity'] );
+            $params['stock_quantity'] = (int) $arguments['stock_quantity']; 
         }
         if ( isset( $arguments['manage_stock'] ) ) {
             $params['manage_stock'] = (bool) $arguments['manage_stock'];

@@ -14,7 +14,7 @@ class Create_Order extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WooCommerce order programmatically. Required: line_items (array of objects with product_id and quantity). Optional: status, customer_id, billing (object), shipping (object), coupon_lines (array), set_paid, currency, customer_note, shipping_lines, fee_lines, meta_data, transaction_id.';
+        return 'Creates a new WooCommerce order programmatically. Required: line_items (array of objects with product_id and quantity). Optional: status, customer_id, billing (object), shipping (object), coupon_lines (array), set_paid, currency, customer_note, shipping_lines, fee_lines, meta_data, transaction_id. Returns id, number, status, total, and rest_url (the REST API self-link for the order, not a public permalink).';
     }
 
     public function get_category() {
@@ -167,11 +167,11 @@ class Create_Order extends Base_Tool {
         $data = $this->rest_request( 'POST', '/wc/v3/orders', $params );
 
         return array(
-            'id'        => $data['id'],
-            'number'    => $data['number'],
-            'status'    => $data['status'],
-            'total'     => $data['total'],
-            'permalink' => $data['_links']['self'][0]['href'] ?? '',
+            'id'       => $data['id'],
+            'number'   => $data['number'],
+            'status'   => $data['status'],
+            'total'    => $data['total'],
+            'rest_url' => $data['_links']['self'][0]['href'] ?? '',
         );
     }
 }

@@ -14,7 +14,7 @@ class Update_Menu_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing menu item. Required: `item_id` (the menu_item id — get it from `wp_list_menu_items`; NOT the linked post/term id). Only fields you provide are changed. Common updates: `title`, `parent` (move under a different parent — 0 = top-level), `menu_order` (re-position; sibling order is by menu_order ascending), `url` (for custom URL items), `target` ("_blank" / ""), `classes`, `description`. To re-link an item to a different post/term, set `object_type` + `object` + `object_id` together. Returns the updated item object.';
+        return 'Updates an existing menu item. Required: `item_id` (the menu_item id — get it from `wp_list_menu_items`; NOT the linked post/term id). Only fields you provide are changed. Common updates: `title`, `parent` (move under a different parent — 0 = top-level), `position` (re-position; sibling order is by menu_order ascending), `url` (for custom URL items), `target` ("_blank" / ""), `classes` (array of CSS class strings), `description`, `menu_id` (move to a different menu). To re-link an item to a different post/term, set `object_type` (post_type/taxonomy/post_type_archive/custom) + `object` (e.g. page/category) + `object_id` together. Returns { id, title, url, status, parent, menu_order, target, classes, description, type, object, object_id, menus }.';
     }
 
     public function get_category() {
@@ -62,6 +62,32 @@ class Update_Menu_Item extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'Move the item to a different menu.',
                 ),
+                'target'   => array(
+                    'type'        => 'string',
+                    'description' => 'Link target: "_blank" to open in a new tab, or "" (empty) for the same tab.',
+                    'enum'        => array( '_blank', '' ),
+                ),
+                'classes'  => array(
+                    'type'        => 'array',
+                    'items'       => array( 'type' => 'string' ),
+                    'description' => 'CSS class names to apply to the menu item (array of strings).',
+                ),
+                'description' => array(
+                    'type'        => 'string',
+                    'description' => 'Description text for the menu item (shown by some themes).',
+                ),
+                'object_type' => array(
+                    'type'        => 'string',
+                    'description' => 'When re-linking the item, the family of object it represents: post_type, taxonomy, post_type_archive, or custom. Set together with `object` and `object_id`.',
+                ),
+                'object'   => array(
+                    'type'        => 'string',
+                    'description' => 'When re-linking, the specific object type (e.g. page, post, category). Set together with `object_type` and `object_id`.',
+                ),
+                'object_id' => array(
+                    'type'        => 'integer',
+                    'description' => 'When re-linking, the database ID of the object this item points to. Set together with `object_type` and `object`.',
+                ),
             ),
             'required'   => array( 'item_id' ),
         );
@@ -89,6 +115,25 @@ class Update_Menu_Item extends Base_Tool {
         if ( isset( $arguments['menu_id'] ) ) {
             $request->set_param( 'menus', absint( $arguments['menu_id'] ) );
         }
+        if ( isset( $arguments['target'] ) ) {
+            $request->set_param( 'target', sanitize_text_field( $arguments['target'] ) );
+        }
+        if ( isset( $arguments['classes'] ) ) {
+            $classes = is_array( $arguments['classes'] ) ? $arguments['classes'] : array( $arguments['classes'] );
+            $request->set_param( 'classes', array_map( 'sanitize_html_class', $classes ) );
+        }
+        if ( isset( $arguments['description'] ) ) {
+            $request->set_param( 'description', sanitize_text_field( $arguments['description'] ) );
+        }
+        if ( isset( $arguments['object_type'] ) ) {
+            $request->set_param( 'type', sanitize_text_field( $arguments['object_type'] ) );
+        }
+        if ( isset( $arguments['object'] ) ) {
+            $request->set_param( 'object', sanitize_text_field( $arguments['object'] ) );
+        }
+        if ( isset( $arguments['object_id'] ) ) {
+            $request->set_param( 'object_id', absint( $arguments['object_id'] ) );
+        }
 
         $response = rest_do_request( $request );
 
@@ -105,9 +150,19 @@ class Update_Menu_Item extends Base_Tool {
         $data = $response->get_data();
 
         return array(
-            'id'    => $data['id'],
-            'title' => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
-            'url'   => $data['url'] ?? '',
+            'id'          => $data['id'],
+            'title'       => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
+            'url'         => $data['url'] ?? '',
+            'status'      => $data['status'] ?? '',
+            'parent'      => $data['parent'] ?? 0,
+            'menu_order'  => $data['menu_order'] ?? 0,
+            'target'      => $data['target'] ?? '',
+            'classes'     => $data['classes'] ?? array(),
+            'description' => $data['description'] ?? '',
+            'type'        => $data['type'] ?? '',
+            'object'      => $data['object'] ?? '',
+            'object_id'   => $data['object_id'] ?? 0,
+            'menus'       => $data['menus'] ?? null,
         );
     }
 }

@@ -243,6 +243,7 @@ class Server {
         
         $audit_id     = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
         $final_status = null;
+        $result       = null;
 
         if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
             \Easy_MCP_AI\History\Change_Context::set( array(
@@ -309,6 +310,29 @@ class Server {
             
             
             \Easy_MCP_AI\Tools\Base_Tool::flush_deferred_purges();
+
+            
+            
+            
+            
+            
+            if ( 'success' === $final_status ) {
+                $annotations = $tool->get_annotations();
+                if ( empty( $annotations['readOnlyHint'] ) ) {
+                    
+
+
+
+
+
+
+
+
+
+
+                    \do_action( 'easy_mcp_ai_tool_mutated', $tool_name, self::redact_sensitive_args( $arguments ), $result );
+                }
+            }
         }
     }
 

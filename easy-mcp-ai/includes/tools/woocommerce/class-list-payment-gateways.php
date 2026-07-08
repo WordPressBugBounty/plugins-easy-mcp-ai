@@ -14,7 +14,7 @@ class List_Payment_Gateways extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all WooCommerce payment gateways with their id, title, description, and enabled/disabled status.';
+        return 'Lists all WooCommerce payment gateways, returning only safe metadata per gateway: id, title, description, enabled, method_title, method_description, order. The raw `settings` block (which may contain API credentials for gateways like Stripe/PayPal) is deliberately omitted.';
     }
 
     public function get_category() {
@@ -49,6 +49,19 @@ class List_Payment_Gateways extends Base_Tool {
 
         $data = $this->rest_request( 'GET', '/wc/v3/payment_gateways' );
 
-        return $data;
+        
+        
+        
+        return array_map( function( $gateway ) {
+            return array(
+                'id'                 => $gateway['id'] ?? '',
+                'title'              => $gateway['title'] ?? '',
+                'description'        => $gateway['description'] ?? '',
+                'enabled'            => $gateway['enabled'] ?? false,
+                'method_title'       => $gateway['method_title'] ?? '',
+                'method_description' => $gateway['method_description'] ?? '',
+                'order'              => $gateway['order'] ?? '',
+            );
+        }, $data );
     }
 }

@@ -14,7 +14,7 @@ class List_Users extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress users. Optional: `search` (matches name/username/email), `roles` (array of role slugs — e.g. ["editor","author"] — OR operation), `per_page` (default 10, max 100), `page`, `orderby` (id/name/registered_date/email/include/slug/url — default id), `order` (asc/desc). Returns { users: [{ id, username, name, email, roles, registered_date }], total, page }. Requires `list_users` capability (administrators only by default).';
+        return 'Lists WordPress users. Optional: `search` (matches name/username/email), `roles` (array of role slugs — e.g. ["editor","author"] — OR operation), `per_page` (default 10, max 100), `page`, `orderby` (id/name/registered_date/email/include/slug/url — default id), `order` (asc/desc). Returns { users: [{ id, username, name, email, roles, registered_date }], total, total_pages, page, per_page }. Requires `list_users` capability (administrators only by default).';
     }
 
     public function get_category() {
@@ -108,12 +108,17 @@ class List_Users extends Base_Tool {
 
         if ( $response->is_error() ) {
             $error = $response->as_error();
+            
+            if ( $this->is_invalid_page_error( $error ) ) {
+                return array_merge(
+                    array( 'users' => array() ),
+                    $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                );
+            }
             throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $users = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $users );
 
         $result = array();
         foreach ( $users as $user ) {
@@ -127,10 +132,9 @@ class List_Users extends Base_Tool {
             );
         }
 
-        return array(
-            'users' => $result,
-            'total' => (int) $total,
-            'page'  => $params['page'],
+        return array_merge(
+            array( 'users' => $result ),
+            $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $users ) )
         );
     }
 }

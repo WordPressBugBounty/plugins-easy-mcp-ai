@@ -14,7 +14,7 @@ class List_CPT_Items extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists items of any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (e.g. "products", "events", "movies" — NOT the post_type slug like "product"). DISCOVERY WORKFLOW: always call `wp_get_post_types` first and read each entry\'s `rest_base` field — calling this with a wrong slug returns "rest_no_route". Optional: `per_page` (default 10, max 100), `page`, `search`, `status`, `orderby`, `order`. Returns an array of CPT items; the exact field set depends on what `supports` the CPT registered (title, editor, custom-fields, etc.) and any `register_rest_field` extensions.';
+        return 'Lists items of any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (e.g. "products", "events", "movies" — NOT the post_type slug like "product"). DISCOVERY WORKFLOW: always call `wp_get_post_types` first and read each entry\'s `rest_base` field — calling this with a wrong slug returns "rest_no_route". Optional: `per_page` (default 10, max 100), `page`, `search`, `status` (default publish), `orderby` (date/id/title/slug/modified — default date), `order` (asc/desc — default desc). Returns { items: [{ id, title, status, date, modified, link }], total, total_pages, page, per_page, rest_base }.';
     }
 
     public function get_category() {
@@ -85,9 +85,11 @@ class List_CPT_Items extends Base_Tool {
         $rest_base = $this->validate_rest_route_segment( $arguments['rest_base'], 'rest_base' );
 
         $request = new \WP_REST_Request( 'GET', '/wp/v2/' . $rest_base );
+        $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
+        $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $request->set_param( 'status', isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish' );
-        $request->set_param( 'per_page', isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10 );
-        $request->set_param( 'page', isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1 );
+        $request->set_param( 'per_page', $per_page );
+        $request->set_param( 'page', $page );
         $request->set_param( 'context', 'edit' );
 
         if ( ! empty( $arguments['search'] ) ) {
@@ -109,12 +111,17 @@ class List_CPT_Items extends Base_Tool {
                     sprintf( 'No REST API route found for post type "%s". This post type may not exist, may not have show_in_rest enabled, or the rest_base may be incorrect. Use wp_get_post_types to discover available post types.', $rest_base ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 );
             }
+            if ( $this->is_invalid_page_error( $wp_error ) ) {
+                return array_merge(
+                    array( 'items' => array() ),
+                    $this->pagination_meta( null, $page, $per_page, 0 ),
+                    array( 'rest_base' => $rest_base )
+                );
+            }
             throw new \RuntimeException( $wp_error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $items   = $response->get_data();
-        $headers = $response->get_headers();
-        $total   = isset( $headers['X-WP-Total'] ) ? (int) $headers['X-WP-Total'] : count( $items );
 
         $result = array();
         foreach ( $items as $item ) {
@@ -128,11 +135,10 @@ class List_CPT_Items extends Base_Tool {
             );
         }
 
-        return array(
-            'items'     => $result,
-            'total'     => $total,
-            'page'      => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
-            'rest_base' => $rest_base,
+        return array_merge(
+            array( 'items' => $result ),
+            $this->pagination_meta( $response, $page, $per_page, count( $items ) ),
+            array( 'rest_base' => $rest_base )
         );
     }
 }

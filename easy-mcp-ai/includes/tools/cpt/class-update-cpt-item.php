@@ -64,6 +64,14 @@ class Update_CPT_Item extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'New excerpt for the item.',
                 ),
+                'slug'      => array(
+                    'type'        => 'string',
+                    'description' => 'URL-friendly slug for the item.',
+                ),
+                'meta'      => array(
+                    'type'        => 'object',
+                    'description' => 'Meta fields to set (only keys registered with show_in_rest=true will persist).',
+                ),
             ),
             'required'   => array( 'rest_base', 'item_id' ),
         );
@@ -92,6 +100,12 @@ class Update_CPT_Item extends Base_Tool {
         }
         if ( isset( $arguments['excerpt'] ) ) {
             $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
+        }
+        if ( ! empty( $arguments['slug'] ) ) {
+            $params['slug'] = sanitize_title( $arguments['slug'] );
+        }
+        if ( isset( $arguments['meta'] ) ) {
+            $params['meta'] = $this->parse_json_param( $arguments['meta'], 'meta' );
         }
 
         $request = new \WP_REST_Request( 'POST', '/wp/v2/' . $rest_base . '/' . $item_id );

@@ -14,7 +14,7 @@ class Delete_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress media attachment by ID. Required: `attachment_id`. Media items bypass the trash — deletion is immediate and irreversible. The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, id }.';
+        return 'Permanently deletes a WordPress media attachment by ID. Required: `media_id`. Media items bypass the trash — deletion is immediate and irreversible. The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, id }.';
     }
 
     public function get_category() {

@@ -14,7 +14,7 @@ class Delete_Comment extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress comment by ID. Required: `comment_id`. Optional: `force` (default false) — false moves to trash (status becomes "trash", recoverable via `wp_update_comment` setting status="approve"); true permanently deletes (irreversible). Child replies are also deleted when force=true. Returns { deleted, id }.';
+        return 'Deletes a WordPress comment by ID. Required: `comment_id`. Optional: `force` (default false) — false moves to trash (status becomes "trash", recoverable via `wp_update_comment` setting status="approve"); true permanently deletes (irreversible). Deleting a comment does not delete its replies — WordPress reparents child comments to the deleted comment\'s parent. Returns { deleted, id }.';
     }
 
     public function get_category() {
