@@ -52,8 +52,31 @@ class Tool_Registry {
         ( $this->lazy_loader )();
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
     public function register( Base_Tool $tool ) {
-        $this->tools[ $tool->get_name() ] = $tool;
+        $name = $tool->get_name();
+        if ( isset( $this->tools[ $name ] ) && $this->tools[ $name ] !== $tool ) {
+            // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+            error_log( sprintf(
+                'Easy MCP AI: tool name collision on "%s" — a tool is already registered under this name; keeping the first and refusing to overwrite it.',
+                $name
+            ) );
+            return;
+        }
+        $this->tools[ $name ] = $tool;
     }
 
     public function get_tool( $name ) {

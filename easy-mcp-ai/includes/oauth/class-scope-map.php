@@ -388,7 +388,17 @@ class Scope_Map {
 
 
 
-    private static function resolve_core_ability_tools(): array {
+
+
+
+
+
+
+
+
+
+
+    private static function resolve_prefix_ability_tools( string $normalized_prefix ): array {
         $tools = array();
         foreach ( self::get_cached_abilities() as $ability ) {
             $name = is_object( $ability ) && method_exists( $ability, 'get_name' )
@@ -397,17 +407,12 @@ class Scope_Map {
             if ( '' === $name ) {
                 continue;
             }
-            
-            
-            
-            
-            
-            
-            
-            $parts  = explode( '/', $name, 2 );
-            $prefix = count( $parts ) > 1 ? $parts[0] : 'core';
-            if ( 'core' === $prefix ) {
-                $tools[] = 'wp_ability_' . Dynamic_Tool_Registrar::normalize_identifier( $name );
+            $parts = explode( '/', $name, 2 );
+            $ability_normalized_prefix = ( count( $parts ) > 1 )
+                ? Dynamic_Tool_Registrar::normalize_identifier( $parts[0] )
+                : 'core';
+            if ( $ability_normalized_prefix === $normalized_prefix ) {
+                $tools[] = Dynamic_Tool_Registrar::build_tool_name( $name );
             }
         }
         return $tools;
@@ -440,18 +445,17 @@ class Scope_Map {
             }
 
             
+            
+            
             if ( 0 === strpos( $part, 'mcp:abilities:' ) ) {
-                $prefix = substr( $part, strlen( 'mcp:abilities:' ) );
-                if ( 'core' === $prefix ) {
-                    
-                    
-                    
-                    
-                    
-                    
-                    $tools = array_merge( $tools, self::resolve_core_ability_tools() );
-                } elseif ( '' !== $prefix ) {
-                    $tools[] = "wp_ability_{$prefix}_*";
+                
+                
+                
+                
+                
+                $prefix = Dynamic_Tool_Registrar::normalize_identifier( substr( $part, strlen( 'mcp:abilities:' ) ) );
+                if ( '' !== $prefix ) {
+                    $tools = array_merge( $tools, self::resolve_prefix_ability_tools( $prefix ) );
                 }
                 continue;
             }

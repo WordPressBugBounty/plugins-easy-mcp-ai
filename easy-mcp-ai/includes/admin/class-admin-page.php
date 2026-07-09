@@ -258,6 +258,32 @@ class Admin_Page {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function resolve_ability_tool_def( $ability_name, array $enabled_abilities, array $ability_def_by_name ) {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Dynamic_Tool_Registrar' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-dynamic-tool-registrar.php';
+        }
+        $is_enabled = in_array( $ability_name, $enabled_abilities, true );
+        $tool_name  = \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::build_tool_name( $ability_name );
+        $tool_def   = isset( $ability_def_by_name[ $tool_name ] ) ? $ability_def_by_name[ $tool_name ] : null;
+        return array( 'is_enabled' => $is_enabled, 'tool_def' => $tool_def );
+    }
+
+    
+
+
+
     private function is_assignable_user( $user_id ) {
         if ( ! $user_id ) {
             return false;
@@ -632,11 +658,7 @@ class Admin_Page {
 
         
         $resolve_ability = function ( $ability, $enabled_abilities ) use ( $ability_def_by_name ) {
-            $name       = $ability->get_name();
-            $is_enabled = in_array( $name, $enabled_abilities, true );
-            $tool_name  = 'wp_ability_' . trim( preg_replace( '/[^a-z0-9]+/', '_', strtolower( $name ) ), '_' );
-            $tool_def   = isset( $ability_def_by_name[ $tool_name ] ) ? $ability_def_by_name[ $tool_name ] : null;
-            return array( 'is_enabled' => $is_enabled, 'tool_def' => $tool_def );
+            return self::resolve_ability_tool_def( $ability->get_name(), $enabled_abilities, $ability_def_by_name );
         };
 
         if ( function_exists( 'wp_get_abilities' ) ) {

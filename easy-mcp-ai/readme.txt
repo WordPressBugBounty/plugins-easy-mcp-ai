@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.8
+Stable tag: 1.7.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -399,6 +399,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.9 =
+* Fixed: A few WordPress plugin abilities with unusual settings could stop your AI assistant from connecting at all — this is now handled automatically so the connection stays reliable.
 
 = 1.7.8 =
 * **Note: After updating, reconnect (or refresh) your AI connector so it picks up the improved tools.**

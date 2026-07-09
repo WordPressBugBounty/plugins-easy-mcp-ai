@@ -40,6 +40,8 @@ class Permission_Guard {
         
         
         
+        
+        
         foreach ( $allowed_tools as $pattern ) {
             if ( false !== strpos( $pattern, '*' ) && fnmatch( $pattern, $tool_name ) ) {
                 return true;

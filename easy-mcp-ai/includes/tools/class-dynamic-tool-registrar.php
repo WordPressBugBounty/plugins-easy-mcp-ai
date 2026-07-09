@@ -51,7 +51,7 @@ class Dynamic_Tool_Registrar {
 
             $ability = $all_abilities[ $slug ];
 
-            $tool_name = 'wp_ability_' . self::normalize_identifier( $slug );
+            $tool_name = self::build_tool_name( $slug );
 
             
             $label = $ability->get_label() ?: $slug;
@@ -65,23 +65,20 @@ class Dynamic_Tool_Registrar {
             }
 
             
-            $input_schema = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
-            if ( empty( $input_schema ) || ! is_array( $input_schema ) ) {
-                $input_schema = array( 'type' => 'object', 'properties' => new \stdClass() );
-            } else {
-                
-                
-                
-                
-                
-                if ( ! isset( $input_schema['type'] ) ) {
-                    $input_schema['type'] = 'object';
-                }
-                if ( ! isset( $input_schema['properties'] ) ) {
-                    $input_schema['properties'] = new \stdClass();
-                }
-                $input_schema = self::normalize_json_schema( $input_schema );
-            }
+            
+            
+            
+            
+            $raw_input_schema  = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
+            $input_needs_wrap  = self::schema_needs_value_wrapper( $raw_input_schema );
+            $input_schema      = self::finalize_input_schema( $raw_input_schema );
+
+            
+            
+            
+            $raw_output_schema = method_exists( $ability, 'get_output_schema' ) ? $ability->get_output_schema() : null;
+            $output_needs_wrap = self::schema_needs_value_wrapper( $raw_output_schema );
+            $output_schema     = self::finalize_output_schema( $raw_output_schema );
 
             
             $annotations_meta = array();
@@ -90,14 +87,12 @@ class Dynamic_Tool_Registrar {
             } elseif ( method_exists( $ability, 'get_annotations' ) ) {
                 $annotations_meta = (array) $ability->get_annotations();
             }
-            $readonly    = isset( $annotations_meta['readonly'] )    ? (bool) $annotations_meta['readonly']    : false;
-            $destructive = isset( $annotations_meta['destructive'] ) ? (bool) $annotations_meta['destructive'] : false;
-            $idempotent  = isset( $annotations_meta['idempotent'] )  ? (bool) $annotations_meta['idempotent']  : false;
+            $annotations = self::build_annotations( $label, $annotations_meta );
 
             $captured_ability = $ability; 
             $captured_slug    = $slug;
 
-            $tool = new Dynamic_Tool( array(
+            $tool_config = array(
                 'name'        => $tool_name,
                 'description' => $description,
                 'category'    => 'abilities',
@@ -107,14 +102,8 @@ class Dynamic_Tool_Registrar {
                 
                 'capability'  => 'read',
                 'input_schema' => $input_schema,
-                'annotations' => array(
-                    'title'           => $label,
-                    'readOnlyHint'    => $readonly,
-                    'destructiveHint' => $destructive,
-                    'idempotentHint'  => $idempotent,
-                    'openWorldHint'   => true,
-                ),
-                'executor' => function ( array $arguments ) use ( $captured_ability, $captured_slug ) {
+                'annotations' => $annotations,
+                'executor' => function ( array $arguments ) use ( $captured_ability, $captured_slug, $input_needs_wrap, $output_needs_wrap ) {
                     
                     $ability = \function_exists( 'wp_get_ability' ) ? \wp_get_ability( $captured_slug ) : $captured_ability;
                     if ( ! $ability ) {
@@ -128,7 +117,13 @@ class Dynamic_Tool_Registrar {
                     
                     $has_input_schema = method_exists( $ability, 'get_input_schema' )
                         && ! empty( $ability->get_input_schema() );
-                    $exec_args = $has_input_schema ? $arguments : null;
+                    if ( $input_needs_wrap ) {
+                        
+                        
+                        $exec_args = array_key_exists( 'value', $arguments ) ? $arguments['value'] : null;
+                    } else {
+                        $exec_args = $has_input_schema ? $arguments : null;
+                    }
 
                     $perm = $ability->check_permissions( $exec_args );
                     if ( \is_wp_error( $perm ) ) {
@@ -142,11 +137,18 @@ class Dynamic_Tool_Registrar {
                     if ( \is_wp_error( $result ) ) {
                         throw new \RuntimeException( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                     }
-                    return $result;
-                },
-            ) );
 
-            $registry->register( $tool );
+                    
+                    
+                    
+                    return $output_needs_wrap ? array( 'value' => $result ) : $result;
+                },
+            );
+            if ( null !== $output_schema ) {
+                $tool_config['output_schema'] = $output_schema;
+            }
+
+            $registry->register( new Dynamic_Tool( $tool_config ) );
         }
     }
 
@@ -170,6 +172,178 @@ class Dynamic_Tool_Registrar {
         $normalized = strtolower( (string) $value );
         $normalized = preg_replace( '/[^a-z0-9]+/', '_', $normalized );
         return trim( $normalized, '_' );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function build_tool_name( $slug ) {
+        $prefix     = 'wp_ability_';
+        $normalized = self::normalize_identifier( $slug );
+        $tool_name  = $prefix . $normalized;
+
+        if ( strlen( $tool_name ) <= 64 ) {
+            return $tool_name;
+        }
+
+        $hash      = substr( md5( (string) $slug ), 0, 8 );
+        $budget    = 64 - strlen( $prefix ) - 1 - strlen( $hash ); 
+        $truncated = rtrim( substr( $normalized, 0, $budget ), '_' );
+
+        return $prefix . $truncated . '_' . $hash;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function build_annotations( $label, array $annotations_meta ) {
+        $annotations = array(
+            'title'         => $label,
+            'openWorldHint' => true,
+        );
+        foreach ( array(
+            'readonly'    => 'readOnlyHint',
+            'destructive' => 'destructiveHint',
+            'idempotent'  => 'idempotentHint',
+        ) as $meta_key => $hint_key ) {
+            if ( isset( $annotations_meta[ $meta_key ] ) ) {
+                $annotations[ $hint_key ] = (bool) $annotations_meta[ $meta_key ];
+            }
+        }
+        return $annotations;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function schema_needs_value_wrapper( $schema ) {
+        if ( empty( $schema ) || ! is_array( $schema ) || ! isset( $schema['type'] ) ) {
+            return false;
+        }
+        $type = $schema['type'];
+        if ( 'object' === $type ) {
+            return false;
+        }
+        if ( is_array( $type ) && in_array( 'object', $type, true ) ) {
+            return false;
+        }
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function finalize_input_schema( $input_schema ) {
+        if ( empty( $input_schema ) || ! is_array( $input_schema ) ) {
+            return array( 'type' => 'object', 'properties' => new \stdClass() );
+        }
+
+        if ( self::schema_needs_value_wrapper( $input_schema ) ) {
+            return array(
+                'type'       => 'object',
+                'properties' => array( 'value' => self::normalize_json_schema( $input_schema ) ),
+                'required'   => array( 'value' ),
+            );
+        }
+
+        $input_schema['type'] = 'object';
+        if ( ! isset( $input_schema['properties'] ) ) {
+            $input_schema['properties'] = new \stdClass();
+        }
+
+        return self::normalize_json_schema( $input_schema );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function finalize_output_schema( $output_schema ) {
+        if ( empty( $output_schema ) || ! is_array( $output_schema ) ) {
+            return null;
+        }
+
+        if ( self::schema_needs_value_wrapper( $output_schema ) ) {
+            return array(
+                'type'       => 'object',
+                'properties' => array( 'value' => self::normalize_json_schema( $output_schema ) ),
+                'required'   => array( 'value' ),
+            );
+        }
+
+        $output_schema['type'] = 'object';
+        if ( ! isset( $output_schema['properties'] ) ) {
+            $output_schema['properties'] = new \stdClass();
+        }
+
+        return self::normalize_json_schema( $output_schema );
     }
 
     

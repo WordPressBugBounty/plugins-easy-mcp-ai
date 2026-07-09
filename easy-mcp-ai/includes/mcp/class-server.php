@@ -269,12 +269,36 @@ class Server {
             if ( is_array( $result ) && isset( $result['error'] ) && is_string( $result['error'] ) ) {
                 $result['error'] = self::sanitize_error_message( $result['error'] );
             }
-            return JSON_RPC::success_response( $id, array(
+            
+            
+            
+            
+            
+            
+            $output_schema  = method_exists( $tool, 'get_output_schema' ) ? $tool->get_output_schema() : null;
+            $has_structured = null !== $output_schema && is_array( $result );
+            
+            
+            
+            
+            
+            
+            
+            
+            $structured_value = ( $has_structured && empty( $result ) ) ? new \stdClass() : $result;
+
+            $response = array(
                 'content' => array( array(
                     'type' => 'text',
-                    'text' => is_string( $result ) ? $result : wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                    'text' => is_string( $result )
+                        ? $result
+                        : wp_json_encode( $has_structured ? $structured_value : $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
                 ) ),
-            ) );
+            );
+            if ( $has_structured ) {
+                $response['structuredContent'] = $structured_value;
+            }
+            return JSON_RPC::success_response( $id, $response );
         } catch ( \Exception $e ) {
             
             

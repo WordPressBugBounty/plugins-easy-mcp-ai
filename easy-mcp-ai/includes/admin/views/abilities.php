@@ -135,7 +135,7 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
                                             $slug        = $ability->get_name();
                                             $annotations = \Easy_MCP_AI\Admin\Abilities_Page::ability_annotations( $ability );
                                             $readonly    = isset( $annotations['readonly'] ) && $annotations['readonly'];
-                                            $tool_name   = 'wp_ability_' . \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::normalize_identifier( $slug );
+                                            $tool_name   = \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::build_tool_name( $slug );
                                         ?>
                                             <tr>
                                                 <td><code><?php echo esc_html( $slug ); ?></code></td>

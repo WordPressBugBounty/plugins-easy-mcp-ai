@@ -89,12 +89,29 @@ abstract class Base_Tool {
         return 'general';
     }
 
+    
+
+
+
+
+
+
+
+
+    public function get_output_schema() {
+        return null;
+    }
+
     public function get_definition() {
         $definition = array(
             'name'        => $this->get_name(),
             'description' => $this->get_description(),
             'inputSchema' => $this->get_input_schema(),
         );
+        $output_schema = $this->get_output_schema();
+        if ( null !== $output_schema ) {
+            $definition['outputSchema'] = $output_schema;
+        }
         $annotations = $this->get_annotations();
         if ( ! empty( $annotations ) ) {
             $definition['annotations'] = $annotations;

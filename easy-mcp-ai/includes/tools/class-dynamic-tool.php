@@ -19,10 +19,12 @@ class Dynamic_Tool extends Base_Tool {
     private $category;
     private $capability;
     private $input_schema;
+    private $output_schema;
     private $executor;
     private $annotations_override;
 
     
+
 
 
 
@@ -45,6 +47,7 @@ class Dynamic_Tool extends Base_Tool {
             'type'       => 'object',
             'properties' => new \stdClass(),
         );
+        $this->output_schema = isset( $config['output_schema'] ) ? $config['output_schema'] : null;
         $this->annotations_override = isset( $config['annotations'] ) ? $config['annotations'] : null;
     }
 
@@ -53,6 +56,7 @@ class Dynamic_Tool extends Base_Tool {
     public function get_category()             { return $this->category; }
     public function get_required_capability()  { return $this->capability; }
     public function get_input_schema()         { return $this->input_schema; }
+    public function get_output_schema()        { return $this->output_schema; }
 
     public function get_annotations() {
         if ( null !== $this->annotations_override ) {
