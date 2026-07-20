@@ -29,17 +29,104 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				
 				
 				
+				
+				
+				
+				
+				
+				
 				$diag_host = wp_parse_url( $endpoint_url, PHP_URL_HOST );
 				$diag_port = wp_parse_url( $endpoint_url, PHP_URL_PORT );
 				if ( $diag_port ) {
 					$diag_host .= ':' . $diag_port;
 				}
+				$diag_home_path = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+				if ( '' !== $diag_home_path ) {
+					$diag_host .= '/' . $diag_home_path;
+				}
+
+				
+				
+				global $wpdb;
+				$env_wp_version = get_bloginfo( 'version' );
+				$db_server_info = ( isset( $wpdb ) && is_object( $wpdb ) ) ? (string) $wpdb->db_server_info() : '';
+				$db_version_num = ( isset( $wpdb ) && is_object( $wpdb ) ) ? (string) $wpdb->db_version() : '';
+				
+				
+				$db_engine  = ( '' !== $db_server_info && false !== stripos( $db_server_info, 'mariadb' ) ) ? 'MariaDB' : 'MySQL';
+				$db_display = ( '' !== $db_version_num )
+					? $db_engine . ' ' . $db_version_num
+					: ( '' !== $db_server_info ? $db_server_info : __( 'Unknown', 'easy-mcp-ai' ) );
+
+				
+				$external_data_integrations = is_array( $external_data_integrations ) ? $external_data_integrations : array();
+				$ext_connected = array_filter( $external_data_integrations );
+				$ext_count     = count( $ext_connected );
+				$ext_total     = count( $external_data_integrations );
+				$ext_missing   = array_keys( array_filter( $external_data_integrations, fn( $v ) => ! $v ) );
+
+				
+				
+				
+				
+				$set_rate_limit       = (int) get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+				$set_audit_enabled    = (bool) get_option( 'easy_mcp_ai_audit_log_enabled', true );
+				$set_audit_retention  = (int) get_option( 'easy_mcp_ai_audit_log_retention', 30 );
+				$set_change_enabled   = (bool) get_option( 'easy_mcp_ai_change_log_enabled', true );
+				$set_change_retention = (int) get_option( 'easy_mcp_ai_change_log_retention', 30 );
+				$set_force_draft      = (bool) get_option( 'easy_mcp_ai_force_draft_on_create', false );
+				$set_max_title        = (int) get_option( 'easy_mcp_ai_max_title_length', 0 );
+				$set_admin_language   = (string) get_option( 'easy_mcp_ai_admin_language', '' );
+				$set_disabled_tools   = count( (array) get_option( 'easy_mcp_ai_disabled_tools', array() ) );
+				$set_allowed_patterns = count( (array) get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ) );
+				$set_oauth_cap        = (string) get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+				$set_ext_cap          = (string) get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
+				
+				
+				
+				$set_ip_entries = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) get_option( 'easy_mcp_ai_ip_whitelist', '' ) ) ) );
+				$set_ip_count   = count( $set_ip_entries );
+				$set_ip_display = ( 0 === $set_ip_count )
+					? 'None'
+					: 'Configured (' . $set_ip_count . ( 1 === $set_ip_count ? ' entry)' : ' entries)' );
+
+				
+				
+				
+				$system_info_text = implode( "\n", array(
+					'Easy MCP AI — System Info',
+					'Plugin Version:   ' . EASY_MCP_AI_VERSION,
+					'WordPress:        ' . $env_wp_version,
+					'PHP Version:      ' . PHP_VERSION,
+					'Database:         ' . $db_display,
+					'Protocol:         2025-11-25 / 2025-06-18 / 2025-03-26',
+					'Active Tokens:    ' . (int) $token_count,
+					'Active Clients:   ' . (int) $oauth_client_count,
+					'Registered Tools: ' . (int) $tool_count,
+					'External Data:    ' . $ext_count . '/' . $ext_total,
+					'',
+					'Settings',
+					'Rate Limit (per min):  ' . $set_rate_limit,
+					'Audit Log:             ' . ( $set_audit_enabled ? 'Enabled (' . $set_audit_retention . '-day retention)' : 'Disabled' ),
+					'Change History:        ' . ( $set_change_enabled ? 'Enabled (' . $set_change_retention . '-day retention)' : 'Disabled' ),
+					'Force Draft on Create: ' . ( $set_force_draft ? 'Yes' : 'No' ),
+					'Max Title Length:      ' . ( 0 === $set_max_title ? '0 (unlimited)' : $set_max_title ),
+					'Admin Language:        ' . ( '' === $set_admin_language ? 'Site default' : $set_admin_language ),
+					'Disabled Tools:        ' . $set_disabled_tools,
+					'Allowed Tool Patterns: ' . $set_allowed_patterns,
+					'OAuth Min Capability:  ' . $set_oauth_cap,
+					'External Data Min Cap: ' . $set_ext_cap,
+					'IP Whitelist:          ' . $set_ip_display,
+				) );
 				?>
 				<div class="wp-mcp-status-head" style="display:flex; align-items:center; justify-content:space-between; gap:1em; flex-wrap:wrap; border-bottom:1px solid #f0f0f1; padding-bottom:10px; margin-bottom:1em;">
 					<h2 style="margin:0; padding:0; border:0;"><?php esc_html_e( 'Server Status', 'easy-mcp-ai' ); ?></h2>
+					<span style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+					<button type="button" class="button-link wp-mcp-copy-btn" data-copy="<?php echo esc_attr( $system_info_text ); ?>" style="font-size:12px;"><?php esc_html_e( 'Copy System Info', 'easy-mcp-ai' ); ?></button>
 					<?php if ( $diag_host ) : ?>
 					<a href="<?php echo esc_url( 'https://easymcpai.com/diagnose?url=' . rawurlencode( $diag_host ) ); ?>" class="button button-secondary" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Diagnose Connection', 'easy-mcp-ai' ); ?></a>
 					<?php endif; ?>
+					</span>
 				</div>
 			<table class="widefat striped">
 				<tbody>
@@ -52,8 +139,12 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 						<td><code><?php echo esc_html( EASY_MCP_AI_VERSION ); ?></code></td>
 					</tr>
 					<tr>
-						<td class="wp-mcp-status-label"><?php esc_html_e( 'PHP Version', 'easy-mcp-ai' ); ?></td>
-						<td><code><?php echo esc_html( PHP_VERSION ); ?></code></td>
+						<td class="wp-mcp-status-label"><?php esc_html_e( 'Environment', 'easy-mcp-ai' ); ?></td>
+						<td><code><?php echo esc_html( 'WP ' . $env_wp_version ); ?></code> / <code><?php echo esc_html( 'PHP ' . PHP_VERSION ); ?></code></td>
+					</tr>
+					<tr>
+						<td class="wp-mcp-status-label"><?php esc_html_e( 'Database', 'easy-mcp-ai' ); ?></td>
+						<td><code><?php echo esc_html( $db_display ); ?></code></td>
 					</tr>
 					<tr>
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'Active Tokens', 'easy-mcp-ai' ); ?></td>
@@ -67,13 +158,6 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'Registered Tools', 'easy-mcp-ai' ); ?></td>
 						<td><a href="#available-tools"><?php echo esc_html( $tool_count ); ?></a></td>
 					</tr>
-					<?php
-					$external_data_integrations = is_array( $external_data_integrations ) ? $external_data_integrations : array();
-					$ext_connected = array_filter( $external_data_integrations );
-					$ext_count     = count( $ext_connected );
-					$ext_total     = count( $external_data_integrations );
-					$ext_missing   = array_keys( array_filter( $external_data_integrations, fn( $v ) => ! $v ) );
-					?>
 					<tr>
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'External Data', 'easy-mcp-ai' ); ?></td>
 						<td><a href="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ); ?>"><code><?php echo esc_html( $ext_count . '/' . $ext_total ); ?></code></a></td>

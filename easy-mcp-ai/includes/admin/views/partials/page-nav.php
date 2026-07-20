@@ -21,7 +21,7 @@ $nav_items = array(
 
 $oauth_pages = array( 'easy-mcp-ai-oauth', 'easy-mcp-ai-tokens' );
 ?>
-<nav class="nav-tab-wrapper wp-mcp-page-nav" style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;">
+<nav class="nav-tab-wrapper wp-mcp-page-nav" style="display:flex;align-items:flex-end;flex-wrap:wrap;">
 	<div style="display:flex;flex-wrap:wrap;">
 	<?php foreach ( $nav_items as $slug => $label ) :
 		$is_active = ( $current_page === $slug )
@@ -33,7 +33,15 @@ $oauth_pages = array( 'easy-mcp-ai-oauth', 'easy-mcp-ai-tokens' );
 		</a>
 	<?php endforeach; ?>
 	</div>
-	<div style="display:inline-flex;gap:6px;margin-bottom:6px;">
+	<div style="display:inline-flex;gap:6px;margin-bottom:6px;margin-left:auto;">
+		<a href="https://easymcpai.com/?utm_source=wp-plugin&utm_medium=dashboard&utm_campaign=easy-mcp-ai"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="button button-secondary button-small"
+			style="line-height:1.2;display:inline-flex;align-items:center;gap:4px;">
+			<span class="dashicons dashicons-admin-site-alt3" style="color:#2271b1;font-size:14px;width:14px;height:14px;line-height:1;"></span>
+			<?php esc_html_e( 'Website', 'easy-mcp-ai' ); ?>
+		</a>
 		<a href="https://wordpress.org/support/plugin/easy-mcp-ai/reviews/"
 			target="_blank"
 			rel="noopener noreferrer"
@@ -48,7 +56,7 @@ $oauth_pages = array( 'easy-mcp-ai-oauth', 'easy-mcp-ai-tokens' );
 			class="button button-secondary button-small"
 			style="line-height:1.2;display:inline-flex;align-items:center;gap:4px;">
 			<span class="dashicons dashicons-sos" style="color:#2271b1;font-size:14px;width:14px;height:14px;line-height:1;"></span>
-			<?php esc_html_e( 'Get Help', 'easy-mcp-ai' ); ?>
+			<?php esc_html_e( 'Help', 'easy-mcp-ai' ); ?>
 		</a>
 	</div>
 </nav>

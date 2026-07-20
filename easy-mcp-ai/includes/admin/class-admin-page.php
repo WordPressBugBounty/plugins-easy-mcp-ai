@@ -244,6 +244,8 @@ class Admin_Page {
                 'admin_language'        => isset( $_POST['admin_language'] ) ? sanitize_text_field( wp_unslash( $_POST['admin_language'] ) ) : '',
                 'change_log_enabled'    => isset( $_POST['change_log_enabled'] ) ? 1 : 0,
                 'change_log_retention'  => isset( $_POST['change_log_retention'] ) ? absint( $_POST['change_log_retention'] ) : 30,
+                'oauth_min_capability'  => isset( $_POST['oauth_min_capability'] ) ? sanitize_key( wp_unslash( $_POST['oauth_min_capability'] ) ) : 'publish_posts',
+                'external_data_min_capability' => isset( $_POST['external_data_min_capability'] ) ? sanitize_key( wp_unslash( $_POST['external_data_min_capability'] ) ) : 'manage_options',
             ) );
         }
         if ( isset( $_POST['easy_mcp_ai_cleanup_audit'] ) && \check_admin_referer( 'easy_mcp_ai_cleanup_audit' ) ) {
@@ -278,6 +280,77 @@ class Admin_Page {
         $tool_name  = \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::build_tool_name( $ability_name );
         $tool_def   = isset( $ability_def_by_name[ $tool_name ] ) ? $ability_def_by_name[ $tool_name ] : null;
         return array( 'is_enabled' => $is_enabled, 'tool_def' => $tool_def );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function oauth_min_capability_choices() {
+        return array(
+            'publish_posts'     => __( 'Author and above (default)', 'easy-mcp-ai' ),
+            'edit_others_posts' => __( 'Editor and above', 'easy-mcp-ai' ),
+            'manage_options'    => __( 'Administrators only', 'easy-mcp-ai' ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function sanitize_oauth_min_capability( $value ) {
+        return ( is_string( $value ) && array_key_exists( $value, self::oauth_min_capability_choices() ) )
+            ? $value
+            : 'publish_posts';
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function external_data_min_capability_choices() {
+        return array(
+            'manage_options'    => __( 'Administrators only (default)', 'easy-mcp-ai' ),
+            'edit_others_posts' => __( 'Editor and above', 'easy-mcp-ai' ),
+            'publish_posts'     => __( 'Author and above', 'easy-mcp-ai' ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function sanitize_external_data_min_capability( $value ) {
+        return ( is_string( $value ) && array_key_exists( $value, self::external_data_min_capability_choices() ) )
+            ? $value
+            : 'manage_options';
     }
 
     
@@ -354,6 +427,11 @@ class Admin_Page {
             'admin_language'         => $post_data['admin_language'],
             'change_log_enabled'     => $post_data['change_log_enabled'],
             'change_log_retention'   => max( 1, min( 3650, (int) $post_data['change_log_retention'] ) ),
+            
+            
+            
+            'oauth_min_capability'   => self::sanitize_oauth_min_capability( $post_data['oauth_min_capability'] ),
+            'external_data_min_capability' => self::sanitize_external_data_min_capability( $post_data['external_data_min_capability'] ),
         );
         foreach ( $settings as $key => $value ) {
             \update_option( 'easy_mcp_ai_' . $key, $value );
@@ -886,6 +964,51 @@ class Admin_Page {
 
 
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function build_connect_url( $type, $connector_name, $endpoint_url ) {
+        $name = (string) $connector_name;
+        $url  = (string) $endpoint_url;
+        switch ( $type ) {
+            case 'claude':
+                return 'https://claude.ai/customize/connectors?modal=add-custom-connector'
+                    . '&connectorName=' . rawurlencode( $name )
+                    . '&connectorUrl=' . rawurlencode( $url );
+            case 'cursor':
+                $config = base64_encode( (string) wp_json_encode( array( 'url' => $url ) ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- Cursor deep-link config is base64 by spec, not obfuscation.
+                return 'cursor://anysphere.cursor-deeplink/mcp/install'
+                    . '?name=' . rawurlencode( $name )
+                    . '&config=' . rawurlencode( $config );
+            case 'vscode':
+                $obj   = (string) wp_json_encode( array( 'name' => $name, 'type' => 'http', 'url' => $url ) );
+                $inner = 'vscode:mcp/install?' . rawurlencode( $obj );
+                return 'https://insiders.vscode.dev/redirect?url=' . rawurlencode( $inner );
+            default:
+                return '';
+        }
+    }
+
     public static function get_client_guides() {
         $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
         $auth  = array( 'Authorization' => 'Bearer YOUR_API_TOKEN' );
@@ -927,6 +1050,11 @@ class Admin_Page {
                     __( 'Click Save then Connect — OAuth is handled automatically, no token needed', 'easy-mcp-ai' ),
                 ),
                 'oauth_config' => '%s',
+                
+                
+                
+                'connect_type'       => 'claude',
+                'connect_link_label' => __( 'Connect to Claude (1-click)', 'easy-mcp-ai' ),
                 'hint'         => __( 'Alternative — add a connector with a token embedded in the URL:', 'easy-mcp-ai' ),
                 'config'       => '%s/YOUR_API_TOKEN',
                 'note'         => __( 'Replace YOUR_API_TOKEN with your actual token (e.g. wpmcp_abc123…).', 'easy-mcp-ai' ),
@@ -970,18 +1098,12 @@ class Admin_Page {
             array(
                 'id'     => 'cursor',
                 'name'   => __( 'Cursor', 'easy-mcp-ai' ),
+                
+                'connect_type'       => 'cursor',
+                'connect_link_label' => __( 'Add to Cursor (1-click)', 'easy-mcp-ai' ),
                 'hint'   => __( 'Add to ~/.cursor/mcp.json:', 'easy-mcp-ai' ),
                 'config' => $mcp_servers_json( array( 'url' => '%s', 'headers' => $auth ) ),
                 'link'   => 'https://www.cursor.com/',
-            ),
-
-            array(
-                'id'         => 'gemini-cli',
-                'name'       => __( 'Gemini CLI', 'easy-mcp-ai' ),
-                'hint'       => __( 'Add to ~/.gemini/settings.json:', 'easy-mcp-ai' ),
-                'cli_config' => 'gemini mcp add wordpress %s --transport http --scope user -H "Authorization: Bearer YOUR_API_TOKEN"',
-                'config'     => $mcp_servers_json( array( 'url' => '%s', 'type' => 'http', 'headers' => $auth ) ),
-                'link'       => 'https://geminicli.com/',
             ),
 
             array(
@@ -998,11 +1120,16 @@ class Admin_Page {
             ),
             
             array(
-                'id'         => 'claude-code',
-                'name'       => __( 'Claude Code', 'easy-mcp-ai' ),
-                'hint'       => __( 'Add to your Claude Code MCP config file:', 'easy-mcp-ai' ),
-                'cli_config' => 'claude mcp add --transport http wordpress %s --header "Authorization: Bearer YOUR_API_TOKEN"',
-                'config'     => $http_config,
+                'id'           => 'claude-code',
+                'name'         => __( 'Claude Code', 'easy-mcp-ai' ),
+                'oauth_steps'  => array(
+                    __( 'Run the command below — it adds the server with no token needed', 'easy-mcp-ai' ),
+                    __( 'In Claude Code, run /mcp, select "wordpress", and choose Authenticate', 'easy-mcp-ai' ),
+                    __( 'Complete the OAuth login in your browser — Claude Code stores the credentials automatically', 'easy-mcp-ai' ),
+                ),
+                'oauth_config' => 'claude mcp add --transport http wordpress %s',
+                'cli_config'   => 'claude mcp add --transport http wordpress %s --header "Authorization: Bearer YOUR_API_TOKEN"',
+                'config'       => $http_config,
             ),
             array(
                 'id'     => 'windsurf',
@@ -1041,6 +1168,10 @@ class Admin_Page {
                 'id'     => 'copilot',
                 'group'  => 'others',
                 'name'   => __( 'GitHub Copilot (VS Code)', 'easy-mcp-ai' ),
+                
+                
+                'connect_type'       => 'vscode',
+                'connect_link_label' => __( 'Install in VS Code (1-click)', 'easy-mcp-ai' ),
                 'hint'   => __( 'Add to .vscode/mcp.json in your project:', 'easy-mcp-ai' ),
                 'config' => wp_json_encode( array( 'servers' => array( 'wordpress' => array( 'type' => 'http', 'url' => '%s', 'headers' => $auth ) ) ), $flags ),
                 'link'   => 'https://github.com/features/copilot',
@@ -1291,6 +1422,8 @@ class Admin_Page {
             'admin_language'         =>         \get_option( 'easy_mcp_ai_admin_language', '' ),
             'change_log_enabled'     => (bool)  \get_option( 'easy_mcp_ai_change_log_enabled', true ),
             'change_log_retention'   => (int)   \get_option( 'easy_mcp_ai_change_log_retention', 30 ),
+            'oauth_min_capability'   =>         \get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ),
+            'external_data_min_capability' =>   \get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' ),
         );
         $all_tool_names = array_values( array_diff(
             $this->tool_registry->get_all_tool_names(),

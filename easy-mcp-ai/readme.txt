@@ -4,7 +4,7 @@ Tags: mcp, ai, ai-seo, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.9
+Stable tag: 1.7.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,7 +34,7 @@ Connect any of the following AI assistants or AI agents to your site through the
 * **Manus** — the autonomous AI agent that can run multi-step workflows start to finish
 * **Claude** (Claude.ai, Claude Desktop, Claude Code) — connect Claude to WordPress in one click via OAuth
 * **ChatGPT** (OpenAI) — connect ChatGPT to WordPress and manage your entire site by chat
-* **Gemini AI** (Gemini CLI / Google Antigravity) — Google's AI tools with MCP support
+* **Gemini AI** (Antigravity CLI / Google Antigravity) — Google's AI tools with MCP support
 * **Cursor, Windsurf, Cline, Roo Code** — AI-powered code editors that can also manage your content
 * **n8n** — automation for content pipelines and publishing workflows
 * **Any MCP-compatible client** — the protocol is open and supported by a growing ecosystem
@@ -285,7 +285,7 @@ After activation, go to **Easy MCP AI → Dashboard** and copy your MCP server U
 * **Claude Desktop / Claude.ai / Claude Code** (by Anthropic) — Settings → Connectors → Add custom connector, paste the URL, approve the OAuth consent screen. One click, no token.
 * **ChatGPT (OpenAI)** — add as an MCP server using the same URL.
 * **Cursor / Windsurf / Cline / Roo Code** — add MCP server in the client's settings using the URL.
-* **Gemini AI** (Gemini CLI / Google Antigravity) — register the MCP endpoint in the client config.
+* **Gemini AI** (Antigravity CLI / Google Antigravity) — register the MCP endpoint in the client config.
 * **n8n** — use the MCP node and point it at the URL plus a Bearer token created under **Easy MCP AI → API Tokens**.
 
 See the [integrations page](https://easymcpai.com/integrations) for step-by-step guides per client.
@@ -399,6 +399,13 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.10 =
+* New: Settings now let you choose the minimum user role allowed to connect an AI assistant through OAuth — keep the default (Author and above), or restrict it to Editors or Administrators only. Creating tokens from the dashboard stays admin-only and is unaffected.
+* New: Settings now let you choose the minimum user role allowed to use the External Data tools (Google Analytics, Search Console, DataForSEO, Semrush, SE Ranking). These stay Administrators-only by default; you can lower them to Editors or Authors.
+* Improved: AI assistants now only see tools their connected user is actually allowed to use — tools they lack permission for are hidden from the tool list instead of failing when called.
+* Fixed: Cursor and VS Code can now connect over one-click OAuth. Desktop apps that use a custom sign-in link (e.g. cursor://) previously failed to finish connecting; the sign-in now completes normally. Claude, ChatGPT, and other clients are unaffected.
+* New: One-click "Connect" buttons for Claude, Cursor, and VS Code on the dashboard, plus a "Copy System Info" button that puts your setup details on the clipboard for support requests (your API keys and credentials are never included).
 
 = 1.7.9 =
 * Fixed: A few WordPress plugin abilities with unusual settings could stop your AI assistant from connecting at all — this is now handled automatically so the connection stays reliable.

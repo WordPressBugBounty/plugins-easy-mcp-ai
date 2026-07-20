@@ -130,6 +130,54 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
             </tr>
 
             <tr>
+                <th scope="row">
+                    <label for="oauth_min_capability"><?php esc_html_e( 'Minimum Capability to Authorize (OAuth)', 'easy-mcp-ai' ); ?></label>
+                </th>
+                <td>
+                    <?php
+                    $oauth_cap_choices  = \Easy_MCP_AI\Admin\Admin_Page::oauth_min_capability_choices();
+                    
+                    
+                    $oauth_cap_selected = \Easy_MCP_AI\Admin\Admin_Page::sanitize_oauth_min_capability( isset( $settings['oauth_min_capability'] ) ? $settings['oauth_min_capability'] : '' );
+                    ?>
+                    <select id="oauth_min_capability" name="oauth_min_capability">
+                        <?php foreach ( $oauth_cap_choices as $cap => $label ) : ?>
+                            <option value="<?php echo esc_attr( $cap ); ?>" <?php selected( $cap, $oauth_cap_selected ); ?>>
+                                <?php echo esc_html( $label ); ?> <?php echo esc_html( '(' . $cap . ')' ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e( 'Minimum WordPress capability a user must have to authorize an MCP client through the OAuth consent screen. The floor is Author (publish_posts) — you can only raise it. This is capability-based, so any custom role that grants the selected capability also qualifies. Does not affect creating tokens from this dashboard (that stays admin-only).', 'easy-mcp-ai' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="external_data_min_capability"><?php esc_html_e( 'Minimum Capability for External Data Tools', 'easy-mcp-ai' ); ?></label>
+                </th>
+                <td>
+                    <?php
+                    $ext_cap_choices  = \Easy_MCP_AI\Admin\Admin_Page::external_data_min_capability_choices();
+                    
+                    
+                    $ext_cap_selected = \Easy_MCP_AI\Admin\Admin_Page::sanitize_external_data_min_capability( isset( $settings['external_data_min_capability'] ) ? $settings['external_data_min_capability'] : '' );
+                    ?>
+                    <select id="external_data_min_capability" name="external_data_min_capability">
+                        <?php foreach ( $ext_cap_choices as $cap => $label ) : ?>
+                            <option value="<?php echo esc_attr( $cap ); ?>" <?php selected( $cap, $ext_cap_selected ); ?>>
+                                <?php echo esc_html( $label ); ?> <?php echo esc_html( '(' . $cap . ')' ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="description">
+                        <?php esc_html_e( 'Minimum WordPress capability required to use the Google Analytics, Search Console, DataForSEO, Semrush, and SE Ranking tools. These default to Administrators only; lower this to let Editors or Authors use them. Tools a user cannot call are also hidden from the MCP client\'s tool list. (Ahrefs is unaffected and stays available to any authorized user.)', 'easy-mcp-ai' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr>
                 <th scope="row"><?php esc_html_e( 'Force Draft on Create', 'easy-mcp-ai' ); ?></th>
                 <td>
                     <label>

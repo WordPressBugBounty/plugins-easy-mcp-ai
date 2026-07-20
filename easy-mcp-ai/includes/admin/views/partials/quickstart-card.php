@@ -19,6 +19,27 @@ $guides_others = array_filter( $client_guides, fn( $g ) => ! empty( $g['group'] 
 $render_guide_body = function( array $guide, string $endpoint_url, string $tokens_link ) : void { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
 	?>
 	<div class="wp-mcp-quickstart-body">
+		<?php if ( ! empty( $guide['connect_type'] ) ) :
+			
+			
+			
+			
+			$connect_site_title = trim( (string) get_bloginfo( 'name' ) );
+			$connect_conn_name  = ( '' !== $connect_site_title ) ? $connect_site_title . ' WordPress' : 'WordPress';
+			$connect_url        = \Easy_MCP_AI\Admin\Admin_Page::build_connect_url( $guide['connect_type'], $connect_conn_name, $endpoint_url );
+			if ( '' !== $connect_url ) :
+				
+				
+				
+				
+				$connect_is_web = ( 0 === strpos( $connect_url, 'http' ) );
+				?>
+				<p class="wp-mcp-mt-8">
+					<a href="<?php echo esc_url( $connect_url, array( 'http', 'https', 'cursor' ) ); ?>"<?php echo $connect_is_web ? ' target="_blank" rel="noopener noreferrer"' : ''; ?> class="button button-primary button-small"><?php echo esc_html( ! empty( $guide['connect_link_label'] ) ? $guide['connect_link_label'] : __( 'Connect', 'easy-mcp-ai' ) ); ?> <span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;vertical-align:middle;"></span></a>
+				</p>
+				<p class="description" style="font-size:11px;opacity:0.8;"><?php esc_html_e( 'One-click: opens the app with this server pre-filled — just confirm to add and connect (OAuth, no token needed).', 'easy-mcp-ai' ); ?></p>
+			<?php endif; ?>
+		<?php endif; ?>
 		<?php if ( ! empty( $guide['signup_link'] ) ) : ?>
 			<p class="wp-mcp-mt-8">
 				<a href="<?php echo esc_url( $guide['signup_link'] ); ?>" target="_blank" rel="noopener noreferrer" class="button button-primary button-small"><?php echo esc_html( ! empty( $guide['signup_label'] ) ? $guide['signup_label'] : __( 'Sign up', 'easy-mcp-ai' ) ); ?> <span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;vertical-align:middle;"></span></a>

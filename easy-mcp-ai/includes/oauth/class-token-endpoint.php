@@ -83,10 +83,14 @@ class Token_Endpoint {
         
         
         
+        
+        
+        
+        
         $code          = is_string( $request->get_param( 'code' ) ) ? $request->get_param( 'code' ) : '';
         $code_verifier = is_string( $request->get_param( 'code_verifier' ) ) ? $request->get_param( 'code_verifier' ) : '';
         $client_id     = sanitize_text_field( $request->get_param( 'client_id' ) );
-        $redirect_uri  = is_string( $request->get_param( 'redirect_uri' ) ) ? esc_url_raw( $request->get_param( 'redirect_uri' ) ) : '';
+        $redirect_uri  = is_string( $request->get_param( 'redirect_uri' ) ) ? esc_url_raw( $request->get_param( 'redirect_uri' ), Client_Registry::redirect_uri_allowed_protocols() ) : '';
         
         
         

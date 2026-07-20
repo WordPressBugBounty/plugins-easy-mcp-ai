@@ -62,6 +62,8 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_change_log_db_version',    
     'easy_mcp_ai_change_log_retention',     
     'easy_mcp_ai_change_log_enabled',       
+    'easy_mcp_ai_oauth_min_capability',     
+    'easy_mcp_ai_external_data_min_capability', 
 );
 
 if ( is_multisite() ) {

@@ -16,6 +16,19 @@ abstract class Base_Tool {
 
 
 
+
+
+    const EXTERNAL_DATA_CATEGORIES = array( 'ga', 'gsc', 'dfs', 'semrush', 'seranking' );
+
+    
+
+
+
+
+
+
+
+
     protected static $deferred_purge_ids = array();
 
     

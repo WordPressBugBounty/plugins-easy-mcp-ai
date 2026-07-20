@@ -138,7 +138,12 @@ class Client_Registry {
                 return $validation_error;
             }
 
-            $redirect_uris[] = sanitize_url( $uri );
+            
+            
+            
+            
+            
+            $redirect_uris[] = sanitize_url( $uri, self::redirect_uri_allowed_protocols() );
         }
 
         
@@ -293,6 +298,38 @@ class Client_Registry {
 
 
 
+
+
+
+
+
+    const ALLOWED_CLIENT_URI_SCHEMES = array( 'cursor', 'vscode' );
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function redirect_uri_allowed_protocols() {
+        return array_values( array_unique( array_merge( wp_allowed_protocols(), self::ALLOWED_CLIENT_URI_SCHEMES ) ) );
+    }
+
+    
+
+
+
+
+
     private function validate_redirect_uri( $uri ) {
         
         
@@ -343,12 +380,45 @@ class Client_Registry {
         }
 
         
-        if ( 'https' !== $scheme ) {
-            $host       = isset( $parsed['host'] ) ? strtolower( $parsed['host'] ) : '';
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $host = isset( $parsed['host'] ) ? strtolower( $parsed['host'] ) : '';
+        if ( 'https' === $scheme ) {
+            return true;
+        }
+        if ( 'http' === $scheme ) {
             $local_hosts = array( 'localhost', '127.0.0.1', '[::1]' );
             if ( ! in_array( $host, $local_hosts, true ) ) {
-                return self::dcr_error( 'invalid_redirect_uri', __( 'Redirect URIs must use HTTPS except for localhost.', 'easy-mcp-ai' ), 400 );
+                return self::dcr_error( 'invalid_redirect_uri', __( 'Plain-HTTP redirect URIs are allowed only for loopback (localhost, 127.0.0.1, [::1]); use HTTPS otherwise.', 'easy-mcp-ai' ), 400 );
             }
+            return true;
+        }
+        
+        
+        if ( ! in_array( $scheme, self::ALLOWED_CLIENT_URI_SCHEMES, true ) ) {
+            return self::dcr_error( 'invalid_redirect_uri', __( 'Redirect URIs must use HTTPS, loopback HTTP, or a supported native-app scheme (cursor://, vscode://).', 'easy-mcp-ai' ), 400 );
+        }
+        if ( '' === $host ) {
+            return self::dcr_error( 'invalid_redirect_uri', __( 'Custom-scheme redirect URIs must include a host (for example cursor://host/path).', 'easy-mcp-ai' ), 400 );
         }
 
         return true;

@@ -35,6 +35,34 @@ class Authorization_Endpoint {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function resolved_min_capability() {
+        $stored = get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        if ( ! is_string( $stored ) || ! in_array( $stored, array( 'publish_posts', 'edit_others_posts', 'manage_options' ), true ) ) {
+            $stored = 'publish_posts';
+        }
+        return apply_filters( 'easy_mcp_ai_oauth_min_capability', $stored );
+    }
+
+    
+
+
+
+
+
     public function handle_get( \WP_REST_Request $request ) {
 
         $tls_error = $this->enforce_transport_security();
@@ -78,7 +106,10 @@ class Authorization_Endpoint {
         
         
         
-        $min_cap = apply_filters( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        
+        
+        
+        $min_cap = self::resolved_min_capability();
         if ( ! current_user_can( $min_cap ) ) {
             return $this->redirect_with_error(
                 $params,
@@ -173,7 +204,7 @@ class Authorization_Endpoint {
         }
 
         
-        $min_cap = apply_filters( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        $min_cap = self::resolved_min_capability();
         if ( ! current_user_can( $min_cap ) ) {
             return new \WP_Error(
                 'access_denied',
@@ -388,7 +419,10 @@ class Authorization_Endpoint {
         return array(
             'response_type'         => sanitize_text_field( $request->get_param( 'response_type' ) ),
             'client_id'             => sanitize_text_field( $request->get_param( 'client_id' ) ),
-            'redirect_uri'          => esc_url_raw( $request->get_param( 'redirect_uri' ) ),
+            
+            
+            
+            'redirect_uri'          => esc_url_raw( $request->get_param( 'redirect_uri' ), Client_Registry::redirect_uri_allowed_protocols() ),
             'code_challenge'        => sanitize_text_field( $request->get_param( 'code_challenge' ) ),
             'code_challenge_method' => sanitize_text_field( $request->get_param( 'code_challenge_method' ) ),
             'state'                 => sanitize_text_field( $request->get_param( 'state' ) ),
@@ -790,13 +824,28 @@ class Authorization_Endpoint {
         
         $form_action = "'self'";
         if ( $form_action_uri ) {
-            $parts = wp_parse_url( $form_action_uri );
-            if ( ! empty( $parts['scheme'] ) && ! empty( $parts['host'] ) ) {
-                $origin = $parts['scheme'] . '://' . $parts['host'];
+            $parts  = wp_parse_url( $form_action_uri );
+            $scheme = ! empty( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
+            if ( ( 'http' === $scheme || 'https' === $scheme ) && ! empty( $parts['host'] ) ) {
+                
+                $origin = $scheme . '://' . $parts['host'];
                 if ( ! empty( $parts['port'] ) ) {
                     $origin .= ':' . $parts['port'];
                 }
                 $form_action .= ' ' . $origin;
+            } elseif ( '' !== $scheme && preg_match( '/^[a-z][a-z0-9.+-]*$/', $scheme ) ) {
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                $form_action .= ' ' . $scheme . ':';
             }
         }
         $csp = "default-src 'self'; style-src 'unsafe-inline' 'self'; frame-ancestors 'none'; form-action " . $form_action;

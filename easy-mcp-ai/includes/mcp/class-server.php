@@ -14,6 +14,46 @@ class Server {
     const PROTOCOL_VERSION = '2025-11-25';
     const SERVER_NAME      = 'easy-mcp-ai';
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function effective_required_capability( $category, $tool_default_cap ) {
+        if ( in_array( $category, \Easy_MCP_AI\Tools\Base_Tool::EXTERNAL_DATA_CATEGORIES, true ) ) {
+            $cap = \get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            if ( ! is_string( $cap ) || ! in_array( $cap, array( 'manage_options', 'edit_others_posts', 'publish_posts' ), true ) ) {
+                $cap = 'manage_options';
+            }
+            return $cap;
+        }
+        return $tool_default_cap;
+    }
+
     private $tool_registry;
     private $resource_registry;
     private $token_manager;
@@ -184,6 +224,20 @@ class Server {
                 return $this->tool_matches_pattern_filter( $tool['name'] );
             } ) );
         }
+        
+        
+        
+        
+        
+        
+        $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
+            $instance = $this->tool_registry->get_tool( $tool['name'] );
+            if ( null === $instance ) {
+                return true; 
+            }
+            $cap = self::effective_required_capability( $instance->get_category(), $instance->get_required_capability() );
+            return ! $cap || \current_user_can( $cap );
+        } ) );
         return JSON_RPC::success_response( $id, array( 'tools' => $all_tools ) );
     }
 
@@ -226,7 +280,7 @@ class Server {
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Unknown tool' );
         }
 
-        $required_cap = $tool->get_required_capability();
+        $required_cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
         if ( $required_cap && ! \current_user_can( $required_cap ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient WordPress permissions for this tool' );
         }
