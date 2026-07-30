@@ -14,7 +14,7 @@ class Update_Block extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing reusable block (synced pattern) by ID (PATCH semantics). Required: `block_id`. Optional: `title`, `content` (must be valid Gutenberg block markup — plain HTML becomes a Classic block), `status` (publish/draft). WARNING: changes propagate immediately to every post that embeds this block. Returns { id, title, status } — when `content` is supplied, also returns content_format and content_hint fields.';
+        return 'Updates an existing reusable block (synced pattern) by ID (PATCH semantics). Required: `block_id`. Optional: `title`, `content` (must be valid Gutenberg block markup — plain HTML becomes a Classic block), `status` (publish/draft). WARNING: changes propagate immediately to every post that embeds this block. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title` here DOES blank the field rather than preserving the existing value. Returns { id, title, status } — when `content` is supplied, also returns content_format and content_hint fields.';
     }
 
     public function get_category() {

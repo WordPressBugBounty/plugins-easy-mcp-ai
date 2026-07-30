@@ -49,8 +49,8 @@ class Update_User_Meta extends Base_Tool {
                     'description' => 'The meta key to update.',
                 ),
                 'value'   => array(
-                    'type'        => array( 'string', 'number', 'boolean' ),
-                    'description' => 'The new value for the meta key.',
+                    'type'        => 'string',
+                    'description' => 'The new value for the meta key. For booleans use "1" / "0" (WordPress meta storage semantics); numbers are also accepted as strings.',
                 ),
             ),
             'required'   => array( 'user_id', 'key', 'value' ),

@@ -18,7 +18,7 @@ class Yoast_Get_Head extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets the full rendered SEO head HTML and JSON-LD for any URL via the Yoast SEO REST endpoint. Useful for auditing SEO or populating headless CMS metadata. Returns the rendered head HTML and parsed JSON-LD schema.';
+		return 'Gets the full rendered SEO head HTML and JSON-LD for a URL on this site via the Yoast SEO REST endpoint. Only URLs belonging to this site resolve. A foreign/off-site URL is refused by Yoast with a 404, which this tool surfaces as an error — and because Yoast returns that payload as an object rather than an array, the error message comes through EMPTY, so the failure looks unexplained. Always pass a URL on this site. Useful for auditing SEO or populating headless CMS metadata. Returns the rendered head HTML and parsed JSON-LD schema.';
 	}
 
 	public function get_category() {

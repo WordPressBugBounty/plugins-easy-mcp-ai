@@ -50,7 +50,7 @@ class Get_User_Meta extends Base_Tool {
                 ),
                 'single'  => array(
                     'type'        => 'boolean',
-                    'description' => 'When true (default) returns a single value; when false returns an array of values for the key.',
+                    'description' => 'Only applies when `key` is provided. When true (default) returns a single value; when false returns an array of values for the key. Ignored when `key` is omitted (all meta is returned in that case).',
                     'default'     => true,
                 ),
             ),

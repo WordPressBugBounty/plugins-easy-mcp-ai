@@ -18,7 +18,7 @@ class Rankmath_Get_Head extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets the rendered SEO head HTML for any URL via the Rank Math REST endpoint. Requires Headless CMS Support to be enabled in Rank Math → General Settings → Others → Headless CMS Support.';
+		return 'Gets the rendered SEO head HTML for a URL on this site via the Rank Math REST endpoint. Only this site\'s URLs are accepted: Rank Math validates the `url` argument and rejects any host other than this site, returning rest_invalid_param (HTTP 400), which this tool surfaces as an error. For same-site URLs, Rank Math strips this site\'s home_url prefix and re-parses the remainder as a path, so a same-site URL that does not resolve to a real page silently returns HTTP 200 with the front page\'s or a 404\'s head data rather than erroring — always pass a URL you know exists. Requires Headless CMS Support to be enabled in Rank Math → General Settings → Others → Headless CMS Support.';
 	}
 
 	public function get_category() {

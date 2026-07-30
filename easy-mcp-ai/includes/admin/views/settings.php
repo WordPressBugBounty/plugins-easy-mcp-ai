@@ -155,7 +155,21 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
 
             <tr>
                 <th scope="row">
-                    <label for="external_data_min_capability"><?php esc_html_e( 'Minimum Capability for External Data Tools', 'easy-mcp-ai' ); ?></label>
+                    <label for="external_data_min_capability">
+                        <?php
+                        
+                        
+                        $ext_data_link = '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) . '">' . esc_html__( 'External Data', 'easy-mcp-ai' ) . '</a>';
+                        echo wp_kses(
+                            sprintf(
+                                /* translators: %s: the words "External Data", linked to the External Data admin page. */
+                                __( 'Minimum Capability for %s Tools', 'easy-mcp-ai' ),
+                                $ext_data_link
+                            ),
+                            array( 'a' => array( 'href' => array() ) )
+                        );
+                        ?>
+                    </label>
                 </th>
                 <td>
                     <?php

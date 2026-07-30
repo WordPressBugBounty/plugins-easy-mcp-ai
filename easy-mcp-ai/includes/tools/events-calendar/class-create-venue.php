@@ -14,7 +14,7 @@ class Create_Venue extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new venue in The Events Calendar. Required: venue (venue name). Optional: address, city, country, state, zip, phone, url.';
+        return 'Creates a new venue in The Events Calendar. Required: venue (venue name). Optional: address, city, country, state, zip, phone, url. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

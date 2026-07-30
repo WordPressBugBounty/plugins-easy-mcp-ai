@@ -14,13 +14,14 @@ class List_Revisions extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all saved revisions of a WordPress post. Required: `post_id`. Optional: `per_page` (default 10, max 100), `page`. Returns { revisions: [{ id, author, date, title, excerpt, content_length }], post_id, total, total_pages, page, per_page } — `content_length` is the character count of the revision content (full content is omitted for performance; use `wp_get_revision` with both `post_id` + `revision_id` to read full content). To restore, pass title, content, and excerpt to `wp_update_post`.';
+        return 'Lists all saved revisions of a WordPress post. Required: `post_id`. Optional: `per_page` (default 10, max 100), `page`. Returns { revisions: [{ id, author, date, title, excerpt, content_length }], post_id, total, total_pages, page, per_page } — `content_length` is the character count of the revision content (full content is omitted for performance; use `wp_get_revision` with both `post_id` + `revision_id` to read full content). To restore a revision, use `wp_restore_revision` (preferred) rather than manually copying its `title`, `content`, and `excerpt` into `wp_update_post`. This tool is listed as `read` regardless of the parent post\'s type, but WordPress requires edit-level access on that specific parent (edit_posts for posts, edit_pages for pages, or a CPT\'s own capability) — a low-privilege caller may still see a permission error depending on which post_id is targeted.';
     }
 
     public function get_category() {
         return 'revisions';
     }
 
+    
     public function get_required_capability() {
         return 'read';
     }

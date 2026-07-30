@@ -139,7 +139,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                             <div class="wp-mcp-multiselect" id="wp-mcp-filter-category" data-default-label="<?php esc_attr_e( 'All Categories', 'easy-mcp-ai' ); ?>">
                                 <button type="button" class="wp-mcp-multiselect-btn" aria-haspopup="true" aria-expanded="false">
                                     <span class="wp-mcp-multiselect-label"><?php esc_html_e( 'All Categories', 'easy-mcp-ai' ); ?></span>
-                                    <span class="wp-mcp-multiselect-arrow" aria-hidden="true">&
+                                    <span class="wp-mcp-multiselect-arrow" aria-hidden="true">&#9660;</span>
                                 </button>
                                 <div class="wp-mcp-multiselect-dropdown">
                                     <?php foreach ( $tools_by_cat as $category => $tools ) : ?>
@@ -154,7 +154,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                             <div class="wp-mcp-multiselect" id="wp-mcp-filter-action" data-default-label="<?php esc_attr_e( 'All Actions', 'easy-mcp-ai' ); ?>">
                                 <button type="button" class="wp-mcp-multiselect-btn" aria-haspopup="true" aria-expanded="false">
                                     <span class="wp-mcp-multiselect-label"><?php esc_html_e( 'All Actions', 'easy-mcp-ai' ); ?></span>
-                                    <span class="wp-mcp-multiselect-arrow" aria-hidden="true">&
+                                    <span class="wp-mcp-multiselect-arrow" aria-hidden="true">&#9660;</span>
                                 </button>
                                 <div class="wp-mcp-multiselect-dropdown">
                                     <label class="wp-mcp-multiselect-option"><input type="checkbox" value="list"> <?php esc_html_e( 'List', 'easy-mcp-ai' ); ?></label>

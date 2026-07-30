@@ -14,7 +14,7 @@ class List_Users extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress users. Optional: `search` (matches name/username/email), `roles` (array of role slugs — e.g. ["editor","author"] — OR operation), `per_page` (default 10, max 100), `page`, `orderby` (id/name/registered_date/email/include/slug/url — default id), `order` (asc/desc). Returns { users: [{ id, username, name, email, roles, registered_date }], total, total_pages, page, per_page }. Requires `list_users` capability (administrators only by default).';
+        return 'Lists WordPress users. Optional: `search` (matches name/username/email), `roles` (array of role slugs — e.g. ["editor","author"] — OR operation), `per_page` (default 10, max 100), `page`, `orderby` (id/name/registered_date/email/slug/url — default id), `order` (asc/desc). Returns { users: [{ id, username, name, email, roles, registered_date }], total, total_pages, page, per_page }. Requires `list_users` capability (administrators only by default).';
     }
 
     public function get_category() {
@@ -62,7 +62,7 @@ class List_Users extends Base_Tool {
                 'orderby'  => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
-                    'enum'        => array( 'id', 'name', 'registered_date', 'email', 'include', 'slug', 'url' ),
+                    'enum'        => array( 'id', 'name', 'registered_date', 'email', 'slug', 'url' ),
                     'default'     => 'id',
                 ),
                 'order'    => array(

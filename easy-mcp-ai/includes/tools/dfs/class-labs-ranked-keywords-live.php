@@ -53,11 +53,11 @@ class Labs_Ranked_Keywords_Live extends Base_Tool {
 				),
 				'language_code'              => array(
 					'type'        => 'string',
-					'description' => 'Language code (e.g. "en").',
+					'description' => 'ISO 639-1 language code, e.g. "en". Optional if you supply language_name instead — send one, not both.',
 				),
 				'language_name'              => array(
 					'type'        => 'string',
-					'description' => 'Language name.',
+					'description' => 'Full language name as DataForSEO spells it, e.g. "English". NOT a country or location name. Optional if you supply language_code instead — send one, not both. DataForSEO rejects an unrecognised value with "Invalid Field: language_name".',
 				),
 				'ignore_synonyms'            => array(
 					'type'        => 'boolean',

@@ -14,7 +14,7 @@ class List_Categories extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress categories. Optional: `search`, `parent` (filter by parent ID; use 0 for top-level only), `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include/term_order — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns { categories: [{ id, name, slug, description, parent, count }], total, total_pages, page, per_page }. Categories are hierarchical — use `parent` to walk the tree.';
+        return 'Lists WordPress categories. Optional: `search`, `parent` (filter by parent ID; use 0 for top-level only), `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns { categories: [{ id, name, slug, description, parent, count }], total, total_pages, page, per_page }. Categories are hierarchical — use `parent` to walk the tree.';
     }
 
     public function get_category() {
@@ -66,7 +66,7 @@ class List_Categories extends Base_Tool {
                 'orderby'    => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
-                    'enum'        => array( 'id', 'name', 'slug', 'count', 'include', 'term_order' ),
+                    'enum'        => array( 'id', 'name', 'slug', 'count', 'include' ),
                     'default'     => 'name',
                 ),
                 'order'      => array(

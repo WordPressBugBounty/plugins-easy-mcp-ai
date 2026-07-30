@@ -14,7 +14,7 @@ class Get_Post_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets REST-API-visible meta fields for a post. Only meta fields registered with show_in_rest are returned. Optional `key` parameter filters to a single meta key and returns { post_id, key, value }; omit it to receive all meta.';
+        return 'Gets REST-API-visible meta fields for a post. Only meta fields registered with show_in_rest are returned. Optional `key` parameter filters to a single meta key and returns { post_id, key, value }; omit it to receive all meta. Optional `post_type` (REST base, default `posts`) lets this tool also operate on pages or any custom post type, not just posts.';
     }
 
     public function get_category() {

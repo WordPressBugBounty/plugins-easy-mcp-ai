@@ -14,7 +14,7 @@ class Create_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new event in The Events Calendar. Required: title, start_date, end_date (YYYY-MM-DD HH:MM:SS format). Optional: description, venue, organizer, all_day, cost, url, status.';
+        return 'Creates a new event in The Events Calendar. Required: title, start_date, end_date (YYYY-MM-DD HH:MM:SS format). Optional: description, venue, organizer, all_day, cost, url, status. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

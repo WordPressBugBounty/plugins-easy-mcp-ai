@@ -238,6 +238,14 @@ class Server {
             $cap = self::effective_required_capability( $instance->get_category(), $instance->get_required_capability() );
             return ! $cap || \current_user_can( $cap );
         } ) );
+        $all_tools = array_map( function ( $tool ) {
+            $tool['inputSchema'] = Gemini_Safe_Schema::sanitize( $tool['inputSchema'] )['schema'];
+            if ( isset( $tool['outputSchema'] ) ) {
+                $tool['outputSchema'] = Gemini_Safe_Schema::sanitize( $tool['outputSchema'] )['schema'];
+            }
+            return $tool;
+        }, $all_tools );
+
         return JSON_RPC::success_response( $id, array( 'tools' => $all_tools ) );
     }
 
@@ -295,6 +303,10 @@ class Server {
 
         
         
+        
+        
+        
+        
         $audit_id     = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
         $final_status = null;
         $result       = null;
@@ -310,6 +322,8 @@ class Server {
                 'ip_address'      => self::get_client_ip(),
             ) );
         }
+
+        $arguments = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
 
         try {
             $result       = $tool->execute( $arguments );

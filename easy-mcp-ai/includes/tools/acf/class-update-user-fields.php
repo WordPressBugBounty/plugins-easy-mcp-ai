@@ -14,7 +14,7 @@ class Update_User_Fields extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates ACF field values attached to a WordPress user. Pass field keys and values as an object in the "fields" parameter. Field groups must have "Show in REST API" enabled.';
+        return 'Updates ACF field values attached to a WordPress user. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path (the same underlying mechanism used by wp_acf_update_fields); field keys (e.g. field_abc123) also work. Field groups must have "Show in REST API" enabled.';
     }
 
     public function get_category() {
@@ -34,7 +34,7 @@ class Update_User_Fields extends Base_Tool {
             'type'       => 'object',
             'properties' => array(
                 'user_id' => array( 'type' => 'integer', 'description' => 'The ID of the WordPress user to update ACF fields on.' ),
-                'fields'  => array( 'type' => 'object',  'description' => 'Key-value pairs of ACF field keys and their new values.' ),
+                'fields'  => array( 'type' => 'object',  'description' => 'Key-value pairs of ACF field names (canonical) and their new values; field keys (e.g. field_abc123) also work.' ),
             ),
             'required' => array( 'user_id', 'fields' ),
         );

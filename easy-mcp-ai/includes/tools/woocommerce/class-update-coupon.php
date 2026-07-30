@@ -14,7 +14,7 @@ class Update_Coupon extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WooCommerce coupon (PATCH semantics). Required: `id`. Optional: `code`, `discount_type` (percent/fixed_cart/fixed_product), `amount` (string, e.g. "10" = 10% or $10), `date_expires` (ISO 8601 or null to remove expiry), `usage_limit` (max total uses, null = unlimited), `usage_limit_per_user`, `minimum_amount`, `maximum_amount`, `free_shipping` (boolean), `individual_use`, `exclude_sale_items`, `product_ids`, `excluded_product_ids`. Returns a summary of the updated coupon: `id`, `code`, `discount_type`, `amount`.';
+        return 'Updates an existing WooCommerce coupon (PATCH semantics). Required: `id`. Optional: `code`, `discount_type` (percent/fixed_cart/fixed_product), `amount` (string, e.g. "10" = 10% or $10), `date_expires` (YYYY-MM-DD format, or "" empty string to remove expiry), `usage_limit` (max total uses, null = unlimited), `usage_limit_per_user`, `minimum_amount`, `maximum_amount`, `free_shipping` (boolean), `individual_use`, `exclude_sale_items`, `product_ids`, `excluded_product_ids`. Returns a summary of the updated coupon: `id`, `code`, `discount_type`, `amount`.';
     }
 
     public function get_category() {
@@ -56,8 +56,8 @@ class Update_Coupon extends Base_Tool {
                     'description' => 'Coupon amount.',
                 ),
                 'date_expires'  => array(
-                    'type'        => array( 'string', 'null' ),
-                    'description' => 'Coupon expiry date in YYYY-MM-DD format, or null to remove the expiry.',
+                    'type'        => 'string',
+                    'description' => 'Coupon expiry date in YYYY-MM-DD format, or an empty string ("") to remove the expiry.',
                 ),
                 'usage_limit'   => array(
                     'type'        => 'integer',
@@ -136,7 +136,16 @@ class Update_Coupon extends Base_Tool {
             $params['amount'] = number_format( floatval( $amount ), 2, '.', '' );
         }
         if ( isset( $arguments['date_expires'] ) ) {
-            $params['date_expires'] = null === $arguments['date_expires'] ? null : sanitize_text_field( $arguments['date_expires'] );
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            $params['date_expires'] = sanitize_text_field( $arguments['date_expires'] );
         }
         if ( isset( $arguments['usage_limit'] ) ) {
             $params['usage_limit'] = absint( $arguments['usage_limit'] );

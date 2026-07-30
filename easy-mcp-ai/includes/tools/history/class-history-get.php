@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class History_Get extends Base_Tool {
     public function get_name() { return 'wp_history_get'; }
     public function get_description() {
-        return 'Get one change-history entry by id, including before/after payloads. For post/page entries with a revision_id, also returns the linked revision post_content.';
+        return 'Get one change-history entry by id, including before/after payloads. For post/page entries with a revision_id, also returns the linked revision post_content — but only when you can read the parent post; otherwise that field is omitted. Non-admin callers (without the `easy_mcp_ai_view_all_history` capability) can only fetch entries they originated; entries belonging to another user are reported as "not found" rather than a permission error. The `ip_address` field is included only for callers with `easy_mcp_ai_view_all_history` (admins).';
     }
     public function get_category() { return 'history'; }
     public function get_required_capability() { return 'read'; }

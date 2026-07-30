@@ -171,7 +171,7 @@ function easy_mcp_ai_view_abilities( $has_abilities_api, $enabled_abilities, $me
 
             <?php endif; ?>
         <?php endif; ?>
-    </div><!-- /
+    </div><!-- /#wp-mcp-abilities-tab -->
 
 </div><!-- /.wrap -->
 <?php

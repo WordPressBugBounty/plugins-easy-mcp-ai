@@ -14,7 +14,7 @@ class List_Tags extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress tags (flat taxonomy). Optional: `search`, `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include/term_order — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns { tags: [{ id, name, slug, description, count }], total, total_pages, page, per_page }. Tags have no hierarchy; use `wp_list_categories` for hierarchical terms.';
+        return 'Lists WordPress tags (flat taxonomy). Optional: `search`, `per_page` (default 100), `page`, `orderby` (id/name/slug/count/include — default name), `order` (asc/desc), `hide_empty` (boolean, default false). Returns { tags: [{ id, name, slug, description, count }], total, total_pages, page, per_page }. Tags have no hierarchy; use `wp_list_categories` for hierarchical terms.';
     }
 
     public function get_category() {
@@ -57,7 +57,7 @@ class List_Tags extends Base_Tool {
                 'orderby'    => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
-                    'enum'        => array( 'id', 'name', 'slug', 'count', 'include', 'term_order' ),
+                    'enum'        => array( 'id', 'name', 'slug', 'count', 'include' ),
                     'default'     => 'name',
                 ),
                 'order'      => array(

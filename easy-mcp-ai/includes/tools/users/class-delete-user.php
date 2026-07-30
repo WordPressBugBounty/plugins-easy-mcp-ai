@@ -14,7 +14,7 @@ class Delete_User extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress user by ID. On single-site installs, this permanently removes the account. On multisite, this removes the user from the current site only (the network account remains). Required: `user_id` AND `reassign` (the user ID to transfer the deleted user\'s posts and links to — MUST be provided; omitting it leaves content orphaned). Deletion is immediate and irreversible (no trash for users). Returns { deleted, previous: { id, name, email } }. Cannot delete the current authenticated user or the last admin.';
+        return 'Deletes a WordPress user by ID. On single-site installs, this permanently removes the account. On multisite, WordPress core\'s REST delete endpoint does not support user deletion at all — the request always fails (HTTP 501), regardless of capability. Required: `user_id` AND `reassign` (the user ID to transfer the deleted user\'s posts and links to — MUST be provided; omitting it leaves content orphaned). Deletion is immediate and irreversible (no trash for users). Returns { deleted, previous: { id, name, email } }. Cannot delete the current authenticated user or the last admin.';
     }
 
     public function get_category() {

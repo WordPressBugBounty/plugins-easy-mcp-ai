@@ -14,7 +14,7 @@ class List_Activity extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists the BuddyPress sitewide activity stream. Optional: `type` (filter by activity type slug, e.g. activity_update/new_blog_post/friendship_created), `component` (filter by component, e.g. activity/groups/friends), `user_id` (filter by author), `primary_id` (filter by primary object ID, e.g. group ID), `secondary_id` (filter by secondary object ID), `per_page` (default 20), `page`. Returns { activity: [...], page } where each item includes id, type, component, content ({ raw, rendered }), date (+ date_gmt), user_id, and link. Requires BuddyPress Activity component enabled.';
+        return 'Lists the BuddyPress sitewide activity stream. Optional: `type` (filter by activity type slug, e.g. activity_update/new_blog_post/friendship_created), `component` (filter by component, e.g. activity/groups/friends), `user_id` (filter by author), `primary_id` (filter by primary object ID, e.g. group ID), `secondary_id` (filter by secondary object ID), `search` (search activity content), `per_page` (default 20), `page`. Returns { activity: [...], page } where each item includes id, type, component, content ({ raw, rendered }), date (+ date_gmt), user_id, and link. Requires BuddyPress Activity component enabled.';
     }
 
     public function get_category() {

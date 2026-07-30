@@ -14,7 +14,7 @@ class Delete_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a custom post type (CPT) item. Required: `rest_base` + `item_id`. Optional: `force` — false (default) moves to trash if the CPT supports trashing (most do); true permanently deletes (irreversible). Trashed items can be restored via `wp_update_cpt_item` setting status="draft" or "publish". CPTs registered without trash support (rare) are always permanently deleted regardless of `force`.';
+        return 'Deletes a custom post type (CPT) item. Required: `rest_base` + `item_id`. Optional: `force` — false (default) moves to trash if the CPT supports trashing (most do); true permanently deletes (irreversible). Trashed items can be restored via `wp_update_cpt_item` setting status="draft" or "publish". CPTs registered without trash support (rare) are always permanently deleted regardless of `force`. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
     }
 
     public function get_category() {

@@ -556,7 +556,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             <?php if ( $has_dfs_credentials ) : ?>
                 <script>
                 (function(){
-                    
+                    // Test connection button
                     var testBtn = document.getElementById('dfs-test-btn');
                     if ( testBtn ) {
                         testBtn.addEventListener('click', function() {
@@ -585,7 +585,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                             .finally(function() { btn.disabled = false; });
                         });
                     }
-                    
+                    // Balance refresh button
                     var refreshBtn = document.getElementById('dfs-refresh-balance-btn');
                     if ( refreshBtn ) {
                         refreshBtn.addEventListener('click', function() {

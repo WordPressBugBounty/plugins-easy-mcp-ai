@@ -14,7 +14,7 @@ class Update_Product extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WooCommerce product (PATCH semantics). Required: `id`. Optional: `name`, `status` (draft/publish/pending/private), `regular_price` (string, e.g. "29.99"), `sale_price` (string — set to "" to remove a sale), `description`, `short_description`, `sku`, `manage_stock` (boolean), `stock_quantity` (integer), `stock_status` (instock/outofstock/onbackorder), `categories` (array of { id } — replaces existing), `tags` (array of { id }). Returns a summary of the updated product: `id`, `name`, `status`, `permalink`. To unpublish/hide without deleting set status="draft". Requires WooCommerce active.';
+        return 'Updates an existing WooCommerce product (PATCH semantics). Required: `id`. Optional: `name`, `status` (draft/publish/pending/private), `regular_price` (string, e.g. "29.99"), `sale_price` (string — set to "" to remove a sale), `description`, `short_description`, `sku`, `manage_stock` (boolean), `stock_quantity` (integer), `stock_status` (instock/outofstock/onbackorder), `categories` (array of { id } — replaces existing), `tags` (array of { id }), `images` (array of { src }), `featured` (boolean), `catalog_visibility` (visible/catalog/search/hidden), `tax_status` (taxable/shipping/none), `tax_class`, `date_on_sale_from`, `date_on_sale_to`, `backorders` (no/notify/yes), `sold_individually` (boolean), `weight`, `dimensions` (object with length/width/height), `attributes`, `upsell_ids` (array of product IDs), `cross_sell_ids` (array of product IDs). Returns a summary of the updated product: `id`, `name`, `status`, `permalink`. To unpublish/hide without deleting set status="draft". Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -22,7 +22,7 @@ class Update_Product extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'publish_products';
+        return 'edit_products'; 
     }
 
     public function get_annotations() {

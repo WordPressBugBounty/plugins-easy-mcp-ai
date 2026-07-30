@@ -47,8 +47,8 @@ class Delete_Post_Meta extends Base_Tool {
                     'description' => 'The meta key to delete.',
                 ),
                 'value'   => array(
-                    'type'        => array( 'string', 'number', 'boolean' ),
-                    'description' => 'Optional. If provided, deletes only meta rows matching this value.',
+                    'type'        => 'string',
+                    'description' => 'Optional. If provided, deletes only meta rows matching this value. For booleans use "1" / "0" (WordPress meta storage semantics); numbers are also accepted as strings. Caution: a value another plugin wrote as a native false is stored as an empty string, so "0" will not match it — and passing an empty string here deletes EVERY row for the key, not just the empty-valued one.',
                 ),
             ),
             'required'   => array( 'post_id', 'key' ),

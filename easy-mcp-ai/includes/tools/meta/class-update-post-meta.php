@@ -14,7 +14,7 @@ class Update_Post_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates REST-API-visible meta fields for a post. Only fields registered with show_in_rest can be updated. Pass a JSON object of key-value pairs.';
+        return 'Updates REST-API-visible meta fields for a post. Only fields registered with show_in_rest can be updated. Pass a JSON object of key-value pairs. Optional `post_type` (REST base, default `posts`) lets this tool also operate on pages or any custom post type, not just posts.';
     }
 
     public function get_category() {

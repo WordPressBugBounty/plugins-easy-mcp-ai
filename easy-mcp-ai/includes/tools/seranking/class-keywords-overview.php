@@ -31,7 +31,7 @@ class Keywords_Overview extends Base_Tool {
 			'required'   => array( 'source', 'keywords' ),
 			'properties' => array(
 				'source'       => array( 'type' => 'string', 'description' => 'ISO alpha-2 country code (e.g. us, uk, de).' ),
-				'keywords'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Keywords to look up (1–5000).' ),
+				'keywords'     => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'minItems' => 1, 'maxItems' => 5000, 'description' => 'Keywords to look up (1–5000).' ),
 				'sort'         => array( 'type' => 'string', 'description' => 'Sort field; default cpc.' ),
 				'sort_order'   => array( 'type' => 'string', 'description' => 'Sort direction; default desc.' ),
 				'history_from' => array( 'type' => 'string', 'description' => 'Start of history range (YYYY-MM).' ),

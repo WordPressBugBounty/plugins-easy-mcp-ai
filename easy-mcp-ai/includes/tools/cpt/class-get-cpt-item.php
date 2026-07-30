@@ -14,7 +14,7 @@ class Get_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single custom post type (CPT) item by REST base + item ID. Required: `rest_base` (the CPT\'s rest_base, NOT its post_type slug — call `wp_get_post_types` to discover) and `item_id`. Returned fields depend on the CPT\'s registered `supports` plus any custom `register_rest_field` extensions; expect at minimum id, slug, status, link, date, modified. For built-in post types use `wp_get_post` / `wp_get_page` instead — those have richer schemas.';
+        return 'Gets a single custom post type (CPT) item by REST base + item ID. Required: `rest_base` (the CPT\'s rest_base, NOT its post_type slug — call `wp_get_post_types` to discover) and `item_id`. Returns a fixed set of fields: { id, title, content, excerpt, status, date, modified, slug, link }. It does NOT include custom `register_rest_field` extensions (e.g. ACF fields) — those are silently discarded. For built-in post types use `wp_get_post` / `wp_get_page` instead — those have richer schemas. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces edit-level access on the underlying REST request (some CPTs require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error on specific CPTs even though the tool itself is visible.';
     }
 
     public function get_category() {

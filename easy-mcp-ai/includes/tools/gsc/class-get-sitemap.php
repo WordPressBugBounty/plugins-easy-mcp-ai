@@ -13,7 +13,7 @@ class Get_Sitemap extends Base_Tool {
     public function get_name() { return 'wp_gsc_get_sitemap'; }
 
     public function get_description() {
-        return 'Gets full details for a specific submitted sitemap including submitted vs indexed URL counts per content type (web, image, video), errors, and warnings.';
+        return 'Gets full details for a specific submitted sitemap including submitted vs indexed URL counts per content type (web, image, video), errors, and warnings. Requires a Google service-account credential configured under Easy MCP AI → External Data.';
     }
 
     public function get_category() { return 'gsc'; }
@@ -33,7 +33,7 @@ class Get_Sitemap extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'site_url'  => array( 'type' => 'string', 'description' => 'The Search Console property URL.' ),
+                'site_url'  => array( 'type' => 'string', 'description' => 'The Search Console property URL. Required — does not fall back to the configured default.' ),
                 'feed_path' => array( 'type' => 'string', 'description' => 'The sitemap URL, e.g. https://example.com/sitemap.xml' ),
             ),
             'required' => array( 'site_url', 'feed_path' ),

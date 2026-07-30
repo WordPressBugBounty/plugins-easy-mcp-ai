@@ -59,11 +59,11 @@ class Keywords_Search_Volume_Live extends Base_Tool {
 				),
 				'language_code'            => array(
 					'type'        => 'string',
-					'description' => 'Language code (e.g. en)',
+					'description' => 'ISO 639-1 language code, e.g. "en". Optional if you supply language_name instead — send one, not both.',
 				),
 				'language_name'            => array(
 					'type'        => 'string',
-					'description' => 'Language name (e.g. English)',
+					'description' => 'Full language name as DataForSEO spells it, e.g. "English". NOT a country or location name. Optional if you supply language_code instead — send one, not both.',
 				),
 				'search_partners'          => array(
 					'type'        => 'boolean',

@@ -14,7 +14,7 @@ class Delete_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress media attachment by ID. Required: `media_id`. Media items bypass the trash — deletion is immediate and irreversible. The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, id }.';
+        return 'Permanently deletes a WordPress media attachment by ID. Required: `media_id`. Optional: `force` (boolean, default true). Media items bypass the trash — deletion is immediate and irreversible. Leave `force` at its default: passing `force=false` asks WordPress to trash the item instead, which fails with a 501 error on a default install, because trashing attachments requires the `MEDIA_TRASH` constant to be enabled in wp-config.php (it is off by default). The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, id }.';
     }
 
     public function get_category() {
@@ -44,7 +44,7 @@ class Delete_Media extends Base_Tool {
                 ),
                 'force'    => array(
                     'type'        => 'boolean',
-                    'description' => 'Whether to force deletion. Default is true since media items do not support the trash.',
+                    'description' => 'Whether to permanently delete rather than trash. Default true, and it should be left at true: attachments only support the trash when the MEDIA_TRASH constant is enabled in wp-config.php (off by default), so force=false returns a 501 rest_trash_not_supported error on a default install.',
                     'default'     => true,
                 ),
             ),

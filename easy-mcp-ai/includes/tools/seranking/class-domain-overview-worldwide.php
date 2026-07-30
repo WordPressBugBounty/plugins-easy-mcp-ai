@@ -33,8 +33,8 @@ class Domain_Overview_Worldwide extends Base_Tool {
 				'domain'          => array( 'type' => 'string', 'description' => 'Bare domain (example.com).' ),
 				'currency'        => array( 'type' => 'string', 'description' => 'Currency code for cost values; default USD.' ),
 				'fields'          => array( 'type' => 'string', 'description' => 'Comma-separated list of fields to return.' ),
-				'show_zones_list' => array( 'type' => 'integer', 'enum' => array( 0, 1 ), 'description' => 'Include per-zone breakdown (1) or aggregate only (0). Default 0.' ),
-				'with_subdomains' => array( 'type' => 'integer', 'enum' => array( 0, 1 ), 'description' => 'Include subdomains (1) or exact host only (0). Default 1.' ),
+				'show_zones_list' => array( 'type' => 'boolean', 'description' => 'Include per-zone breakdown rather than aggregate only. Default false.' ),
+				'with_subdomains' => array( 'type' => 'boolean', 'description' => 'Include subdomains. Default true.' ),
 				'url'             => array( 'type' => 'string', 'description' => 'Optional full URL; overrides domain when set.' ),
 			),
 		);
@@ -50,9 +50,12 @@ class Domain_Overview_Worldwide extends Base_Tool {
 					$query[ $opt ] = trim( (string) $arguments[ $opt ] );
 				}
 			}
+			
+			
+			
 			foreach ( array( 'show_zones_list', 'with_subdomains' ) as $opt ) {
 				if ( isset( $arguments[ $opt ] ) && '' !== $arguments[ $opt ] ) {
-					$query[ $opt ] = (int) $arguments[ $opt ];
+					$query[ $opt ] = rest_sanitize_boolean( $arguments[ $opt ] ) ? 1 : 0;
 				}
 			}
 			return ( new SeRanking_Client() )->request( 'GET', '/v1/domain/overview/worldwide', $query );

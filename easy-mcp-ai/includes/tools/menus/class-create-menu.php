@@ -14,7 +14,7 @@ class Create_Menu extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress navigation menu (a `nav_menu` taxonomy term). Required: `name` (display name). Optional: `slug` (auto-generated from name if omitted), `description`. Returns { id, name, slug, description }. The new menu has zero items — use `wp_create_menu_item` to add items afterward, then assign the menu to a theme location separately. Creating two menus with the same name produces two distinct menus with disambiguated slugs. Requires WordPress 5.9+.';
+        return 'Creates a new WordPress navigation menu (a `nav_menu` taxonomy term). Required: `name` (display name). Optional: `slug` (auto-generated from name if omitted), `description`. Returns { id, name, slug, description }. The new menu has zero items — use `wp_create_menu_item` to add items afterward, then assign the menu to a theme location separately. Creating a menu with a name that already exists is rejected by WordPress core with a `menu_exists` error (HTTP 400) — menu names must be unique. Requires WordPress 5.9+.';
     }
 
     public function get_category() {

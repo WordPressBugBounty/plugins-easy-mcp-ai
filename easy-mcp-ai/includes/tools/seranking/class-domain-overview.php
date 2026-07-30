@@ -32,7 +32,7 @@ class Domain_Overview extends Base_Tool {
 			'properties' => array(
 				'source'          => array( 'type' => 'string', 'description' => 'ISO alpha-2 country code (e.g. us, uk, de).' ),
 				'domain'          => array( 'type' => 'string', 'description' => 'Bare domain (example.com).' ),
-				'with_subdomains' => array( 'type' => 'integer', 'enum' => array( 0, 1 ), 'default' => 1, 'description' => 'Include subdomains (1) or exact host only (0).' ),
+				'with_subdomains' => array( 'type' => 'boolean', 'default' => true, 'description' => 'Include subdomains. Default true.' ),
 				'url'             => array( 'type' => 'string', 'description' => 'Optional full URL; overrides domain when set.' ),
 			),
 		);
@@ -47,7 +47,10 @@ class Domain_Overview extends Base_Tool {
 			$query = array(
 				'source'          => $source,
 				'domain'          => $domain,
-				'with_subdomains' => (int) ( $arguments['with_subdomains'] ?? 1 ),
+				
+				
+				
+				'with_subdomains' => rest_sanitize_boolean( $arguments['with_subdomains'] ?? true ) ? 1 : 0,
 			);
 			if ( isset( $arguments['url'] ) && '' !== $arguments['url'] ) {
 				$query['url'] = trim( (string) $arguments['url'] );

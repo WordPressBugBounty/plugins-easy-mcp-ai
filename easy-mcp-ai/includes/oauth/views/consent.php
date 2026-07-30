@@ -261,7 +261,7 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
     if (btnFullAccess) btnFullAccess.addEventListener('click', function() {
         if (fullAccessMode) {
             resetFullAccessBanner();
-            
+            // Restore exactly what the user had before clicking Full Access.
             if (savedCheckboxState !== null) {
                 var b = getCheckboxes();
                 for (var i = 0; i < b.length; i++) { b[i].checked = savedCheckboxState[b[i].value] || false; }
@@ -269,7 +269,7 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
             }
             return;
         }
-        
+        // Snapshot current checkbox state before overwriting.
         savedCheckboxState = {};
         var b = getCheckboxes();
         for (var i = 0; i < b.length; i++) { savedCheckboxState[b[i].value] = b[i].checked; }

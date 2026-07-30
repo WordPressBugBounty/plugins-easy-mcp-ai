@@ -14,7 +14,7 @@ class Update_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future/trash), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`. Returns { id, title, status, modified, link }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and is rejected by the WordPress REST API as an internal status; to move a page to trash use `wp_delete_page`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`. Returns { id, title, status, modified, link }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -52,8 +52,8 @@ class Update_Page extends Base_Tool {
                 ),
                 'status'     => array(
                     'type'        => 'string',
-                    'description' => 'The new status for the page.',
-                    'enum'        => array( 'publish', 'draft', 'pending', 'private', 'future', 'trash' ),
+                    'description' => 'The new status for the page. To move a page to trash, use wp_delete_page instead.',
+                    'enum'        => array( 'publish', 'draft', 'pending', 'private', 'future' ),
                 ),
                 'parent'     => array(
                     'type'        => 'integer',

@@ -14,7 +14,7 @@ class Update_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing event in The Events Calendar (PUT semantics — supply all fields you want to keep, not just the changed ones). Required: `id` (event post ID). Optional: `title`, `start_date` (YYYY-MM-DD HH:MM:SS), `end_date` (YYYY-MM-DD HH:MM:SS), `description`, `all_day` (boolean), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`), `cost` (string, e.g. "10.00"), `url` (event website URL), `status` (publish/draft/pending). Returns { id, title, start_date, end_date, url }. Requires The Events Calendar plugin active.';
+        return 'Updates an existing event in The Events Calendar (PUT semantics — supply all fields you want to keep, not just the changed ones). Required: `id` (event post ID). Optional: `title`, `start_date` (YYYY-MM-DD HH:MM:SS), `end_date` (YYYY-MM-DD HH:MM:SS), `description`, `all_day` (boolean), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`), `cost` (string, e.g. "10.00"), `url` (event website URL — sets the event\'s "website" field), `status` (publish/draft/pending). Returns { id, title, start_date, end_date, url }. Note: the returned `url` is the event\'s permalink, NOT the website URL you set via the input `url` param — same field name, different meaning on input vs output. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

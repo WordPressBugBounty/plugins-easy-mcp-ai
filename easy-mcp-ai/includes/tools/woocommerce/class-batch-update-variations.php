@@ -14,7 +14,7 @@ class Batch_Update_Variations extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce product variations under a parent product in one REST batch call. Required: `product_id` (parent product ID). Plus any combination of `create`, `update`, `delete`. Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps total at 100 items per branch via `woocommerce_rest_batch_items_limit` filter. Pass-through WC response.';
+        return 'Create, update, and/or delete up to 100 WooCommerce product variations under a parent product in one REST batch call. Required: `product_id` (parent product ID). Plus any combination of `create`, `update`, `delete`. Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Pass-through WC response. If **Easy MCP AI → Settings → Force draft on create** is enabled, every `create` item has its status silently overridden to `draft` regardless of the value supplied; `update` items are unaffected.';
     }
 
     public function get_category() {
@@ -44,18 +44,16 @@ class Batch_Update_Variations extends Base_Tool {
                 ),
                 'create'     => array(
                     'type'        => 'array',
-                    'description' => 'Array of variation objects to create.',
+                    'description' => 'Array of variation objects to create (any field accepted by the WC REST variation schema, e.g. regular_price, sku, attributes; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'update'     => array(
                     'type'        => 'array',
-                    'description' => 'Array of variation objects to update, each with `id`.',
+                    'description' => 'Array of variation objects to update, each with `id` (any field accepted by the WC REST variation schema; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'delete'     => array(

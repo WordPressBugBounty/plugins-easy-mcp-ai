@@ -14,7 +14,7 @@ class Restore_Revision extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Restores a post to a specific revision. The current post state becomes a new revision (so the restore is itself undoable). Required: `revision_id`. Returns { restored: true, post_id, revision_id }. Note: `wp_restore_post_revision()` returns the revision ID used for restoration — not a new revision ID. If you need the latest revision ID created as a side effect, call `wp_list_revisions` after this tool. Verifies edit_post capability on the parent post before restoring.';
+        return 'Restores a post to a specific revision. The current post state becomes a new revision (so the restore is itself undoable). Required: `revision_id`. Returns { restored: true, post_id, revision_id }. Note: WordPress core\'s `wp_restore_post_revision()` returns the parent post ID, not a revision ID. If you need the latest revision ID created as a side effect, call `wp_list_revisions` after this tool. Verifies edit_post capability on the parent post before restoring.';
     }
 
     public function get_category() {

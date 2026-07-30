@@ -14,7 +14,7 @@ class Update_Menu_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing menu item. Required: `item_id` (the menu_item id — get it from `wp_list_menu_items`; NOT the linked post/term id). Only fields you provide are changed. Common updates: `title`, `parent` (move under a different parent — 0 = top-level), `position` (re-position; sibling order is by menu_order ascending), `url` (for custom URL items), `target` ("_blank" / ""), `classes` (array of CSS class strings), `description`, `menu_id` (move to a different menu). To re-link an item to a different post/term, set `object_type` (post_type/taxonomy/post_type_archive/custom) + `object` (e.g. page/category) + `object_id` together. Returns { id, title, url, status, parent, menu_order, target, classes, description, type, object, object_id, menus }.';
+        return 'Updates an existing menu item. Required: `item_id` (the menu_item id — get it from `wp_list_menu_items`; NOT the linked post/term id). Only fields you provide are changed. Common updates: `title`, `parent` (move under a different parent — 0 = top-level), `position` (re-position; sibling order is by menu_order ascending), `url` (for custom URL items), `target` ("_blank" / "_self"), `classes` (array of CSS class strings), `description`, `menu_id` (move to a different menu). To re-link an item to a different post/term, set `object_type` (post_type/taxonomy/post_type_archive/custom) + `object` (e.g. page/category) + `object_id` together. Returns { id, title, url, status, parent, menu_order, target, classes, description, type, object, object_id, menus } — note the returned `target` (and any later read via `wp_list_menu_items`) reports "" rather than "_self" for same-tab items, since that is WordPress core\'s own internal representation.';
     }
 
     public function get_category() {
@@ -64,8 +64,8 @@ class Update_Menu_Item extends Base_Tool {
                 ),
                 'target'   => array(
                     'type'        => 'string',
-                    'description' => 'Link target: "_blank" to open in a new tab, or "" (empty) for the same tab.',
-                    'enum'        => array( '_blank', '' ),
+                    'description' => 'Link target: "_blank" to open in a new tab, or "_self" for the same tab.',
+                    'enum'        => array( '_blank', '_self' ),
                 ),
                 'classes'  => array(
                     'type'        => 'array',
@@ -116,7 +116,14 @@ class Update_Menu_Item extends Base_Tool {
             $request->set_param( 'menus', absint( $arguments['menu_id'] ) );
         }
         if ( isset( $arguments['target'] ) ) {
-            $request->set_param( 'target', sanitize_text_field( $arguments['target'] ) );
+            $target = sanitize_text_field( $arguments['target'] );
+            
+            
+            
+            if ( '_self' === $target ) {
+                $target = '';
+            }
+            $request->set_param( 'target', $target );
         }
         if ( isset( $arguments['classes'] ) ) {
             $classes = is_array( $arguments['classes'] ) ? $arguments['classes'] : array( $arguments['classes'] );

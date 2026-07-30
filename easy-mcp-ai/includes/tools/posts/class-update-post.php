@@ -14,7 +14,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `comment_status`, `sticky`. Returns { id, title, status, link, modified }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`. Returns { id, title, status, link, modified }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -53,7 +53,7 @@ class Update_Post extends Base_Tool {
                 'status'         => array(
                     'type'        => 'string',
                     'description' => 'The new status for the post. To move a post to trash, use wp_delete_post instead.',
-                    'enum'        => array( 'publish', 'draft', 'pending', 'private', 'future', 'trash' ),
+                    'enum'        => array( 'publish', 'draft', 'pending', 'private', 'future' ),
                 ),
                 'excerpt'        => array(
                     'type'        => 'string',

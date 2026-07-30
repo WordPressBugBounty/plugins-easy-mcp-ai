@@ -19,7 +19,7 @@ class Update_Term extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a term in any taxonomy. Required: `term_id`, `taxonomy`. Optional updateable fields: `name`, `slug`, `description`, `parent`. Returns { id, name, slug, description, parent, count, taxonomy }. Capability resolved dynamically via taxonomy cap->edit_terms. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates a term in any taxonomy. Required: `term_id`, `taxonomy`. Optional updateable fields: `name`, `slug`, `description`, `parent`. Returns { id, name, slug, description, parent, count, taxonomy }. Capability resolved dynamically via taxonomy cap->edit_terms. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. Pass `parent` as `0` (or `null`) to clear the parent and move the term to the top level.';
     }
 
     public function get_category() {
@@ -68,7 +68,7 @@ class Update_Term extends Base_Tool {
                 ),
                 'parent'      => array(
                     'type'        => 'integer',
-                    'description' => 'New parent term ID.',
+                    'description' => 'New parent term ID. Pass 0 to clear the parent, moving the term to the top level.',
                 ),
             ),
             'required'   => array( 'term_id', 'taxonomy' ),

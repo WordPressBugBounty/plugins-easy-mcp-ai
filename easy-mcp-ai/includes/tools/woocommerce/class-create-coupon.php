@@ -14,7 +14,7 @@ class Create_Coupon extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a WooCommerce coupon. Required: code, discount_type (percent/fixed_cart/fixed_product), amount. Optional: date_expires, usage_limit, minimum_amount, maximum_amount, free_shipping. Returns id, code, discount_type, amount, and rest_url (the REST API self-link for the coupon, not a public permalink).';
+        return 'Creates a WooCommerce coupon. Required: code, discount_type (percent/fixed_cart/fixed_product), amount (string, e.g. "10" = 10% or $10, depending on discount_type). Optional: date_expires, usage_limit, minimum_amount, maximum_amount, free_shipping. Returns id, code, discount_type, amount, and rest_url (the REST API self-link for the coupon, not a public permalink).';
     }
 
     public function get_category() {
@@ -49,7 +49,7 @@ class Create_Coupon extends Base_Tool {
                 ),
                 'amount'         => array(
                     'type'        => 'string',
-                    'description' => 'Coupon amount.',
+                    'description' => 'Coupon amount (string, e.g. "10" = 10% or $10, depending on discount_type).',
                 ),
                 'date_expires'   => array(
                     'type'        => 'string',

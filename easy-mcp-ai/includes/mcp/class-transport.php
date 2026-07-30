@@ -35,6 +35,115 @@ class Transport {
         
         
         \register_rest_route( self::NAMESPACE_V1, self::ROUTE_WITH_KEY, $handlers );
+
+        
+        
+        
+        
+        
+        
+        
+        \add_filter( 'rest_allowed_cors_headers', array( $this, 'filter_cors_allowed_headers' ), 10, 2 );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function filter_cors_allowed_headers( $headers, $request = null ) {
+        if ( ! is_array( $headers ) ) {
+            return $headers;
+        }
+
+        if ( $request instanceof \WP_REST_Request ) {
+            $is_ours = ( 0 === strpos( (string) $request->get_route(), '/' . self::NAMESPACE_V1 . '/' ) );
+        } else {
+            $is_ours = self::request_uri_targets_our_namespace();
+        }
+
+        if ( ! $is_ours ) {
+            return $headers;
+        }
+
+        foreach ( array( 'Mcp-Session-Id', 'Last-Event-ID' ) as $header ) {
+            if ( ! in_array( $header, $headers, true ) ) {
+                $headers[] = $header;
+            }
+        }
+        return $headers;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function request_uri_targets_our_namespace() {
+        if ( empty( $_SERVER['REQUEST_URI'] ) || ! is_string( $_SERVER['REQUEST_URI'] ) ) {
+            return false;
+        }
+
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- read-only substring match; nothing is stored or output.
+        $uri    = (string) $_SERVER['REQUEST_URI'];
+        $needle = '/' . self::NAMESPACE_V1 . '/';
+
+        if ( false !== strpos( $uri, $needle ) ) {
+            return true;
+        }
+
+        if ( false !== strpos( $uri, 'rest_route=' ) ) {
+            return false !== strpos( rawurldecode( $uri ), $needle );
+        }
+
+        return false;
     }
 
     
@@ -476,19 +585,112 @@ class Transport {
 
 
 
+
+
+
+
+
+
+
+
+    private static function normalize_origin( $origin ) {
+        if ( ! is_string( $origin ) || '' === trim( $origin ) ) {
+            return '';
+        }
+        $parts = \wp_parse_url( trim( $origin ) );
+        if ( empty( $parts['scheme'] ) || empty( $parts['host'] ) ) {
+            return '';
+        }
+        $normalized = strtolower( $parts['scheme'] ) . '://' . strtolower( $parts['host'] );
+        if ( ! empty( $parts['port'] ) ) {
+            $normalized .= ':' . (int) $parts['port'];
+        }
+        return $normalized;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function allowed_origins() {
+        $defaults = array();
+        foreach ( array( \get_site_url(), \home_url() ) as $url ) {
+            $normalized = self::normalize_origin( $url );
+            if ( '' !== $normalized && ! in_array( $normalized, $defaults, true ) ) {
+                $defaults[] = $normalized;
+            }
+        }
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+        $filtered = \apply_filters( 'easy_mcp_ai_allowed_origins', $defaults );
+
+        if ( ! is_array( $filtered ) ) {
+            return $defaults;
+        }
+
+        $out = array();
+        foreach ( $filtered as $candidate ) {
+            $normalized = self::normalize_origin( $candidate );
+            if ( '' !== $normalized && ! in_array( $normalized, $out, true ) ) {
+                $out[] = $normalized;
+            }
+        }
+
+        
+        
+        return empty( $out ) ? $defaults : $out;
+    }
+
+    
+
+
+
+
+
+
+
     private function validate_origin( \WP_REST_Request $request ) {
         $origin = $request->get_header( 'origin' );
         if ( empty( $origin ) ) {
             return null; 
         }
 
-        $allowed = array( rtrim( \get_site_url(), '/' ) );
-
-        if ( ! in_array( rtrim( $origin, '/' ), $allowed, true ) ) {
-            return new \WP_REST_Response( null, 403 );
+        $allowed = self::allowed_origins();
+        if ( in_array( self::normalize_origin( $origin ), $allowed, true ) ) {
+            return null;
         }
 
-        return null;
+        
+        
+        
+        
+        return new \WP_REST_Response(
+            array(
+                'error'            => 'origin_not_allowed',
+                'message'          => 'The Origin header on this request is not permitted for this site. This is the plugin refusing the request, not the web server. Browser-based clients must be served from an allowed origin; non-browser clients should send no Origin header at all. Site owners can extend the list with the easy_mcp_ai_allowed_origins filter.',
+                'received_origin'  => \sanitize_text_field( $origin ),
+                'allowed_origins'  => $allowed,
+            ),
+            403
+        );
     }
 
     
@@ -546,8 +748,15 @@ class Transport {
     }
 
     private function add_cors_headers( \WP_REST_Response $response ) {
-        $response->header( 'Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS' );
-        $response->header( 'Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Mcp-Session-Id, Last-Event-ID' );
+        
+        
+        
+        
+        
+        
+        
+        
+        
         $response->header( 'Access-Control-Expose-Headers', 'Content-Type, Mcp-Session-Id' );
         
         

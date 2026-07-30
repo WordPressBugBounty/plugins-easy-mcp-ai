@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class History_List extends Base_Tool {
     public function get_name() { return 'wp_history_list'; }
     public function get_description() {
-        return 'List change-history entries for write operations performed via MCP. Filter by object, tool, user, or date range. Returns summaries only — call wp_history_get to see before/after payloads.';
+        return 'List change-history entries for write operations performed via MCP. Filter by object, tool, user, or date range. Returns summaries only — call wp_history_get to see before/after payloads. Non-admin callers (without the `easy_mcp_ai_view_all_history` capability) cannot view other users\' history: any `wp_user_id` filter they pass is silently overridden and pinned to their own user ID, with no error or notice.';
     }
     public function get_category() { return 'history'; }
     public function get_required_capability() { return 'read'; }
@@ -35,7 +35,7 @@ class History_List extends Base_Tool {
                 'object_type'     => array( 'type' => 'string', 'description' => 'post|term|user|option|comment|meta|wc_product|wc_order|bp_activity' ),
                 'object_id'       => array( 'type' => 'string' ),
                 'tool_name'       => array( 'type' => 'string' ),
-                'wp_user_id'      => array( 'type' => 'integer' ),
+                'wp_user_id'      => array( 'type' => 'integer', 'description' => 'Filter by originating user ID. Non-admin callers cannot filter by another user\'s ID — this is silently overridden with their own user ID.' ),
                 'oauth_client_id' => array( 'type' => 'string' ),
                 'auth_source'     => array( 'type' => 'string', 'enum' => array( 'legacy', 'oauth' ) ),
                 'action'          => array( 'type' => 'string', 'enum' => array( 'create', 'update', 'delete' ) ),

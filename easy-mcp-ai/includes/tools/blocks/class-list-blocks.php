@@ -22,7 +22,7 @@ class List_Blocks extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'read';
+        return 'edit_posts'; 
     }
 
     public function get_annotations() {

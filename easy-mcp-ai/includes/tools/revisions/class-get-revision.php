@@ -14,13 +14,14 @@ class Get_Revision extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single post revision by ID. Required: `post_id` (the parent post ID) AND `revision_id` (the specific revision ID). Returns { id, author (user ID), date, title, content (raw markup), excerpt }. To restore a revision, copy its `title`, `content`, and `excerpt` into `wp_update_post`. Use `wp_list_revisions` to discover revision IDs for a post.';
+        return 'Gets a single post revision by ID. Required: `post_id` (the parent post ID) AND `revision_id` (the specific revision ID). Returns { id, author (user ID), date, title, content (raw markup), excerpt }. To restore a revision, use `wp_restore_revision` (preferred) rather than manually copying its `title`, `content`, and `excerpt` into `wp_update_post`. Use `wp_list_revisions` to discover revision IDs for a post. This tool is listed as `read` regardless of the parent post\'s type, but WordPress requires edit-level access on that specific parent (edit_posts for posts, edit_pages for pages, or a CPT\'s own capability) — a low-privilege caller may still see a permission error depending on which post_id is targeted.';
     }
 
     public function get_category() {
         return 'revisions';
     }
 
+    
     public function get_required_capability() {
         return 'read';
     }

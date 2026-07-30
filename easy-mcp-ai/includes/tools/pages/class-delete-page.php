@@ -14,7 +14,7 @@ class Delete_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress page by ID. Required: `page_id`. Optional: `force` (default false) — false moves to trash (recoverable); true permanently deletes the page and its meta/revisions (irreversible). Child pages are NOT deleted when a parent is deleted — they become top-level pages. Returns { deleted, id, title }.';
+        return 'Deletes a WordPress page by ID. Required: `page_id`. Optional: `force` (default false) — false moves to trash (recoverable); true permanently deletes the page and its meta/revisions (irreversible). Child pages are NOT deleted when a parent is deleted. On a permanent delete (force=true), children are re-parented to the deleted page\'s own parent (not necessarily top-level). When the page is merely trashed (the default, force=false), children are left untouched. Returns { deleted, id, title }.';
     }
 
     public function get_category() {

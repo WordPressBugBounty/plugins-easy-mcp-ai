@@ -14,7 +14,7 @@ class Get_Global_Styles extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets the current global styles (theme.json) settings and styles. Requires an active block theme.';
+        return 'Gets the current global styles (theme.json) settings and styles. Requires an active block theme. Returns { id, settings, styles, title }.';
     }
 
     public function get_category() {

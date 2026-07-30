@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class History_Diff extends Base_Tool {
     public function get_name() { return 'wp_history_diff'; }
     public function get_description() {
-        return 'Diff two change-history entries (or one entry against current live state if "id_b" is omitted). Returns per-field before/after for keys that differ.';
+        return 'Diff two change-history entries (or one entry against current live state if "id_b" is omitted). Returns per-field before/after for keys that differ. Both entries must refer to the same object_type and object_id, or the call fails with an error. Non-admin callers (without the `easy_mcp_ai_view_all_history` capability) can only diff entries they originated. Sensitive fields (e.g. passwords, emails) are shown as the literal string "[REDACTED]" on both sides rather than their real values.';
     }
     public function get_category() { return 'history'; }
     public function get_required_capability() { return 'read'; }

@@ -30,9 +30,9 @@ class Anchors extends Base_Tool {
 			'type'       => 'object',
 			'required'   => array( 'target', 'target_type' ),
 			'properties' => array(
-				'target'        => array( 'type' => 'string' ),
-				'target_type'   => array( 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ) ),
-				'display_limit' => array( 'type' => 'integer', 'default' => 100, 'minimum' => 1, 'maximum' => 10000 ),
+				'target'        => array( 'type' => 'string', 'description' => 'Domain, subdomain, or URL to look up backlink anchors for, matching target_type.' ),
+				'target_type'   => array( 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ), 'description' => 'How to interpret target: root_domain, domain (subdomain), or url.' ),
+				'display_limit' => array( 'type' => 'integer', 'default' => 100, 'minimum' => 1, 'maximum' => 10000, 'description' => 'Max rows to return; default 100, max 10000.' ),
 			),
 		);
 	}

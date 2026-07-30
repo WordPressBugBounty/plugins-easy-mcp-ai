@@ -14,7 +14,7 @@ class Search_Posts extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Searches WordPress posts by keyword using the WP REST search API. Required: `query`. Optional: `subtype` (post type slug to search within — default "post"; use "page" to search pages), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` per result windowed around the first match; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only when snippet=true) }], total, total_pages, page, per_page, query }. Note: `url` is the permalink, not `link`. For cross-type search including terms use `wp_search` instead.';
+        return 'Searches WordPress posts by keyword using the WP REST search API. Required: `query`. Optional: `subtype` (post type slug to search within — omit to search all searchable post types, i.e. WP\'s "any" default; use "post" or "page" to restrict to one type), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` per result windowed around the first match; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only when snippet=true) }], total, total_pages, page, per_page, query }. Note: `url` is the permalink, not `link`. For cross-type search including terms use `wp_search` instead.';
     }
 
     public function get_category() {
@@ -44,8 +44,7 @@ class Search_Posts extends Base_Tool {
                 ),
                 'subtype'   => array(
                     'type'        => 'string',
-                    'description' => 'Post type subtype to search within (e.g. post, page). Maps to the WP REST API /wp/v2/search "subtype" parameter.',
-                    'default'     => 'post',
+                    'description' => 'Post type subtype to search within (e.g. post, page). Maps to the WP REST API /wp/v2/search "subtype" parameter. Omitting this searches all searchable post types (WP defaults "subtype" to "any").',
                 ),
                 'per_page'  => array(
                     'type'        => 'integer',

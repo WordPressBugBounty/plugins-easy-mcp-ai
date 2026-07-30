@@ -14,7 +14,7 @@ class Report_Top_Sellers extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets the top-selling WooCommerce products ranked by quantity sold. Optional: `period` (week/month/last_month/year), `date_min` / `date_max` (YYYY-MM-DD for custom range), `per_page` (default 10). Returns array of { product_id, title, quantity } ordered by quantity descending. Requires WooCommerce active.';
+        return 'Gets the top-selling WooCommerce products ranked by quantity sold. Optional: `period` (week/month/last_month/year), `date_min` / `date_max` (YYYY-MM-DD for custom range). Always returns a fixed 12 rows — WooCommerce\'s top-sellers report endpoint has no row-count parameter, so there is nothing to tune. Returns array of { name, product_id, quantity } ordered by quantity descending — the product name is in `name`, not `title`. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -51,13 +51,14 @@ class Report_Top_Sellers extends Base_Tool {
                     'description' => 'Reporting period.',
                     'enum'        => array( 'week', 'month', 'last_month', 'year' ),
                 ),
-                'per_page' => array(
-                    'type'        => 'integer',
-                    'description' => 'Number of results.',
-                    'default'     => 10,
-                    'minimum'     => 1,
-                    'maximum'     => 100,
-                ),
+                
+                
+                
+                
+                
+                
+                
+                
             ),
             'required'   => array(),
         );
@@ -79,9 +80,8 @@ class Report_Top_Sellers extends Base_Tool {
         if ( isset( $arguments['period'] ) ) {
             $params['period'] = sanitize_text_field( $arguments['period'] );
         }
-        if ( isset( $arguments['per_page'] ) ) {
-            $params['per_page'] = min( 100, max( 1, absint( $arguments['per_page'] ) ) );
-        }
+        
+        
 
         $data = $this->rest_request( 'GET', '/wc/v3/reports/top_sellers', $params );
 

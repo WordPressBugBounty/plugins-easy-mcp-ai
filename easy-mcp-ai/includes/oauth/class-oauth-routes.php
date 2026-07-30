@@ -179,9 +179,10 @@ class OAuth_Routes {
         
         
         
-        $ip = isset( $_SERVER['REMOTE_ADDR'] )
-            ? trim( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ), '[]' )
-            : 'unknown';
+        
+        
+        
+        $ip = \Easy_MCP_AI\Client_IP::get();
 
         $per_ip_key    = 'easy_mcp_ai_revoke_rl_' . md5( $ip );
         $global_key    = 'easy_mcp_ai_revoke_rl_global';

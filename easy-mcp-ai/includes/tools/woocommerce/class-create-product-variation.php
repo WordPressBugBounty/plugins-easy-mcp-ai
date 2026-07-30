@@ -14,7 +14,7 @@ class Create_Product_Variation extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Creates a variation for a WooCommerce variable product. Required: product_id, attributes (array of {name, option}). Optional: regular_price, sale_price, sku, stock_quantity, manage_stock, stock_status, weight, description, status, virtual, downloadable, image ({src}).';
+		return 'Creates a variation for a WooCommerce variable product. Required: product_id, attributes (array of {name, option}). Optional: regular_price, sale_price, sku, stock_quantity, manage_stock, stock_status, weight, description, status, virtual, downloadable, image ({src}). If **Easy MCP AI → Settings → Force draft on create** is enabled, status is silently overridden to `draft` regardless of the value supplied — outside the declared publish/private enum.';
 	}
 
 	public function get_category() {

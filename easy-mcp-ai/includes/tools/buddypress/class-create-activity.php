@@ -14,7 +14,7 @@ class Create_Activity extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Posts a new activity item to the BuddyPress activity stream. Required: `content`. Optional: `type` (activity type slug — default "activity_update"; other values include new_blog_post, new_blog_comment, friendship_created), `component` (default "activity"), `primary_item_id` (primary object ID, e.g. group ID for group-scoped activity), `secondary_item_id`, `hidden` (boolean — hides from sitewide stream, shows only in group/member streams). Returns { id, type, content }. Requires BuddyPress Activity component enabled.';
+        return 'Posts a new activity item to the BuddyPress activity stream. Required: `content`. Optional: `type` (activity type slug — default "activity_update"; other values include new_blog_post, new_blog_comment, friendship_created), `component` (default "activity"), `primary_item_id` (primary object ID, e.g. group ID for group-scoped activity — you MUST also set `component` to "groups". With the default `component` of "activity" the call does not merely lose group scoping, it FAILS: on any site with the Groups component active BuddyPress routes an activity_update carrying primary_item_id through groups_post_update(), which resolves group_id to 0, refuses, and returns HTTP 500 bp_rest_user_cannot_create_activity), `secondary_item_id`, `hidden` (boolean — hides from sitewide stream, shows only in group/member streams). Returns { id, type, content }. Requires BuddyPress Activity component enabled.';
     }
 
     public function get_category() {

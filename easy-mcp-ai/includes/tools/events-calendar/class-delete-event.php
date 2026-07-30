@@ -14,7 +14,7 @@ class Delete_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Moves an event to the Trash in The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). This calls wp_trash_post() — the event is trashed, not permanently erased, so it can be restored from the WordPress Trash. Returns { deleted: true, id }. To hide an event temporarily, use `wp_update_post` to set status="draft" on the event post instead. Requires The Events Calendar plugin active.';
+        return 'Moves an event to the Trash in The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). This calls wp_trash_post() — the event is trashed, not permanently erased, so it can be restored from the WordPress Trash. Returns { deleted: true, id }. To hide an event temporarily, use `wp_tec_update_event` to set status="draft" on the event instead — `wp_update_post` cannot be used because it is hardwired to the `/wp/v2/posts` REST endpoint, which rejects any post whose type is not `post` (a `tribe_events` post ID returns a 404 Invalid post ID). Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

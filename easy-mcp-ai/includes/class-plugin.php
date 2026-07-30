@@ -81,6 +81,7 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-error-codes.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-json-rpc.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-session.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-gemini-safe-schema.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-transport.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-server.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-manager.php';
@@ -284,6 +285,8 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
         
         
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-token-endpoint.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
         $discovery = new OAuth\Discovery();
@@ -365,9 +368,26 @@ class Plugin {
 
 
     private function handle_oauth_authorize() {
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        ob_start();
+
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-consent-screen.php';
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
         
         
@@ -388,6 +408,16 @@ class Plugin {
 
         $endpoint = new OAuth\Authorization_Endpoint();
         $response = 'POST' === $method ? $endpoint->handle_post( $request ) : $endpoint->handle_get( $request );
+
+        
+        
+        
+        
+        while ( ob_get_level() > 0 ) {
+            if ( ! ob_end_clean() ) {
+                break;
+            }
+        }
 
         $this->send_authorize_response( $response );
         exit;
@@ -410,27 +440,43 @@ class Plugin {
             if ( is_array( $data ) && ! empty( $data['status'] ) ) {
                 $status = (int) $data['status'];
             }
-            \status_header( $status );
-            header( 'Content-Type: text/html; charset=utf-8' );
-            header( 'X-Frame-Options: DENY' );
-            header( "Content-Security-Policy: frame-ancestors 'none'" );
-            header( 'X-Content-Type-Options: nosniff' );
+            
+            
+            
+            
+            if ( ! headers_sent() ) {
+                \status_header( $status );
+                header( 'Content-Type: text/html; charset=utf-8' );
+                header( 'X-Frame-Options: DENY' );
+                header( "Content-Security-Policy: frame-ancestors 'none'" );
+                header( 'X-Content-Type-Options: nosniff' );
+            }
             $code    = \esc_html( $response->get_error_code() );
             $message = \esc_html( $response->get_error_message() );
             echo '<!DOCTYPE html><html><body><p>' . $code . ': ' . $message . '</p></body></html>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above.
             return;
         }
 
-        \status_header( $response->get_status() );
+        
+        
+        
+        
+        $can_send_headers = ! headers_sent();
 
-        
-        
-        header_remove( 'Content-Security-Policy' );
+        if ( $can_send_headers ) {
+            \status_header( $response->get_status() );
+
+            
+            
+            header_remove( 'Content-Security-Policy' );
+        }
 
         $headers      = $response->get_headers();
         $content_type = '';
         foreach ( $headers as $name => $value ) {
-            header( $name . ': ' . $value );
+            if ( $can_send_headers ) {
+                header( $name . ': ' . $value );
+            }
             if ( 0 === strcasecmp( $name, 'Content-Type' ) ) {
                 $content_type = (string) $value;
             }
@@ -450,7 +496,7 @@ class Plugin {
         }
 
         
-        if ( '' === $content_type ) {
+        if ( '' === $content_type && $can_send_headers ) {
             header( 'Content-Type: application/json; charset=utf-8' );
         }
         echo \wp_json_encode( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON encoded.
@@ -489,6 +535,8 @@ class Plugin {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
+            
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-manager.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-validator.php';

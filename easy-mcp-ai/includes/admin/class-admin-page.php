@@ -42,6 +42,165 @@ class Admin_Page {
         \add_action( 'admin_init', array( $this, 'handle_form_actions' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_get_changes_for_audit', array( $this, 'ajax_get_changes_for_audit' ) );
         \add_filter( 'admin_footer_text', array( $this, 'admin_footer_rating_text' ) );
+        \add_action( 'admin_notices', array( $this, 'maybe_render_permalink_notice' ) );
+        \add_action( 'admin_notices', array( $this, 'maybe_render_transport_notice' ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function oauth_transport_problem(): string {
+        if ( defined( 'EASY_MCP_AI_OAUTH_ALLOW_HTTP' ) && EASY_MCP_AI_OAUTH_ALLOW_HTTP ) {
+            return '';
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $home   = (string) \get_option( 'home' );
+        $host   = (string) \wp_parse_url( $home, PHP_URL_HOST );
+        $scheme = strtolower( (string) \wp_parse_url( $home, PHP_URL_SCHEME ) );
+
+        
+        if ( in_array( strtolower( $host ), array( 'localhost', '127.0.0.1', '::1', '[::1]' ), true ) ) {
+            return '';
+        }
+
+        if ( 'https' !== $scheme ) {
+            return 'http';
+        }
+
+        
+        return \is_ssl() ? '' : 'proxy';
+    }
+
+    
+
+
+
+
+    public function maybe_render_transport_notice() {
+        if ( ! \current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        $problem = self::oauth_transport_problem();
+        if ( '' === $problem ) {
+            return;
+        }
+        if ( ! \function_exists( 'get_current_screen' ) ) {
+            return;
+        }
+        $screen = \get_current_screen();
+        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
+            return;
+        }
+
+        if ( 'http' === $problem ) {
+            $heading = __( 'This site is not using HTTPS — OAuth clients cannot connect.', 'easy-mcp-ai' );
+            $detail  = __( 'The OAuth 2.1 specification requires HTTPS, so authorization, token and discovery requests are refused on an http:// site and “Connect” will fail in Claude and other OAuth clients. Existing API tokens are unaffected and keep working.', 'easy-mcp-ai' );
+            $fix     = __( 'Fix: serve the site over HTTPS and update the WordPress Address and Site Address accordingly.', 'easy-mcp-ai' );
+        } else {
+            $heading = __( 'WordPress cannot detect HTTPS — OAuth clients cannot connect.', 'easy-mcp-ai' );
+            $detail  = __( 'Your site is served over HTTPS, but PHP still sees the request as insecure. This happens when a CDN, load balancer or reverse proxy handles HTTPS and passes the request on unencrypted — Cloudflare’s Flexible SSL mode is the most common cause. OAuth requests are refused as a result, so “Connect” fails in Claude, ChatGPT and other OAuth clients even though your site is secure for visitors. Existing API tokens are unaffected and keep working.', 'easy-mcp-ai' );
+            $fix     = __( 'Fix it either way. If you use Cloudflare, switch SSL/TLS mode to Full or Full (Strict) — that is the better fix, because it encrypts the connection between Cloudflare and your server too. Or add this to wp-config.php, above the “stop editing” line: if ( isset( $_SERVER[\'HTTP_X_FORWARDED_PROTO\'] ) && \'https\' === $_SERVER[\'HTTP_X_FORWARDED_PROTO\'] ) { $_SERVER[\'HTTPS\'] = \'on\'; } This is a standard WordPress snippet — the same setup usually causes mixed-content warnings and redirect loops elsewhere, and this fixes those too.', 'easy-mcp-ai' );
+        }
+
+        echo '<div class="notice notice-warning"><p><strong>' . \esc_html( $heading ) . '</strong></p>'
+            . '<p>' . \esc_html( $detail ) . '</p>'
+            . '<p>' . \esc_html( $fix ) . '</p></div>';
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function permalinks_are_plain(): bool {
+        return '' === (string) \get_option( 'permalink_structure', '' );
+    }
+
+    
+
+
+
+
+
+    public function maybe_render_permalink_notice() {
+        if ( ! \current_user_can( 'manage_options' ) || ! self::permalinks_are_plain() ) {
+            return;
+        }
+        if ( ! \function_exists( 'get_current_screen' ) ) {
+            return;
+        }
+        $screen = \get_current_screen();
+        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
+            return;
+        }
+
+        $link = '<a href="' . \esc_url( \admin_url( 'options-permalink.php' ) ) . '">'
+            . \esc_html__( 'Settings → Permalinks', 'easy-mcp-ai' ) . '</a>';
+
+        echo '<div class="notice notice-warning"><p><strong>'
+            . \esc_html__( 'Permalinks are set to “Plain” — AI clients cannot connect.', 'easy-mcp-ai' )
+            . '</strong></p><p>'
+            . \esc_html__( 'With Plain permalinks WordPress does not route /wp-json/ or /.well-known/ requests, so an MCP client cannot discover this site\'s OAuth endpoints and “Connect” will fail. On Apache it can also strip the Bearer token before WordPress sees it.', 'easy-mcp-ai' )
+            . '</p><p>'
+            . \wp_kses(
+                sprintf(
+                    /* translators: %s: link to Settings → Permalinks. */
+                    __( 'Fix: open %s and choose any structure other than Plain (Post name is the usual choice), then save. No other change is needed.', 'easy-mcp-ai' ),
+                    $link
+                ),
+                array( 'a' => array( 'href' => array() ) )
+            )
+            . '</p></div>';
     }
 
     
@@ -67,11 +226,18 @@ class Admin_Page {
         $stars = '<a href="' . \esc_url( 'https://wordpress.org/support/plugin/easy-mcp-ai/reviews/#new-post' ) . '" target="_blank" rel="noopener" aria-label="' . \esc_attr__( 'Rate Easy MCP AI five stars on WordPress.org (opens in a new tab)', 'easy-mcp-ai' ) . '">&#9733;&#9733;&#9733;&#9733;&#9733;</a>';
         $forum = '<a href="' . \esc_url( 'https://wordpress.org/support/plugin/easy-mcp-ai/' ) . '" target="_blank" rel="noopener">' . \esc_html__( 'support forum', 'easy-mcp-ai' ) . '</a>';
 
+        
+        
+        
+        
+        $share = '<a href="' . \esc_url( 'https://x.com/intent/post?url=' . rawurlencode( 'https://wordpress.org/plugins/easy-mcp-ai/' ) ) . '" target="_blank" rel="noopener" aria-label="' . \esc_attr__( 'Share Easy MCP AI on X (opens in a new tab)', 'easy-mcp-ai' ) . '">' . \esc_html__( 'share it on X', 'easy-mcp-ai' ) . '</a>';
+
         return \wp_kses(
             sprintf(
-                /* translators: 1: five-star rating link, 2: support forum link. */
-                __( 'Enjoying <strong>Easy MCP AI</strong>? Please leave us a %1$s rating &mdash; a huge thanks in advance! Need a hand? Just ask in the %2$s.', 'easy-mcp-ai' ),
+                /* translators: 1: five-star rating link, 2: X share link, 3: support forum link. */
+                __( 'Enjoying <strong>Easy MCP AI</strong>? Please leave us a %1$s rating or %2$s &mdash; a huge thanks in advance! Need a hand? Just ask in the %3$s.', 'easy-mcp-ai' ),
                 $stars,
+                $share,
                 $forum
             ),
             array(

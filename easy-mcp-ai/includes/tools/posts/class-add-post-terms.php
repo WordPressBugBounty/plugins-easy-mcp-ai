@@ -14,7 +14,7 @@ class Add_Post_Terms extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Adds (or replaces) terms on a post in any taxonomy. Required: `post_id`, `taxonomy`, `terms` (array of integer IDs or string slugs — wp_set_object_terms() handles both). Optional: `append` (boolean, default true — when true ADDS to existing terms; when false REPLACES the term set). Returns { post_id, taxonomy, terms_input: array<int|string>, term_taxonomy_ids: array<int>, append: bool }. Note: for numeric-string slugs (e.g. year-based \'2026\'), pass as string explicitly. Verifies edit_post on the post and the taxonomy\'s assign_terms cap.';
+        return 'Adds (or replaces) terms on a post in any taxonomy. Required: `post_id`, `taxonomy`, `terms` (array of integer IDs or string slugs — wp_set_object_terms() handles both). Optional: `append` (boolean, default true — when true ADDS to existing terms; when false REPLACES the term set). Returns { post_id, taxonomy, terms_input: array<int|string>, term_taxonomy_ids: array<int>, append: bool }. Note: a purely numeric string in `terms` (e.g. a year-based slug like \'2026\') is always coerced to a term ID, not treated as a slug — a numeric-string slug cannot currently be assigned via this tool. Verifies edit_post on the post and the taxonomy\'s assign_terms cap.';
     }
 
     public function get_category() {

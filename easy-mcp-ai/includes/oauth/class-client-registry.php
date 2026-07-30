@@ -458,14 +458,12 @@ class Client_Registry {
 
 
     private function check_rate_limit() {
-        $ip = isset( $_SERVER['REMOTE_ADDR'] )
-            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
-            : 'unknown';
-
         
         
         
-        $ip = trim( $ip, '[]' );
+        
+        
+        $ip = \Easy_MCP_AI\Client_IP::get();
 
         $per_ip_key  = 'easy_mcp_ai_dcr_rl_' . md5( $ip );
         $global_key  = 'easy_mcp_ai_dcr_rl_global';

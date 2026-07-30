@@ -14,7 +14,7 @@ class Delete_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress tag. Required: `tag_id`. Posts are untagged (the tag is removed from posts, but the posts themselves are unaffected). There is no trash for tags; deletion is irreversible. Use `wp_list_tags` to find the tag_id first.';
+        return 'Permanently deletes a WordPress tag. Required: `tag_id`. Optional: `reassign` (ID of a tag to reassign posts to, but ONLY for posts left with zero tags after deletion — posts that also have other tags simply lose this tag assignment, they are not reassigned). Posts are untagged (the tag is removed from posts, but the posts themselves are unaffected). There is no trash for tags; deletion is irreversible. Use `wp_list_tags` to find the tag_id first.';
     }
 
     public function get_category() {
@@ -44,7 +44,7 @@ class Delete_Tag extends Base_Tool {
                 ),
                 'reassign' => array(
                     'type'        => 'integer',
-                    'description' => 'Optional: ID of the tag to reassign posts to before deletion.',
+                    'description' => 'Optional: ID of the tag to reassign posts to, but ONLY for posts left with zero tags after deletion (i.e. this was their only tag). Posts that also have other tags are unaffected.',
                 ),
             ),
             'required'   => array( 'tag_id' ),

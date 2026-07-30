@@ -53,6 +53,9 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				$db_version_num = ( isset( $wpdb ) && is_object( $wpdb ) ) ? (string) $wpdb->db_version() : '';
 				
 				
+				
+				
+				
 				$db_engine  = ( '' !== $db_server_info && false !== stripos( $db_server_info, 'mariadb' ) ) ? 'MariaDB' : 'MySQL';
 				$db_display = ( '' !== $db_version_num )
 					? $db_engine . ' ' . $db_version_num
@@ -143,10 +146,6 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 						<td><code><?php echo esc_html( 'WP ' . $env_wp_version ); ?></code> / <code><?php echo esc_html( 'PHP ' . PHP_VERSION ); ?></code></td>
 					</tr>
 					<tr>
-						<td class="wp-mcp-status-label"><?php esc_html_e( 'Database', 'easy-mcp-ai' ); ?></td>
-						<td><code><?php echo esc_html( $db_display ); ?></code></td>
-					</tr>
-					<tr>
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'Active Tokens', 'easy-mcp-ai' ); ?></td>
 						<td><?php if ( $token_count > 0 ) : ?><a href="<?php echo esc_url( $tokens_url ); ?>"><?php echo esc_html( $token_count ); ?></a><?php else : ?><?php echo esc_html( $token_count ); ?><?php endif; ?></td>
 					</tr>
@@ -189,7 +188,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 			<h2><?php esc_html_e( 'Available Tools', 'easy-mcp-ai' ); ?></h2>
 			<p><?php
 			/* translators: %d: number of registered MCP tools */
-			printf( esc_html__( '%d tools are registered and available for MCP clients.', 'easy-mcp-ai' ), absint( $tool_count ) ); ?></p>
+			printf( esc_html__( '%d tools are registered on this site. A client may see fewer.', 'easy-mcp-ai' ), absint( $tool_count ) ); ?></p>
 			<ul class="description" style="margin-top:4px; list-style: disc; padding-left: 20px;">
 				<li>
 					<?php
@@ -295,7 +294,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				<span><?php
 					$tokens_oauth_link = '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tokens' ) ) . '">' . esc_html__( 'API Token &amp; OAuth', 'easy-mcp-ai' ) . '</a>';
 					/* translators: %s: link to Tokens & OAuth page */
-					echo wp_kses_post( sprintf( __( 'Token permissions and OAuth scopes may further limit which tools your AI client can see. Review access in %s.', 'easy-mcp-ai' ), $tokens_oauth_link ) );
+					echo wp_kses_post( sprintf( __( 'Three things can narrow this list for a client: token permissions, OAuth scope, and the WordPress capabilities of the user assigned to the token. A tool is hidden when that user lacks the capability it requires. Review access in %s.', 'easy-mcp-ai' ), $tokens_oauth_link ) );
 				?></span>
 			</div>
 

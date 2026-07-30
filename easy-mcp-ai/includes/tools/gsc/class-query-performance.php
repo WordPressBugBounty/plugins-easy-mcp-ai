@@ -13,7 +13,7 @@ class Query_Performance extends Base_Tool {
     public function get_name() { return 'wp_gsc_query_performance'; }
 
     public function get_description() {
-        return 'Queries Google Search Console performance data. Returns clicks, impressions, CTR, and average position. Supports grouping by one or more dimensions (query, page, country, device, date, hour, searchAppearance) and filtering by any dimension. Covers web, news, image, video, discover, and googleNews search types.';
+        return 'Queries Google Search Console performance data. Returns clicks, impressions, CTR, and average position. Supports grouping by one or more dimensions (query, page, country, device, date, hour, searchAppearance). Filtering supports only query, page, country, device, and searchAppearance — date and hour are group-by dimensions only and cannot be used in `filters`. Covers web, news, image, video, discover, and googleNews search types. Requires a Google service-account credential configured under Easy MCP AI → External Data.';
     }
 
     public function get_category() { return 'gsc'; }
@@ -45,11 +45,11 @@ class Query_Performance extends Base_Tool {
                 'search_type'      => array( 'type' => 'string', 'enum' => array( 'web', 'news', 'image', 'video', 'discover', 'googleNews' ), 'default' => 'web', 'description' => 'Search type to filter by (case-sensitive).' ),
                 'filters'          => array(
                     'type'        => 'array',
-                    'description' => 'Dimension filters. Each filter: {dimension, operator, expression}. Operators: equals, notEquals, contains, notContains, includingRegex, excludingRegex.',
+                    'description' => 'Dimension filters. Each filter: {dimension, operator, expression}. Operators: equals, notEquals, contains, notContains, includingRegex, excludingRegex. `dimension` must be one of query, page, country, device, searchAppearance — date and hour are not filterable (group-by only) and are rejected.',
                     'items'       => array(
                         'type'       => 'object',
                         'properties' => array(
-                            'dimension'  => array( 'type' => 'string' ),
+                            'dimension'  => array( 'type' => 'string', 'enum' => array( 'query', 'page', 'country', 'device', 'searchAppearance' ) ),
                             'operator'   => array( 'type' => 'string' ),
                             'expression' => array( 'type' => 'string' ),
                         ),

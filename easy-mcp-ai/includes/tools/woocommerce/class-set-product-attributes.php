@@ -44,10 +44,9 @@ class Set_Product_Attributes extends Base_Tool {
                 ),
                 'attributes' => array(
                     'type'        => 'array',
-                    'description' => 'Array of attribute objects (id or name, position, visible, variation, options[]).',
+                    'description' => 'Array of attribute objects (id or name, position, visible, variation, options[]; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
             ),

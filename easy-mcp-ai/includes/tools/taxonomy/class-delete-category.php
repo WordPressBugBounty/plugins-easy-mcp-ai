@@ -14,7 +14,7 @@ class Delete_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress category. Required: `category_id`. Posts assigned to the deleted category are moved to the default "Uncategorized" category. Child categories are NOT deleted — they are reparented to the deleted category\'s parent (so a deleted top-level category\'s children become top-level, but a deleted sub-category\'s children move up to its parent, not to 0). There is no trash for categories; deletion is irreversible. Use `wp_list_categories` to find the category_id first.';
+        return 'Permanently deletes a WordPress category. Required: `category_id`. Only posts left with ZERO categories after deletion (i.e. this was their only category) are reassigned — to the category given in `reassign`, or to the default "Uncategorized" category if `reassign` is omitted. Posts that also have other categories simply lose this category assignment; they are NOT reassigned. Child categories are NOT deleted — they are reparented to the deleted category\'s parent (so a deleted top-level category\'s children become top-level, but a deleted sub-category\'s children move up to its parent, not to 0). There is no trash for categories; deletion is irreversible. Use `wp_list_categories` to find the category_id first.';
     }
 
     public function get_category() {
@@ -44,7 +44,7 @@ class Delete_Category extends Base_Tool {
                 ),
                 'reassign'    => array(
                     'type'        => 'integer',
-                    'description' => 'Optional: ID of the category to reassign posts to before deletion.',
+                    'description' => 'Optional: ID of the category to reassign posts to, but ONLY for posts left with zero categories after deletion (i.e. this was their only category). Posts that also have other categories are unaffected. Defaults to "Uncategorized" if omitted.',
                 ),
             ),
             'required'   => array( 'category_id' ),

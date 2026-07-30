@@ -14,7 +14,7 @@ class Search extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Searches across all WordPress content types using a single query. Required: `query`. Optional: `type` (filter by type — "post", "term", or "post-format"; default: all), `subtype` (further filter by post type slug or taxonomy slug), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` to POST results windowed around the first match; terms never carry one; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only on post results when snippet=true) }], total, total_pages, page, per_page, query }. For post-only search with status filtering use `wp_search_posts` instead.';
+        return 'Searches across all WordPress content types using a single query. Required: `query`. Optional: `type` (filter by type — "post", "term", or "post-format"; the underlying WP REST search API defaults `type` to "post" when omitted, so term results are only included when you explicitly pass `type=term`), `subtype` (further filter by post type slug or taxonomy slug), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` to POST results windowed around the first match; terms never carry one; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only on post results when snippet=true) }], total, total_pages, page, per_page, query }. For post-only search with status filtering use `wp_search_posts` instead.';
     }
 
     public function get_category() {

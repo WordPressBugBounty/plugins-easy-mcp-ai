@@ -513,6 +513,29 @@ class Token_Endpoint {
         if ( ! isset( $_SERVER['REMOTE_ADDR'] ) ) {
             return false;
         }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        foreach ( array( 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED_PROTO', 'HTTP_FORWARDED', 'HTTP_X_REAL_IP' ) as $proxy_header ) {
+            if ( ! empty( $_SERVER[ $proxy_header ] ) ) {
+                return false;
+            }
+        }
+
         $remote = trim( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ), '[]' );
         return in_array( $remote, array( '127.0.0.1', '::1' ), true );
     }
@@ -527,9 +550,10 @@ class Token_Endpoint {
 
 
     public static function enforce_rate_limit() {
-        $ip = isset( $_SERVER['REMOTE_ADDR'] )
-            ? trim( sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ), '[]' )
-            : 'unknown';
+        
+        
+        
+        $ip = \Easy_MCP_AI\Client_IP::get();
 
         $per_ip_key   = 'easy_mcp_ai_token_rl_' . md5( $ip );
         $global_key   = 'easy_mcp_ai_token_rl_global';

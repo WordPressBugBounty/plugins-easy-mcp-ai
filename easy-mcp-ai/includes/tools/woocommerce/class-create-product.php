@@ -14,7 +14,7 @@ class Create_Product extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WooCommerce product. Required: name. Optional: type (simple/variable/grouped/external), regular_price, sale_price, description, short_description, sku, stock_quantity, manage_stock, stock_status, status (draft/publish), virtual, downloadable, weight, categories (array of {id}), tags (array of {id}), images (array of {src}).';
+        return 'Creates a new WooCommerce product. Required: name. Optional: type (simple/variable/grouped/external), regular_price, sale_price, description, short_description, sku, stock_quantity, manage_stock, stock_status, status (draft/publish/pending/private), virtual, downloadable, weight, categories (array of {id}), tags (array of {id}), images (array of {src}), featured (boolean), catalog_visibility (visible/catalog/search/hidden), tax_status (taxable/shipping/none), tax_class, date_on_sale_from, date_on_sale_to, backorders (no/notify/yes), sold_individually (boolean), dimensions (object with length/width/height), attributes, upsell_ids (array of product IDs), cross_sell_ids (array of product IDs).';
     }
 
     public function get_category() {

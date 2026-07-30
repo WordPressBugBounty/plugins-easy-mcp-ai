@@ -53,11 +53,11 @@ class Labs_Keywords_For_Site_Live extends Base_Tool {
 				),
 				'language_code'             => array(
 					'type'        => 'string',
-					'description' => 'Language code (e.g. en).',
+					'description' => 'ISO 639-1 language code, e.g. "en". Optional if you supply language_name instead — send one, not both.',
 				),
 				'language_name'             => array(
 					'type'        => 'string',
-					'description' => 'Language name (e.g. English).',
+					'description' => 'Full language name as DataForSEO spells it, e.g. "English". NOT a country or location name. Optional if you supply language_code instead — send one, not both.',
 				),
 				'include_subdomains'        => array(
 					'type'        => 'boolean',
@@ -77,12 +77,12 @@ class Labs_Keywords_For_Site_Live extends Base_Tool {
 				'filters'                   => array(
 					'type'        => 'array',
 					'items'       => (object) array(),
-					'description' => 'Array of filter objects.',
+					'description' => 'DataForSEO tuple-style filter array, not objects — e.g. ["keyword_info.search_volume", ">", 100], optionally joined by "and"/"or" string elements between conditions. See DataForSEO Labs API filter docs.',
 				),
 				'order_by'                  => array(
 					'type'        => 'array',
 					'items'       => (object) array(),
-					'description' => 'Array of order_by objects.',
+					'description' => 'Array of "field,direction" strings (e.g. "keyword_info.search_volume,desc"), not objects.',
 				),
 				'limit'                     => array(
 					'type'        => 'integer',

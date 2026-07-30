@@ -18,7 +18,7 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates The SEO Framework SEO metadata for a post or page (SEO title, description, canonical URL, noindex/nofollow/noarchive, Open Graph and Twitter title/description, social image) via the WordPress post meta API. The noindex, nofollow and noarchive fields are tri-state integers: -1 (force off), 0 (default), 1 (force on) — booleans are rejected. Only the fields you provide are changed.';
+		return 'Updates The SEO Framework SEO metadata for a post or page (SEO title, description, canonical URL, noindex/nofollow/noarchive, Open Graph and Twitter title/description, social image) via the WordPress post meta API. The noindex, nofollow and noarchive fields are tri-state strings: "-1" (force off), "0" (default), "1" (force on) — booleans are rejected. Only the fields you provide are changed.';
 	}
 
 	public function get_category() {
@@ -59,19 +59,19 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 					'description' => 'The canonical URL (_genesis_canonical_uri).',
 				),
 				'noindex'         => array(
-					'type'        => 'integer',
-					'enum'        => array( -1, 0, 1 ),
-					'description' => 'Tri-state robots noindex: -1 force off, 0 default, 1 force on.',
+					'type'        => 'string',
+					'enum'        => array( '-1', '0', '1' ),
+					'description' => 'Tri-state robots noindex: "-1" force off, "0" default, "1" force on.',
 				),
 				'nofollow'        => array(
-					'type'        => 'integer',
-					'enum'        => array( -1, 0, 1 ),
-					'description' => 'Tri-state robots nofollow: -1 force off, 0 default, 1 force on.',
+					'type'        => 'string',
+					'enum'        => array( '-1', '0', '1' ),
+					'description' => 'Tri-state robots nofollow: "-1" force off, "0" default, "1" force on.',
 				),
 				'noarchive'       => array(
-					'type'        => 'integer',
-					'enum'        => array( -1, 0, 1 ),
-					'description' => 'Tri-state robots noarchive: -1 force off, 0 default, 1 force on.',
+					'type'        => 'string',
+					'enum'        => array( '-1', '0', '1' ),
+					'description' => 'Tri-state robots noarchive: "-1" force off, "0" default, "1" force on.',
 				),
 				'og_title'        => array(
 					'type'        => 'string',
@@ -152,7 +152,13 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 			}
 			$value = $arguments[ $arg ];
 			if ( is_bool( $value ) ) {
-				throw new \InvalidArgumentException( sprintf( 'Field "%s" must be a tri-state integer (-1, 0, or 1), not a boolean.', $arg ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				throw new \InvalidArgumentException( sprintf( 'Field "%s" must be a tri-state value ("-1", "0", or "1"), not a boolean.', $arg ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			
+			
+			
+			if ( is_numeric( $value ) ) {
+				$value = (int) $value;
 			}
 			if ( ! is_int( $value ) || ! in_array( $value, array( -1, 0, 1 ), true ) ) {
 				throw new \InvalidArgumentException( sprintf( 'Field "%s" must be one of -1, 0, or 1.', $arg ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped

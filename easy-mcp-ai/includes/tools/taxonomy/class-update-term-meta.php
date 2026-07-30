@@ -51,8 +51,8 @@ class Update_Term_Meta extends Base_Tool {
                     'description' => 'Meta key to update.',
                 ),
                 'value'   => array(
-                    'type'        => array( 'string', 'number', 'boolean' ),
-                    'description' => 'Meta value to set.',
+                    'type'        => 'string',
+                    'description' => 'Meta value to set. For booleans use "1" / "0" (WordPress meta storage semantics); numbers are also accepted as strings.',
                 ),
             ),
             'required'   => array( 'term_id', 'key', 'value' ),

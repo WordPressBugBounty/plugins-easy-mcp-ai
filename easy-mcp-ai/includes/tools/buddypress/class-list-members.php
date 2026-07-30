@@ -14,7 +14,7 @@ class List_Members extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists BuddyPress community members with optional filtering by type and search. Returns id, name, profile URL, avatar, and last active date.';
+        return 'Lists BuddyPress community members with optional filtering by type and search, paginated via `per_page` (default 20, max 100) and `page`. `include` limits results to the given user IDs while other filters (search, type, pagination) still apply normally. `user_ids`, when passed, overrides all other filters — the result is built from exactly those user IDs only, ignoring search/type/pagination. Returns id, name, profile URL, avatar, and last active date. Requires BuddyPress active.';
     }
 
     public function get_category() {

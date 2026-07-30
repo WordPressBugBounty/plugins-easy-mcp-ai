@@ -14,7 +14,7 @@ class Create_Menu_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new item in a WordPress navigation menu. Required: `menu_id` (the parent menu\'s ID), `title`. Optional: `url` (for custom URL links), `object_type` (post_type/taxonomy/custom), `object` (post type or taxonomy slug, e.g. "post"/"page"/"category"), `object_id` (ID of the linked post or term), `parent` (parent menu_item ID, 0 = top-level — use to nest into submenus), `position` (1-based menu order; auto-appended if omitted). Returns the new menu item object. Use `wp_list_menu_items` to find existing item IDs and object_ids.';
+        return 'Creates a new item in a WordPress navigation menu. Required: `menu_id` (the parent menu\'s ID), `title`. Optional: `url` (for custom URL links), `object_type` (post_type/taxonomy/custom), `object` (post type or taxonomy slug, e.g. "post"/"page"/"category"), `object_id` (ID of the linked post or term), `parent` (parent menu_item ID, 0 = top-level — use to nest into submenus), `position` (1-based menu order; auto-appended if omitted). Returns { id, title, url } (a minimal object — use `wp_list_menu_items` or `wp_update_menu_item` for the full item shape). Use `wp_list_menu_items` to find existing item IDs and object_ids.';
     }
 
     public function get_category() {
@@ -53,7 +53,7 @@ class Create_Menu_Item extends Base_Tool {
                 'object_type' => array(
                     'type'        => 'string',
                     'description' => 'The type of object for the menu item.',
-                    'enum'        => array( 'custom', 'post_type', 'taxonomy' ),
+                    'enum'        => array( 'custom', 'post_type', 'taxonomy', 'post_type_archive' ),
                 ),
                 'object'      => array(
                     'type'        => 'string',

@@ -14,7 +14,7 @@ class Update_Webhook extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce webhook (PATCH semantics). Required: `id`. Optional: `name`, `delivery_url` (URL that receives the payload), `topic` (e.g. order.created/product.updated/customer.created), `status` (active/paused/disabled — use "paused" to temporarily stop deliveries without deleting). Returns { id, name, topic, delivery_url, status }. Use `wp_wc_list_webhooks` to find the ID. Requires WooCommerce active.';
+        return 'Updates a WooCommerce webhook (PATCH semantics). Required: `id`. Optional: `name`, `delivery_url` (URL that receives the payload), `topic` (e.g. order.created/product.updated/customer.created), `status` (active/paused/disabled — use "paused" to temporarily stop deliveries without deleting). `api_version` is accepted but has NO effect: WooCommerce never reads it from an update request — it is set once at creation from the store default — so sending it is silently discarded. Returns { id, name, topic, delivery_url, status }. Use `wp_wc_list_webhooks` to find the ID. Requires WooCommerce active.';
     }
 
     public function get_category() {

@@ -14,7 +14,7 @@ class Create_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed), `ping_status` (open/closed). Returns { id, title, status, link }.';
+        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed), `ping_status` (open/closed). If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Returns { id, title, status, link }.';
     }
 
     public function get_category() {

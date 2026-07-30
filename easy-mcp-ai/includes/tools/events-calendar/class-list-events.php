@@ -14,7 +14,7 @@ class List_Events extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists events from The Events Calendar with optional filtering by date range, venue, organizer, category, tag, post status, featured flag, and search. `per_page` is capped at 50 (TEC hard limit). Returns id, title, start_date, end_date, venue, organizer, and permalink.';
+        return 'Lists events from The Events Calendar with optional filtering by date range, venue, organizer, category, tag, post status, featured flag, and search. `per_page` is capped at 50 (TEC hard limit). Returns id, title, start_date, end_date, all_day, venue, organizer, and permalink. Note: `organizer` in the result is only the first organizer\'s name, even if the event has multiple organizers. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {

@@ -14,7 +14,7 @@ class Delete_Term_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a term meta key. Required: `term_id`, `key`. Optional: `value` — if provided, deletes only rows matching that value; omit to remove ALL rows for the key. Returns { deleted: bool, term_id, key }. Uses taxonomy\'s `edit_terms` cap.';
+        return 'Deletes a term meta key. Required: `term_id`, `key`. Optional: `value` — if provided, deletes only rows matching that value; omit to remove ALL rows for the key. Returns { deleted: bool, term_id, taxonomy, key, value_provided: bool }. Uses taxonomy\'s `edit_terms` cap.';
     }
 
     public function get_category() {
@@ -51,8 +51,8 @@ class Delete_Term_Meta extends Base_Tool {
                     'description' => 'Meta key to delete.',
                 ),
                 'value'   => array(
-                    'type'        => array( 'string', 'number', 'boolean' ),
-                    'description' => 'If provided, only rows matching this value are deleted. Omit to remove all rows for the key.',
+                    'type'        => 'string',
+                    'description' => 'If provided, only rows matching this value are deleted. Omit to remove all rows for the key. For booleans use "1" / "0" (WordPress meta storage semantics); numbers are also accepted as strings. Caution: a value another plugin wrote as a native false is stored as an empty string, so "0" will not match it — and passing an empty string here deletes EVERY row for the key, not just the empty-valued one.',
                 ),
             ),
             'required'   => array( 'term_id', 'key' ),

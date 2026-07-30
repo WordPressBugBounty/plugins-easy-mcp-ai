@@ -14,7 +14,7 @@ class Create_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress post. Required: `title`. Optional: `content` (HTML/Gutenberg blocks accepted; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601, e.g. 2026-06-01T09:00:00), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `comment_status` (open/closed), `sticky`. Returns { id, title, status, link, date }. Revisions are created automatically on each update.';
+        return 'Creates a new WordPress post. Required: `title`. Optional: `content` (HTML/Gutenberg blocks accepted; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601, e.g. 2026-06-01T09:00:00), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `template` (theme file slug for the post template), `comment_status` (open/closed), `ping_status` (open/closed), `sticky`. If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Returns { id, title, status, link, date }. Revisions are created automatically on each update.';
     }
 
     public function get_category() {

@@ -14,7 +14,7 @@ class List_Customers extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WooCommerce customers. Optional: `search` (name/email), `email` (exact email filter), `role` (WordPress role slug — default "all" which returns all roles; use "customer" to filter to WooCommerce customers only), `orderby` (id/name/registered_date/username/email — default registered_date), `order` (asc/desc — default desc), `per_page` (default 10), `page`. Returns array of { id, email, first_name, last_name, username, orders_count, total_spent, date_created }. Requires WooCommerce active.';
+        return 'Lists WooCommerce customers. Optional: `search` (name/email), `email` (exact email filter), `role` (WordPress role slug — default "all" which returns all roles; use "customer" to filter to WooCommerce customers only), `orderby` (id/include/name/registered_date — default registered_date; these are the only values the WooCommerce API accepts), `order` (asc/desc — default desc), `per_page` (default 10), `page`. Returns { customers: [ { id, email, first_name, last_name, username, date_created } ], page }. Order counts and lifetime spend are NOT available — the WooCommerce v3 customers API does not return them. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -66,7 +66,7 @@ class List_Customers extends Base_Tool {
                 'orderby'  => array(
                     'type'        => 'string',
                     'description' => 'Sort field.',
-                    'enum'        => array( 'id', 'include', 'name', 'registered_date', 'username', 'email' ),
+                    'enum'        => array( 'id', 'include', 'name', 'registered_date' ),
                     'default'     => 'registered_date',
                 ),
                 'order'    => array(
@@ -111,8 +111,11 @@ class List_Customers extends Base_Tool {
                 'last_name'    => $customer['last_name'],
                 'username'     => $customer['username'],
                 'date_created' => $customer['date_created'],
-                'orders_count' => $customer['orders_count'],
-                'total_spent'  => $customer['total_spent'],
+                
+                
+                
+                
+                
             );
         }, $data );
 

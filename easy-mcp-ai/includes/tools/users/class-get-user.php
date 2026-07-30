@@ -14,7 +14,7 @@ class Get_User extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a WordPress user by ID. Pass `user_id` = 0 to get the currently authenticated user. Returns { id, username, name, first_name, last_name, email, roles (array), description, registered_date, url (website) }. Email and username are only visible to administrators; non-admin tokens see a subset of fields.';
+        return 'Gets a WordPress user by ID. Pass `user_id` = 0 to get the currently authenticated user. Returns { id, username, name, first_name, last_name, email, roles (array), description, registered_date, url (website) }. Always requests full edit-context data: for the caller\'s own account, or when the caller is an administrator, the complete field set above is returned; requesting another user\'s data without sufficient capability fails with a 403 error rather than returning a partial/subset response.';
     }
 
     public function get_category() {

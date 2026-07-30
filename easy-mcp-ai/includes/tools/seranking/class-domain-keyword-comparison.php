@@ -13,7 +13,7 @@ class Domain_Keyword_Comparison extends Base_Tool {
 
 	public function get_name() { return 'wp_seranking_domain_keyword_comparison'; }
 	public function get_description() {
-		return 'SE Ranking keyword comparison between a domain (or URL) and a competitor — shared keywords (diff=0) or the keyword gap (diff=1) in one regional database. source is an ISO alpha-2 country code (us, uk, de…). Provide either domain (bare) or url, plus compare (the competitor bare domain). When diff=1, position/url/price/traffic are null. limit is 1–1000 (default 100). Returns { items: [...] }. (meter: 100 credits/request)';
+		return 'SE Ranking keyword comparison between a domain (or URL) and a competitor — shared keywords (diff=false, the default) or the keyword gap (diff=true) in one regional database. source is an ISO alpha-2 country code (us, uk, de…). Provide either domain (bare) or url, plus compare (the competitor bare domain). When diff=true, position/url/price/traffic are null. limit is 1–1000 (default 100). Returns { items: [...] }. (meter: 100 credits/request)';
 	}
 	public function get_category() { return 'seranking'; }
 	public function get_required_capability() { return 'manage_options'; }
@@ -37,7 +37,7 @@ class Domain_Keyword_Comparison extends Base_Tool {
 				'type'        => array( 'type' => 'string', 'description' => 'Keyword type; default organic.' ),
 				'page'        => array( 'type' => 'integer', 'description' => 'Result page; default 1.' ),
 				'limit'       => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 1000, 'default' => 100, 'description' => 'Rows to return (1–1000); default 100.' ),
-				'diff'        => array( 'type' => 'integer', 'enum' => array( 0, 1 ), 'default' => 0, 'description' => '0 = common keywords, 1 = keyword gap. Default 0.' ),
+				'diff'        => array( 'type' => 'boolean', 'default' => false, 'description' => 'false = shared keywords (the default), true = the keyword gap.' ),
 				'order_field' => array( 'type' => 'string', 'description' => 'Sort field; default keyword.' ),
 				'order_type'  => array( 'type' => 'string', 'description' => 'Sort direction; default asc.' ),
 				'cols'        => array( 'type' => 'string', 'description' => 'Comma-separated columns to return.' ),
@@ -72,7 +72,10 @@ class Domain_Keyword_Comparison extends Base_Tool {
 				$query['limit'] = $limit;
 			}
 			if ( isset( $arguments['diff'] ) && '' !== $arguments['diff'] ) {
-				$query['diff'] = (int) $arguments['diff'];
+				
+				
+				
+				$query['diff'] = rest_sanitize_boolean( $arguments['diff'] ) ? 1 : 0;
 			}
 			if ( isset( $arguments['page'] ) && '' !== $arguments['page'] ) {
 				$query['page'] = (int) $arguments['page'];

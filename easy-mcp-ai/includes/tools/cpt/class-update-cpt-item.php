@@ -14,7 +14,7 @@ class Update_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing custom post type (CPT) item. Required: `rest_base` + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private), `slug`, `excerpt`, `meta` (only meta keys registered with `show_in_rest=true` will persist). Status transitions follow normal WordPress rules. Discover the CPT\'s `rest_base` via `wp_get_post_types`.';
+        return 'Updates an existing custom post type (CPT) item. Required: `rest_base` + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private), `slug`, `excerpt`, `meta` (only meta keys registered with `show_in_rest=true` will persist). Status transitions follow normal WordPress rules. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title`, `content`, or `excerpt` here DOES blank the field rather than preserving the existing value. Discover the CPT\'s `rest_base` via `wp_get_post_types`. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
     }
 
     public function get_category() {

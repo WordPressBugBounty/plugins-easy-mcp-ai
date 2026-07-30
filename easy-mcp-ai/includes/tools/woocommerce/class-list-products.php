@@ -14,7 +14,7 @@ class List_Products extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WooCommerce products with optional filtering by status, category, price range, stock status, and search. Returns id, name, sku, price, stock_status, status, and permalink for each product.';
+        return 'Lists WooCommerce products with optional filtering by status, category, price range, stock status, and search. Returns { products: [ { id, name, sku, status, price, regular_price, sale_price, stock_status, stock_quantity, type, permalink } ], page }.';
     }
 
     public function get_category() {
@@ -37,7 +37,7 @@ class List_Products extends Base_Tool {
                 'page'         => array( 'type' => 'integer', 'description' => 'Page number.', 'default' => 1 ),
                 'search'       => array( 'type' => 'string',  'description' => 'Search term to filter products by name or SKU.' ),
                 'status'       => array( 'type' => 'string',  'description' => 'Filter by product status.', 'enum' => array( 'publish', 'draft', 'pending', 'private', 'any' ) ),
-                'category'     => array( 'type' => 'string',  'description' => 'Filter by product category slug.' ),
+                'category'     => array( 'type' => 'string',  'description' => 'Filter by product category term ID (numeric, not the slug) — WooCommerce\'s REST layer resolves this value as a term ID; a slug string does not match any product. Use wp_list_categories or wp_get_category to look up the ID.' ),
                 'stock_status' => array( 'type' => 'string',  'description' => 'Filter by stock status.', 'enum' => array( 'instock', 'outofstock', 'onbackorder' ) ),
                 'orderby'      => array( 'type' => 'string',  'description' => 'Sort products by field.', 'enum' => array( 'date', 'id', 'title', 'slug', 'price', 'popularity', 'rating' ), 'default' => 'date' ),
                 'order'        => array( 'type' => 'string',  'description' => 'Sort direction.', 'enum' => array( 'asc', 'desc' ), 'default' => 'desc' ),

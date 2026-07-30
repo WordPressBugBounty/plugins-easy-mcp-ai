@@ -22,7 +22,7 @@ class Update_Product_Variation extends Base_Tool {
     }
 
     public function get_required_capability() {
-        return 'publish_products';
+        return 'edit_products'; 
     }
 
     public function get_annotations() {

@@ -14,7 +14,7 @@ class Create_Order extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WooCommerce order programmatically. Required: line_items (array of objects with product_id and quantity). Optional: status, customer_id, billing (object), shipping (object), coupon_lines (array), set_paid, currency, customer_note, shipping_lines, fee_lines, meta_data, transaction_id. Returns id, number, status, total, and rest_url (the REST API self-link for the order, not a public permalink).';
+        return 'Creates a new WooCommerce order programmatically. Required: line_items (array of objects with product_id and quantity; also accepts variation_id, required when product_id refers to a variable product). Optional: status, customer_id, billing (object), shipping (object), coupon_lines (array), set_paid, currency, customer_note, shipping_lines, fee_lines, meta_data, transaction_id. Returns id, number, status, total, and rest_url (the REST API self-link for the order, not a public permalink).';
     }
 
     public function get_category() {
@@ -44,15 +44,19 @@ class Create_Order extends Base_Tool {
                     'items'       => array(
                         'type'       => 'object',
                         'properties' => array(
-                            'product_id' => array( 'type' => 'integer' ),
-                            'quantity'   => array( 'type' => 'integer' ),
+                            'product_id'   => array( 'type' => 'integer' ),
+                            'variation_id' => array(
+                                'type'        => 'integer',
+                                'description' => 'Variation ID, required when product_id refers to a variable product.',
+                            ),
+                            'quantity'     => array( 'type' => 'integer' ),
                         ),
                     ),
                 ),
                 'status'       => array(
                     'type'        => 'string',
                     'description' => 'Order status.',
-                    'enum'        => array( 'pending', 'processing', 'on-hold', 'completed' ),
+                    'enum'        => array( 'pending', 'processing', 'on-hold', 'completed', 'cancelled', 'refunded', 'failed' ),
                     'default'     => 'pending',
                 ),
                 'customer_id'  => array(

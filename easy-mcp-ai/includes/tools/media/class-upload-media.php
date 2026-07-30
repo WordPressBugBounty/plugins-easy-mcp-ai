@@ -14,7 +14,7 @@ class Upload_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Uploads a file to the WordPress media library from base64-encoded content. Required: `filename` (e.g. "photo.jpg" — extension determines MIME type), `content_base64` (base64-encoded file bytes). Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp/svg), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }.';
+        return 'Uploads a file to the WordPress media library from base64-encoded content. Required: `filename` (e.g. "photo.jpg" — extension determines MIME type), `content_base64` (base64-encoded file bytes). Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. SVG is NOT accepted on a default WordPress install (no default MIME entry) unless a plugin enables it. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }. Empty-string handling differs by field: an empty `title` is ignored (the attachment keeps its auto-generated title from the filename), while an empty `caption` or `alt_text` is applied as-is, clearing that field.';
     }
 
     public function get_category() {

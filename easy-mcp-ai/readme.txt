@@ -1,10 +1,10 @@
 === Easy MCP AI - Connector for Claude, ChatGPT & SEO Data ===
 Contributors: easymcpai
-Tags: mcp, ai, ai-seo, claude, mcp-server
+Tags: mcp, ai, chatgpt, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.10
+Stable tag: 1.7.13
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,7 +94,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 [**242 Tools, Ready to Use**](https://easymcpai.com/tools)
 
-**93 core tools** cover every major WordPress content type — posts, pages, media, categories, tags, custom taxonomies, comments, users, menus, custom post types, post/term/user meta, revisions, Gutenberg blocks, templates, global styles, site settings, plugins, themes, and full-text search. Each type supports create, read, update, delete and more, plus conveniences like one-call full-post reads, find-and-replace in post content, and AI alt-text on media.
+**96 core tools** cover every major WordPress content type — posts, pages, media, categories, tags, custom taxonomies, comments, users, menus, custom post types, post/term/user meta, revisions, Gutenberg blocks, templates, global styles, site settings, plugins, themes, and full-text search. Each type supports create, read, update, delete and more, plus conveniences like one-call full-post reads, find-and-replace in post content, and AI alt-text on media.
 
 = 11 Google Analytics 4 Tools =
 
@@ -385,6 +385,22 @@ No long-running processes, no Node.js, no Docker. The plugin runs entirely insid
 * **404 Not Found** — go to **Settings → Permalinks** in WordPress admin and click **Save Changes** to flush rewrite rules. Pretty permalinks must be enabled.
 * **401 Unauthorized** — double-check the Bearer token in your AI client matches one shown under **Easy MCP AI → API Tokens** (tokens are only shown once at creation — if you lost it, delete and recreate). For OAuth clients, try disconnecting and re-approving the connector. Also confirm your `Authorization: Bearer <token>` header is being sent (some reverse proxies strip it).
 
+= My site uses Cloudflare Flexible SSL — why can't AI assistants connect? =
+
+In Flexible SSL mode Cloudflare handles HTTPS for your visitors but passes the request to your server over plain HTTP. Visitors see a secure padlock, PHP does not, and one-click sign-in is refused because it will not issue a token over what it sees as an unencrypted connection. Existing API tokens keep working — only the sign-in button is affected.
+
+Either fix solves it for good:
+
+**Switch Cloudflare SSL/TLS mode to Full or Full (Strict).** This is the better answer, because it encrypts the connection between Cloudflare and your server too.
+
+**Or tell WordPress the truth about the connection.** Add this to `wp-config.php`, above the `/* That's all, stop editing */` comment:
+
+`if ( isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) && 'https' === $_SERVER['HTTP_X_FORWARDED_PROTO'] ) {`
+`    $_SERVER['HTTPS'] = 'on';`
+`}`
+
+This is a standard WordPress snippet, not specific to this plugin. The same setup usually causes mixed-content warnings and redirect loops in wp-admin, and this fixes those too. Easy MCP AI also shows a notice on its own admin pages when it detects this.
+
 = Where do I report security bugs found in this plugin? =
 
 Please report security bugs found in the source code of the Easy MCP AI for WordPress plugin through the [Patchstack Vulnerability Disclosure Program](https://patchstack.com/database/vdp/8e5e1a2e-1cd4-42d7-8a5d-9ff3d1a7f397). The Patchstack team will assist you with verification, CVE assignment, and notify the developers of this plugin.
@@ -400,12 +416,25 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.13 =
+* Fixed: Gemini-based AI assistants can now connect and use every tool.
+* Fixed: Connections no longer fail with an "unauthorized" error on Apache servers that drop the login header. FastCGI hosts still need CGIPassAuth On enabled server-side.
+* Fixed: You can now clear a coupon's expiry date by sending an empty value.
+* Fixed: Post search now covers every searchable post type — pages and custom post types included — not just the default post type. To search categories and tags, use the separate site-wide search tool.
+* New: The dashboard now warns you when "Plain" permalinks or a missing HTTPS setup would stop an AI assistant from connecting.
+* Improved: Tool descriptions, permissions and options are more accurate, so your AI assistant makes fewer mistakes.
+* Improved: Tools that read raw content now require edit permission and are hidden from accounts that cannot use them.
+* Improved: Editing WooCommerce products no longer requires publish permission.
+* Improved: Rate limiting can now be corrected behind a reverse proxy or CDN. By default it still counts by the connecting address, so point the easy_mcp_ai_client_ip filter at the real visitor IP, or fix REMOTE_ADDR in your server config.
+* Improved: Browser-based AI clients can now connect from either your WordPress Address or your Site Address, and the accepted list can be extended with the easy_mcp_ai_allowed_origins filter.
+* Changed: If your site runs on plain HTTP behind a proxy, add EASY_MCP_AI_OAUTH_ALLOW_HTTP to wp-config.php to keep one-click sign-in working. Live HTTPS sites are unaffected.
+
 = 1.7.10 =
-* New: Settings now let you choose the minimum user role allowed to connect an AI assistant through OAuth — keep the default (Author and above), or restrict it to Editors or Administrators only. Creating tokens from the dashboard stays admin-only and is unaffected.
-* New: Settings now let you choose the minimum user role allowed to use the External Data tools (Google Analytics, Search Console, DataForSEO, Semrush, SE Ranking). These stay Administrators-only by default; you can lower them to Editors or Authors.
-* Improved: AI assistants now only see tools their connected user is actually allowed to use — tools they lack permission for are hidden from the tool list instead of failing when called.
-* Fixed: Cursor and VS Code can now connect over one-click OAuth. Desktop apps that use a custom sign-in link (e.g. cursor://) previously failed to finish connecting; the sign-in now completes normally. Claude, ChatGPT, and other clients are unaffected.
-* New: One-click "Connect" buttons for Claude, Cursor, and VS Code on the dashboard, plus a "Copy System Info" button that puts your setup details on the clipboard for support requests (your API keys and credentials are never included).
+* New: Choose the minimum user role allowed to connect an AI assistant through one-click sign-in.
+* New: Choose the minimum user role allowed to use the External Data tools.
+* New: One-click "Connect" buttons for Claude, Cursor and VS Code, plus a "Copy System Info" button for support requests.
+* Improved: AI assistants now only see the tools their account is actually allowed to use.
+* Fixed: Cursor and VS Code can now finish connecting over one-click sign-in.
 
 = 1.7.9 =
 * Fixed: A few WordPress plugin abilities with unusual settings could stop your AI assistant from connecting at all — this is now handled automatically so the connection stays reliable.
@@ -548,6 +577,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.13 =
+Three changes to know: five read tools now need edit permission (nothing that worked before breaks); post search now spans every post type unless you name one; and local HTTP sites behind a proxy need EASY_MCP_AI_OAUTH_ALLOW_HTTP in wp-config.php. Live HTTPS sites are unaffected.
 
 = 1.7.4 =
 Adds a free Ahrefs Domain Rating tool (no API key required). No breaking changes.

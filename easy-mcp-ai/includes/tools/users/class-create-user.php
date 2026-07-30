@@ -61,7 +61,7 @@ class Create_User extends Base_Tool {
                 'roles'      => array(
                     'type'        => 'array',
                     'items'       => array( 'type' => 'string' ),
-                    'description' => 'Array of roles to assign to the new user.',
+                    'description' => 'Array of roles to assign to the new user. Assigning ANY role requires the caller to hold `promote_users`; assigning the `administrator` role specifically also requires `manage_options`. Requests missing the required capability are rejected.',
                 ),
             ),
             'required'   => array( 'username', 'email', 'password' ),

@@ -14,7 +14,7 @@ class Update_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. An empty string for `slug` is also silently ignored (the existing slug is preserved), unlike `wp_update_term`, which rejects an empty slug with an error.';
     }
 
     public function get_category() {

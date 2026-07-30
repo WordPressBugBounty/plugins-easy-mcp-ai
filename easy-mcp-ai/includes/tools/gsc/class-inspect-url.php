@@ -13,7 +13,7 @@ class Inspect_Url extends Base_Tool {
     public function get_name() { return 'wp_gsc_inspect_url'; }
 
     public function get_description() {
-        return 'Inspects a URL in Google Search Console. Returns index status (verdict, coverage state, crawl info, canonical URLs), mobile usability issues, rich results (structured data) issues, and AMP status.';
+        return 'Inspects a URL in Google Search Console. Returns index status (verdict, coverage state, crawl info, canonical URLs), mobile usability issues, rich results (structured data) issues, and AMP status. Requires a Google service-account credential configured under Easy MCP AI → External Data.';
     }
 
     public function get_category() { return 'gsc'; }
@@ -33,7 +33,7 @@ class Inspect_Url extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'site_url'       => array( 'type' => 'string', 'description' => 'The Search Console property URL the inspection_url belongs to.' ),
+                'site_url'       => array( 'type' => 'string', 'description' => 'The Search Console property URL the inspection_url belongs to. Required — does not fall back to the configured default.' ),
                 'inspection_url' => array( 'type' => 'string', 'description' => 'The fully qualified URL to inspect.' ),
                 'language_code'  => array( 'type' => 'string', 'description' => 'Optional BCP-47 language code for issue messages, e.g. en.' ),
             ),

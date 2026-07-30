@@ -53,12 +53,14 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 				),
 				'fields'    => array(
 					'type'                 => 'object',
-					'description'          => 'AIOSEO fields to update, keyed by friendly field-map keys (NOT column names). Freeform passthrough to the aioseo_meta_data REST field; patch semantics (only supplied keys are written, others preserved). Robots flags are FLAT top-level keys (e.g. {"noindex":true}), NOT nested under a "robots" object; the key is "noindex" (no underscore). Setting any robots flag auto-injects default:false (AIOSEO ignores per-post robots while robots_default is on). canonical_url may not persist on the AIOSEO free plan. Keys not listed below are still accepted (additionalProperties is allowed).',
+					'description'          => 'AIOSEO fields to update, keyed by friendly field-map keys (NOT column names). Freeform passthrough to the aioseo_meta_data REST field; patch semantics (only supplied keys are written, others preserved). Robots flags are FLAT top-level keys (e.g. {"noindex":true}), NOT nested under a "robots" object; the key is "noindex" (no underscore). Setting any robots flag auto-injects default:false (AIOSEO ignores per-post robots while robots_default is on). canonical_url may not persist on the AIOSEO free plan. Keys not listed below are still accepted and forwarded unchanged.',
 					
 					
 					
 					
-					'additionalProperties' => true,
+					
+					
+					
 					'properties'           => array(
 						'title'                    => array( 'type' => 'string', 'description' => 'SEO title.' ),
 						'description'              => array( 'type' => 'string', 'description' => 'Meta description.' ),
@@ -87,9 +89,9 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 						'maxVideoPreview'          => array( 'type' => 'integer', 'description' => 'Robots: max video preview seconds (-1 = default).' ),
 						'maxImagePreview'          => array( 'type' => 'string', 'description' => 'Robots: max image preview size (large, standard, or none).' ),
 						'pillar_content'           => array( 'type' => 'boolean', 'description' => 'Mark as pillar / cornerstone content.' ),
-						'primary_term'             => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Primary term mapping (AIOSEO structure, keyed by taxonomy).' ),
-						'keyphrases'               => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Focus + additional keyphrases (AIOSEO structure: { focus: { keyphrase }, additional: [...] }).' ),
-						'schema'                   => array( 'type' => 'object', 'additionalProperties' => true, 'description' => 'Schema / structured-data options (AIOSEO structure).' ),
+						'primary_term'             => array( 'type' => 'object', 'description' => 'Primary term mapping (AIOSEO structure, keyed by taxonomy). Not restricted to specific keys.' ),
+						'keyphrases'               => array( 'type' => 'object', 'description' => 'Focus + additional keyphrases (AIOSEO structure: { focus: { keyphrase }, additional: [...] }). Not restricted to specific keys.' ),
+						'schema'                   => array( 'type' => 'object', 'description' => 'Schema / structured-data options (AIOSEO structure). Not restricted to specific keys.' ),
 					),
 				),
 			),

@@ -3,7 +3,7 @@
  * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
  * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 242 tools. Free.
- * Version:     1.7.10
+ * Version:     1.7.13
  * Author:      EasyMCPAI
  * Author URI:
  * License:     GPL-2.0-or-later
@@ -31,7 +31,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     $easy_mcp_ai_req = (string) $_SERVER['REQUEST_URI']; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- read-only path match, not stored/output.
-    if (
+    $easy_mcp_ai_own = (
         false !== strpos( $easy_mcp_ai_req, '/.well-known/oauth-' )
         || false !== strpos( $easy_mcp_ai_req, '/.well-known/openid-configuration' )
         
@@ -41,14 +41,148 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
         
         || false !== strpos( $easy_mcp_ai_req, '/easy-mcp-ai/v1/' )
         || false !== strpos( $easy_mcp_ai_req, 'easy_mcp_ai_oauth=' )
+    );
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ( ! $easy_mcp_ai_own
+        && (
+            false !== strpos( $easy_mcp_ai_req, 'wp-login.php' )
+            || false !== strpos( $easy_mcp_ai_req, 'rest_route=' )
+        )
     ) {
+        $easy_mcp_ai_decoded = rawurldecode( $easy_mcp_ai_req );
+        $easy_mcp_ai_own     = (
+            false !== strpos( $easy_mcp_ai_decoded, '/easy-mcp-ai/v1/' )
+            || false !== strpos( $easy_mcp_ai_decoded, 'easy_mcp_ai_oauth=' )
+        );
+        unset( $easy_mcp_ai_decoded );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if ( ! $easy_mcp_ai_own
+        && isset( $_SERVER['REQUEST_METHOD'] )
+        && 'POST' === strtoupper( (string) $_SERVER['REQUEST_METHOD'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- read-only comparison.
+        && false !== strpos( $easy_mcp_ai_req, 'wp-login.php' )
+        && ! empty( $_POST['redirect_to'] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing -- read-only substring match; nothing is acted on or stored.
+        && is_string( $_POST['redirect_to'] ) // phpcs:ignore WordPress.Security.NonceVerification.Missing -- see above.
+    ) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- read-only substring match; nothing is acted on, stored or output.
+        $easy_mcp_ai_rt = (string) $_POST['redirect_to'];
+
+        
+        
+        
+        
+        foreach ( array( $easy_mcp_ai_rt, rawurldecode( $easy_mcp_ai_rt ) ) as $easy_mcp_ai_candidate ) {
+            if ( false !== strpos( $easy_mcp_ai_candidate, '/easy-mcp-ai/v1/' )
+                || false !== strpos( $easy_mcp_ai_candidate, 'easy_mcp_ai_oauth=' ) ) {
+                $easy_mcp_ai_own = true;
+                break;
+            }
+        }
+        unset( $easy_mcp_ai_rt, $easy_mcp_ai_candidate );
+    }
+
+    if ( $easy_mcp_ai_own ) {
         @ini_set( 'display_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.display_errors_Disallowed, WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Intentional & request-scoped: stop other plugins' PHP notices from corrupting our OAuth/MCP JSON responses. Suppresses display only (logging unaffected).
         @ini_set( 'display_startup_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.Risky, WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- See above; display suppression only, scoped to our own JSON endpoints.
+
+        
+
+
+
+
+
+
+
+
+
+
+
+        if ( empty( $_SERVER['HTTP_AUTHORIZATION'] ) ) {
+            require_once __DIR__ . '/includes/class-auth-header.php';
+            $easy_mcp_ai_hdrs = Easy_MCP_AI\Auth_Header::request_headers();
+            if ( null !== $easy_mcp_ai_hdrs ) {
+                $easy_mcp_ai_bearer = Easy_MCP_AI\Auth_Header::recover_bearer( $easy_mcp_ai_hdrs );
+                if ( null !== $easy_mcp_ai_bearer ) {
+                    $_SERVER['HTTP_AUTHORIZATION'] = $easy_mcp_ai_bearer;
+                }
+                unset( $easy_mcp_ai_bearer );
+            }
+            unset( $easy_mcp_ai_hdrs );
+        }
     }
-    unset( $easy_mcp_ai_req );
+    unset( $easy_mcp_ai_req, $easy_mcp_ai_own );
 }
 
-define( 'EASY_MCP_AI_VERSION', '1.7.10' );
+define( 'EASY_MCP_AI_VERSION', '1.7.13' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

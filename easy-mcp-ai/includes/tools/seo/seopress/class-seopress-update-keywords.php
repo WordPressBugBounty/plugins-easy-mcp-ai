@@ -18,7 +18,7 @@ class Seopress_Update_Keywords extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress target keywords used for content analysis on a post or page via the seopress/v1 REST API. Accepts an array of keywords or a comma-separated string.';
+		return 'Updates the SEOPress target keywords used for content analysis on a post or page via the seopress/v1 REST API. Pass a comma-separated string (e.g. "wordpress mcp, ai assistant, seo tools").';
 	}
 
 	public function get_category() {
@@ -47,9 +47,8 @@ class Seopress_Update_Keywords extends Base_Tool {
 					'description' => 'The ID of the post or page.',
 				),
 				'target_keywords' => array(
-					'type'        => array( 'array', 'string' ),
-					'items'       => array( 'type' => 'string' ),
-					'description' => 'The target keywords as an array of strings or a comma-separated string.',
+					'type'        => 'string',
+					'description' => 'The target keywords as a comma-separated string, e.g. "wordpress mcp, ai assistant, seo tools".',
 				),
 			),
 			'required'   => array( 'post_id', 'target_keywords' ),

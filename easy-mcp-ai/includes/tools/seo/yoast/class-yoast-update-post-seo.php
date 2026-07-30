@@ -18,7 +18,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates Yoast SEO metadata on a post or page by writing to the Yoast postmeta keys directly. Fields: seo_title, meta_description, focus_keyword, is_cornerstone, og_title, og_description, og_image, twitter_title, twitter_description, twitter_image, noindex (int 0=default/1=noindex/2=index), nofollow (int 0/1), advanced_robots (csv of noimageindex,noarchive,nosnippet), canonical (URL), primary_term + taxonomy, breadcrumb_title, schema_page_type, schema_article_type.';
+		return 'Updates Yoast SEO metadata on a post or page by writing to the Yoast postmeta keys directly. Fields: seo_title, meta_description, focus_keyword, is_cornerstone, og_title, og_description, og_image, twitter_title, twitter_description, twitter_image, noindex ("0"=default/"1"=noindex/"2"=index), nofollow ("0"/"1"), advanced_robots (csv of noimageindex,noarchive,nosnippet), canonical (URL), primary_term + taxonomy, breadcrumb_title, schema_page_type, schema_article_type.';
 	}
 
 	public function get_category() {
@@ -87,14 +87,14 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 					'description' => 'The Twitter card image URL (_yoast_wpseo_twitter-image).',
 				),
 				'noindex'             => array(
-					'type'        => 'integer',
-					'enum'        => array( 0, 1, 2 ),
-					'description' => 'Robots noindex (_yoast_wpseo_meta-robots-noindex). Tri-state: 0=default, 1=noindex, 2=index. NOT a boolean.',
+					'type'        => 'string',
+					'enum'        => array( '0', '1', '2' ),
+					'description' => 'Robots noindex (_yoast_wpseo_meta-robots-noindex). Tri-state: "0"=default, "1"=noindex, "2"=index. NOT a boolean.',
 				),
 				'nofollow'            => array(
-					'type'        => 'integer',
-					'enum'        => array( 0, 1 ),
-					'description' => 'Robots nofollow (_yoast_wpseo_meta-robots-nofollow). 0=default, 1=nofollow.',
+					'type'        => 'string',
+					'enum'        => array( '0', '1' ),
+					'description' => 'Robots nofollow (_yoast_wpseo_meta-robots-nofollow). "0"=default, "1"=nofollow.',
 				),
 				'advanced_robots'     => array(
 					'type'        => 'string',

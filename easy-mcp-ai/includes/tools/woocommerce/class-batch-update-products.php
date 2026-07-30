@@ -14,7 +14,7 @@ class Batch_Update_Products extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce products in a single REST batch call. Provide any combination of `create` (array of product objects), `update` (array of product objects with `id`), `delete` (array of integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps total at 100 items per branch via `woocommerce_rest_batch_items_limit` filter. Returns pass-through WC response: { create: [...], update: [...], delete: [...] }. WC REST permission_callback enforces per-item edit_product cap — partial failures are possible (failed items appear with error key).';
+        return 'Create, update, and/or delete up to 100 WooCommerce products in a single REST batch call. Provide any combination of `create` (array of product objects), `update` (array of product objects with `id`), `delete` (array of integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns pass-through WC response: { create: [...], update: [...], delete: [...] }. WC REST permission_callback enforces per-item edit_product cap — partial failures are possible (failed items appear with error key). If **Easy MCP AI → Settings → Force draft on create** is enabled, every `create` item has its status silently overridden to `draft` regardless of the value supplied; `update` items are unaffected.';
     }
 
     public function get_category() {
@@ -40,18 +40,16 @@ class Batch_Update_Products extends Base_Tool {
             'properties' => array(
                 'create' => array(
                     'type'        => 'array',
-                    'description' => 'Array of product objects to create.',
+                    'description' => 'Array of product objects to create (any field accepted by the WC REST product schema, e.g. name, regular_price, sku, categories; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'update' => array(
                     'type'        => 'array',
-                    'description' => 'Array of product objects to update, each with `id`.',
+                    'description' => 'Array of product objects to update, each with `id` (any field accepted by the WC REST product schema; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'delete' => array(

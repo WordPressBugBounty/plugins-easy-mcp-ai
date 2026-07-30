@@ -14,7 +14,7 @@ class Create_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new item in any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (NOT the post_type slug — discover via `wp_get_post_types`), `title`. Optional: `content`, `status` (publish/draft/pending/private — default draft), `slug`, `excerpt`. Field acceptance depends on what the CPT registered as `supports`; sending unsupported fields is silently ignored. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas.';
+        return 'Creates a new item in any custom post type (CPT) registered with `show_in_rest=true`. Required: `rest_base` (NOT the post_type slug — discover via `wp_get_post_types`), `title`. Optional: `content`, `status` (publish/draft/pending/private — default draft), `slug`, `excerpt`. Field acceptance depends on what the CPT registered as `supports`; sending unsupported fields is silently ignored. If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
     }
 
     public function get_category() {

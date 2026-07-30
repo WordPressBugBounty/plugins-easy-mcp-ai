@@ -14,7 +14,7 @@ class Batch_Update_Orders extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps total at 100 items per branch via `woocommerce_rest_batch_items_limit` filter. Pass-through WC response.';
+        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Pass-through WC response.';
     }
 
     public function get_category() {
@@ -40,18 +40,16 @@ class Batch_Update_Orders extends Base_Tool {
             'properties' => array(
                 'create' => array(
                     'type'        => 'array',
-                    'description' => 'Array of order objects to create.',
+                    'description' => 'Array of order objects to create (any field accepted by the WC REST order schema, e.g. line_items, billing, shipping, status; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'update' => array(
                     'type'        => 'array',
-                    'description' => 'Array of order objects to update, each with `id`.',
+                    'description' => 'Array of order objects to update, each with `id` (any field accepted by the WC REST order schema; extra/unrecognized keys are passed through).',
                     'items'       => array(
-                        'type'                 => 'object',
-                        'additionalProperties' => true,
+                        'type' => 'object',
                     ),
                 ),
                 'delete' => array(
