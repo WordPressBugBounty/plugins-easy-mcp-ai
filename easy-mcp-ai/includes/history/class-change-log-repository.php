@@ -7,6 +7,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Change_Log_Repository {
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function list_columns() {
+        return 'id, audit_id, tool_name, action, object_type, object_id, object_subtype, '
+            . 'changed_fields, revision_id, wp_user_id, oauth_client_id, auth_source, '
+            . 'created_at, truncated, ip_address, capture_mode';
+    }
+
     public function table() {
         global $wpdb;
         return $wpdb->prefix . 'easy_mcp_ai_change_log';
@@ -30,6 +49,10 @@ class Change_Log_Repository {
             'changed_fields'  => null,
             'revision_id'     => null,
             'truncated'       => 0,
+            
+            
+            
+            'capture_mode'    => null,
             'ip_address'      => null,
             'created_at'      => \current_time( 'mysql', true ),
         );
@@ -69,6 +92,7 @@ class Change_Log_Repository {
             'changed_fields'  => '%s',
             'revision_id'     => '%d',
             'truncated'       => '%d',
+            'capture_mode'    => '%s',
             'ip_address'      => '%s',
             'created_at'      => '%s',
         );
@@ -146,15 +170,78 @@ class Change_Log_Repository {
         }
         $params[] = (int) $limit;
         $params[] = (int) $offset;
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; $cols/$table/$where are server-built from constant column lists, all user values bound via prepared placeholders.
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; $cols/$table/$where are server-built from constant column lists, all user values bound via prepared placeholders. UnfinishedPrepare fires because the query text is returned by deferred_join_sql() rather than written inline, so the sniff cannot see the placeholders it contains.
         return $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT {$cols} FROM {$table} WHERE " . implode( ' AND ', $where ) . ' ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d',
+                self::deferred_join_sql( $table, $cols, implode( ' AND ', $where ) ),
                 ...$params
             ),
             ARRAY_A
         );
-        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function deferred_join_sql( $table, $cols, $where ) {
+        return "SELECT " . self::qualify_columns( $cols ) . " FROM {$table} c"
+            . " JOIN (SELECT id FROM {$table} WHERE {$where}"
+            . ' ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d) k ON k.id = c.id'
+            . ' ORDER BY c.created_at DESC, c.id DESC';
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function qualify_columns( $cols ) {
+        $cols = trim( (string) $cols );
+        if ( '' === $cols || '*' === $cols ) {
+            return 'c.*';
+        }
+        $out = array();
+        foreach ( explode( ',', $cols ) as $col ) {
+            $col = trim( $col );
+            if ( '' === $col ) {
+                continue;
+            }
+            $out[] = ( '*' === $col ) ? 'c.*' : 'c.' . $col;
+        }
+        return $out ? implode( ', ', $out ) : 'c.*';
     }
 
     public function delete_older_than( $datetime_gmt, $batch = 500 ) {
@@ -163,6 +250,20 @@ class Change_Log_Repository {
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; batched delete with prepared placeholders.
         return (int) $wpdb->query(
             $wpdb->prepare( "DELETE FROM {$table} WHERE created_at < %s LIMIT %d", $datetime_gmt, (int) $batch )
+        );
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+    }
+
+    
+
+
+
+    public function delete_db_rows_older_than( $datetime_gmt, $batch = 500 ) {
+        global $wpdb;
+        $table = $this->table();
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; batched delete with prepared placeholders.
+        return (int) $wpdb->query(
+            $wpdb->prepare( "DELETE FROM {$table} WHERE capture_mode IN ('db_row', 'db_sql') AND created_at < %s LIMIT %d", $datetime_gmt, (int) $batch )
         );
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
     }

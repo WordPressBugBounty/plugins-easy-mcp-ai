@@ -42,6 +42,7 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_oauth_refresh_token_ttl', 
     'easy_mcp_ai_oauth_dcr_enabled',       
     'easy_mcp_ai_oauth_max_clients',       
+    'easy_mcp_ai_oauth_client_retention',  
     'easy_mcp_ai_gsc_service_account_json', 
     'easy_mcp_ai_gsc_default_site_url',     
     'easy_mcp_ai_disabled_gsc_tools',       
@@ -62,13 +63,23 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_change_log_db_version',    
     'easy_mcp_ai_change_log_retention',     
     'easy_mcp_ai_change_log_enabled',       
+    'easy_mcp_ai_change_log_option_mode',   
+    'easy_mcp_ai_change_log_capture_meta',  
+    'easy_mcp_ai_change_log_capture_db',    
+    'easy_mcp_ai_change_log_db_retention',  
+    'easy_mcp_ai_change_log_external_intent', 
     'easy_mcp_ai_oauth_min_capability',     
     'easy_mcp_ai_external_data_min_capability', 
+    'easy_mcp_ai_diagnostics_last_run',      
+    'easy_mcp_ai_header_probe_secret',       
 );
 
 if ( is_multisite() ) {
     
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE %s", $wpdb->esc_like( '_easy_mcp_ai_new_token_' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+    
+    
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = %s", '_easy_mcp_ai_token_form_draft' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     $easy_mcp_ai_site_ids = get_sites( array( 'fields' => 'ids', 'number' => 0 ) );
     foreach ( $easy_mcp_ai_site_ids as $easy_mcp_ai_site_id ) {
         switch_to_blog( $easy_mcp_ai_site_id );
@@ -89,6 +100,10 @@ if ( is_multisite() ) {
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_access_tokens" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_consents" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_change_log" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
+        
+        
+        delete_transient( 'easy_mcp_ai_change_log_object_types' );
+
         foreach ( $options as $easy_mcp_ai_option ) {
             delete_option( $easy_mcp_ai_option );
         }
@@ -122,6 +137,11 @@ if ( is_multisite() ) {
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_consents" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_change_log" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
 
+    
+
+    delete_transient( 'easy_mcp_ai_change_log_object_types' );
+
+
     foreach ( $options as $easy_mcp_ai_option ) {
         delete_option( $easy_mcp_ai_option );
     }
@@ -153,4 +173,7 @@ if ( is_multisite() ) {
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", $wpdb->esc_like( '_transient_easy_mcp_ai_dfs_balance' ) . '%', $wpdb->esc_like( '_transient_timeout_easy_mcp_ai_dfs_balance' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
     
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key LIKE %s", $wpdb->esc_like( '_easy_mcp_ai_new_token_' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+    
+    
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->usermeta} WHERE meta_key = %s", '_easy_mcp_ai_token_form_draft' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 }

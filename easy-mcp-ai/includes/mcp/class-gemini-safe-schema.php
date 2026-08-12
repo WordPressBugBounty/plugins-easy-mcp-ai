@@ -118,7 +118,13 @@ class Gemini_Safe_Schema {
 
 
 
-    private static function is_uncoercible_path( $path ) {
+    
+
+
+
+
+
+    public static function is_uncoercible_path( $path ) {
         if ( self::UNCOERCIBLE_PATH === $path ) {
             return true;
         }
@@ -786,12 +792,43 @@ class Gemini_Safe_Schema {
             
             
             if ( self::is_list_array( $node['items'] ) ) {
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
                 foreach ( $node['items'] as $i => $sub ) {
                     if ( ! is_array( $sub ) ) {
                         continue;
                     }
-                    $node['items'][ $i ] = self::walk( $sub, $items_path . '[' . $i . ']', $map, $defs, $depth + 1, $ancestors, $budget );
+                    self::walk( $sub, $items_path . '[' . $i . ']', $map, $defs, $depth + 1, $ancestors, $budget );
                 }
+                $node['items'] = (object) array();
             } else {
                 $node['items'] = self::walk( $node['items'], $items_path, $map, $defs, $depth + 1, $ancestors, $budget );
             }
@@ -1072,6 +1109,122 @@ class Gemini_Safe_Schema {
             if ( ! is_string( $member ) && (string) $member === $value ) {
                 return $member;
             }
+        }
+        return $value;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function conform( $result, array $map ) {
+        if ( ! is_array( $result ) || empty( $map ) ) {
+            return $result;
+        }
+
+        foreach ( $map as $path => $transforms ) {
+            
+            
+            
+            
+            
+            if ( self::is_uncoercible_path( (string) $path ) ) {
+                continue;
+            }
+            foreach ( $transforms as $transform ) {
+                switch ( $transform['kind'] ) {
+                    case 'stringify_enum':
+                        $result = self::apply_at_path( $result, $path, function ( $value ) use ( $transform ) {
+                            return self::conform_stringify_enum( $value, $transform['original_members'] );
+                        } );
+                        break;
+
+                    case 'string_union':
+                        $result = self::apply_at_path( $result, $path, function ( $value ) {
+                            return self::conform_string_union( $value );
+                        } );
+                        break;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function conform_stringify_enum( $value, array $original_members ) {
+        if ( is_string( $value ) || is_array( $value ) || is_object( $value ) || null === $value ) {
+            return $value;
+        }
+        foreach ( $original_members as $member ) {
+            if ( ! is_string( $member ) && $member === $value ) {
+                return is_bool( $value ) ? ( $value ? 'true' : 'false' ) : (string) $value;
+            }
+        }
+        return $value;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function conform_string_union( $value ) {
+        if ( is_bool( $value ) ) {
+            return $value ? 'true' : 'false';
+        }
+        if ( is_int( $value ) || is_float( $value ) ) {
+            return (string) $value;
         }
         return $value;
     }

@@ -4,7 +4,7 @@ Tags: mcp, ai, chatgpt, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.7.13
+Stable tag: 1.7.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -416,6 +416,15 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.14 =
+* New: A Diagnostics page and Site Health checks explain why an AI assistant cannot connect, from inside WordPress.
+* New: Change History now records much more of what an AI assistant changes — plugin settings, custom fields, network options, deletions, role changes, and optionally direct database writes.
+* New: A Change History Capture Settings screen controls how much detail is captured, and the log now explains what it does not record.
+* Fixed: Saving an API token with no tools ticked no longer creates a token with access to everything — it is refused, and the form asks you to choose at least one.
+* Fixed: "Select All Tools" is now saved as "all tools, including ones added later". Previously, on sites where scripts were blocked, editing such a token could silently narrow it to a fixed list that never picked up new tools.
+* Fixed: Connecting an AI client is more reliable, including on sites using JavaScript optimisation plugins, sites in a subfolder, and sites with many past connections.
+* Fixed: Admin screens no longer discard what you typed or switch off settings you did not touch.
+
 = 1.7.13 =
 * Fixed: Gemini-based AI assistants can now connect and use every tool.
 * Fixed: Connections no longer fail with an "unauthorized" error on Apache servers that drop the login header. FastCGI hosts still need CGIPassAuth On enabled server-side.
@@ -577,6 +586,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.14 =
+Change History now records every plugin setting your AI assistant changes; adjust it on the new Capture Settings screen. Tokens you created earlier are unchanged, so review them under API Token & OAuth. Unapproved OAuth client registrations over 7 days old are deleted the day after you upgrade.
 
 = 1.7.13 =
 Three changes to know: five read tools now need edit permission (nothing that worked before breaks); post search now spans every post type unless you name one; and local HTTP sites behind a proxy need EASY_MCP_AI_OAUTH_ALLOW_HTTP in wp-config.php. Live HTTPS sites are unaffected.

@@ -311,6 +311,20 @@ class Server {
         $final_status = null;
         $result       = null;
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        try {
         if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
             \Easy_MCP_AI\History\Change_Context::set( array(
                 'audit_id'        => $audit_id,
@@ -320,12 +334,21 @@ class Server {
                 'oauth_client_id' => $this->request_client_id,
                 'wp_user_id'      => $this->request_wp_user_id,
                 'ip_address'      => self::get_client_ip(),
+                
+                
+                
+                'tool_args'       => $arguments,
             ) );
+            
+            \do_action( 'easy_mcp_ai_change_context_armed' );
         }
 
-        $arguments = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
-
-        try {
+            
+            
+            
+            
+            
+            $arguments    = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
             $result       = $tool->execute( $arguments );
             $final_status = 'success';
             
@@ -343,8 +366,26 @@ class Server {
             
             
             
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
             $output_schema  = method_exists( $tool, 'get_output_schema' ) ? $tool->get_output_schema() : null;
             $has_structured = null !== $output_schema && is_array( $result );
+            if ( $has_structured ) {
+                $output_map = Gemini_Safe_Schema::sanitize( $output_schema )['map'];
+                if ( ! empty( $output_map ) ) {
+                    $result = Gemini_Safe_Schema::conform( $result, $output_map );
+                }
+            }
             
             
             
@@ -396,7 +437,29 @@ class Server {
             
             $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status );
             if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
-                \Easy_MCP_AI\History\Change_Context::clear();
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                try {
+                    \do_action( 'easy_mcp_ai_change_context_disarming' );
+                } finally {
+                    \Easy_MCP_AI\History\Change_Context::clear();
+                }
             }
             
             
@@ -628,6 +691,14 @@ class Server {
     private static function get_client_ip() {
         
         
+        
+        
+        
+        
+        if ( class_exists( '\Easy_MCP_AI\Client_IP' ) ) {
+            $ip = (string) \Easy_MCP_AI\Client_IP::get();
+            return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+        }
         if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
             $ip = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
         } else {

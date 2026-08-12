@@ -24,15 +24,6 @@ class OAuth_Token_Manager {
 
 
 
-    const REFRESH_GRACE_SECONDS = 30;
-
-    
-
-
-
-
-
-
 
 
 
@@ -194,20 +185,22 @@ class OAuth_Token_Manager {
         
         
         
+        
         if ( ! (int) $row['is_active'] ) {
             if ( $row['client_id'] !== $client_id ) {
                 return false;
             }
             $chain_id = ! empty( $row['refresh_parent_id'] ) ? (int) $row['refresh_parent_id'] : (int) $row['id'];
-            if ( $this->has_recent_successor( $chain_id ) ) {
-                $this->log_refresh_event( 'grace_retry', $chain_id, $client_id );
-                return $this->mint_access_token(
-                    $client_id,
-                    (int) $row['wp_user_id'],
-                    $row['resource'],
-                    $row['scope'],
-                    $chain_id
-                );
+            if ( $this->chain_has_live_successor( $chain_id ) ) {
+                
+                
+                
+                
+                
+                
+                
+                $this->log_refresh_event( 'race_refused', $chain_id, $client_id );
+                return false;
             }
             $this->log_refresh_event( 'reuse_revoked', $chain_id, $client_id );
             $this->revoke_chain( $chain_id );
@@ -246,15 +239,11 @@ class OAuth_Token_Manager {
             
             
             
-            if ( $this->has_recent_successor( $parent_id ) ) {
-                $this->log_refresh_event( 'grace_race', $parent_id, $client_id );
-                return $this->mint_access_token(
-                    $client_id,
-                    (int) $row['wp_user_id'],
-                    $row['resource'],
-                    $row['scope'],
-                    $parent_id
-                );
+            if ( $this->chain_has_live_successor( $parent_id ) ) {
+                
+                
+                $this->log_refresh_event( 'race_refused', $parent_id, $client_id );
+                return false;
             }
             $this->log_refresh_event( 'reuse_revoked', $parent_id, $client_id );
             $this->revoke_chain( $parent_id );
@@ -363,27 +352,59 @@ class OAuth_Token_Manager {
 
 
 
-    private function has_recent_successor( int $chain_id ): bool {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function chain_has_live_successor( int $chain_id ): bool {
         global $wpdb;
 
         if ( $chain_id <= 0 ) {
             return false;
         }
 
-        $table  = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
-        $cutoff = gmdate( 'Y-m-d H:i:s', time() - self::REFRESH_GRACE_SECONDS );
+        $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; freshness required.
+        
+        
+        
+        
         $count = (int) $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$table} WHERE refresh_parent_id = %d AND is_active = 1 AND created_at >= %s",
-                $chain_id,
-                $cutoff
+                "SELECT COUNT(*) FROM {$table} WHERE refresh_parent_id = %d AND is_active = 1",
+                $chain_id
             )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
-        return 1 === $count;
+        return $count >= 1;
     }
 
     
@@ -413,7 +434,12 @@ class OAuth_Token_Manager {
                     'client_id' => $client_id,
                 ) ),
                 'result_status' => $event,
-                'ip_address'    => isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '',
+                
+                
+                
+                
+                
+                'ip_address'    => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
                 'created_at'    => \current_time( 'mysql', true ),
             ),
             array( '%d', '%s', '%s', '%s', '%s', '%s' )

@@ -142,7 +142,28 @@ function easy_mcp_ai_view_token_list( $tokens, $message, $new_raw_token, $total_
                         </td>
                         <td class="column-prefix">
                             <?php $easy_mcp_ai_prefix_hint = __( "Only the prefix is shown here. The full token appears once at creation and can't be retrieved later — lost it? Create a new token.", 'easy-mcp-ai' ); ?>
-                            <code class="easy-mcp-ai-token-prefix"><?php echo esc_html( $token['token_prefix'] ); ?>...</code>
+                            <?php
+                            
+
+
+
+
+
+
+
+
+                            ?>
+                            <code class="easy-mcp-ai-token-prefix" aria-hidden="true"><?php echo esc_html( $token['token_prefix'] ); ?>&hellip;</code>
+                            <span class="easy-mcp-ai-token-prefix__note"><?php echo esc_html__( '(prefix only)', 'easy-mcp-ai' ); ?></span>
+                            <span class="screen-reader-text">
+                                <?php
+                                printf(
+                                    /* translators: %s: first characters of the API token */
+                                    esc_html__( 'Token beginning %s. Prefix only — the full token cannot be retrieved.', 'easy-mcp-ai' ),
+                                    esc_html( $token['token_prefix'] )
+                                );
+                                ?>
+                            </span>
                             <span class="wp-mcp-tip" tabindex="0" role="note" aria-label="<?php echo esc_attr( $easy_mcp_ai_prefix_hint ); ?>">
                                 <span class="dashicons dashicons-info-outline wp-mcp-tip__icon" aria-hidden="true"></span>
                                 <span class="wp-mcp-tip__bubble" role="tooltip"><?php echo esc_html( $easy_mcp_ai_prefix_hint ); ?></span>

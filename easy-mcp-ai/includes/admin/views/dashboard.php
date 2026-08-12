@@ -14,17 +14,13 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 
 	<?php include __DIR__ . '/partials/page-nav.php'; ?>
 
-	<div class="wp-mcp-dashboard-grid">
-
-		<!-- Quick Start Guides -->
-		<?php
-		$quickstart_collapsible = false;
-		include __DIR__ . '/partials/quickstart-card.php';
-		?>
-
-		<!-- Server Status Card -->
-		<div class="wp-mcp-card">
-			<?php
+	<?php
+	
+	
+	
+	
+	
+	
 				
 				
 				
@@ -96,6 +92,94 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				
 				
 				
+				
+				
+				
+				
+				
+				
+				
+				
+				$srv_software = isset( $_SERVER['SERVER_SOFTWARE'] )
+					? sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) )
+					: 'Unknown';
+
+				
+				
+				
+				$srv_mem_raw = isset( $GLOBALS['easy_mcp_ai_ini_memory_limit'] )
+					? (string) $GLOBALS['easy_mcp_ai_ini_memory_limit']
+					: (string) ini_get( 'memory_limit' );
+
+				$srv_permalinks = (string) get_option( 'permalink_structure', '' );
+				$srv_dropin     = ( defined( 'WP_CONTENT_DIR' ) && file_exists( WP_CONTENT_DIR . '/object-cache.php' ) );
+				$srv_ext_cache  = ( function_exists( 'wp_using_ext_object_cache' ) && wp_using_ext_object_cache() );
+
+				if ( is_multisite() ) {
+					$srv_multisite = is_subdomain_install() ? 'Yes (subdomain)' : 'Yes (sub-directory)';
+				} else {
+					$srv_multisite = 'No';
+				}
+
+				
+				
+				
+				
+				
+				
+				$srv_proxy_headers = array();
+				foreach ( array(
+					'HTTP_X_FORWARDED_PROTO' => 'X-Forwarded-Proto',
+					'HTTP_X_FORWARDED_FOR'   => 'X-Forwarded-For',
+					'HTTP_X_REAL_IP'         => 'X-Real-IP',
+					'HTTP_FORWARDED'         => 'Forwarded',
+					'HTTP_CF_CONNECTING_IP'  => 'CF-Connecting-IP',
+				) as $srv_key => $srv_label ) {
+					if ( ! empty( $_SERVER[ $srv_key ] ) ) {
+						$srv_proxy_headers[] = $srv_label;
+					}
+				}
+
+				
+				
+				
+				$srv_remote = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
+				$srv_remote_desc = \Easy_MCP_AI\Client_IP::describe( $srv_remote );
+
+				
+				
+				
+				
+				
+				$srv_ext_list = array();
+				foreach ( array( 'curl', 'openssl', 'mbstring', 'json', 'redis', 'memcached' ) as $srv_ext ) {
+					$srv_ext_list[] = $srv_ext . ( extension_loaded( $srv_ext ) ? '=yes' : '=NO' );
+				}
+
+				$srv_theme        = wp_get_theme();
+				$srv_active_count = count( (array) get_option( 'active_plugins', array() ) );
+				if ( is_multisite() ) {
+					$srv_active_count += count( (array) get_site_option( 'active_sitewide_plugins', array() ) );
+				}
+
+				
+				
+				
 				$system_info_text = implode( "\n", array(
 					'Easy MCP AI — System Info',
 					'Plugin Version:   ' . EASY_MCP_AI_VERSION,
@@ -107,6 +191,37 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 					'Active Clients:   ' . (int) $oauth_client_count,
 					'Registered Tools: ' . (int) $tool_count,
 					'External Data:    ' . $ext_count . '/' . $ext_total,
+					'',
+					'Server',
+					'Web Server:            ' . $srv_software,
+					'PHP SAPI:              ' . PHP_SAPI,
+					'Operating System:      ' . PHP_OS,
+					'Memory Limit (REST):   ' . $srv_mem_raw,
+					'WP_MEMORY_LIMIT:       ' . ( defined( 'WP_MEMORY_LIMIT' ) ? WP_MEMORY_LIMIT : 'not defined' ),
+					
+					
+					
+					'WP_MAX_MEMORY_LIMIT:   ' . ( defined( 'WP_MAX_MEMORY_LIMIT' ) ? WP_MAX_MEMORY_LIMIT : 'not defined' ) . '  (ceiling for admin/cron/image work, not the REST path)',
+					'Max Execution Time:    ' . ini_get( 'max_execution_time' ) . 's',
+					'Max Input Time:        ' . ini_get( 'max_input_time' ) . 's',
+					'Post Max Size:         ' . ini_get( 'post_max_size' ),
+					'Upload Max Filesize:   ' . ini_get( 'upload_max_filesize' ),
+					'Max Input Vars:        ' . ini_get( 'max_input_vars' ),
+					'allow_url_fopen:       ' . ( filter_var( ini_get( 'allow_url_fopen' ), FILTER_VALIDATE_BOOLEAN ) ? 'On' : 'Off' ),
+					'PHP Extensions:        ' . implode( ' ', $srv_ext_list ),
+					'HTTPS (as PHP sees):   ' . ( is_ssl() ? 'Yes' : 'No' ),
+					'Proxy Headers:         ' . ( empty( $srv_proxy_headers ) ? 'None' : implode( ', ', $srv_proxy_headers ) ),
+					'REMOTE_ADDR:           ' . $srv_remote_desc,
+					'Permalinks:            ' . ( '' === $srv_permalinks ? 'Plain (breaks discovery)' : $srv_permalinks ),
+					'Object Cache Drop-in:  ' . ( $srv_dropin ? ( $srv_ext_cache ? 'Present and in use' : 'Present but NOT in use' ) : 'None (database transients)' ),
+					'Multisite:             ' . $srv_multisite,
+					'WP_DEBUG:              ' . ( defined( 'WP_DEBUG' ) && WP_DEBUG ? 'On' : 'Off' ),
+					'DISABLE_WP_CRON:       ' . ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ? 'Yes (needs a system cron)' : 'No' ),
+					'AES-256-GCM:           ' . ( function_exists( 'openssl_get_cipher_methods' ) && in_array( 'aes-256-gcm', array_map( 'strtolower', openssl_get_cipher_methods() ), true ) ? 'Available' : 'MISSING' ),
+					'Timezone:              ' . wp_timezone_string() . ' (server ' . date_default_timezone_get() . ')',
+					'Locale:                ' . get_locale(),
+					'Active Theme:          ' . ( $srv_theme ? $srv_theme->get( 'Name' ) . ' ' . $srv_theme->get( 'Version' ) : 'Unknown' ),
+					'Active Plugins:        ' . $srv_active_count,
 					'',
 					'Settings',
 					'Rate Limit (per min):  ' . $set_rate_limit,
@@ -121,15 +236,110 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 					'External Data Min Cap: ' . $set_ext_cap,
 					'IP Whitelist:          ' . $set_ip_display,
 				) );
-				?>
+
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				if ( class_exists( '\Easy_MCP_AI\Diagnostics\Diagnostics' ) ) {
+					$diag_results = \Easy_MCP_AI\Diagnostics\Diagnostics::cached();
+
+					if ( ! empty( $diag_results ) ) {
+						$diag_summary = \Easy_MCP_AI\Diagnostics\Diagnostics::summary();
+						
+						
+						
+						
+						
+						
+						
+						$diag_generated = \Easy_MCP_AI\Diagnostics\Diagnostics::last_run_at();
+						$diag_age       = $diag_generated
+							? gmdate( 'Y-m-d H:i:s', (int) $diag_generated ) . ' UTC (' . human_time_diff( (int) $diag_generated, time() ) . ' ago)'
+							: 'unknown';
+
+						$diag_lines   = array(
+							'',
+							'Diagnostics generated: ' . $diag_age,
+							'Diagnostics (' . (int) $diag_summary['total'] . ' checks: '
+								. (int) $diag_summary['pass'] . ' passed, '
+								. (int) $diag_summary['warn'] . ' warnings, '
+								. (int) $diag_summary['fail'] . ' failed, '
+								. (int) $diag_summary['unknown'] . ' not checked)',
+						);
+
+						foreach ( $diag_results as $diag_result ) {
+							$diag_line = str_pad( strtoupper( $diag_result->id() ), 4 )
+								. str_pad( $diag_result->status(), 8 )
+								. $diag_result->label();
+
+							$diag_detail = trim( (string) $diag_result->detail() );
+							if ( '' !== $diag_detail ) {
+								$diag_line .= \Easy_MCP_AI\Diagnostics\Diagnostics_Site_Health::is_copy_safe( $diag_result->id() )
+									? ' — ' . $diag_detail
+									
+									
+									
+									
+									
+									: ' — [details withheld: sensitive — read them on this site\'s Diagnostics card]';
+							}
+
+							$diag_lines[] = $diag_line;
+						}
+
+						$system_info_text .= "\n" . implode( "\n", $diag_lines );
+					}
+				}
+	?>
+
+	<div class="wp-mcp-dashboard-grid">
+
+		<?php
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		?>
+		<?php include __DIR__ . '/partials/diagnostics-card.php'; ?>
+
+		<!-- Quick Start Guides -->
+		<?php
+		$quickstart_collapsible = false;
+		include __DIR__ . '/partials/quickstart-card.php';
+		?>
+
+		<!-- Server Status Card -->
+		<div class="wp-mcp-card">
 				<div class="wp-mcp-status-head" style="display:flex; align-items:center; justify-content:space-between; gap:1em; flex-wrap:wrap; border-bottom:1px solid #f0f0f1; padding-bottom:10px; margin-bottom:1em;">
 					<h2 style="margin:0; padding:0; border:0;"><?php esc_html_e( 'Server Status', 'easy-mcp-ai' ); ?></h2>
-					<span style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-					<button type="button" class="button-link wp-mcp-copy-btn" data-copy="<?php echo esc_attr( $system_info_text ); ?>" style="font-size:12px;"><?php esc_html_e( 'Copy System Info', 'easy-mcp-ai' ); ?></button>
-					<?php if ( $diag_host ) : ?>
-					<a href="<?php echo esc_url( 'https://easymcpai.com/diagnose?url=' . rawurlencode( $diag_host ) ); ?>" class="button button-secondary" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Diagnose Connection', 'easy-mcp-ai' ); ?></a>
-					<?php endif; ?>
-					</span>
+					<?php
+					
+					
+					
+					
+					?>
 				</div>
 			<table class="widefat striped">
 				<tbody>

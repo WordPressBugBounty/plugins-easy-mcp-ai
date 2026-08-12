@@ -57,6 +57,43 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
         </div>
     </div>
 
+    <?php
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ?>
+    <form method="post" action="<?php echo esc_url( home_url( '?easy_mcp_ai_oauth=authorize' ) ); ?>" style="margin:0;">
+        <?php wp_nonce_field( 'easy_mcp_ai_oauth_consent_' . $client_id ); ?>
+
+        <input type="hidden" name="response_type" value="<?php echo esc_attr( $request_params['response_type'] ); ?>">
+        <input type="hidden" name="client_id" value="<?php echo esc_attr( $request_params['client_id'] ); ?>">
+        <input type="hidden" name="redirect_uri" value="<?php echo esc_attr( $request_params['redirect_uri'] ); ?>">
+        <input type="hidden" name="code_challenge" value="<?php echo esc_attr( $request_params['code_challenge'] ); ?>">
+        <input type="hidden" name="code_challenge_method" value="<?php echo esc_attr( $request_params['code_challenge_method'] ); ?>">
+        <input type="hidden" name="state" value="<?php echo esc_attr( $request_params['state'] ); ?>">
+        <input type="hidden" name="resource" value="<?php echo esc_attr( $request_params['resource'] ); ?>">
+        <input type="hidden" name="scope" value="<?php echo esc_attr( $request_params['scope'] ); ?>">
+        <input type="hidden" name="scope_sig" value="<?php echo esc_attr( isset( $request_params['scope_sig'] ) ? $request_params['scope_sig'] : '' ); ?>">
+
+        <?php  ?>
+        <div id="scope-hidden-fields"></div>
+
     <div style="padding:28px 36px;">
 
         <div style="border:1px solid <?php echo esc_attr( $easy_mcp_ai_brand_border ); ?>;border-radius:10px;padding:18px 20px;margin-bottom:18px;background:#fafafa;">
@@ -182,21 +219,6 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
         </div><!-- /custom-scope-section -->
     </div>
 
-    <form method="post" action="<?php echo esc_url( home_url( '?easy_mcp_ai_oauth=authorize' ) ); ?>">
-        <?php wp_nonce_field( 'easy_mcp_ai_oauth_consent_' . $client_id ); ?>
-
-        <input type="hidden" name="response_type" value="<?php echo esc_attr( $request_params['response_type'] ); ?>">
-        <input type="hidden" name="client_id" value="<?php echo esc_attr( $request_params['client_id'] ); ?>">
-        <input type="hidden" name="redirect_uri" value="<?php echo esc_attr( $request_params['redirect_uri'] ); ?>">
-        <input type="hidden" name="code_challenge" value="<?php echo esc_attr( $request_params['code_challenge'] ); ?>">
-        <input type="hidden" name="code_challenge_method" value="<?php echo esc_attr( $request_params['code_challenge_method'] ); ?>">
-        <input type="hidden" name="state" value="<?php echo esc_attr( $request_params['state'] ); ?>">
-        <input type="hidden" name="resource" value="<?php echo esc_attr( $request_params['resource'] ); ?>">
-        <input type="hidden" name="scope" value="<?php echo esc_attr( $request_params['scope'] ); ?>">
-        <input type="hidden" name="scope_sig" value="<?php echo esc_attr( isset( $request_params['scope_sig'] ) ? $request_params['scope_sig'] : '' ); ?>">
-
-        <div id="scope-hidden-fields"></div>
-
         <div style="padding:10px 36px 0;font-size:11px;color:<?php echo esc_attr( $easy_mcp_ai_brand_ink_soft ); ?>;line-height:1.6;">
             <?php echo esc_html__( 'Approving lets this app act on your site within the permissions above. Ensure you review auto execution settings within your AI client and make necessary adjustments for each tool based on your risk tolerance. Post and page edits can be undone via WordPress revisions.', 'easy-mcp-ai' ); ?>
         </div>
@@ -230,7 +252,7 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
     var inkColor = '<?php echo esc_js( $easy_mcp_ai_brand_ink ); ?>';
     var savedCheckboxState = null;
 
-    function getCheckboxes(selector) { return table.querySelectorAll(selector || '.scope-checkbox'); }
+    function getCheckboxes(selector) { return table ? table.querySelectorAll(selector || '.scope-checkbox') : []; }
     function setAll(checked) { var b = getCheckboxes(); for (var i = 0; i < b.length; i++) b[i].checked = checked; }
     function setReadOnly() { var r = getCheckboxes('.scope-read'), w = getCheckboxes('.scope-write'); for (var i = 0; i < r.length; i++) r[i].checked = true; for (var i = 0; i < w.length; i++) w[i].checked = false; }
     function resetDefaults() {
@@ -242,6 +264,9 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
     }
     function resetFullAccessBanner() {
         fullAccessMode = false;
+        // Undo any suppression a prior submit attempt applied (e.g. restored
+        // from bfcache on a back-navigation), or the boxes stay unsubmittable.
+        setDisabled(false);
         if (!btnFullAccess) { setCustomScopeVisible(true); return; }
         btnFullAccess.textContent = '<?php echo esc_js( __( 'Select Full Access', 'easy-mcp-ai' ) ); ?>';
         btnFullAccess.style.background = accentColor;
@@ -249,12 +274,19 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
         fullAccessNote.style.display = 'none';
         setCustomScopeVisible(true);
     }
+    function setDisabled(disabled) { var b = getCheckboxes(); for (var i = 0; i < b.length; i++) b[i].disabled = disabled; }
+    // The scope checkboxes live inside the form and submit on their own, so the
+    // normal path mirrors nothing — that is what keeps consent working when this
+    // script is blocked. Only Full Access needs an override: suppress the
+    // individual boxes (they are all checked and merely hidden) so the grant is
+    // exactly 'mcp' rather than 'mcp' plus every enumerated scope.
     function syncScopes() {
         while (hiddenArea.firstChild) hiddenArea.removeChild(hiddenArea.firstChild);
         if (fullAccessMode) {
+            setDisabled(true);
             var inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'scopes[]'; inp.value = 'mcp'; hiddenArea.appendChild(inp);
         } else {
-            var b = getCheckboxes(); for (var i = 0; i < b.length; i++) { if (b[i].checked) { var inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'scopes[]'; inp.value = b[i].value; hiddenArea.appendChild(inp); } }
+            setDisabled(false);
         }
     }
 

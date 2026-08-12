@@ -14,6 +14,47 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class External_Data_Admin {
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function disabled_tool_bucket_options() {
+        return array(
+            'easy_mcp_ai_disabled_plugin_tools',
+            'easy_mcp_ai_disabled_gsc_tools',
+            'easy_mcp_ai_disabled_ga_tools',
+            'easy_mcp_ai_disabled_dfs_tools',
+            'easy_mcp_ai_disabled_semrush_tools',
+            'easy_mcp_ai_disabled_seranking_tools',
+            'easy_mcp_ai_disabled_ahrefs_tools',
+        );
+    }
+
+    
+
+
+
+
+
+    public static function merge_disabled_tool_buckets( array $base = array() ) {
+        $merged = $base;
+        foreach ( self::disabled_tool_bucket_options() as $option ) {
+            $merged = array_merge( $merged, (array) \get_option( $option, array() ) );
+        }
+        return array_values( array_unique( $merged ) );
+    }
+
     const OPTION_GSC_SITES_CACHE = 'easy_mcp_ai_gsc_sites_cache';
     const OPTION_GA_PROPS_CACHE  = 'easy_mcp_ai_ga_properties_cache';
 
@@ -456,6 +497,41 @@ class External_Data_Admin {
         return $disabled;
     }
 
+    
+
+
+
+    private const SECTION_BUTTONS = array(
+        'gsc'       => 'save_gsc',
+        'ga'        => 'save_ga',
+        'dfs'       => 'save_dfs',
+        'semrush'   => 'save_semrush',
+        'seranking' => 'save_seranking',
+        'ahrefs'    => 'save_ahrefs',
+    );
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function clicked_section( array $post ): ?string {
+        foreach ( self::SECTION_BUTTONS as $section => $button_name ) {
+            if ( isset( $post[ $button_name ] ) ) {
+                return $section;
+            }
+        }
+        return null;
+    }
+
     public function handle_test_dfs_connection(): void {
         if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_dfs_test', 'nonce', false ) ) {
             \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
@@ -711,21 +787,42 @@ class External_Data_Admin {
         $redirect_base = \admin_url( 'admin.php?page=easy-mcp-ai-external-data' );
 
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce already verified above; this only inspects which submit button was pressed.
+        $clicked_section = self::clicked_section( $_POST );
+
+        
 
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validated by GSC_Client::validate_site_url() and sanitize_text_field() applied before persist below.
         $site_url_raw = trim( (string) \wp_unslash( $_POST['gsc_default_site_url'] ?? '' ) );
-        if ( '' === $site_url_raw ) {
-            \delete_option( GSC_Client::OPTION_SITE_URL );
-        } else {
-            try {
-                
-                
-                
-                $validated = GSC_Client::validate_site_url( $site_url_raw );
-                \update_option( GSC_Client::OPTION_SITE_URL, \sanitize_text_field( $validated ) );
-            } catch ( \InvalidArgumentException $e ) {
-                \wp_safe_redirect( \add_query_arg( 'message', 'gsc_site_url_invalid', $redirect_base ) );
-                exit;
+        if ( 'gsc' === $clicked_section ) {
+            if ( '' === $site_url_raw ) {
+                \delete_option( GSC_Client::OPTION_SITE_URL );
+            } else {
+                try {
+                    
+                    
+                    
+                    $validated = GSC_Client::validate_site_url( $site_url_raw );
+                    \update_option( GSC_Client::OPTION_SITE_URL, \sanitize_text_field( $validated ) );
+                } catch ( \InvalidArgumentException $e ) {
+                    \wp_safe_redirect( \add_query_arg( 'message', 'gsc_site_url_invalid', $redirect_base ) );
+                    exit;
+                }
             }
         }
 
@@ -736,7 +833,7 @@ class External_Data_Admin {
         
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         $json_raw = trim( (string) \wp_unslash( $_POST['gsc_service_account_json'] ?? '' ) );
-        if ( ! empty( $json_raw ) ) {
+        if ( 'gsc' === $clicked_section && ! empty( $json_raw ) ) {
             $decoded = json_decode( $json_raw, true );
             if ( ! is_array( $decoded ) ) {
                 \wp_safe_redirect( \add_query_arg( 'message', 'json_invalid', $redirect_base ) );
@@ -761,7 +858,7 @@ class External_Data_Admin {
         }
 
         
-        if ( \get_option( GSC_Client::OPTION_JSON, '' ) !== '' ) {
+        if ( 'gsc' === $clicked_section && \get_option( GSC_Client::OPTION_JSON, '' ) !== '' ) {
             self::refresh_gsc_sites_cache();
         }
 
@@ -769,19 +866,18 @@ class External_Data_Admin {
         $all_gsc_names = array_keys( $gsc_tools );
         if ( isset( $_POST['gsc_enabled_tools'] ) ) {
             $checked_gsc = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['gsc_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized via array_map( 'sanitize_key', ... )
-        } elseif ( ! empty( $json_raw ) ) {
+        } elseif ( 'gsc' === $clicked_section && ! empty( $json_raw ) ) {
             
             $checked_gsc = $all_gsc_names;
         } else {
             $checked_gsc = array();
         }
-        $disabled_gsc  = array();
-        foreach ( $all_gsc_names as $tool_name ) {
-            if ( ! in_array( $tool_name, $checked_gsc, true ) ) {
-                $disabled_gsc[] = $tool_name;
-            }
+        if ( 'gsc' === $clicked_section ) {
+            $disabled_gsc = self::compute_disabled_tools( $all_gsc_names, $checked_gsc );
+            \update_option( 'easy_mcp_ai_disabled_gsc_tools', $disabled_gsc );
+        } else {
+            $disabled_gsc = (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() );
         }
-        \update_option( 'easy_mcp_ai_disabled_gsc_tools', $disabled_gsc );
 
         
 
@@ -790,21 +886,23 @@ class External_Data_Admin {
         
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validated by GA_Client::normalize_property() which throws on malformed input.
         $ga_property_raw = trim( (string) \wp_unslash( $_POST['ga_default_property_id'] ?? '' ) );
-        if ( '' === $ga_property_raw ) {
-            \delete_option( GA_Client::OPTION_PROPERTY_ID );
-        } else {
-            try {
-                $normalized = GA_Client::normalize_property( $ga_property_raw );
-                \update_option( GA_Client::OPTION_PROPERTY_ID, $normalized );
-            } catch ( \RuntimeException $e ) {
-                \wp_safe_redirect( \add_query_arg( 'message', 'ga_property_invalid', $redirect_base ) );
-                exit;
+        if ( 'ga' === $clicked_section ) {
+            if ( '' === $ga_property_raw ) {
+                \delete_option( GA_Client::OPTION_PROPERTY_ID );
+            } else {
+                try {
+                    $normalized = GA_Client::normalize_property( $ga_property_raw );
+                    \update_option( GA_Client::OPTION_PROPERTY_ID, $normalized );
+                } catch ( \RuntimeException $e ) {
+                    \wp_safe_redirect( \add_query_arg( 'message', 'ga_property_invalid', $redirect_base ) );
+                    exit;
+                }
             }
         }
 
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         $ga_json_raw = trim( (string) \wp_unslash( $_POST['ga_service_account_json'] ?? '' ) );
-        if ( ! empty( $ga_json_raw ) ) {
+        if ( 'ga' === $clicked_section && ! empty( $ga_json_raw ) ) {
             $decoded = json_decode( $ga_json_raw, true );
             if ( ! is_array( $decoded ) ) {
                 \wp_safe_redirect( \add_query_arg( 'message', 'ga_json_invalid', $redirect_base ) );
@@ -825,7 +923,7 @@ class External_Data_Admin {
             self::refresh_ga_properties_cache();
         }
 
-        if ( \get_option( GA_Client::OPTION_JSON, '' ) !== '' ) {
+        if ( 'ga' === $clicked_section && \get_option( GA_Client::OPTION_JSON, '' ) !== '' ) {
             self::refresh_ga_properties_cache();
         }
 
@@ -833,19 +931,18 @@ class External_Data_Admin {
         $all_ga_names = array_keys( $ga_tools );
         if ( isset( $_POST['ga_enabled_tools'] ) ) {
             $checked_ga = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['ga_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized via array_map( 'sanitize_key', ... )
-        } elseif ( ! empty( $ga_json_raw ) ) {
+        } elseif ( 'ga' === $clicked_section && ! empty( $ga_json_raw ) ) {
             
             $checked_ga = $all_ga_names;
         } else {
             $checked_ga = array();
         }
-        $disabled_ga  = array();
-        foreach ( $all_ga_names as $tool_name ) {
-            if ( ! in_array( $tool_name, $checked_ga, true ) ) {
-                $disabled_ga[] = $tool_name;
-            }
+        if ( 'ga' === $clicked_section ) {
+            $disabled_ga = self::compute_disabled_tools( $all_ga_names, $checked_ga );
+            \update_option( 'easy_mcp_ai_disabled_ga_tools', $disabled_ga );
+        } else {
+            $disabled_ga = (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() );
         }
-        \update_option( 'easy_mcp_ai_disabled_ga_tools', $disabled_ga );
 
         
 
@@ -854,7 +951,7 @@ class External_Data_Admin {
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
         $dfs_api_pwd_raw  = trim( (string) \wp_unslash( $_POST['dfs_api_password'] ?? '' ) );
 
-        if ( '' !== $dfs_login_raw || '' !== $dfs_api_pwd_raw ) {
+        if ( 'dfs' === $clicked_section && ( '' !== $dfs_login_raw || '' !== $dfs_api_pwd_raw ) ) {
             if ( '' === $dfs_login_raw || '' === $dfs_api_pwd_raw ) {
                 \wp_safe_redirect( \add_query_arg( 'message', 'dfs_partial_credentials', $redirect_base ) );
                 exit;
@@ -881,25 +978,24 @@ class External_Data_Admin {
         $all_dfs_names = array_keys( $dfs_tools );
         if ( isset( $_POST['dfs_enabled_tools'] ) ) {
             $checked_dfs = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['dfs_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-        } elseif ( '' !== $dfs_login_raw && '' !== $dfs_api_pwd_raw ) {
+        } elseif ( 'dfs' === $clicked_section && '' !== $dfs_login_raw && '' !== $dfs_api_pwd_raw ) {
             $checked_dfs = $all_dfs_names;
         } else {
             $checked_dfs = array();
         }
-        $disabled_dfs = array();
-        foreach ( $all_dfs_names as $tool_name ) {
-            if ( ! in_array( $tool_name, $checked_dfs, true ) ) {
-                $disabled_dfs[] = $tool_name;
-            }
+        if ( 'dfs' === $clicked_section ) {
+            $disabled_dfs = self::compute_disabled_tools( $all_dfs_names, $checked_dfs );
+            \update_option( 'easy_mcp_ai_disabled_dfs_tools', $disabled_dfs );
+        } else {
+            $disabled_dfs = (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() );
         }
-        \update_option( 'easy_mcp_ai_disabled_dfs_tools', $disabled_dfs );
 
         
 
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- trimmed only; sanitize_text_field would mangle high-entropy API key.
         $semrush_key_raw   = trim( (string) \wp_unslash( $_POST['semrush_api_key'] ?? '' ) );
         $semrush_key_saved = false;
-        if ( '' !== $semrush_key_raw ) {
+        if ( 'semrush' === $clicked_section && '' !== $semrush_key_raw ) {
             try {
                 \update_option( Semrush_Client::OPTION_API_KEY, Semrush_Client::encrypt( $semrush_key_raw ), false );
             } catch ( \RuntimeException $e ) {
@@ -920,25 +1016,24 @@ class External_Data_Admin {
         $all_semrush_names = array_keys( $semrush_tools );
         if ( isset( $_POST['semrush_enabled_tools'] ) ) {
             $checked_semrush = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['semrush_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-        } elseif ( '' !== $semrush_key_raw ) {
+        } elseif ( 'semrush' === $clicked_section && '' !== $semrush_key_raw ) {
             $checked_semrush = $all_semrush_names;
         } else {
             $checked_semrush = array();
         }
-        $disabled_semrush = array();
-        foreach ( $all_semrush_names as $tool_name ) {
-            if ( ! in_array( $tool_name, $checked_semrush, true ) ) {
-                $disabled_semrush[] = $tool_name;
-            }
+        if ( 'semrush' === $clicked_section ) {
+            $disabled_semrush = self::compute_disabled_tools( $all_semrush_names, $checked_semrush );
+            \update_option( 'easy_mcp_ai_disabled_semrush_tools', $disabled_semrush );
+        } else {
+            $disabled_semrush = (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() );
         }
-        \update_option( 'easy_mcp_ai_disabled_semrush_tools', $disabled_semrush );
 
         
 
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- trimmed only; sanitize_text_field would mangle high-entropy API key.
         $seranking_key_raw   = trim( (string) \wp_unslash( $_POST['seranking_api_key'] ?? '' ) );
         $seranking_key_saved = false;
-        if ( '' !== $seranking_key_raw ) {
+        if ( 'seranking' === $clicked_section && '' !== $seranking_key_raw ) {
             try {
                 \update_option( SeRanking_Client::OPTION_API_KEY, SeRanking_Client::encrypt( $seranking_key_raw ), false );
             } catch ( \RuntimeException $e ) {
@@ -959,13 +1054,17 @@ class External_Data_Admin {
         $all_seranking_names = array_keys( $seranking_tools );
         if ( isset( $_POST['seranking_enabled_tools'] ) ) {
             $checked_seranking = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['seranking_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-        } elseif ( '' !== $seranking_key_raw ) {
+        } elseif ( 'seranking' === $clicked_section && '' !== $seranking_key_raw ) {
             $checked_seranking = $all_seranking_names;
         } else {
             $checked_seranking = array();
         }
-        $disabled_seranking = self::compute_disabled_tools( $all_seranking_names, $checked_seranking );
-        \update_option( 'easy_mcp_ai_disabled_seranking_tools', $disabled_seranking );
+        if ( 'seranking' === $clicked_section ) {
+            $disabled_seranking = self::compute_disabled_tools( $all_seranking_names, $checked_seranking );
+            \update_option( 'easy_mcp_ai_disabled_seranking_tools', $disabled_seranking );
+        } else {
+            $disabled_seranking = (array) \get_option( 'easy_mcp_ai_disabled_seranking_tools', array() );
+        }
 
         
 
@@ -977,11 +1076,17 @@ class External_Data_Admin {
         $checked_ahrefs   = isset( $_POST['ahrefs_enabled_tools'] )
             ? array_map( '\sanitize_key', (array) \wp_unslash( $_POST['ahrefs_enabled_tools'] ) ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
             : array();
-        $disabled_ahrefs  = self::compute_disabled_tools( $all_ahrefs_names, $checked_ahrefs );
-        \update_option( 'easy_mcp_ai_disabled_ahrefs_tools', $disabled_ahrefs );
-        
-        
-        \update_option( 'easy_mcp_ai_ahrefs_enabled', ! empty( $all_ahrefs_names ) && empty( $disabled_ahrefs ) );
+        if ( 'ahrefs' === $clicked_section ) {
+            $disabled_ahrefs = self::compute_disabled_tools( $all_ahrefs_names, $checked_ahrefs );
+            \update_option( 'easy_mcp_ai_disabled_ahrefs_tools', $disabled_ahrefs );
+            
+            
+            \update_option( 'easy_mcp_ai_ahrefs_enabled', ! empty( $all_ahrefs_names ) && empty( $disabled_ahrefs ) );
+        } else {
+            
+            
+            $disabled_ahrefs = (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() );
+        }
 
         
 

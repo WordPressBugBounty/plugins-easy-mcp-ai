@@ -24,6 +24,45 @@ class Transport {
         $this->token_manager = $token_manager;
     }
 
+    
+
+
+
+
+
+
+    public function header_probe_permitted( $request ) {
+        $file = EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-check-header-probe.php';
+        if ( ! class_exists( '\Easy_MCP_AI\Diagnostics\Check_Header_Probe' ) && is_readable( $file ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-diagnostic-result.php';
+            require_once $file;
+        }
+        if ( ! class_exists( '\Easy_MCP_AI\Diagnostics\Check_Header_Probe' ) ) {
+            return false;
+        }
+
+        return \Easy_MCP_AI\Diagnostics\Check_Header_Probe::authorize_probe( (string) $request->get_param( 'probe' ) );
+    }
+
+    
+
+
+
+
+
+
+    public function handle_header_probe( $request ) {
+        $headers = function_exists( 'getallheaders' ) ? (array) getallheaders() : array();
+
+        return \rest_ensure_response(
+            \Easy_MCP_AI\Diagnostics\Check_Header_Probe::probe_response(
+                $_SERVER, // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER -- Presence check only; no value is read or returned.
+                $headers,
+                (string) $request->get_param( 'probe' )
+            )
+        );
+    }
+
     public function register_routes() {
         $handlers = array(
             array( 'methods' => 'POST',    'callback' => array( $this, 'handle_post' ),    'permission_callback' => '__return_true' ),
@@ -32,6 +71,22 @@ class Transport {
             array( 'methods' => 'OPTIONS', 'callback' => array( $this, 'handle_options' ), 'permission_callback' => '__return_true' ),
         );
         \register_rest_route( self::NAMESPACE_V1, self::ROUTE, $handlers );
+
+        
+        
+        
+        
+        
+        
+        \register_rest_route(
+            self::NAMESPACE_V1,
+            '/header-probe',
+            array(
+                'methods'             => 'GET',
+                'callback'            => array( $this, 'handle_header_probe' ),
+                'permission_callback' => array( $this, 'header_probe_permitted' ),
+            )
+        );
         
         
         \register_rest_route( self::NAMESPACE_V1, self::ROUTE_WITH_KEY, $handlers );
@@ -160,7 +215,16 @@ class Transport {
     public function handle_post( \WP_REST_Request $request ) {
         $this->inject_url_token( $request );
 
-        $origin_error = $this->validate_origin( $request );
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $origin_error = $this->validate_origin( $request, (bool) $request->get_header( 'authorization' ) );
         if ( $origin_error ) {
             return $origin_error;
         }
@@ -216,12 +280,25 @@ class Transport {
 
         
         
+        
+        
+        
+        
+        
+
+        
+        
         if ( null === $token_id && ! $request->get_header( 'authorization' ) ) {
             return $this->make_unauthorized_response( null );
         }
 
         if ( \is_wp_error( $result ) && $request->get_header( 'authorization' ) ) {
-            $ip        = trim( explode( ',', isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' )[0] );
+            
+            
+            
+            $ip        = class_exists( '\\Easy_MCP_AI\\Client_IP' )
+                ? (string) \Easy_MCP_AI\Client_IP::get()
+                : trim( explode( ',', isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' )[0] );
             $cache_key = 'easy_mcp_ai_auth_fail_' . md5( $ip );
 
             
@@ -493,11 +570,16 @@ class Transport {
     public function handle_get( \WP_REST_Request $request ) {
         $this->inject_url_token( $request );
 
-        $origin_error = $this->validate_origin( $request );
-        if ( $origin_error ) {
-            return $origin_error;
-        }
-
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
@@ -506,6 +588,11 @@ class Transport {
         
         if ( ! $request->get_header( 'authorization' ) ) {
             return $this->make_unauthorized_response( null );
+        }
+
+        $origin_error = $this->validate_origin( $request, (bool) $request->get_header( 'authorization' ) );
+        if ( $origin_error ) {
+            return $origin_error;
         }
 
         $response = new \WP_REST_Response( array( 'error' => 'SSE streaming not supported. Use POST for MCP communication.' ), 405 );
@@ -518,7 +605,7 @@ class Transport {
     public function handle_delete( \WP_REST_Request $request ) {
         $this->inject_url_token( $request );
 
-        $origin_error = $this->validate_origin( $request );
+        $origin_error = $this->validate_origin( $request, (bool) $request->get_header( 'authorization' ) );
         if ( $origin_error ) {
             return $origin_error;
         }
@@ -667,7 +754,78 @@ class Transport {
 
 
 
-    private function validate_origin( \WP_REST_Request $request ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function validate_origin( \WP_REST_Request $request, $credential_presented = false ) {
         $origin = $request->get_header( 'origin' );
         if ( empty( $origin ) ) {
             return null; 
@@ -675,6 +833,12 @@ class Transport {
 
         $allowed = self::allowed_origins();
         if ( in_array( self::normalize_origin( $origin ), $allowed, true ) ) {
+            return null;
+        }
+
+        
+        
+        if ( $credential_presented ) {
             return null;
         }
 

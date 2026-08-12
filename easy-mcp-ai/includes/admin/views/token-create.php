@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-function easy_mcp_ai_view_token_create( $users, $tools_by_cat, $token = null ) {
+function easy_mcp_ai_view_token_create( $users, $tools_by_cat, $token = null, $draft = null ) {
 	$is_edit        = isset( $token ) && ! empty( $token );
 $current_tools  = array();
 if ( $is_edit ) {
@@ -16,7 +16,35 @@ if ( $is_edit ) {
     }
 }
 $is_all_tools = empty( $current_tools ) || in_array( '*', $current_tools, true );
-$error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET['error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+
+
+
+
+
+
+
+
+
+
+
+$has_draft = is_array( $draft ) && ! empty( $draft );
+if ( $has_draft ) {
+    $current_tools = isset( $draft['allowed_tools'] ) ? (array) $draft['allowed_tools'] : array();
+    $is_all_tools  = ! empty( $draft['all_tools'] );
+}
+$v_name      = $has_draft
+    ? (string) ( $draft['name'] ?? '' )
+    : ( $is_edit ? (string) $token['name'] : '' );
+$v_user_id   = $has_draft
+    ? (int) ( $draft['wp_user_id'] ?? 0 )
+    : ( $is_edit ? (int) $token['wp_user_id'] : (int) get_current_user_id() );
+$v_is_active = $has_draft ? ! empty( $draft['is_active'] ) : ( $is_edit && ! empty( $token['is_active'] ) );
+
+
+
+$check_all   = $has_draft ? $is_all_tools : ( $is_all_tools || ! $is_edit );
+$error       = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET['error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 ?>
 <div class="wrap wp-mcp-admin">
     <h1>
@@ -40,6 +68,12 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
     <?php if ( 'create_failed' === $error ) : ?>
         <div class="notice notice-error is-dismissible">
             <p><?php esc_html_e( 'Failed to create token. Please try again.', 'easy-mcp-ai' ); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if ( 'tools_required' === $error ) : ?>
+        <div class="notice notice-error is-dismissible">
+            <p><?php esc_html_e( 'Nothing was saved: no tools were selected. Choose at least one tool, or tick "Select All Tools (full access)".', 'easy-mcp-ai' ); ?></p>
         </div>
     <?php endif; ?>
 
@@ -69,7 +103,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                 </th>
                 <td>
                     <input type="text" id="token_name" name="token_name" class="regular-text"
-                        value="<?php echo $is_edit ? esc_attr( $token['name'] ) : ''; ?>"
+                        value="<?php echo esc_attr( $v_name ); ?>"
                         placeholder="<?php esc_attr_e( 'e.g., Claude Code - Production', 'easy-mcp-ai' ); ?>" required>
                     <p class="description"><?php esc_html_e( 'A descriptive name to identify this token.', 'easy-mcp-ai' ); ?></p>
                 </td>
@@ -83,7 +117,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                     <select id="wp_user_id" name="wp_user_id" class="regular-text">
                         <?php foreach ( $users as $user ) : ?>
                             <?php $roles_display = implode( ', ', array_map( 'ucfirst', $user->roles ) ); ?>
-                            <option value="<?php echo esc_attr( $user->ID ); ?>" <?php if ( $is_edit ) { selected( $token['wp_user_id'], $user->ID ); } else { selected( get_current_user_id(), $user->ID ); } ?>>
+                            <option value="<?php echo esc_attr( $user->ID ); ?>" <?php selected( $v_user_id, $user->ID ); ?>>
                                 <?php echo esc_html( $user->display_name ); ?> (<?php echo esc_html( $roles_display ); ?>)
                             </option>
                         <?php endforeach; ?>
@@ -98,7 +132,9 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                 </th>
                 <td>
                     <?php
-                    if ( $is_edit ) {
+                    if ( $has_draft ) {
+                        $expires_value = (string) ( $draft['expires_at'] ?? '' );
+                    } elseif ( $is_edit ) {
                         $expires_value = ! empty( $token['expires_at'] ) ? gmdate( 'Y-m-d', strtotime( $token['expires_at'] . ' UTC' ) ) : '';
                     } else {
                         $expires_value = gmdate( 'Y-m-d', strtotime( '+30 days' ) );
@@ -119,7 +155,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                     <td>
                         <label>
                             <input type="checkbox" id="is_active" name="is_active" value="1"
-                                <?php checked( ! empty( $token['is_active'] ) ); ?>>
+                                <?php checked( $v_is_active ); ?>>
                             <?php esc_html_e( 'Token is active and can be used for authentication.', 'easy-mcp-ai' ); ?>
                         </label>
                     </td>
@@ -131,11 +167,26 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                 <td>
                     <fieldset>
                         <label class="wp-mcp-select-all">
-                            <input type="checkbox" id="wp-mcp-select-all-tools" <?php checked( $is_all_tools || ! $is_edit ); ?>>
+                            <?php
+                            
+
+
+
+
+
+
+
+
+
+
+
+
+                            ?>
+                            <input type="checkbox" id="wp-mcp-select-all-tools" name="allowed_tools_all" value="1" <?php checked( $check_all ); ?>>
                             <strong><?php esc_html_e( 'Select All Tools (full access)', 'easy-mcp-ai' ); ?></strong>
                         </label>
 
-                        <div class="wp-mcp-filters" <?php echo ( $is_all_tools || ! $is_edit ) ? 'style="display:none;"' : ''; ?>>
+                        <div class="wp-mcp-filters" <?php echo $check_all ? 'style="display:none;"' : ''; ?>>
                             <div class="wp-mcp-multiselect" id="wp-mcp-filter-category" data-default-label="<?php esc_attr_e( 'All Categories', 'easy-mcp-ai' ); ?>">
                                 <button type="button" class="wp-mcp-multiselect-btn" aria-haspopup="true" aria-expanded="false">
                                     <span class="wp-mcp-multiselect-label"><?php esc_html_e( 'All Categories', 'easy-mcp-ai' ); ?></span>
@@ -198,7 +249,7 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
                                                         value="<?php echo esc_attr( $tool['name'] ); ?>"
                                                         class="wp-mcp-tool-checkbox" data-category="<?php echo esc_attr( $category ); ?>" data-action="<?php echo esc_attr( $action ); ?>"
                                                         <?php
-                                                        if ( $is_all_tools || ! $is_edit ) {
+                                                        if ( $check_all ) {
                                                             echo 'checked';
                                                         } elseif ( in_array( $tool['name'], $current_tools, true ) ) {
                                                             echo 'checked';
@@ -250,4 +301,9 @@ $error        = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET
 </div>
 <?php
 }
-easy_mcp_ai_view_token_create( $users, $tools_by_cat, isset( $token ) ? $token : null );
+easy_mcp_ai_view_token_create(
+    $users,
+    $tools_by_cat,
+    isset( $token ) ? $token : null,
+    isset( $form_draft ) ? $form_draft : null
+);

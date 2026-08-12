@@ -137,6 +137,11 @@ class OAuth_Admin {
                                 <?php \checked( $dcr_enabled ); ?> />
                             <?php \esc_html_e( 'Enable DCR endpoint', 'easy-mcp-ai' ); ?>
                         </label>
+                        <p class="description">
+                            <?php \esc_html_e( 'Lets MCP clients such as Claude, Cursor and VS Code register themselves for one-click sign-in. Turning this off closes a public endpoint that anyone can reach without logging in.', 'easy-mcp-ai' ); ?>
+                            <strong><?php \esc_html_e( 'While it is off, no new connection can be made', 'easy-mcp-ai' ); ?></strong>
+                            <?php \esc_html_e( '— clients cannot be added by hand. Connections that already exist keep working, so a common pattern is to connect first, then switch this off.', 'easy-mcp-ai' ); ?>
+                        </p>
                     </td>
                 </tr>
             </table>
@@ -191,6 +196,37 @@ class OAuth_Admin {
         }
         ?>
         <h2><?php \esc_html_e( 'Registered Clients', 'easy-mcp-ai' ); ?></h2>
+        <?php
+        
+
+
+
+
+
+        $easy_mcp_ai_retention = \function_exists( '\Easy_MCP_AI\Plugin::oauth_client_retention_days' ) || \method_exists( '\Easy_MCP_AI\Plugin', 'oauth_client_retention_days' )
+            ? (int) \Easy_MCP_AI\Plugin::oauth_client_retention_days()
+            : 7;
+        ?>
+        <p class="description">
+            <?php
+            if ( $easy_mcp_ai_retention > 0 ) {
+                echo \esc_html(
+                    \sprintf(
+                        /* translators: %d: number of days. */
+                        \_n(
+                            'Registrations that were never approved by anyone are deleted automatically after %d day. A connection someone has approved is kept for as long as it exists, however old.',
+                            'Registrations that were never approved by anyone are deleted automatically after %d days. A connection someone has approved is kept for as long as it exists, however old.',
+                            $easy_mcp_ai_retention,
+                            'easy-mcp-ai'
+                        ),
+                        $easy_mcp_ai_retention
+                    )
+                );
+            } else {
+                \esc_html_e( 'Automatic deletion of unapproved registrations is switched off, so rows here are kept indefinitely.', 'easy-mcp-ai' );
+            }
+            ?>
+        </p>
         <table class="widefat striped">
             <thead>
                 <tr>

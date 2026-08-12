@@ -42,8 +42,12 @@ class Admin_Page {
         \add_action( 'admin_init', array( $this, 'handle_form_actions' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_get_changes_for_audit', array( $this, 'ajax_get_changes_for_audit' ) );
         \add_filter( 'admin_footer_text', array( $this, 'admin_footer_rating_text' ) );
-        \add_action( 'admin_notices', array( $this, 'maybe_render_permalink_notice' ) );
-        \add_action( 'admin_notices', array( $this, 'maybe_render_transport_notice' ) );
+        
+        
+        
+        
+        
+        
     }
 
     
@@ -102,41 +106,6 @@ class Admin_Page {
         return \is_ssl() ? '' : 'proxy';
     }
 
-    
-
-
-
-
-    public function maybe_render_transport_notice() {
-        if ( ! \current_user_can( 'manage_options' ) ) {
-            return;
-        }
-        $problem = self::oauth_transport_problem();
-        if ( '' === $problem ) {
-            return;
-        }
-        if ( ! \function_exists( 'get_current_screen' ) ) {
-            return;
-        }
-        $screen = \get_current_screen();
-        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
-            return;
-        }
-
-        if ( 'http' === $problem ) {
-            $heading = __( 'This site is not using HTTPS — OAuth clients cannot connect.', 'easy-mcp-ai' );
-            $detail  = __( 'The OAuth 2.1 specification requires HTTPS, so authorization, token and discovery requests are refused on an http:// site and “Connect” will fail in Claude and other OAuth clients. Existing API tokens are unaffected and keep working.', 'easy-mcp-ai' );
-            $fix     = __( 'Fix: serve the site over HTTPS and update the WordPress Address and Site Address accordingly.', 'easy-mcp-ai' );
-        } else {
-            $heading = __( 'WordPress cannot detect HTTPS — OAuth clients cannot connect.', 'easy-mcp-ai' );
-            $detail  = __( 'Your site is served over HTTPS, but PHP still sees the request as insecure. This happens when a CDN, load balancer or reverse proxy handles HTTPS and passes the request on unencrypted — Cloudflare’s Flexible SSL mode is the most common cause. OAuth requests are refused as a result, so “Connect” fails in Claude, ChatGPT and other OAuth clients even though your site is secure for visitors. Existing API tokens are unaffected and keep working.', 'easy-mcp-ai' );
-            $fix     = __( 'Fix it either way. If you use Cloudflare, switch SSL/TLS mode to Full or Full (Strict) — that is the better fix, because it encrypts the connection between Cloudflare and your server too. Or add this to wp-config.php, above the “stop editing” line: if ( isset( $_SERVER[\'HTTP_X_FORWARDED_PROTO\'] ) && \'https\' === $_SERVER[\'HTTP_X_FORWARDED_PROTO\'] ) { $_SERVER[\'HTTPS\'] = \'on\'; } This is a standard WordPress snippet — the same setup usually causes mixed-content warnings and redirect loops elsewhere, and this fixes those too.', 'easy-mcp-ai' );
-        }
-
-        echo '<div class="notice notice-warning"><p><strong>' . \esc_html( $heading ) . '</strong></p>'
-            . '<p>' . \esc_html( $detail ) . '</p>'
-            . '<p>' . \esc_html( $fix ) . '</p></div>';
-    }
 
     
 
@@ -166,42 +135,6 @@ class Admin_Page {
         return '' === (string) \get_option( 'permalink_structure', '' );
     }
 
-    
-
-
-
-
-
-    public function maybe_render_permalink_notice() {
-        if ( ! \current_user_can( 'manage_options' ) || ! self::permalinks_are_plain() ) {
-            return;
-        }
-        if ( ! \function_exists( 'get_current_screen' ) ) {
-            return;
-        }
-        $screen = \get_current_screen();
-        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
-            return;
-        }
-
-        $link = '<a href="' . \esc_url( \admin_url( 'options-permalink.php' ) ) . '">'
-            . \esc_html__( 'Settings → Permalinks', 'easy-mcp-ai' ) . '</a>';
-
-        echo '<div class="notice notice-warning"><p><strong>'
-            . \esc_html__( 'Permalinks are set to “Plain” — AI clients cannot connect.', 'easy-mcp-ai' )
-            . '</strong></p><p>'
-            . \esc_html__( 'With Plain permalinks WordPress does not route /wp-json/ or /.well-known/ requests, so an MCP client cannot discover this site\'s OAuth endpoints and “Connect” will fail. On Apache it can also strip the Bearer token before WordPress sees it.', 'easy-mcp-ai' )
-            . '</p><p>'
-            . \wp_kses(
-                sprintf(
-                    /* translators: %s: link to Settings → Permalinks. */
-                    __( 'Fix: open %s and choose any structure other than Plain (Post name is the usual choice), then save. No other change is needed.', 'easy-mcp-ai' ),
-                    $link
-                ),
-                array( 'a' => array( 'href' => array() ) )
-            )
-            . '</p></div>';
-    }
 
     
 
@@ -359,14 +292,28 @@ class Admin_Page {
         if ( ! \current_user_can( 'manage_options' ) ) {
             return;
         }
+        
+        
+        
+        if ( isset( $_GET['easy_mcp_ai_action'] ) && 'rerun_diagnostics' === $_GET['easy_mcp_ai_action']
+            && \check_admin_referer( 'easy_mcp_ai_rerun_diagnostics' )
+            && class_exists( '\Easy_MCP_AI\Diagnostics\Diagnostics' ) ) {
+            
+            
+            \Easy_MCP_AI\Diagnostics\Diagnostics::run( true );
+            \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai&diagnostics=rerun' ) );
+            exit;
+        }
         if ( isset( $_POST['easy_mcp_ai_create_token'] ) && \check_admin_referer( 'easy_mcp_ai_create_token' ) ) {
             $name          = isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '';
             $wp_user_id    = isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : \get_current_user_id();
             $expires_at    = isset( $_POST['expires_at'] ) && ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null;
-            $allowed_tools = isset( $_POST['allowed_tools'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['allowed_tools'] ) ) : array( '*' );
+            $allowed_tools = self::resolve_submitted_allowed_tools();
             if ( ! $this->is_assignable_user( $wp_user_id ) ) {
-                \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=invalid_user' ) );
-                exit;
+                self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=invalid_user' ) );
+            }
+            if ( empty( $allowed_tools ) ) {
+                self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=tools_required' ) );
             }
             $this->handle_create_token( $name, $wp_user_id, $allowed_tools, $expires_at );
         }
@@ -375,11 +322,15 @@ class Admin_Page {
             $name          = isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '';
             $wp_user_id    = isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : 0;
             $expires_at    = isset( $_POST['expires_at'] ) && ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null;
-            $allowed_tools = isset( $_POST['allowed_tools'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['allowed_tools'] ) ) : array( '*' );
+            $allowed_tools = self::resolve_submitted_allowed_tools();
             $is_active     = isset( $_POST['is_active'] ) ? 1 : 0;
             if ( ! $this->is_assignable_user( $wp_user_id ) ) {
-                \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-tokens&error=invalid_user' ) );
-                exit;
+                
+                
+                self::refuse_token_form( 'edit', $token_id, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=edit&token_id=' . $token_id . '&error=invalid_user' ) );
+            }
+            if ( empty( $allowed_tools ) ) {
+                self::refuse_token_form( 'edit', $token_id, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=edit&token_id=' . $token_id . '&error=tools_required' ) );
             }
             $this->handle_update_token( $token_id, $name, $wp_user_id, $allowed_tools, $expires_at, $is_active );
         }
@@ -535,15 +486,135 @@ class Admin_Page {
         return \user_can( $user, $min_cap );
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    const TOKEN_DRAFT_META = '_easy_mcp_ai_token_form_draft';
+
+    
+    const TOKEN_DRAFT_TTL = 3600;
+
+    private static function stash_token_form_draft( array $draft ) {
+        $draft['saved_at'] = time();
+        \update_user_meta( \get_current_user_id(), self::TOKEN_DRAFT_META, $draft );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private static function take_token_form_draft( $context, $token_id = 0 ) {
+        $uid   = \get_current_user_id();
+        $draft = \get_user_meta( $uid, self::TOKEN_DRAFT_META, true );
+        \delete_user_meta( $uid, self::TOKEN_DRAFT_META );
+
+        if ( ! is_array( $draft ) || ( $draft['context'] ?? '' ) !== $context ) {
+            return null;
+        }
+        if ( 'edit' === $context && (int) ( $draft['token_id'] ?? 0 ) !== (int) $token_id ) {
+            return null;
+        }
+        if ( ( time() - (int) ( $draft['saved_at'] ?? 0 ) ) > self::TOKEN_DRAFT_TTL ) {
+            return null;
+        }
+        return $draft;
+    }
+
+    
+    private static function submitted_token_form( $context, $token_id = 0 ) {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- every caller runs after check_admin_referer().
+        return array(
+            'context'       => $context,
+            'token_id'      => (int) $token_id,
+            'name'          => isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '',
+            'wp_user_id'    => isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : 0,
+            'expires_at'    => isset( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : '',
+            'is_active'     => isset( $_POST['is_active'] ) ? 1 : 0,
+            'all_tools'     => isset( $_POST['allowed_tools_all'] ) ? 1 : 0,
+            'allowed_tools' => isset( $_POST['allowed_tools'] )
+                ? array_map( 'sanitize_text_field', wp_unslash( (array) $_POST['allowed_tools'] ) )
+                : array(),
+        );
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+    }
+
+    
+    private static function refuse_token_form( $context, $token_id, $url ) {
+        self::stash_token_form_draft( self::submitted_token_form( $context, $token_id ) );
+        \wp_safe_redirect( $url );
+        exit;
+    }
+
+    private static function resolve_submitted_allowed_tools() {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- both call sites run check_admin_referer() before reaching here.
+        if ( isset( $_POST['allowed_tools_all'] ) ) {
+            return array( '*' );
+        }
+        if ( ! isset( $_POST['allowed_tools'] ) ) {
+            return array();
+        }
+        $tools = array_map( 'sanitize_text_field', \wp_unslash( (array) $_POST['allowed_tools'] ) );
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+        return array_values( array_filter( $tools, static function ( $tool ) {
+            return '' !== $tool;
+        } ) );
+    }
+
     private function handle_create_token( $name, $wp_user_id, $allowed_tools, $expires_at ) {
         if ( empty( $name ) ) {
-            \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=name_required' ) );
-            exit;
+            self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=name_required' ) );
         }
         $result = $this->token_manager->create_token( $name, $wp_user_id, $allowed_tools, $expires_at );
         if ( \is_wp_error( $result ) ) {
-            \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=create_failed' ) );
-            exit;
+            self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=create_failed' ) );
         }
         \update_user_meta( \get_current_user_id(), '_easy_mcp_ai_new_token_' . $result['id'], array(
             'token'   => $result['raw_token'],
@@ -577,15 +648,9 @@ class Admin_Page {
             
             
             
-            'disabled_tools'         => array_values( array_unique( array_merge(
-                (array) $post_data['disabled_tools'],
-                (array) \get_option( 'easy_mcp_ai_disabled_plugin_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() )
-            ) ) ),
+            'disabled_tools'         => \Easy_MCP_AI\Admin\External_Data_Admin::merge_disabled_tool_buckets(
+                (array) $post_data['disabled_tools']
+            ),
             'force_draft_on_create'  => $post_data['force_draft_on_create'],
             'max_title_length'       => max( 0, $post_data['max_title_length'] ),
             'audit_log_enabled'      => $post_data['audit_log_enabled'],
@@ -677,7 +742,10 @@ class Admin_Page {
 
     private function handle_cleanup_change_log() {
         global $wpdb;
-        $retention = (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 );
+        
+        
+        
+        $retention = \Easy_MCP_AI\Plugin::change_log_retention_days();
         $more      = self::batched_cleanup( "{$wpdb->prefix}easy_mcp_ai_change_log", $retention );
         \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-history&message=' . ( $more ? 'cleaned_more' : 'cleaned' ) ) );
         exit;
@@ -694,6 +762,13 @@ class Admin_Page {
 
     private static function batched_cleanup( $table, $retention ) {
         global $wpdb;
+        
+        
+        
+        
+        if ( (int) $retention < 1 ) {
+            return false;
+        }
         
         
         
@@ -1036,14 +1111,7 @@ class Admin_Page {
         
         
         
-        $bucket_disables       = array_merge(
-            (array) \get_option( 'easy_mcp_ai_disabled_plugin_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() )
-        );
+        $bucket_disables       = \Easy_MCP_AI\Admin\External_Data_Admin::merge_disabled_tool_buckets();
         $settings_only_disabled = array_diff( $disabled_tools, $bucket_disables );
         $has_global_overrides   = ! empty( $settings_only_disabled ) || ! empty( $allowed_patterns );
 
@@ -1392,6 +1460,7 @@ class Admin_Page {
         if ( 'new' === $action ) {
             $users        = \get_users( array( 'capability' => apply_filters( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ) ) );
             $tools_by_cat = $this->tool_registry->get_tools_by_category();
+            $form_draft   = self::take_token_form_draft( 'new' );
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/token-create.php';
             return;
         }
@@ -1403,6 +1472,7 @@ class Admin_Page {
             }
             $users        = \get_users( array( 'capability' => apply_filters( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ) ) );
             $tools_by_cat = $this->tool_registry->get_tools_by_category();
+            $form_draft   = self::take_token_form_draft( 'edit', (int) $token['id'] );
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/token-create.php';
             return;
         }
@@ -1438,8 +1508,34 @@ class Admin_Page {
         $retention = (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table name is not user input
         $total     = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)", $retention ) );
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names are not user input
-        $entries   = $wpdb->get_results( $wpdb->prepare( "SELECT l.*, t.name as token_name FROM `{$table}` l LEFT JOIN `{$wpdb->prefix}easy_mcp_ai_tokens` t ON l.token_id = t.id ORDER BY l.created_at DESC LIMIT %d OFFSET %d", $per_page, $offset ), ARRAY_A );
+        $entries   = $wpdb->get_results( $wpdb->prepare( "SELECT l.*, t.name as token_name FROM (SELECT id FROM `{$table}` ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d) k JOIN `{$table}` l ON l.id = k.id LEFT JOIN `{$wpdb->prefix}easy_mcp_ai_tokens` t ON l.token_id = t.id ORDER BY l.created_at DESC, l.id DESC", $per_page, $offset ), ARRAY_A );
 
         
         
@@ -1548,10 +1644,15 @@ class Admin_Page {
         
         
         
-        $list_columns = 'id, audit_id, tool_name, action, object_type, object_id, object_subtype, changed_fields, revision_id, wp_user_id, oauth_client_id, auth_source, created_at, truncated, ip_address';
+        
+        
+        
+        
+        
+        $list_columns = \Easy_MCP_AI\History\Change_Log_Repository::list_columns();
         $entries      = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT {$list_columns} FROM `{$table}` WHERE {$where_sql} ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d",
+                \Easy_MCP_AI\History\Change_Log_Repository::deferred_join_sql( "`{$table}`", $list_columns, $where_sql ),
                 ...array_merge( $params, array( $per_page, $offset ) )
             ),
             ARRAY_A
@@ -1587,7 +1688,7 @@ class Admin_Page {
             'allowed_tool_patterns'  => (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ),
             'admin_language'         =>         \get_option( 'easy_mcp_ai_admin_language', '' ),
             'change_log_enabled'     => (bool)  \get_option( 'easy_mcp_ai_change_log_enabled', true ),
-            'change_log_retention'   => (int)   \get_option( 'easy_mcp_ai_change_log_retention', 30 ),
+            'change_log_retention'   => \Easy_MCP_AI\Plugin::change_log_retention_days(),
             'oauth_min_capability'   =>         \get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ),
             'external_data_min_capability' =>   \get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' ),
         );

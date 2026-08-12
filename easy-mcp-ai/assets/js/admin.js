@@ -242,10 +242,16 @@
             }
         }
 
-        // Handle form submission - convert "select all" to "*" shorthand.
+        // Payload optimisation only: when everything is selected, send the "*"
+        // shorthand instead of ~160 individual field names.
+        //
+        // This is NOT what makes "all tools" work. The Select All checkbox
+        // submits for itself as `allowed_tools_all`, and the server reads that
+        // field first (Admin_Page::resolve_submitted_allowed_tools()). This
+        // handler used to be the only thing producing "*", so with scripts
+        // blocked an all-tools token was silently rewritten to a frozen list.
         $('.wp-mcp-token-form').on('submit', function () {
             if ($selectAll.is(':checked')) {
-                // If all tools are selected, just send "*".
                 $toolCheckboxes.prop('checked', false);
                 $(this).append('<input type="hidden" name="allowed_tools[]" value="*">');
             }

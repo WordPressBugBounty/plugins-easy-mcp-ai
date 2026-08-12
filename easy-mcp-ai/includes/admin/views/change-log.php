@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
     <?php include __DIR__ . '/partials/page-nav.php'; ?>
 
+    <p><?php echo wp_kses_post( \Easy_MCP_AI\Admin\History_Settings_Page::settings_link_html() ); ?></p>
+
     <?php
     // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only $_GET inspection for post-redirect notice.
     $easy_mcp_ai_msg = isset( $_GET['message'] ) ? sanitize_key( $_GET['message'] ) : '';
@@ -31,9 +33,12 @@ if ( ! defined( 'ABSPATH' ) ) {
         </div>
     <?php endif; ?>
 
-    <p class="description" style="margin: 8px 0 16px; font-size: 13px;">
+    <p class="description" style="margin: 8px 0 4px; font-size: 13px;">
         <?php esc_html_e( 'Before/after snapshots of every write performed through the MCP server. Direct wp-admin edits are NOT recorded here — see Audit Log for the per-call trace.', 'easy-mcp-ai' ); ?>
     </p>
+
+    <?php include __DIR__ . '/partials/history-limits.php'; ?>
+
 
     <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="wp-mcp-history-filter">
         <input type="hidden" name="page" value="easy-mcp-ai-history">
@@ -91,7 +96,7 @@ if ( ! defined( 'ABSPATH' ) ) {
         </p>
     </form>
 
-    <?php $easy_mcp_ai_retention = (int) get_option( 'easy_mcp_ai_change_log_retention', 30 ); ?>
+    <?php $easy_mcp_ai_retention = \Easy_MCP_AI\Plugin::change_log_retention_days(); ?>
     <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-history' ) ); ?>" class="wp-mcp-cleanup-form">
         <?php wp_nonce_field( 'easy_mcp_ai_cleanup_change_log' ); ?>
         <input type="hidden" name="easy_mcp_ai_cleanup_change_log" value="1">
@@ -176,12 +181,13 @@ if ( ! defined( 'ABSPATH' ) ) {
                 <th scope="col"><?php esc_html_e( 'Object', 'easy-mcp-ai' ); ?></th>
                 <th scope="col"><?php esc_html_e( 'User', 'easy-mcp-ai' ); ?></th>
                 <th scope="col"><?php esc_html_e( 'Auth', 'easy-mcp-ai' ); ?></th>
+                <th scope="col"><?php esc_html_e( 'Capture', 'easy-mcp-ai' ); ?></th>
                 <th scope="col"><?php esc_html_e( 'Actions', 'easy-mcp-ai' ); ?></th>
             </tr>
         </thead>
         <tbody>
             <?php if ( empty( $entries ) ) : ?>
-                <tr><td colspan="7"><?php esc_html_e( 'No change-history entries yet.', 'easy-mcp-ai' ); ?></td></tr>
+                <tr><td colspan="8"><?php esc_html_e( 'No change-history entries yet.', 'easy-mcp-ai' ); ?></td></tr>
             <?php else : foreach ( $entries as $easy_mcp_ai_e ) : ?>
                 <tr>
                     <td><?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $easy_mcp_ai_e['created_at'] . ' UTC' ) ) ); ?></td>
@@ -195,6 +201,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     </td>
                     <td><?php echo esc_html( (string) ( $easy_mcp_ai_e['wp_user_id'] ?? 0 ) ); ?></td>
                     <td><?php echo esc_html( $easy_mcp_ai_e['auth_source'] ?? '' ); ?></td>
+                    <td><code><?php echo esc_html( \Easy_MCP_AI\Admin\History_Settings_Page::display_capture_mode( $easy_mcp_ai_e['capture_mode'] ?? null ) ); ?></code></td>
                     <td>
                         <a href="<?php echo esc_url( add_query_arg( 'detail', absint( $easy_mcp_ai_e['id'] ) ) ); ?>"><?php esc_html_e( 'View before/after', 'easy-mcp-ai' ); ?></a>
                         <?php if ( ! empty( $easy_mcp_ai_e['audit_id'] ) ) : ?>

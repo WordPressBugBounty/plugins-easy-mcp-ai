@@ -58,6 +58,21 @@ class Client_Registry {
 
 
 
+
+
+    public static function is_dcr_enabled() {
+        return (bool) get_option( 'easy_mcp_ai_oauth_dcr_enabled', true );
+    }
+
+    
+
+
+
+
+
+
+
+
     public function handle_register( \WP_REST_Request $request ) {
         
         
@@ -67,9 +82,18 @@ class Client_Registry {
         }
 
         
-        $dcr_enabled = get_option( 'easy_mcp_ai_oauth_dcr_enabled', true );
-        if ( ! $dcr_enabled ) {
-            return new \WP_REST_Response( null, 404 );
+        if ( ! self::is_dcr_enabled() ) {
+            
+            
+            
+            
+            
+            
+            return self::dcr_error(
+                'registration_not_supported',
+                __( 'Dynamic Client Registration is disabled on this site. An administrator can enable it under Easy MCP AI > API Token & OAuth > Settings > Dynamic Client Registration.', 'easy-mcp-ai' ),
+                404
+            );
         }
 
         
@@ -96,6 +120,23 @@ class Client_Registry {
         if ( $validated instanceof \WP_REST_Response ) {
             return $validated;
         }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $this->cleanup_stale_duplicates( $validated['client_name'], wp_json_encode( $validated['redirect_uris'] ) );
 
         
         $cap_error = $this->check_client_cap();
@@ -236,14 +277,22 @@ class Client_Registry {
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_clients';
 
         
-        $this->cleanup_stale_duplicates( $client_name, wp_json_encode( $redirect_uris ) );
+        
 
         
         $client_id = bin2hex( random_bytes( 16 ) );
 
-        $client_ip = isset( $_SERVER['REMOTE_ADDR'] )
-            ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) )
-            : '';
+        
+        
+        
+        
+        
+        
+        
+        
+        $client_ip = class_exists( '\Easy_MCP_AI\Client_IP' )
+            ? (string) \Easy_MCP_AI\Client_IP::get()
+            : ( isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Plugin-owned table write.
         $inserted = $wpdb->insert(
@@ -525,6 +574,10 @@ class Client_Registry {
 
 
 
+
+
+
+
     private function cleanup_stale_duplicates( $client_name, $redirect_uris_json ) {
         global $wpdb;
 
@@ -533,44 +586,84 @@ class Client_Registry {
         $codes_table    = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
         $consents_table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
 
-        $now    = current_time( 'mysql', true );
         $cutoff = gmdate( 'Y-m-d H:i:s', time() - 60 );
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables prefixed by $wpdb->prefix.
-        $stale_ids = $wpdb->get_col(
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        $wpdb->query(
             $wpdb->prepare(
-                "SELECT c.client_id FROM {$clients_table} c
-                 WHERE c.client_name = %s
-                   AND c.redirect_uris = %s
-                   AND c.created_at < %s
-                   AND NOT EXISTS (
-                       SELECT 1 FROM {$tokens_table} t
-                       WHERE t.client_id = c.client_id
-                         AND t.is_active = 1
-                         AND t.expires_at > %s
-                   )",
+                "DELETE FROM {$clients_table}
+                 WHERE client_name = %s
+                   AND redirect_uris = %s
+                   AND created_at < %s
+                   AND NOT EXISTS (SELECT 1 FROM {$tokens_table} t   WHERE t.client_id = {$clients_table}.client_id)
+                   AND NOT EXISTS (SELECT 1 FROM {$consents_table} s WHERE s.client_id = {$clients_table}.client_id)
+                   AND NOT EXISTS (SELECT 1 FROM {$codes_table} k    WHERE k.client_id = {$clients_table}.client_id)",
                 $client_name,
                 $redirect_uris_json,
-                $cutoff,
-                $now
+                $cutoff
             )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-
-        if ( empty( $stale_ids ) ) {
-            return;
-        }
-
-        foreach ( $stale_ids as $stale_id ) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->delete( $tokens_table, array( 'client_id' => $stale_id ), array( '%s' ) );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->delete( $codes_table, array( 'client_id' => $stale_id ), array( '%s' ) );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->delete( $consents_table, array( 'client_id' => $stale_id ), array( '%s' ) );
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
-            $wpdb->delete( $clients_table, array( 'client_id' => $stale_id ), array( '%s' ) );
-        }
     }
 
     

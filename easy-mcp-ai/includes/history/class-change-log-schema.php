@@ -6,14 +6,62 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Change_Log_Schema {
-    const DB_VERSION  = '1.0.0';
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    const DB_VERSION  = '1.2.0';
     const OPTION_NAME = 'easy_mcp_ai_change_log_db_version';
 
     public static function maybe_upgrade() {
-        if ( \version_compare( (string) \get_option( self::OPTION_NAME, '0' ), self::DB_VERSION, '>=' ) ) {
+        $installed = (string) \get_option( self::OPTION_NAME, '0' );
+        if ( \version_compare( $installed, self::DB_VERSION, '>=' ) ) {
             return;
         }
         self::create_tables();
+
+        
+        
+        if ( '0' !== $installed && \version_compare( $installed, '1.2.0', '<' ) ) {
+            self::migrate_sql_tier_object_type();
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function migrate_sql_tier_object_type() {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'query' ) ) {
+            return 0;
+        }
+        $table = $wpdb->prefix . 'easy_mcp_ai_change_log';
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; no user input in the statement.
+        return (int) $wpdb->query(
+            
+            
+            
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is prefix + a constant name, never input.
+            "UPDATE `{$table}` SET object_type = 'db_sql' WHERE capture_mode = 'db_sql' AND object_type = 'db_row'"
+        );
     }
 
     public static function create_tables() {
@@ -37,6 +85,7 @@ class Change_Log_Schema {
             changed_fields  text         DEFAULT NULL,
             revision_id     bigint(20)   unsigned DEFAULT NULL,
             truncated       tinyint(1)   NOT NULL DEFAULT 0,
+            capture_mode    varchar(16)  DEFAULT NULL,
             ip_address      varchar(45)  DEFAULT NULL,
             created_at      datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -44,7 +93,8 @@ class Change_Log_Schema {
             KEY tool_name (tool_name(150), created_at),
             KEY wp_user_id (wp_user_id, created_at),
             KEY audit_id (audit_id),
-            KEY created_at (created_at)
+            KEY created_at (created_at),
+            KEY capture_mode (capture_mode, created_at)
         ) {$charset_collate};";
 
         if ( ! function_exists( 'dbDelta' ) ) {

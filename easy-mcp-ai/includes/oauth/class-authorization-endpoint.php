@@ -114,7 +114,8 @@ class Authorization_Endpoint {
             return $this->redirect_with_error(
                 $params,
                 'access_denied',
-                __( 'Your account does not have sufficient permissions to authorize MCP access.', 'easy-mcp-ai' )
+                __( 'Your account does not have sufficient permissions to authorize MCP access.', 'easy-mcp-ai' ),
+                'insufficient_capability'
             );
         }
 
@@ -151,7 +152,7 @@ class Authorization_Endpoint {
                 $grant_scope = implode( ' ', $scope_list );
                 $code        = $this->mint_authorization_code( $params, $user->ID, $grant_scope );
                 if ( null === $code ) {
-                    return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ) );
+                    return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ), 'code_issue_failed' );
                 }
                 return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
             }
@@ -195,7 +196,14 @@ class Authorization_Endpoint {
         }
 
         
+        
+        
+        
+        
+        
+        
         if ( ! is_user_logged_in() ) {
+            $this->log_authorize_failure( 'not_logged_in', $this->extract_params( $request ) );
             return new \WP_Error(
                 'access_denied',
                 __( 'You must be logged in to authorize this request.', 'easy-mcp-ai' ),
@@ -206,6 +214,7 @@ class Authorization_Endpoint {
         
         $min_cap = self::resolved_min_capability();
         if ( ! current_user_can( $min_cap ) ) {
+            $this->log_authorize_failure( 'insufficient_capability', $this->extract_params( $request ) );
             return new \WP_Error(
                 'access_denied',
                 __( 'Your account does not have sufficient permissions to authorize MCP access.', 'easy-mcp-ai' ),
@@ -218,6 +227,7 @@ class Authorization_Endpoint {
         
         $nonce = sanitize_text_field( $request->get_param( '_wpnonce' ) );
         if ( ! wp_verify_nonce( $nonce, 'easy_mcp_ai_oauth_consent_' . $params['client_id'] ) ) {
+            $this->log_authorize_failure( 'nonce_failed', $params );
             return new \WP_Error(
                 'invalid_request',
                 __( 'Security check failed. Please try again.', 'easy-mcp-ai' ),
@@ -235,6 +245,7 @@ class Authorization_Endpoint {
         $scope_sig = sanitize_text_field( $request->get_param( 'scope_sig' ) );
         $expected  = self::sign_scope( $params['client_id'], $params['scope'] );
         if ( '' === $scope_sig || ! hash_equals( $expected, $scope_sig ) ) {
+            $this->log_authorize_failure( 'scope_signature_failed', $params );
             return new \WP_Error(
                 'invalid_request',
                 __( 'Scope integrity check failed. Please restart authorization.', 'easy-mcp-ai' ),
@@ -267,13 +278,26 @@ class Authorization_Endpoint {
 
 
 
-    private function redirect_with_error( array $params, string $error, string $error_description ) {
+
+
+
+
+    private function redirect_with_error( array $params, string $error, string $error_description, string $log_reason = '' ) {
+        $this->log_authorize_failure( '' !== $log_reason ? $log_reason : $error, $params );
+
         $args = array(
             'error'             => $error,
-            'error_description' => $error_description,
+            'error_description' => Token_Endpoint::wire_safe_description( $error_description ),
             'iss'               => home_url(),
         );
-        if ( ! empty( $params['state'] ) ) {
+        
+        
+        
+        
+        
+        
+        
+        if ( '' !== (string) $params['state'] ) {
             $args['state'] = $params['state'];
         }
         $redirect = self::build_query_url( $params['redirect_uri'], $args );
@@ -299,7 +323,36 @@ class Authorization_Endpoint {
         return $this->redirect_with_error(
             $params,
             'access_denied',
-            __( 'The user denied the authorization request.', 'easy-mcp-ai' )
+            __( 'The user denied the authorization request.', 'easy-mcp-ai' ),
+            'user_denied'
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function handle_approved_without_scopes( array $params ) {
+        return $this->redirect_with_error(
+            $params,
+            'access_denied',
+            __( 'No permissions were selected, so nothing was granted. Choose at least one permission and approve again.', 'easy-mcp-ai' ),
+            'approved_without_scopes'
         );
     }
 
@@ -340,7 +393,7 @@ class Authorization_Endpoint {
             $this->store_consent( $user->ID, $params['client_id'], 'mcp' );
             $code = $this->mint_authorization_code( $params, $user->ID, 'mcp' );
             if ( null === $code ) {
-                return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ) );
+                return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ), 'code_issue_failed' );
             }
             return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
         }
@@ -367,14 +420,15 @@ class Authorization_Endpoint {
         
         
         
+        
         if ( '' === $scope_string ) {
-            return $this->handle_deny_action( $params );
+            return $this->handle_approved_without_scopes( $params );
         }
 
         $this->store_consent( $user->ID, $params['client_id'], $scope_string );
         $code = $this->mint_authorization_code( $params, $user->ID, $scope_string );
         if ( null === $code ) {
-            return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ) );
+            return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ), 'code_issue_failed' );
         }
 
         return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
@@ -395,6 +449,73 @@ class Authorization_Endpoint {
         
         
         return hash_hmac( 'sha256', $client_id . '|' . $scope, wp_salt( 'auth' ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function log_authorize_failure( $reason, array $params = array() ) {
+        if ( ! get_option( 'easy_mcp_ai_audit_log_enabled', true ) ) {
+            return;
+        }
+
+        $redirect_host = '';
+        if ( ! empty( $params['redirect_uri'] ) ) {
+            $parsed = wp_parse_url( $params['redirect_uri'] );
+            
+            
+            
+            $redirect_host = ( ! empty( $parsed['scheme'] ) ? $parsed['scheme'] . '://' : '' )
+                           . ( ! empty( $parsed['host'] ) ? $parsed['host'] : '' );
+        }
+
+        $details = array(
+            'stage'         => 'authorize',
+            'reason'        => (string) $reason,
+            'client_id'     => ! empty( $params['client_id'] ) ? (string) $params['client_id'] : '',
+            'redirect_host' => $redirect_host,
+            'wp_user_id'    => get_current_user_id(),
+        );
+
+        global $wpdb;
+        $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct insert required for audit logging; mirrors Server::log_auth_failure().
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            array(
+                'token_id'      => 0,
+                'tool_name'     => '_oauth_authorize',
+                'arguments'     => wp_json_encode( $details ),
+                'result_status' => 'auth_failure',
+                
+                
+                
+                
+                'ip_address'    => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
+                'created_at'    => current_time( 'mysql', true ),
+            ),
+            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+        );
     }
 
     
@@ -425,7 +546,14 @@ class Authorization_Endpoint {
             'redirect_uri'          => esc_url_raw( $request->get_param( 'redirect_uri' ), Client_Registry::redirect_uri_allowed_protocols() ),
             'code_challenge'        => sanitize_text_field( $request->get_param( 'code_challenge' ) ),
             'code_challenge_method' => sanitize_text_field( $request->get_param( 'code_challenge_method' ) ),
-            'state'                 => sanitize_text_field( $request->get_param( 'state' ) ),
+            
+            
+            
+            
+            
+            
+            
+            'state'                 => is_scalar( $request->get_param( 'state' ) ) ? (string) $request->get_param( 'state' ) : '',
             'resource'              => $resource,
             'scope'                 => sanitize_text_field( $request->get_param( 'scope' ) ),
         );
@@ -555,6 +683,8 @@ class Authorization_Endpoint {
     private function error_response( \WP_Error $error, array $params ) {
         $data = $error->get_error_data();
 
+        $this->log_authorize_failure( $error->get_error_code(), $params );
+
         
         if (
             empty( $params['redirect_uri'] ) ||
@@ -572,10 +702,12 @@ class Authorization_Endpoint {
         
         $error_args = array(
             'error'             => $error->get_error_code(),
-            'error_description' => $error->get_error_message(),
+            'error_description' => Token_Endpoint::wire_safe_description( $error->get_error_message() ),
             'iss'               => home_url(),
         );
-        if ( ! empty( $params['state'] ) ) {
+        
+        
+        if ( '' !== (string) $params['state'] ) {
             $error_args['state'] = $params['state'];
         }
         $redirect = self::build_query_url( $params['redirect_uri'], $error_args );

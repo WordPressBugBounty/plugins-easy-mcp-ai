@@ -74,7 +74,6 @@ class Discovery {
             'issuer'                                => home_url(),
             'authorization_endpoint'                => home_url( '?easy_mcp_ai_oauth=authorize' ),
             'token_endpoint'                        => $rest_base . '/oauth/token',
-            'registration_endpoint'                 => $rest_base . '/oauth/register',
             'revocation_endpoint'                   => $rest_base . '/oauth/revoke',
             'response_types_supported'                     => array( 'code' ),
             'response_modes_supported'                     => array( 'query' ),
@@ -82,9 +81,40 @@ class Discovery {
             'code_challenge_methods_supported'             => array( 'S256' ),
             'token_endpoint_auth_methods_supported'        => array( 'none' ),
             'revocation_endpoint_auth_methods_supported'   => array( 'none' ),
-            'registration_endpoint_auth_methods_supported' => array( 'none' ),
             'scopes_supported'                             => $scopes,
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            'authorization_response_iss_parameter_supported' => true,
         );
+
+        
+        
+        
+        
+        
+        
+        
+        if ( Client_Registry::is_dcr_enabled() ) {
+            $metadata['registration_endpoint']                          = $rest_base . '/oauth/register';
+            $metadata['registration_endpoint_auth_methods_supported']   = array( 'none' );
+        }
 
         $response = new \WP_REST_Response( $metadata, 200 );
         $this->add_security_headers( $response );

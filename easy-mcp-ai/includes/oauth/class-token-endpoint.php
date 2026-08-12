@@ -124,14 +124,22 @@ class Token_Endpoint {
         }
 
         
-        if ( null !== $code_row->used_at ) {
-            $this->revoke_tokens_for_code( $code_row );
-            return $this->token_error( 'invalid_grant', __( 'Authorization code has already been used. All associated tokens have been revoked.', 'easy-mcp-ai' ) );
-        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $is_reuse = ( null !== $code_row->used_at );
 
         
+        
+        
         $now_utc = gmdate( 'Y-m-d H:i:s' );
-        if ( $code_row->expires_at < $now_utc ) {
+        if ( ! $is_reuse && $code_row->expires_at < $now_utc ) {
             return $this->token_error( 'invalid_grant', __( 'Authorization code has expired.', 'easy-mcp-ai' ) );
         }
 
@@ -169,6 +177,16 @@ class Token_Endpoint {
         $computed_challenge = self::base64url_encode( hash( 'sha256', $code_verifier, true ) );
         if ( ! hash_equals( $code_row->code_challenge, $computed_challenge ) ) {
             return $this->token_error( 'invalid_grant', __( 'PKCE verification failed.', 'easy-mcp-ai' ) );
+        }
+
+        
+        
+        
+        
+        
+        if ( $is_reuse ) {
+            $this->revoke_tokens_for_code( $code_row );
+            return $this->token_error( 'invalid_grant', __( 'Authorization code has already been used. Any tokens issued from it have been revoked.', 'easy-mcp-ai' ) );
         }
 
         
@@ -309,6 +327,20 @@ class Token_Endpoint {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     private function revoke_tokens_for_code( $code_row ) {
         global $wpdb;
         $tokens_table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
@@ -329,14 +361,8 @@ class Token_Endpoint {
         }
 
         if ( ! empty( $code_row->minted_token_id ) ) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned table write.
-            $wpdb->update(
-                $tokens_table,
-                array( 'is_active' => 0 ),
-                array( 'id' => (int) $code_row->minted_token_id ),
-                array( '%d' ),
-                array( '%d' )
-            );
+            $token_manager = new OAuth_Token_Manager();
+            $token_manager->revoke_chain( (int) $code_row->minted_token_id );
         }
     }
 
@@ -365,11 +391,44 @@ class Token_Endpoint {
 
 
 
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function wire_safe_description( $description ): string {
+        if ( ! is_scalar( $description ) ) {
+            return '';
+        }
+        
+        
+        $text = function_exists( 'remove_accents' ) ? remove_accents( (string) $description ) : (string) $description;
+        $text = preg_replace( '/[^\x20\x21\x23-\x5B\x5D-\x7E]+/', ' ', $text );
+        return trim( (string) $text );
+    }
+
     private function token_error( $error, $description, $status = 400 ) {
         $response = new \WP_REST_Response(
             array(
                 'error'             => $error,
-                'error_description' => $description,
+                'error_description' => self::wire_safe_description( $description ),
             ),
             $status
         );
@@ -486,10 +545,41 @@ class Token_Endpoint {
         return new \WP_REST_Response(
             array(
                 'error'             => 'insecure_transport',
-                'error_description' => __( 'HTTPS is required.', 'easy-mcp-ai' ),
+                'error_description' => self::insecure_transport_description(),
             ),
             403
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function insecure_transport_description(): string {
+        $proto = isset( $_SERVER['HTTP_X_FORWARDED_PROTO'] )
+            ? strtolower( trim( sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) ) )
+            : '';
+
+        if ( 'https' === $proto ) {
+            return __( 'HTTPS is required, and this request arrived over HTTPS at your proxy or CDN — but WordPress does not know that, so is_ssl() returns false. TLS is terminating in front of PHP and the forwarded protocol is not being honoured. Fix it in wp-config.php, above the "stop editing" line: if ( isset( $_SERVER["HTTP_X_FORWARDED_PROTO"] ) && $_SERVER["HTTP_X_FORWARDED_PROTO"] === "https" ) { $_SERVER["HTTPS"] = "on"; } Only add this if a proxy you trust sets that header. This also corrects WordPress core and every other plugin on the site, not just this one.', 'easy-mcp-ai' );
+        }
+
+        return __( 'HTTPS is required. This request reached PHP over plain HTTP. If your site is served over HTTPS through a proxy or CDN, WordPress is not being told — set $_SERVER["HTTPS"] from the forwarded protocol in wp-config.php. For local development over plain HTTP, define EASY_MCP_AI_OAUTH_ALLOW_HTTP as true in wp-config.php instead. Never set that on a production site.', 'easy-mcp-ai' );
     }
 
     

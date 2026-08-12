@@ -66,9 +66,21 @@ class History_Get extends Base_Tool {
             'auth_source'     => $row['auth_source'] ?? null,
             'created_at'      => $row['created_at'] ?? null,
             'truncated'       => ! empty( $row['truncated'] ),
+            
+            
+            'capture_mode'    => ( isset( $row['capture_mode'] ) && '' !== $row['capture_mode'] ) ? $row['capture_mode'] : 'hooked',
         );
         if ( $can_view_all && isset( $row['ip_address'] ) ) {
             $out['ip_address'] = $row['ip_address'];
+        }
+
+        
+        
+        
+        
+        $after_payload = is_array( $out['after_value'] ?? null ) ? $out['after_value'] : array();
+        if ( ! $out['revision_id'] && isset( $after_payload['content_capture'] ) ) {
+            $out['revision_content_unavailable'] = (string) $after_payload['content_capture'];
         }
 
         if ( $out['revision_id'] && function_exists( '\wp_get_post_revision' ) ) {
@@ -78,6 +90,16 @@ class History_Get extends Base_Tool {
             
             
             
+            
+            
+            
+            
+            
+            
+            if ( ! $rev ) {
+                $out['revision_content_unavailable'] = __( 'unavailable — the linked revision no longer exists; it was pruned by the revision limit, or removed with its parent post', 'easy-mcp-ai' );
+            }
+
             if ( $rev && isset( $rev->post_content ) ) {
                 $parent_id = isset( $rev->post_parent ) ? (int) $rev->post_parent : 0;
                 $allowed   = $can_view_all

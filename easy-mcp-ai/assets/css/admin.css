@@ -749,6 +749,29 @@ label.wp-mcp-group-toggle.is-not-installed { cursor: not-allowed; }
 .wp-mcp-admin .wp-mcp-hint-warn { background: #fcf9e8; border-color: #dba617; color: #1d2327; }
 .wp-mcp-admin .wp-mcp-hint-warn .dashicons { color: #b88f00; }
 
+/* Truncated token prefix — must not read as a copyable credential.
+   A support case was lost to this: the value looks like a token in a <code>
+   block, so it gets copied into a connection URL, and the resulting 404 is
+   indistinguishable from an auth failure. The full token exists only at
+   creation time (we store a SHA-256 hash), so nothing here is ever usable.
+   Muted, unselectable, and labelled so the ellipsis is not the only clue. */
+.wp-mcp-admin .easy-mcp-ai-token-prefix {
+    background: transparent;
+    padding: 0;
+    color: #787c82;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    cursor: default;
+}
+.wp-mcp-admin .easy-mcp-ai-token-prefix__note {
+    color: #787c82;
+    font-size: 11px;
+    font-style: italic;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
 /* Inline help tooltip (e.g. API token prefix) — instant CSS tooltip, large hit area */
 .wp-mcp-admin .wp-mcp-tip { position: relative; display: inline-block; vertical-align: middle; line-height: 0; }
 .wp-mcp-admin .wp-mcp-tip__icon {
@@ -787,3 +810,49 @@ label.wp-mcp-group-toggle.is-not-installed { cursor: not-allowed; }
 .wp-mcp-admin .wp-mcp-tip:hover .wp-mcp-tip__bubble,
 .wp-mcp-admin .wp-mcp-tip:focus .wp-mcp-tip__bubble,
 .wp-mcp-admin .wp-mcp-tip:focus-within .wp-mcp-tip__bubble { opacity: 1; visibility: visible; }
+
+/* Change History — "What is not recorded" disclosure.
+   Rendered as a popover-style card. Deliberately a <details>, not a JS modal:
+   hosts that rewrite inline <script> would otherwise leave it unreadable. */
+.emai-limits {
+    margin: 0 0 16px;
+    font-size: 13px;
+}
+.emai-limits > summary {
+    display: inline-block;
+    cursor: pointer;
+    color: #2271b1;
+    text-decoration: underline;
+    padding: 2px 0;
+}
+.emai-limits > summary:hover,
+.emai-limits > summary:focus {
+    color: #135e96;
+}
+.emai-limits[open] > summary {
+    font-weight: 600;
+}
+.emai-limits-body {
+    position: relative;
+    max-width: 720px;
+    margin-top: 8px;
+    padding: 4px 20px 12px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-left: 4px solid #72aee6;
+    border-radius: 3px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .13);
+}
+.emai-limits-body h3 {
+    margin: 14px 0 4px;
+    font-size: 13px;
+    color: #1d2327;
+}
+.emai-limits-body ul {
+    margin: 0 0 4px 18px;
+    list-style: disc;
+}
+.emai-limits-body li {
+    margin: 3px 0;
+    color: #50575e;
+}

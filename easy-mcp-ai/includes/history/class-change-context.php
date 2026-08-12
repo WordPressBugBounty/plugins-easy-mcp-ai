@@ -30,4 +30,87 @@ class Change_Context {
         self::$data   = array();
         self::$active = false;
     }
+
+    
+
+
+
+
+
+
+
+
+    public static function note_recorded_fields( $type, $id, array $fields = array() ) {
+        if ( ! self::$active ) {
+            return;
+        }
+        $key = (string) $type . ':' . (string) $id;
+        $cur = self::$data['_recorded_fields'][ $key ] ?? array();
+        
+        
+        
+        
+        self::$data['_recorded_fields'][ $key ] = array_values( array_unique( array_merge( $cur, array_map( 'strval', $fields ) ) ) );
+    }
+
+    
+
+
+
+    public static function object_was_recorded( $type, $id ) {
+        return isset( self::$data['_recorded_fields'][ (string) $type . ':' . (string) $id ] );
+    }
+
+    
+    public static function recorded_fields( $type, $id ) {
+        return self::$data['_recorded_fields'][ (string) $type . ':' . (string) $id ] ?? array();
+    }
+
+    
+
+
+
+
+    public static function increment_rows_written() {
+        if ( ! self::$active ) {
+            return;
+        }
+        self::$data['_rows_written'] = self::rows_written() + 1;
+    }
+
+    public static function rows_written() {
+        return (int) ( self::$data['_rows_written'] ?? 0 );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function note_prior_roles( $user_id, array $roles ) {
+        if ( ! self::$active ) {
+            return;
+        }
+        self::$data['_prior_roles'][ (int) $user_id ] = array_values( $roles );
+    }
+
+    
+    public static function prior_roles( $user_id ) {
+        return self::$data['_prior_roles'][ (int) $user_id ] ?? null;
+    }
 }

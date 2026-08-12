@@ -32,7 +32,7 @@ class History_List extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'object_type'     => array( 'type' => 'string', 'description' => 'post|term|user|option|comment|meta|wc_product|wc_order|bp_activity' ),
+                'object_type'     => array( 'type' => 'string', 'description' => 'Filter by object type. Core content: post, term, user, comment, option. Custom fields: meta (post meta), term_meta, user_meta, comment_meta. Network settings: site_option. WooCommerce: wc_product, wc_order. BuddyPress: bp_activity. Raw database capture: db_row (full before/after) and db_sql (statement only). Remote services: external. Free-form string rather than an enum, so a type added in a later release does not break existing callers.' ),
                 'object_id'       => array( 'type' => 'string' ),
                 'tool_name'       => array( 'type' => 'string' ),
                 'wp_user_id'      => array( 'type' => 'integer', 'description' => 'Filter by originating user ID. Non-admin callers cannot filter by another user\'s ID — this is silently overridden with their own user ID.' ),
@@ -96,7 +96,7 @@ class History_List extends Base_Tool {
         
         
         
-        $list_columns = 'id, audit_id, tool_name, action, object_type, object_id, object_subtype, changed_fields, revision_id, wp_user_id, oauth_client_id, auth_source, created_at, truncated, ip_address';
+        $list_columns = \Easy_MCP_AI\History\Change_Log_Repository::list_columns();
         $rows = ( new Change_Log_Repository() )->query(
             array_merge( $filters, (array) $extra_filters, $self_scope ),
             $limit,
@@ -121,6 +121,11 @@ class History_List extends Base_Tool {
                 'auth_source'     => $r['auth_source'] ?? null,
                 'created_at'      => $r['created_at'] ?? null,
                 'truncated'       => ! empty( $r['truncated'] ),
+                
+                
+                
+                
+                'capture_mode'    => ( isset( $r['capture_mode'] ) && '' !== $r['capture_mode'] ) ? $r['capture_mode'] : 'hooked',
             );
             if ( $can_view_all && isset( $r['ip_address'] ) ) {
                 $item['ip_address'] = $r['ip_address'];

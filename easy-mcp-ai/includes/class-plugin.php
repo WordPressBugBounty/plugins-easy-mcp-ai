@@ -19,6 +19,25 @@ class Plugin {
 
     const CLEANUP_MAX_ITERATIONS = 20;
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    const DEFAULT_OAUTH_CLIENT_RETENTION = 7;
+
     private static $instance = null;
     private $server;
     private $token_manager;
@@ -106,6 +125,8 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-context.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-recorder.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-db-interceptor.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-external-intent.php';
     }
 
     
@@ -200,12 +221,71 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integration-registry.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integrations-page.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-history-settings-page.php';
         new Admin\Admin_Page( $this->token_manager, $this->tool_registry );
         new Admin\Abilities_Page();
         new Admin\External_Data_Admin();
+        ( new Admin\History_Settings_Page() )->register();
+        $this->register_diagnostics();
         if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-oauth-admin.php';
             new Admin\OAuth_Admin();
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function register_diagnostics() {
+        $dir = EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/';
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        require_once $dir . 'class-diagnostic-result.php';
+        require_once $dir . 'class-diagnostics.php';
+        require_once $dir . 'class-check-notices.php';
+        require_once $dir . 'class-diagnostics-notices.php';
+        require_once $dir . 'class-diagnostics-site-health.php';
+
+        
+        
+        
+        Diagnostics\Diagnostics::register_core_checks( $this->tool_registry );
+        Diagnostics\Diagnostics_Notices::register();
+        Diagnostics\Diagnostics_Site_Health::register();
+
+        
+        
+        
+        
+        
+        Diagnostics\Diagnostics::register_invalidation();
+
+        
+        
+        
+        if ( $this->is_plugin_admin_screen() ) {
+            \add_action( 'admin_init', array( Diagnostics\Diagnostics::class, 'maybe_run' ) );
         }
     }
 
@@ -263,6 +343,20 @@ class Plugin {
         $is_protected_resource = ( '/.well-known/oauth-protected-resource' === $request_uri );
         $is_auth_server        = ( '/.well-known/oauth-authorization-server' === $request_uri
                                 || '/.well-known/openid-configuration' === $request_uri );
+
+        
+        
+        
+        if ( ! $is_protected_resource && ! $is_auth_server ) {
+            $is_protected_resource = $this->is_path_inserted_resource_metadata( $request_uri_raw, $home_path );
+        }
+
+        
+        
+        if ( ! $is_protected_resource && ! $is_auth_server ) {
+            $is_auth_server = $this->is_path_inserted_auth_server_metadata( $request_uri_raw, $home_path );
+        }
+
         if ( ! $is_protected_resource && ! $is_auth_server ) {
             return;
         }
@@ -288,6 +382,11 @@ class Plugin {
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-token-endpoint.php';
+        
+        
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
         $discovery = new OAuth\Discovery();
         $rest_req  = new \WP_REST_Request( 'GET' );
@@ -317,6 +416,25 @@ class Plugin {
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         while ( ob_get_level() > 0 ) {
             if ( ! ob_end_clean() ) {
                 break;
@@ -335,6 +453,125 @@ class Plugin {
         }
         echo \wp_json_encode( $body ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded.
         exit;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function is_path_inserted_resource_metadata( $request_uri_raw, $home_path ) {
+        $path = \wp_parse_url( $request_uri_raw, PHP_URL_PATH );
+        if ( ! is_string( $path ) || '' === $path ) {
+            return false;
+        }
+        
+        
+        $path = rtrim( $path, '/' );
+
+        
+        
+        
+        
+        
+        
+        $resource_path = \wp_parse_url(
+            \rest_url( 'easy-mcp-ai/v1/mcp' ),
+            PHP_URL_PATH
+        );
+        if ( ! is_string( $resource_path ) || '' === $resource_path ) {
+            return false;
+        }
+        $resource_path = '/' . ltrim( rtrim( $resource_path, '/' ), '/' );
+
+        $canonical = '/.well-known/oauth-protected-resource' . $resource_path;
+        if ( $path === $canonical ) {
+            return true;
+        }
+
+        
+        
+        if ( '' !== $home_path && $path === '/' . $home_path . $canonical ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function is_path_inserted_auth_server_metadata( $request_uri_raw, $home_path ) {
+        $home_path = trim( (string) $home_path, '/' );
+        if ( '' === $home_path ) {
+            return false;
+        }
+
+        $path = \wp_parse_url( $request_uri_raw, PHP_URL_PATH );
+        if ( ! is_string( $path ) || '' === $path ) {
+            return false;
+        }
+        $path = rtrim( $path, '/' );
+
+        foreach ( array( '/.well-known/oauth-authorization-server', '/.well-known/openid-configuration' ) as $suffix ) {
+            if ( $path === $suffix . '/' . $home_path ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     
@@ -522,9 +759,33 @@ class Plugin {
         
         
         if ( \get_option( 'easy_mcp_ai_change_log_enabled', true ) ) {
-            ( new \Easy_MCP_AI\History\Change_Recorder(
+            $change_recorder = new \Easy_MCP_AI\History\Change_Recorder(
                 new \Easy_MCP_AI\History\Change_Log_Repository()
-            ) )->register();
+            );
+            $change_recorder->register();
+
+            
+            
+            
+            \add_action( 'easy_mcp_ai_change_context_disarming', array( $change_recorder, 'reassert_hooks' ), 5 );
+
+            
+            
+            if ( \get_option( 'easy_mcp_ai_change_log_capture_db', false ) ) {
+                $db_interceptor = new \Easy_MCP_AI\History\Change_DB_Interceptor(
+                    new \Easy_MCP_AI\History\Change_Log_Repository()
+                );
+                \add_action( 'easy_mcp_ai_change_context_armed', array( $db_interceptor, 'arm' ) );
+                \add_action( 'easy_mcp_ai_change_context_disarming', array( $db_interceptor, 'disarm' ), 20 );
+            }
+
+            
+            
+            if ( \get_option( 'easy_mcp_ai_change_log_external_intent', true ) ) {
+                ( new \Easy_MCP_AI\History\Change_External_Intent(
+                    new \Easy_MCP_AI\History\Change_Log_Repository()
+                ) )->register();
+            }
         }
 
         $transport = new MCP\Transport( $this->server, $this->token_manager );
@@ -687,13 +948,24 @@ class Plugin {
 
 
 
+
+
+
+
+
+
+
+
+
     public function cleanup_oauth_storage() {
         if ( ! \wp_doing_cron() ) {
             return;
         }
         global $wpdb;
-        $codes_table  = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
-        $tokens_table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
+        $codes_table    = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
+        $tokens_table   = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
+        $clients_table  = $wpdb->prefix . 'easy_mcp_ai_oauth_clients';
+        $consents_table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
 
         $i = 0;
         do {
@@ -712,6 +984,64 @@ class Plugin {
             );
             // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
         } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
+
+        $client_retention = self::oauth_client_retention_days();
+        if ( $client_retention < 1 ) {
+            return; 
+        }
+
+        $i = 0;
+        do {
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix. Retention days is bound via prepare().
+            $deleted = $wpdb->query(
+                $wpdb->prepare(
+                    "DELETE FROM `{$clients_table}`
+                     WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)
+                       AND NOT EXISTS (SELECT 1 FROM `{$tokens_table}` t   WHERE t.client_id = `{$clients_table}`.client_id)
+                       AND NOT EXISTS (SELECT 1 FROM `{$consents_table}` s WHERE s.client_id = `{$clients_table}`.client_id)
+                       AND NOT EXISTS (SELECT 1 FROM `{$codes_table}` k    WHERE k.client_id = `{$clients_table}`.client_id)
+                     LIMIT 500",
+                    $client_retention
+                )
+            );
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function oauth_client_retention_days() {
+        $stored = \get_option( 'easy_mcp_ai_oauth_client_retention', self::DEFAULT_OAUTH_CLIENT_RETENTION );
+        if ( ! is_numeric( $stored ) ) {
+            $days = self::DEFAULT_OAUTH_CLIENT_RETENTION;
+        } else {
+            $days = (int) $stored;
+        }
+        if ( $days < 0 ) {
+            $days = self::DEFAULT_OAUTH_CLIENT_RETENTION;
+        }
+        if ( $days > 3650 ) {
+            $days = 3650;
+        }
+
+        
+
+
+
+
+        $days = (int) \apply_filters( 'easy_mcp_ai_oauth_client_retention', $days );
+
+        return ( $days < 0 ) ? 0 : $days;
     }
 
     public function cleanup_new_token_meta() {
@@ -719,6 +1049,56 @@ class Plugin {
             return;
         }
         global $wpdb;
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $draft_cutoff = time() - DAY_IN_SECONDS;
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- direct DB required for batched usermeta cleanup.
+        $drafts = $wpdb->get_results( $wpdb->prepare(
+            "SELECT umeta_id, meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s LIMIT 500",
+            '_easy_mcp_ai_token_form_draft'
+        ), ARRAY_A );
+        if ( $drafts ) {
+            $expired = array();
+            foreach ( $drafts as $row ) {
+                $val = \maybe_unserialize( $row['meta_value'] );
+                $at  = is_array( $val ) && isset( $val['saved_at'] ) ? (int) $val['saved_at'] : 0;
+                if ( $at < $draft_cutoff ) {
+                    $expired[] = (int) $row['umeta_id'];
+                }
+            }
+            if ( $expired ) {
+                
+                
+                
+                
+                
+                
+                $placeholders = implode( ',', array_fill( 0, count( $expired ), '%d' ) );
+                $wpdb->query(
+                    $wpdb->prepare(
+                        
+                        
+                        
+                        
+                        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- $placeholders is a generated list of %d and $wpdb->usermeta is a core table name; neither is input.
+                        "DELETE FROM {$wpdb->usermeta} WHERE umeta_id IN ({$placeholders})",
+                        $expired
+                    )
+                );
+            }
+        }
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $cutoff = time() - DAY_IN_SECONDS;
         $i = 0;
         do {
@@ -752,15 +1132,49 @@ class Plugin {
 
 
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function change_log_retention_days() {
+        $stored = \get_option( 'easy_mcp_ai_change_log_retention', 30 );
+        if ( ! is_numeric( $stored ) ) {
+            return 30;
+        }
+        $days = (int) $stored;
+        return $days < 0 ? 30 : $days;
+    }
+
     public static function cleanup_change_log() {
         if ( ! \wp_doing_cron() ) {
             return;
         }
-        $retention = (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 );
-        if ( $retention <= 0 ) {
-            return;
-        }
-        $cutoff = \gmdate( 'Y-m-d H:i:s', time() - ( $retention * DAY_IN_SECONDS ) );
+        $retention = self::change_log_retention_days();
+        
+        
+        
+        
+        
+        
+        
+        
 
         if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Log_Repository' ) ) {
             $f = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
@@ -770,10 +1184,47 @@ class Plugin {
             require_once $f;
         }
         $repo = new \Easy_MCP_AI\History\Change_Log_Repository();
-        for ( $i = 0; $i < self::CLEANUP_MAX_ITERATIONS; $i++ ) {
-            $n = $repo->delete_older_than( $cutoff, 500 );
-            if ( $n < 500 ) {
-                break;
+
+        
+        
+        
+        $budget = self::CLEANUP_MAX_ITERATIONS;
+
+        
+        
+        
+        
+        
+        
+        
+        
+        $stored_db_retention = \get_option( 'easy_mcp_ai_change_log_db_retention', 7 );
+        $db_retention        = is_numeric( $stored_db_retention ) ? (int) $stored_db_retention : 7;
+        if ( $db_retention < 0 ) {
+            $db_retention = 7;
+        }
+        if ( $db_retention > 0 ) {
+            $db_cutoff = \gmdate( 'Y-m-d H:i:s', time() - ( $db_retention * DAY_IN_SECONDS ) );
+            while ( $budget > 0 ) {
+                $budget--;
+                $n = $repo->delete_db_rows_older_than( $db_cutoff, 500 );
+                if ( $n < 500 ) {
+                    break;
+                }
+            }
+        }
+
+        
+        
+        
+        if ( $retention > 0 ) {
+            $cutoff = \gmdate( 'Y-m-d H:i:s', time() - ( $retention * DAY_IN_SECONDS ) );
+            while ( $budget > 0 ) {
+                $budget--;
+                $n = $repo->delete_older_than( $cutoff, 500 );
+                if ( $n < 500 ) {
+                    break;
+                }
             }
         }
     }

@@ -92,12 +92,18 @@ class Plugin_Integrations_Page {
         $all_plugin_tool_names = Plugin_Integration_Registry::get_all_tool_names();
         $global_disabled       = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
         $non_plugin            = array_values( array_diff( $global_disabled, $all_plugin_tool_names ) );
-        $disabled_gsc_tools    = (array) \get_option( 'easy_mcp_ai_disabled_gsc_tools', array() );
-        $disabled_ga_tools     = (array) \get_option( 'easy_mcp_ai_disabled_ga_tools', array() );
-        $disabled_dfs_tools    = (array) \get_option( 'easy_mcp_ai_disabled_dfs_tools', array() );
-        $disabled_semrush_tools = (array) \get_option( 'easy_mcp_ai_disabled_semrush_tools', array() );
-        $disabled_ahrefs_tools  = (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() );
-        \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_unique( array_merge( $non_plugin, $disabled_plugin_tools, $disabled_gsc_tools, $disabled_ga_tools, $disabled_dfs_tools, $disabled_semrush_tools, $disabled_ahrefs_tools ) ) ) );
+        
+        
+        
+        
+        
+        
+        \update_option(
+            'easy_mcp_ai_disabled_tools',
+            \Easy_MCP_AI\Admin\External_Data_Admin::merge_disabled_tool_buckets(
+                array_merge( $non_plugin, $disabled_plugin_tools )
+            )
+        );
 
         \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-plugin-integrations&message=saved' ) );
         exit;

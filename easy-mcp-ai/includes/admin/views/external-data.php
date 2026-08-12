@@ -41,8 +41,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <?php if ( ! empty( $weak_salts ) ) : ?>
         <div class="notice notice-warning">
             <p>
-                <strong><?php esc_html_e( 'DataforSEO credentials cannot be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></strong>
-                <?php esc_html_e( 'Credential encryption requires unique SECURE_AUTH_KEY and SECURE_AUTH_SALT values in wp-config.php.', 'easy-mcp-ai' ); ?>
+                <strong><?php esc_html_e( 'External Data credentials cannot be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></strong>
+                <?php esc_html_e( 'This affects every provider on this page (Search Console, Analytics, DataforSEO, Semrush, SE Ranking) — credential encryption requires unique SECURE_AUTH_KEY and SECURE_AUTH_SALT values in wp-config.php.', 'easy-mcp-ai' ); ?>
             </p>
             <p>
                 <?php esc_html_e( 'Fix options:', 'easy-mcp-ai' ); ?>
@@ -108,10 +108,29 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Search Console cache cleared. The next tool call will fetch fresh data from Google.', 'easy-mcp-ai' ); ?></p></div>
     <?php endif; ?>
 
+
+    <?php
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ?>
     <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
         <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
         <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
-
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('semrush-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -185,7 +204,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </tr>
             </table>
 
-            <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'save_semrush', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_semrush_credentials ) : ?>
                 <script>
@@ -274,7 +294,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </p>
             </div><!-- /semrush-section-body -->
         </div>
+    </form>
 
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
+        <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('seranking-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -334,7 +358,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </tr>
             </table>
 
-            <?php submit_button( __( 'Save SE Ranking Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save SE Ranking Settings', 'easy-mcp-ai' ), 'primary', 'save_seranking', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_seranking_credentials ) : ?>
                 <script>
@@ -423,7 +448,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </p>
             </div><!-- /seranking-section-body -->
         </div>
+    </form>
 
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
+        <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('dfs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -551,7 +580,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 <?php esc_html_e( 'Affiliate disclosure: links marked with an asterisk include a referral code. If you sign up to DataforSEO through one of these links we may receive a small commission, at no additional cost to you. These commissions help fund the ongoing development and maintenance of Easy MCP AI, which is free to use.', 'easy-mcp-ai' ); ?>
             </p>
 
-            <?php submit_button( __( 'Save DataforSEO Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save DataforSEO Settings', 'easy-mcp-ai' ), 'primary', 'save_dfs', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_dfs_credentials ) : ?>
                 <script>
@@ -646,7 +676,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </div>
             </div><!-- /dfs-section-body -->
         </div>
+    </form>
 
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
+        <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ahrefs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -691,10 +725,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 <p style="color:#646970; margin:.75em 0 0; font-size:.85em;"><?php esc_html_e( 'Tick the box above, then Save to activate. Untick and Save to turn it off again.', 'easy-mcp-ai' ); ?></p>
             </div>
 
-            <?php submit_button( __( 'Save Ahrefs Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save Ahrefs Settings', 'easy-mcp-ai' ), 'primary', 'save_ahrefs', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
             </div><!-- /ahrefs-section-body -->
         </div>
+    </form>
 
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
+        <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('gsc-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -781,7 +820,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </tr>
             </table>
 
-            <?php submit_button( __( 'Save Search Console Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save Search Console Settings', 'easy-mcp-ai' ), 'primary', 'save_gsc', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_json ) : ?>
                 <script>
@@ -847,7 +887,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </div>
             </div><!-- /gsc-section-body -->
         </div>
+    </form>
 
+    <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_save_external_data">
+        <?php wp_nonce_field( 'easy_mcp_ai_external_data' ); ?>
         <div style="margin-top:1.5em; border:1px solid #c3c4c7; border-radius:4px; padding:1em 1.5em; background:#fff;">
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ga-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
@@ -939,7 +983,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                 </tr>
             </table>
 
-            <?php submit_button( __( 'Save Google Analytics Settings', 'easy-mcp-ai' ), 'primary', 'submit', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <?php submit_button( __( 'Save Google Analytics Settings', 'easy-mcp-ai' ), 'primary', 'save_ga', false, array( 'style' => 'margin-top:1em;' ) ); ?>
+            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_ga_json ) : ?>
                 <script>
@@ -1005,6 +1050,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </div>
             </div><!-- /ga-section-body -->
         </div>
+    </form>
 
         <?php if ( 'semrush_invalid_key' === $message ) : ?>
             <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- template partial, include-scoped. ?>
@@ -1021,7 +1067,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </div>
             <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
         <?php endif; ?>
-    </form>
 
     <?php if ( $has_json ) : ?>
     <form id="gsc-remove-key-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

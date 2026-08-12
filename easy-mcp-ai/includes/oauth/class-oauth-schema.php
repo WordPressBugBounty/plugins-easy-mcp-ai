@@ -22,7 +22,19 @@ class OAuth_Schema {
 
 
 
-    const DB_VERSION = '1.0.5';
+
+
+
+
+
+
+
+
+
+
+
+
+    const DB_VERSION = '1.0.6';
     const VERSION_OPTION = 'easy_mcp_ai_oauth_db_version';
 
     
@@ -73,7 +85,8 @@ class OAuth_Schema {
             minted_token_id BIGINT UNSIGNED DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY code_hash (code_hash),
-            KEY expires_at_idx (expires_at)
+            KEY expires_at_idx (expires_at),
+            KEY client_id_idx (client_id)
         ) {$charset_collate};";
 
         $tokens_table = $prefix . 'access_tokens';
@@ -108,7 +121,8 @@ class OAuth_Schema {
             granted_at DATETIME NOT NULL,
             updated_at DATETIME DEFAULT NULL,
             PRIMARY KEY  (id),
-            UNIQUE KEY user_client_idx (wp_user_id, client_id)
+            UNIQUE KEY user_client_idx (wp_user_id, client_id),
+            KEY client_id_idx (client_id)
         ) {$charset_collate};";
 
         dbDelta( $sql_clients );
@@ -135,7 +149,63 @@ class OAuth_Schema {
             }
         }
 
+        
+        
+        
+        
+        
+        
+        
+        
+        foreach ( self::REQUIRED_INDEXES as $table_suffix => $index_names ) {
+            foreach ( $index_names as $index_name ) {
+                if ( ! self::index_exists( $prefix . $table_suffix, $index_name ) ) {
+                    return;
+                }
+            }
+        }
+
         update_option( self::VERSION_OPTION, self::DB_VERSION );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    const REQUIRED_INDEXES = array(
+        'codes'    => array( 'client_id_idx' ), 
+        'consents' => array( 'client_id_idx' ), 
+    );
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function index_exists( $table, $index_name ) {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return true;
+        }
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; name is $wpdb->prefix-derived, index name is a class constant. SHOW INDEX cannot take a placeholder for the table.
+        $found = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $index_name ) );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        return ! empty( $found );
     }
 
     

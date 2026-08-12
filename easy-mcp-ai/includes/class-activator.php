@@ -175,6 +175,23 @@ class Activator {
             return;
         }
         require_once $schema_file;
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
         \Easy_MCP_AI\History\Change_Log_Schema::create_tables();
 
         

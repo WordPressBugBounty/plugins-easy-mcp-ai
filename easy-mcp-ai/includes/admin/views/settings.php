@@ -254,6 +254,8 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
                     <input type="number" id="change_log_retention" name="change_log_retention" min="1" max="3650"
                         value="<?php echo esc_attr( $settings['change_log_retention'] ); ?>" class="small-text">
                     <p class="description"><?php esc_html_e( 'Older change-history rows are pruned daily by cron.', 'easy-mcp-ai' ); ?></p>
+                    <?php ?>
+                    <p><?php echo wp_kses_post( \Easy_MCP_AI\Admin\History_Settings_Page::settings_link_html() ); ?></p>
                 </td>
             </tr>
 
