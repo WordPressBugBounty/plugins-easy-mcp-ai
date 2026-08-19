@@ -148,9 +148,24 @@ class Diagnostics_Site_Health {
         if ( empty( $problems ) ) {
             $description = '<p>' . \esc_html__( 'No problems found in this area.', 'easy-mcp-ai' ) . '</p>';
         } else {
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
             $description = '<ul>';
             foreach ( $problems as $problem ) {
-                $description .= '<li><strong>' . \esc_html( $problem->label() ) . '</strong> — '
+                $description .= '<li>' . $problem->problem_badge_html()
+                    . '<strong>' . \esc_html( $problem->label() ) . '</strong> — '
                     . \esc_html( $problem->detail() );
                 if ( '' !== $problem->fix() ) {
                     $description .= ' <em>' . \esc_html( $problem->fix() ) . '</em>';

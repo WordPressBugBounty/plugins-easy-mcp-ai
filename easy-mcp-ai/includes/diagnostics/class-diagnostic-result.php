@@ -130,6 +130,52 @@ class Diagnostic_Result {
 
     
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function problem_badge_html() {
+        if ( self::STATUS_FAIL === $this->status ) {
+            $symbol = "\u{26D4}";
+            $text   = \__( 'Failed', 'easy-mcp-ai' );
+            $color  = '#b32d2e';
+        } elseif ( self::STATUS_WARN === $this->status ) {
+            $symbol = "\u{26A0}";
+            $text   = \__( 'Warning', 'easy-mcp-ai' );
+            $color  = '#996800';
+        } else {
+            return '';
+        }
+
+        return '<span style="color:' . \esc_attr( $color ) . ';font-weight:600;white-space:nowrap;">'
+            . \esc_html( $symbol . ' ' . $text )
+            . '</span> ';
+    }
+
+    
+
     public function to_array() {
         return array(
             'id'       => $this->id,

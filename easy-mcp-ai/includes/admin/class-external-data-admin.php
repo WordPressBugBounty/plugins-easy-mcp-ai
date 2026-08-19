@@ -6,6 +6,7 @@ use Easy_MCP_AI\GA\GA_Client;
 use Easy_MCP_AI\DFS\DataforSEO_Client;
 use Easy_MCP_AI\Semrush\Semrush_Client;
 use Easy_MCP_AI\SeRanking\SeRanking_Client;
+use Easy_MCP_AI\Ahrefs\Ahrefs_Client;
 use Easy_MCP_AI\Tools\Tool_Registry;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -159,6 +160,8 @@ class External_Data_Admin {
         \add_action( 'admin_post_easy_mcp_ai_clear_ga_cache',   array( $this, 'handle_clear_ga_cache' ) );
         \add_action( 'admin_post_easy_mcp_ai_clear_gsc_cache',  array( $this, 'handle_clear_gsc_cache' ) );
         \add_action( 'admin_post_easy_mcp_ai_remove_semrush_key',     array( $this, 'handle_remove_semrush_key' ) );
+        \add_action( 'admin_post_easy_mcp_ai_remove_ahrefs_key',      array( $this, 'handle_remove_ahrefs_key' ) );
+        \add_action( 'wp_ajax_easy_mcp_ai_ahrefs_test',              array( $this, 'handle_test_ahrefs_connection' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_semrush_test',              array( $this, 'handle_test_semrush_connection' ) );
         \add_action( 'wp_ajax_easy_mcp_ai_semrush_refresh_balance',   array( $this, 'handle_refresh_semrush_balance' ) );
         \add_action( 'admin_post_easy_mcp_ai_remove_seranking_key',     array( $this, 'handle_remove_seranking_key' ) );
@@ -297,6 +300,31 @@ class External_Data_Admin {
         \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_diff( $global_disabled, $all_semrush_names ) ) );
 
         \wp_safe_redirect( \add_query_arg( 'message', 'semrush_removed', \admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) );
+        exit;
+    }
+
+    
+
+
+
+
+
+
+    public function handle_remove_ahrefs_key(): void {
+        if ( ! \current_user_can( 'manage_options' ) ) {
+            \wp_die( 'Unauthorized' );
+        }
+        \check_admin_referer( 'easy_mcp_ai_remove_ahrefs_key' );
+
+        \delete_option( Ahrefs_Client::OPTION_API_KEY );
+        \delete_option( 'easy_mcp_ai_disabled_ahrefs_tools' );
+        \update_option( 'easy_mcp_ai_ahrefs_enabled', false );
+
+        $all_ahrefs_names = array_keys( self::get_ahrefs_tools() );
+        $global_disabled  = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
+        \update_option( 'easy_mcp_ai_disabled_tools', array_values( array_diff( $global_disabled, $all_ahrefs_names ) ) );
+
+        \wp_safe_redirect( \add_query_arg( 'message', 'ahrefs_removed', \admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) );
         exit;
     }
 
@@ -545,6 +573,18 @@ class External_Data_Admin {
         }
     }
 
+    public function handle_test_ahrefs_connection(): void {
+        if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_ahrefs_test', 'nonce', false ) ) {
+            \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
+        }
+        try {
+            ( new Ahrefs_Client() )->verify_key();
+            \wp_send_json_success( array( 'message' => 'Connected. Ahrefs accepted the key.' ) );
+        } catch ( \RuntimeException $e ) {
+            \wp_send_json_error( array( 'message' => $e->getMessage() ) );
+        }
+    }
+
     public function handle_refresh_dfs_balance(): void {
         if ( ! \current_user_can( 'manage_options' ) || ! \check_ajax_referer( 'easy_mcp_ai_dfs_refresh_balance', 'nonce', false ) ) {
             \wp_send_json_error( array( 'message' => 'Unauthorized' ), 403 );
@@ -729,6 +769,23 @@ class External_Data_Admin {
         $ahrefs_tools            = self::get_ahrefs_tools();
         $ahrefs_disabled_tools   = (array) \get_option( 'easy_mcp_ai_disabled_ahrefs_tools', array() );
         $ahrefs_enabled          = (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
+        
+        
+        
+        $ahrefs_key_set          = Ahrefs_Client::has_api_key();
+        
+        
+        $ahrefs_api_key_masked   = '';
+        if ( $ahrefs_key_set ) {
+            try {
+                $decrypted = Ahrefs_Client::decrypt( \get_option( Ahrefs_Client::OPTION_API_KEY, '' ) );
+                if ( false !== $decrypted && '' !== $decrypted ) {
+                    $ahrefs_api_key_masked = mb_substr( $decrypted, 0, 3 ) . '***';
+                }
+            } catch ( \RuntimeException $e ) {
+                
+            }
+        }
         $semrush_balance         = null;
         if ( $has_semrush_credentials ) {
             try {
@@ -1071,11 +1128,94 @@ class External_Data_Admin {
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- trimmed only; sanitize_text_field would mangle a high-entropy API key.
+        $ahrefs_key_raw = trim( (string) \wp_unslash( $_POST['ahrefs_api_key'] ?? '' ) );
+
+        
+        
+        
+        
+        $ahrefs_key_before = (string) \get_option( Ahrefs_Client::OPTION_API_KEY, '' );
+        $ahrefs_had_key    = '' !== $ahrefs_key_before;
+
+        if ( 'ahrefs' === $clicked_section && '' !== $ahrefs_key_raw ) {
+            try {
+                \update_option( Ahrefs_Client::OPTION_API_KEY, Ahrefs_Client::encrypt( $ahrefs_key_raw ), false );
+            } catch ( \RuntimeException $e ) {
+                \wp_safe_redirect( \add_query_arg( 'message', 'ahrefs_weak_salts', $redirect_base ) );
+                exit;
+            }
+            
+            
+            
+            try {
+                ( new Ahrefs_Client() )->verify_key();
+            } catch ( \RuntimeException $e ) {
+                
+                
+                
+                
+                
+                
+                
+                if ( $ahrefs_had_key ) {
+                    \update_option( Ahrefs_Client::OPTION_API_KEY, $ahrefs_key_before, false );
+                } else {
+                    \delete_option( Ahrefs_Client::OPTION_API_KEY );
+                    
+                    
+                    
+                    
+                    
+                    
+                    \update_option( 'easy_mcp_ai_ahrefs_enabled', false );
+                }
+                \wp_safe_redirect( \add_query_arg( array( 'message' => 'ahrefs_invalid_key', 'error' => rawurlencode( $e->getMessage() ) ), $redirect_base ) );
+                exit;
+            }
+        }
+
+        
+        
+        
+        
         $ahrefs_tools     = self::get_ahrefs_tools();
         $all_ahrefs_names = array_keys( $ahrefs_tools );
-        $checked_ahrefs   = isset( $_POST['ahrefs_enabled_tools'] )
-            ? array_map( '\sanitize_key', (array) \wp_unslash( $_POST['ahrefs_enabled_tools'] ) ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-            : array();
+        if ( isset( $_POST['ahrefs_enabled_tools'] ) ) {
+            $checked_ahrefs = array_map( '\sanitize_key', (array) \wp_unslash( $_POST['ahrefs_enabled_tools'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        } elseif ( 'ahrefs' === $clicked_section && '' !== $ahrefs_key_raw && ! $ahrefs_had_key ) {
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            $checked_ahrefs = $all_ahrefs_names;
+        } else {
+            $checked_ahrefs = array();
+        }
         if ( 'ahrefs' === $clicked_section ) {
             $disabled_ahrefs = self::compute_disabled_tools( $all_ahrefs_names, $checked_ahrefs );
             \update_option( 'easy_mcp_ai_disabled_ahrefs_tools', $disabled_ahrefs );

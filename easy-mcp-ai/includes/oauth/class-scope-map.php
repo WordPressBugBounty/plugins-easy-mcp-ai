@@ -209,8 +209,11 @@ class Scope_Map {
         }
         
         
+        
+        
         if ( 'ahrefs' === $slug ) {
-            return (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
+            return ! empty( \get_option( 'easy_mcp_ai_ahrefs_api_key', '' ) )
+                && (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
         }
         if ( 'seranking' === $slug ) {
             return ! empty( \get_option( 'easy_mcp_ai_seranking_api_key', '' ) );

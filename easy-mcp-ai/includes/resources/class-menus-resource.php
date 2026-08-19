@@ -47,7 +47,15 @@ class Menus_Resource extends Base_Resource {
 
         return array(
             'menus'                => $menu_list,
-            'registered_locations' => is_array( $locations ) ? $locations : array(),
+            
+            
+            
+            
+            
+            
+            
+            
+            'registered_locations' => (object) ( is_array( $locations ) ? $locations : array() ),
         );
     }
 }

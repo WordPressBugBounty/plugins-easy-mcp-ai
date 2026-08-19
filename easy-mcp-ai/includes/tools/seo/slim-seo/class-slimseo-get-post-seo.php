@@ -18,7 +18,7 @@ class Slimseo_Get_Post_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets the Slim SEO metadata for a post or page (title, description, facebook_image, twitter_image, canonical, noindex) via the WordPress core REST API.';
+		return 'Gets the Slim SEO metadata for a post or page via the WordPress core REST API. Returns { post_id, slim_seo } where `slim_seo` is Slim SEO\'s stored meta verbatim. Slim SEO stores SPARSELY — only keys that have been set are present, so a post with no SEO data returns an empty object rather than a fixed shape. Possible keys: title, description, facebook_image, twitter_image, canonical, noindex.';
 	}
 
 	public function get_category() {

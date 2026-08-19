@@ -62,7 +62,7 @@ class History_Settings_Page {
     public function register_menu() {
         
         
-        \add_submenu_page(
+        $hook = \add_submenu_page(
             '',
             \__( 'Change History Capture Settings', 'easy-mcp-ai' ),
             \__( 'Change History Capture Settings', 'easy-mcp-ai' ),
@@ -70,6 +70,38 @@ class History_Settings_Page {
             self::PAGE_SLUG,
             array( $this, 'render' )
         );
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( $hook ) {
+            \add_action(
+                'load-' . $hook,
+                static function () {
+                    global $title;
+                    
+                    
+                    if ( null === $title || '' === $title ) {
+                        $title = \__( 'Change History Capture Settings', 'easy-mcp-ai' );
+                    }
+                }
+            );
+        }
     }
 
     

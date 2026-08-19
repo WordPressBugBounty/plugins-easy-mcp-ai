@@ -20,6 +20,14 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             <p style="margin:.5em 0 0; color:#50575e; font-size:.9em;"><?php esc_html_e( 'Please check your API key and try again.', 'easy-mcp-ai' ); ?></p>
         </div>
         <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
+    <?php elseif ( 'ahrefs_invalid_key' === $message ) : ?>
+        <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- template partial, $err is include-scoped not global. ?>
+        <?php $err = sanitize_text_field( wp_unslash( $_GET['error'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display of redirect param set by the save handler, no form processing. ?>
+        <div style="margin:1em 0; padding:1em 1.5em; background:#fef7f7; border-left:4px solid #d63638; border-radius:2px;">
+            <p style="margin:0; font-size:1em;"><strong style="color:#d63638;"><?php esc_html_e( '⚠ Ahrefs API key is invalid — the key was not saved.', 'easy-mcp-ai' ); ?></strong><?php if ( $err ) { echo ' <span style="color:#50575e;">(' . esc_html( $err ) . ')</span>'; } ?></p>
+            <p style="margin:.5em 0 0; color:#50575e; font-size:.9em;"><?php esc_html_e( 'Use an APIv3 key from your Ahrefs account under Account settings → API keys.', 'easy-mcp-ai' ); ?></p>
+        </div>
+        <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
     <?php elseif ( 'dfs_invalid_credentials' === $message ) : ?>
         <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound -- template partial, $err is include-scoped not global. ?>
         <?php $err = sanitize_text_field( wp_unslash( $_GET['error'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display of redirect param set by the save handler, no form processing. ?>
@@ -93,6 +101,10 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
         <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Semrush API key saved.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'semrush_weak_salts' === $message ) : ?>
         <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Semrush API key could not be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></p></div>
+    <?php elseif ( 'ahrefs_removed' === $message ) : ?>
+        <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Ahrefs API key removed.', 'easy-mcp-ai' ); ?></p></div>
+    <?php elseif ( 'ahrefs_weak_salts' === $message ) : ?>
+        <div class="notice notice-error is-dismissible"><p><?php esc_html_e( 'Ahrefs API key could not be saved: WordPress security salts are missing or set to placeholder values.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'seranking_removed' === $message ) : ?>
         <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'SE Ranking API key removed.', 'easy-mcp-ai' ); ?></p></div>
     <?php elseif ( 'seranking_saved' === $message ) : ?>
@@ -205,7 +217,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </table>
 
             <?php submit_button( __( 'Save Semrush Settings', 'easy-mcp-ai' ), 'primary', 'save_semrush', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_semrush_credentials ) : ?>
                 <script>
@@ -359,7 +370,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </table>
 
             <?php submit_button( __( 'Save SE Ranking Settings', 'easy-mcp-ai' ), 'primary', 'save_seranking', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_seranking_credentials ) : ?>
                 <script>
@@ -581,7 +591,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </p>
 
             <?php submit_button( __( 'Save DataforSEO Settings', 'easy-mcp-ai' ), 'primary', 'save_dfs', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_dfs_credentials ) : ?>
                 <script>
@@ -685,10 +694,18 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             <h2 style="margin-top:0; font-size:1.1em; font-weight:600; padding-bottom:.5em; border-bottom:1px solid #f0f0f1; display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="(function(el){var body=document.getElementById('ahrefs-section-body');var open=body.style.display!=='none';body.style.display=open?'none':'';el.querySelector('.easy-mcp-toggle-icon').textContent=open?'▶':'▼';})(this)">
                 <span>
                     <?php esc_html_e( 'Ahrefs (DR)', 'easy-mcp-ai' ); ?>
-                    <?php if ( $ahrefs_enabled ) : ?>
-                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Enabled — free, no API key', 'easy-mcp-ai' ); ?></span>
+                    <?php
+                    
+                    
+                    
+                    ?>
+                    <?php if ( $ahrefs_key_set && $ahrefs_enabled ) : ?>
+                        <span style="color:#00a32a; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Enabled', 'easy-mcp-ai' ); ?></span>
+                    <?php elseif ( $ahrefs_key_set ) : ?>
+                        <span style="color:#646970; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Key saved — tool off', 'easy-mcp-ai' ); ?></span>
                     <?php else : ?>
-                        <span style="color:#646970; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Off — free, no API key (opt-in)', 'easy-mcp-ai' ); ?></span>
+                        <span style="color:#d63638; font-size:.85em; font-weight:normal; margin-left:.5em;"><?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></span>
+                        <span style="color:#2271b1; font-size:.8em; font-weight:normal; margin-left:.75em; background:#f0f6fc; border:1px solid #c2d4e8; border-radius:3px; padding:1px 6px;"><?php esc_html_e( 'Free API key', 'easy-mcp-ai' ); ?></span>
                     <?php endif; ?>
                 </span>
                 <span class="easy-mcp-toggle-icon" style="font-size:.8em; color:#646970; user-select:none;">▶</span>
@@ -696,37 +713,92 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
             <div id="ahrefs-section-body" style="display:none;">
             <p style="color:#646970; font-size:.9em; margin-top:0;">
-                <?php esc_html_e( 'Ahrefs exposes a free Domain Rating endpoint that needs no account or API key. It is OFF by default — enable the tool below to let authorized AI clients look up the Domain Rating (backlink-profile strength, 0–100) for any domain or URL. When you display the value, you must credit "Domain Rating by Ahrefs" per the Ahrefs Domain Rating License.', 'easy-mcp-ai' ); ?>
+                <?php esc_html_e( 'Ahrefs exposes a Domain Rating endpoint that lets authorized AI clients look up the backlink-profile strength (0–100) of any domain or URL. When you display the value, you must credit "Domain Rating by Ahrefs" per the Ahrefs Domain Rating License.', 'easy-mcp-ai' ); ?>
             </p>
 
-            <div style="margin-top:1em; border-top:1px solid #f0f0f1; padding-top:1em;">
-                <fieldset>
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'API Key', 'easy-mcp-ai' ); ?></th>
+                    <td>
+                        <?php if ( $ahrefs_key_set ) : ?>
+                            <div id="ahrefs-key-saved" style="display:flex; align-items:center; gap:1em; flex-wrap:wrap;">
+                                <span style="color:#00a32a; font-weight:600;"><?php echo esc_html( $ahrefs_api_key_masked ); ?></span>
+                                <button type="button" id="ahrefs-test-btn" class="button button-small"><?php esc_html_e( 'Test Connection', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small" onclick="document.getElementById('ahrefs-key-saved').style.display='none'; document.getElementById('ahrefs-key-edit').style.display='block';"><?php esc_html_e( 'Replace API key', 'easy-mcp-ai' ); ?></button>
+                                <button type="button" class="button button-small button-link-delete" onclick="if(confirm('<?php echo esc_js( __( 'Remove the saved Ahrefs API key? AI clients will lose access to the Domain Rating tool.', 'easy-mcp-ai' ) ); ?>')){document.getElementById('ahrefs-remove-key-form').submit();}"><?php esc_html_e( 'Remove API key', 'easy-mcp-ai' ); ?></button>
+                                <span id="ahrefs-test-result" style="margin-left:.25em;"></span>
+                            </div>
+                            <div id="ahrefs-key-edit" style="display:none;">
+                                <input type="password" name="ahrefs_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                                <p class="description"><?php esc_html_e( 'Enter new API key to replace.', 'easy-mcp-ai' ); ?></p>
+                            </div>
+                        <?php else : ?>
+                            <input type="password" name="ahrefs_api_key" placeholder="<?php esc_attr_e( 'Enter your API key here', 'easy-mcp-ai' ); ?>" class="regular-text">
+                            <p class="description" style="margin-top:.4em;">
+                                <?php
+                                echo wp_kses(
+                                    sprintf(
+                                        /* translators: %s: link to the Ahrefs API keys page. */
+                                        __( 'The key is <strong>free and consumes no API units</strong> — create it in your Ahrefs account under <a href="%s" target="_blank" rel="noopener noreferrer">Account settings → API keys</a>.', 'easy-mcp-ai' ),
+                                        'https://app.ahrefs.com/account/api-keys'
+                                    ),
+                                    array(
+                                        'strong' => array(),
+                                        'a'      => array( 'href' => array(), 'target' => array(), 'rel' => array() ),
+                                    )
+                                );
+                                ?>
+                            </p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="margin-top:1.5em; border-top:1px solid #f0f0f1; padding-top:1em;">
+                <p style="color:#646970; margin-top:0; margin-bottom:.75em; font-size:.9em;"><?php echo $ahrefs_key_set ? esc_html__( 'Enable or disable individual Ahrefs tools.', 'easy-mcp-ai' ) : esc_html__( 'Save an API key above to enable this tool. It is shown below for reference.', 'easy-mcp-ai' ); ?></p>
+                <fieldset<?php if ( ! $ahrefs_key_set ) : ?> style="opacity:.5; pointer-events:none;"<?php endif; ?>>
                     <?php // phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                     <?php foreach ( $ahrefs_tools as $tool_name => $tool_label ) : ?>
-                        <?php $enabled = $ahrefs_enabled && ! in_array( $tool_name, $ahrefs_disabled_tools, true ); ?>
-                        <label style="display:flex; align-items:flex-start; gap:.6em; padding:.85em 1em; border:1px solid <?php echo $enabled ? '#00a32a' : '#c3c4c7'; ?>; border-radius:4px; background:<?php echo $enabled ? '#f0f9f1' : '#fff'; ?>; cursor:pointer;">
-                            <input type="checkbox" name="ahrefs_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?> style="margin-top:.15em; width:16px; height:16px; cursor:pointer;">
-                            <span>
-                                <strong style="font-size:1em; color:#1d2327;"><?php esc_html_e( 'Enable Ahrefs Domain Rating', 'easy-mcp-ai' ); ?></strong>
-                                <span style="display:block; color:#646970; font-size:.85em; margin-top:.2em;">
-                                    <?php
-                                    printf(
-                                        /* translators: %s: the MCP tool name, rendered inside a code tag */
-                                        wp_kses( __( 'Exposes <code>%s</code> to authorized AI clients so they can look up any domain or URL\'s Domain Rating. Off by default.', 'easy-mcp-ai' ), array( 'code' => array() ) ),
-                                        esc_html( $tool_name )
-                                    );
-                                    ?>
-                                </span>
-                            </span>
+                        <?php $enabled = $ahrefs_key_set && $ahrefs_enabled && ! in_array( $tool_name, $ahrefs_disabled_tools, true ); ?>
+                        <label style="display:block; margin-bottom:.5em;">
+                            <input type="checkbox" name="ahrefs_enabled_tools[]" value="<?php echo esc_attr( $tool_name ); ?>"<?php checked( $enabled ); ?><?php disabled( ! $ahrefs_key_set ); ?>>
+                            <strong><?php echo esc_html( $tool_name ); ?></strong>
+                            <span style="color:#646970; margin-left:.25em;">&mdash; <?php echo esc_html( $tool_label ); ?></span>
                         </label>
                     <?php endforeach; ?>
                     <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>
                 </fieldset>
-                <p style="color:#646970; margin:.75em 0 0; font-size:.85em;"><?php esc_html_e( 'Tick the box above, then Save to activate. Untick and Save to turn it off again.', 'easy-mcp-ai' ); ?></p>
             </div>
 
+            <?php if ( $ahrefs_key_set ) : ?>
+                <script>
+                (function(){
+                    var testBtn = document.getElementById('ahrefs-test-btn');
+                    if ( ! testBtn ) { return; }
+                    testBtn.addEventListener('click', function() {
+                        var btn    = this;
+                        var result = document.getElementById('ahrefs-test-result');
+                        btn.disabled = true;
+                        result.textContent = '<?php echo esc_js( __( 'Testing…', 'easy-mcp-ai' ) ); ?>';
+                        result.style.color = '#646970';
+                        fetch('<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: 'action=easy_mcp_ai_ahrefs_test&nonce=<?php echo esc_js( wp_create_nonce( 'easy_mcp_ai_ahrefs_test' ) ); ?>'
+                        })
+                        .then(function(r){ return r.json(); })
+                        .then(function(data) {
+                            result.textContent = data.data.message;
+                            result.style.color = data.success ? '#00a32a' : '#d63638';
+                        })
+                        .catch(function(){ result.textContent = '<?php echo esc_js( __( 'Request failed.', 'easy-mcp-ai' ) ); ?>'; result.style.color = '#d63638'; })
+                        .finally(function(){ btn.disabled = false; });
+                    });
+                })();
+                </script>
+            <?php endif; ?>
+
             <?php submit_button( __( 'Save Ahrefs Settings', 'easy-mcp-ai' ), 'primary', 'save_ahrefs', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
             </div><!-- /ahrefs-section-body -->
         </div>
     </form>
@@ -821,7 +893,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </table>
 
             <?php submit_button( __( 'Save Search Console Settings', 'easy-mcp-ai' ), 'primary', 'save_gsc', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_json ) : ?>
                 <script>
@@ -984,7 +1055,6 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
             </table>
 
             <?php submit_button( __( 'Save Google Analytics Settings', 'easy-mcp-ai' ), 'primary', 'save_ga', false, array( 'style' => 'margin-top:1em;' ) ); ?>
-            <p class="description" style="margin-top:.35em;"><?php esc_html_e( 'Saves this section only. Other providers on this page are left unchanged.', 'easy-mcp-ai' ); ?></p>
 
             <?php if ( $has_ga_json ) : ?>
                 <script>
@@ -1101,6 +1171,13 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <form id="semrush-remove-key-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
         <input type="hidden" name="action" value="easy_mcp_ai_remove_semrush_key">
         <?php wp_nonce_field( 'easy_mcp_ai_remove_semrush_key' ); ?>
+    </form>
+    <?php endif; ?>
+
+    <?php if ( $ahrefs_key_set ) : ?>
+    <form id="ahrefs-remove-key-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+        <input type="hidden" name="action" value="easy_mcp_ai_remove_ahrefs_key">
+        <?php wp_nonce_field( 'easy_mcp_ai_remove_ahrefs_key' ); ?>
     </form>
     <?php endif; ?>
 

@@ -491,7 +491,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 			if ( ! empty( $hints['ahrefs_disabled'] ) ) :
 				$ext_link_ahrefs = '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) . '">' . esc_html__( 'External Data', 'easy-mcp-ai' ) . '</a>';
 				/* translators: %s: link to External Data page */
-				$ahrefs_msg = sprintf( __( '<strong>Ahrefs Domain Rating</strong> is free and needs no API key, but is off by default — enable it in %s to expose it to your AI.', 'easy-mcp-ai' ), $ext_link_ahrefs );
+				$ahrefs_msg = sprintf( __( '<strong>Ahrefs Domain Rating</strong> is off by default — add a free Ahrefs APIv3 key and enable it in %s to expose it to your AI.', 'easy-mcp-ai' ), $ext_link_ahrefs );
 			?>
 				<div class="wp-mcp-hint wp-mcp-hint-info">
 					<span class="dashicons dashicons-admin-network" aria-hidden="true"></span>
@@ -616,7 +616,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 								<?php if ( 'active' === $ext_data['status'] ) : ?>
 									<small style="font-weight:normal;opacity:0.7;">(<?php echo absint( count( $ext_data['tools'] ) ); ?> tools)</small>
 								<?php elseif ( 'not_configured' === $ext_data['status'] ) : ?>
-									<small style="font-weight:normal;opacity:0.55;">— <?php echo ! empty( $ext_data['keyless'] ) ? esc_html__( 'Not enabled', 'easy-mcp-ai' ) : esc_html__( 'Not configured', 'easy-mcp-ai' ); ?></small>
+									<small style="font-weight:normal;opacity:0.55;">— <?php esc_html_e( 'Not configured', 'easy-mcp-ai' ); ?></small>
 								<?php else : ?>
 									<small style="font-weight:normal;opacity:0.55;">— <?php esc_html_e( 'Configured, no tools active', 'easy-mcp-ai' ); ?></small>
 								<?php endif; ?>
@@ -628,13 +628,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 									<p class="description"><?php
 										$ext_link2 = '<a href="' . $external_data_url . '">' . esc_html__( 'External Data', 'easy-mcp-ai' ) . '</a>';
 										/* translators: 1: integration name, 2: External Data page link */
-										if ( ! empty( $ext_data['keyless'] ) ) {
-												/* translators: 1: integration name (e.g. "Ahrefs (DR)"), 2: External Data page link */
-												echo wp_kses_post( sprintf( __( '%1$s is not enabled. Turn it on in %2$s to use this tool — no API key or account needed.', 'easy-mcp-ai' ), esc_html( $ext_label ), $ext_link2 ) );
-											} else {
-												/* translators: 1: integration name, 2: External Data page link */
-												echo wp_kses_post( sprintf( __( '%1$s credentials are not configured. Add them in %2$s to enable these tools.', 'easy-mcp-ai' ), esc_html( $ext_label ), $ext_link2 ) );
-											}
+										echo wp_kses_post( sprintf( __( '%1$s credentials are not configured. Add them in %2$s to enable these tools.', 'easy-mcp-ai' ), esc_html( $ext_label ), $ext_link2 ) );
 									?></p>
 								<?php else : ?>
 									<p class="description"><?php esc_html_e( 'Credentials configured but no tools are active.', 'easy-mcp-ai' ); ?></p>

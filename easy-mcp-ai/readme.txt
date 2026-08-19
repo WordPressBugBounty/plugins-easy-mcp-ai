@@ -2,13 +2,13 @@
 Contributors: easymcpai
 Tags: mcp, ai, chatgpt, claude, mcp-server
 Requires at least: 6.0
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.14
+Stable tag: 1.7.15
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 242 tools. Free.
+Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 243 tools. Free.
 
 == Description ==
 
@@ -18,11 +18,11 @@ No Node.js. No external proxy. No complicated setup. Just install, generate a to
 
 **At a glance:**
 
-* **242 tools** — 96 core WordPress tools (posts, pages, media, users, comments, menus, taxonomies, change history, and more), 92 plugin-integration tools (WooCommerce, ACF, The Events Calendar, BuddyPress, and 6 SEO plugins), and 54 data-integration tools (Google Analytics 4, Google Search Console, Semrush, SE Ranking, DataforSEO, Ahrefs)
+* **243 tools** — 96 core WordPress tools (posts, pages, media, users, comments, menus, taxonomies, change history, and more), 93 plugin-integration tools (WooCommerce, ACF, The Events Calendar, BuddyPress, and 6 SEO plugins), and 54 data-integration tools (Google Analytics 4, Google Search Console, Semrush, SE Ranking, DataforSEO, Ahrefs)
 * **1-click OAuth 2.0/2.1** with per-scope consent (Claude Desktop, Cursor, etc.)
 * **Plugin integrations** — WooCommerce, ACF, The Events Calendar, BuddyPress, and SEO plugins (Yoast, Rank Math, AIOSEO, SEOPress, Slim SEO, The SEO Framework)
 * **Google Analytics 4 & Google Search Console** — ask your AI about traffic, top pages, conversions, search queries, clicks, impressions, and indexing status
-* **Semrush, SE Ranking, DataforSEO & Ahrefs** — ask your AI for SEO and competitive research: keyword and backlink data, organic competitors, SERP results, rank tracking, and AI-search visibility (Ahrefs Domain Rating needs no API key)
+* **Semrush, SE Ranking, DataforSEO & Ahrefs** — ask your AI for SEO and competitive research: keyword and backlink data, organic competitors, SERP results, rank tracking, and AI-search visibility (Ahrefs Domain Rating needs a free Ahrefs API key)
 * **[Auto-discovers WordPress 6.9+ Abilities API](https://easymcpai.com/abilities-directory)**
 * **Full audit trail** — every AI action on your site is logged in a searchable user activity log
 * **Change History** — every MCP-originated write (posts, meta, terms, users, options, comments, WooCommerce, BuddyPress) is recorded with before/after snapshots and queryable via 3 dedicated `wp_history_*` tools
@@ -81,7 +81,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 **DataforSEO** — run on-page SEO audits on any URL, check keyword search volumes and trends, pull live SERP results, analyse backlinks, and look up ranked and site keywords for any domain
 
-**Ahrefs** — look up the free Domain Rating (backlink-profile strength, 0–100) for any domain or URL; no API key or account required
+**Ahrefs** — look up the Domain Rating (backlink-profile strength, 0–100) for any domain or URL; needs a free Ahrefs APIv3 key, which costs nothing and uses no API units
 
 **Any Plugin** — automatically connects to plugins that support WordPress 6.9+ Abilities API, no custom code needed
 
@@ -92,7 +92,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 = Tools =
 
-[**242 Tools, Ready to Use**](https://easymcpai.com/tools)
+[**243 Tools, Ready to Use**](https://easymcpai.com/tools)
 
 **96 core tools** cover every major WordPress content type — posts, pages, media, categories, tags, custom taxonomies, comments, users, menus, custom post types, post/term/user meta, revisions, Gutenberg blocks, templates, global styles, site settings, plugins, themes, and full-text search. Each type supports create, read, update, delete and more, plus conveniences like one-call full-post reads, find-and-replace in post content, and AI alt-text on media.
 
@@ -132,7 +132,7 @@ Once connected, your **AI agent** can handle everything you'd normally do in the
 
 = 1 Ahrefs Tool =
 
-**Domain Rating (free)** — look up the Ahrefs Domain Rating (0–100) for any domain or URL; no API key or account required. Attribution "Domain Rating by Ahrefs" is required when displaying the value.
+**Domain Rating** — look up the Ahrefs Domain Rating (0–100) for any domain or URL. Needs a free Ahrefs APIv3 key (no cost, no API units). Attribution "Domain Rating by Ahrefs" is required when displaying the value.
 
 = 10 Plugin Integrations =
 
@@ -213,12 +213,12 @@ Giving an AI access to your site is serious — so security is built into every 
 
 == External services ==
 
-This plugin connects to the following third-party services **only after a site administrator explicitly enables them** in **Easy MCP AI → External Data** (by saving their own external account credentials, or — for the keyless Ahrefs Domain Rating — by turning the tool on). Nothing is contacted on a default install.
+This plugin connects to the following third-party services **only after a site administrator explicitly enables them** in **Easy MCP AI → External Data** (by saving their own external account credentials). Nothing is contacted on a default install.
 
-**Ahrefs Domain Rating API (free)** — `api.ahrefs.com`
+**Ahrefs Domain Rating API** — `api.ahrefs.com`
 
-* When: only after an administrator enables the tool under Easy MCP AI → External Data → Ahrefs (it is OFF by default — nothing is contacted on a default install), and then only when an authorized MCP client calls the `wp_ahrefs_domain_rating_free` tool. No API key or account is required.
-* What is sent: only the `target` domain or URL supplied with the call. No site credentials or personal data are transmitted.
+* When: only after an administrator saves an Ahrefs APIv3 key and enables the tool under Easy MCP AI → External Data → Ahrefs (it is OFF by default — nothing is contacted on a default install). Thereafter: when an authorized MCP client calls the `wp_ahrefs_domain_rating_free` tool, and once each time an administrator saves the key or presses Test Connection on the External Data screen (both validate the key against Ahrefs).
+* What is sent: your Ahrefs APIv3 key, as an `Authorization: Bearer` header, plus the `target` domain or URL supplied with the call. No WordPress credentials or personal data are transmitted.
 * Terms: https://ahrefs.com/legal/domain-rating-license
 * Privacy: https://ahrefs.com/legal/privacy-policy
 
@@ -260,7 +260,7 @@ This plugin connects to the following third-party services **only after a site a
 
 = What is Easy MCP AI? =
 
-Easy MCP AI is a free **WordPress AI connector** that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 242 ready-to-use tools. No Node.js, no proxy, no extra hosting.
+Easy MCP AI is a free **WordPress AI connector** that turns your site into a remote **MCP (Model Context Protocol) server**. Once activated, any MCP-compatible AI assistant or AI agent — Claude (Anthropic), ChatGPT (OpenAI), Cursor, Gemini AI, n8n, and more — can read and write content, manage media, users, and settings, and pull SEO and analytics data through 243 ready-to-use tools. No Node.js, no proxy, no extra hosting.
 
 = Is this a WordPress MCP server? =
 
@@ -272,7 +272,7 @@ MCP is an open standard created by Anthropic that lets AI assistants and AI agen
 
 = How is Easy MCP AI different from other WordPress AI plugins? =
 
-Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 242 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
+Most WordPress AI plugins embed a single AI provider (OpenAI, Claude, etc.) inside the wp-admin and bill you for usage. Easy MCP AI does the opposite — it makes your WordPress site an agent-ready backend that **any** AI assistant can connect to over MCP. You bring your own AI client, you bring your own model, and the plugin focuses on giving that AI safe, scoped access to your site: 243 tools, OAuth 2.0/2.1 one-click connect, per-token permissions, and a full audit trail.
 
 = Is Easy MCP AI free? =
 
@@ -334,7 +334,7 @@ No configuration required — OAuth 2.0/2.1 endpoints are live as soon as the pl
 
 = Can I control what the AI is allowed to do? =
 
-Yes, fully. Each token has its own permission set — you choose exactly which of the 242 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
+Yes, fully. Each token has its own permission set — you choose exactly which of the 243 tools it can call. Create a read-only token for a summarization AI, a content-only token for your AI writing assistant, and a full-access token for your trusted automation workflows.
 
 = Can I limit which posts or pages the AI can edit? =
 
@@ -415,6 +415,15 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+= 1.7.15 =
+* New: The Ahrefs Domain Rating tool now takes a free Ahrefs APIv3 key, which Ahrefs began requiring.
+* New: Diagnostics now name any ability you switched on that WordPress did not register.
+* Fixed: Diagnostics no longer warns about caching, firewalls or change-tracking when nothing is actually wrong.
+* Fixed: Direct-database change capture no longer garbles tool responses on sites with debug display on.
+* Fixed: Media and post counts are returned as numbers instead of text.
+* Fixed: The menus resource returns an object when a theme registers no menu locations.
+* Fixed: Two tool descriptions no longer promise fields WooCommerce and Slim SEO do not return.
 
 = 1.7.14 =
 * New: A Diagnostics page and Site Health checks explain why an AI assistant cannot connect, from inside WordPress.
@@ -586,6 +595,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.15 =
+Add a free Ahrefs APIv3 key under External Data if you use the Domain Rating tool; Ahrefs now rejects requests without one. Media and post counts are returned as numbers rather than text.
 
 = 1.7.14 =
 Change History now records every plugin setting your AI assistant changes; adjust it on the new Capture Settings screen. Tokens you created earlier are unchanged, so review them under API Token & OAuth. Unapproved OAuth client registrations over 7 days old are deleted the day after you upgrade.

@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
- * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 242 tools. Free.
- * Version:     1.7.14
+ * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 243 tools. Free.
+ * Version:     1.7.15
  * Author:      EasyMCPAI
  * Author URI:
  * License:     GPL-2.0-or-later
@@ -175,7 +175,7 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     }
 
     if ( $easy_mcp_ai_own ) {
-        @ini_set( 'display_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.display_errors_Disallowed, WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Intentional & request-scoped: stop other plugins' PHP notices from corrupting our OAuth/MCP JSON responses. Suppresses display only (logging unaffected).
+        @ini_set( 'display_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.display_errors_Disallowed, PluginCheck.CodeAnalysis.PHPErrorReporting.IniDirectiveDisplay_errors, WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- Intentional & request-scoped: stop other plugins' PHP notices from corrupting our OAuth/MCP JSON responses. Suppresses display only (logging unaffected).
         @ini_set( 'display_startup_errors', '0' ); // phpcs:ignore WordPress.PHP.IniSet.Risky, WordPress.PHP.NoSilencedErrors.Discouraged, Squiz.PHP.DiscouragedFunctions.Discouraged -- See above; display suppression only, scoped to our own JSON endpoints.
 
         
@@ -217,7 +217,7 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     unset( $easy_mcp_ai_req, $easy_mcp_ai_own );
 }
 
-define( 'EASY_MCP_AI_VERSION', '1.7.14' );
+define( 'EASY_MCP_AI_VERSION', '1.7.15' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

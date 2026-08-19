@@ -155,6 +155,32 @@ abstract class Base_Tool {
         return $id;
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function normalize_counts( $counts ) {
+        $out = array();
+        foreach ( (array) $counts as $key => $value ) {
+            
+            
+            $out[ (string) $key ] = is_scalar( $value ) ? (int) $value : 0;
+        }
+        return $out;
+    }
+
     protected function validate_required( array $arguments, array $required_keys ) {
         $missing = array();
         foreach ( $required_keys as $key ) {

@@ -107,7 +107,12 @@ class Check_Tool_Visibility {
             self::evaluate_dead_patterns( self::dead_patterns( $defs, $patterns ) ),
             self::evaluate_disabled_categories( self::fully_disabled_categories( $defs, $disabled ) ),
             self::evaluate_grant_scopes( self::grant_rows() ),
-            self::evaluate_abilities( \get_bloginfo( 'version' ), self::count_abilities( $defs ), self::count_registered_abilities() ),
+            self::evaluate_abilities(
+                \get_bloginfo( 'version' ),
+                self::count_abilities( $defs ),
+                self::count_registered_abilities(),
+                self::enabled_abilities_missing_from_registry()
+            ),
             self::evaluate_sanitizer(
                 null === $scan ? array() : $scan['rewritten'],
                 null === $scan ? array() : $scan['unrepairable'],
@@ -523,13 +528,49 @@ class Check_Tool_Visibility {
 
 
 
-    public static function evaluate_abilities( $wp_version, $ability_count, $registered_in_wp = null ) {
+    public static function evaluate_abilities( $wp_version, $ability_count, $registered_in_wp = null, $enabled_but_missing = array() ) {
         $label    = __( 'WordPress Abilities available', 'easy-mcp-ai' );
+        $missing  = array_values( array_filter( array_map( 'strval', (array) $enabled_but_missing ) ) );
         $evidence = array(
-            'wp_version'       => (string) $wp_version,
-            'abilities'        => (int) $ability_count,
-            'registered_in_wp' => $registered_in_wp,
+            'wp_version'          => (string) $wp_version,
+            'abilities'           => (int) $ability_count,
+            'registered_in_wp'    => $registered_in_wp,
+            'enabled_but_missing' => $missing,
         );
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( $missing ) {
+            return Diagnostic_Result::warn(
+                'd6',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                sprintf(
+                    /* translators: 1: number of abilities, 2: comma-separated ability slugs. */
+                    \_n(
+                        '%1$d ability is switched on but WordPress has no record of it, so no tool was created for it: %2$s',
+                        '%1$d abilities are switched on but WordPress has no record of them, so no tools were created for them: %2$s',
+                        count( $missing ),
+                        'easy-mcp-ai'
+                    ),
+                    count( $missing ),
+                    implode( ', ', $missing )
+                ),
+                __( 'The plugin that published these abilities may have been deactivated, renamed them, or may conflict with another plugin bundling the same abilities library. Untick them under Easy MCP AI → Abilities, or resolve the conflicting plugin. Every other tool is unaffected.', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
 
         if ( version_compare( (string) $wp_version, self::ABILITIES_MIN_WP, '<' ) ) {
             return Diagnostic_Result::warn(
@@ -1008,6 +1049,42 @@ class Check_Tool_Visibility {
         }
         $abilities = \wp_get_abilities();
         return is_array( $abilities ) ? count( $abilities ) : null;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private static function enabled_abilities_missing_from_registry() {
+        if ( ! function_exists( 'wp_get_abilities' ) ) {
+            return array();
+        }
+        $enabled = \get_option( 'easy_mcp_ai_enabled_abilities', array() );
+        if ( ! is_array( $enabled ) || ! $enabled ) {
+            return array();
+        }
+        $registered = \wp_get_abilities();
+        if ( ! is_array( $registered ) ) {
+            
+            
+            return array();
+        }
+        $missing = array();
+        foreach ( $enabled as $slug ) {
+            $slug = (string) $slug;
+            if ( '' !== $slug && ! isset( $registered[ $slug ] ) ) {
+                $missing[] = $slug;
+            }
+        }
+        return $missing;
     }
 
     private static function count_abilities( array $defs ) {

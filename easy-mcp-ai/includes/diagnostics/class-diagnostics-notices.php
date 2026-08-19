@@ -66,8 +66,24 @@ class Diagnostics_Notices {
             )
             . '</strong></p><ul style="margin-left:1.5em;list-style:disc;">';
 
+        
+
+
+
+
+
+
+
+
+
+
+
+
         foreach ( $blockers as $blocker ) {
-            echo '<li><strong>' . \esc_html( $blocker->label() ) . '</strong> — '
+            echo '<li>'
+                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in Diagnostic_Result::problem_badge_html().
+                . $blocker->problem_badge_html()
+                . '<strong>' . \esc_html( $blocker->label() ) . '</strong> — '
                 . \esc_html( $blocker->detail() );
             if ( '' !== $blocker->fix() ) {
                 echo '<br><em>' . \esc_html( $blocker->fix() ) . '</em>';

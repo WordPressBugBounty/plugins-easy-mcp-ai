@@ -26,6 +26,12 @@ class Scheduled_Posts_Resource extends Base_Resource {
             'posts_per_page' => 50,
             'orderby'        => 'date',
             'order'          => 'ASC',
+            
+            
+            
+            
+            
+            'ignore_sticky_posts' => true,
         );
 
         

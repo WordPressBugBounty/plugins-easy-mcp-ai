@@ -118,6 +118,7 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ahrefs/class-ahrefs-client.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-base-resource.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/resources/class-resource-registry.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
@@ -144,6 +145,9 @@ class Plugin {
         $action = isset( $_REQUEST['action'] ) ? \sanitize_key( \wp_unslash( $_REQUEST['action'] ) ) : '';
 
         
+        
+        
+        
         static $external_data_actions = array(
             'easy_mcp_ai_gsc_test',
             'easy_mcp_ai_ga_test',
@@ -153,6 +157,7 @@ class Plugin {
             'easy_mcp_ai_semrush_refresh_balance',
             'easy_mcp_ai_seranking_test',
             'easy_mcp_ai_seranking_refresh_balance',
+            'easy_mcp_ai_ahrefs_test',
         );
         if ( in_array( $action, $external_data_actions, true ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
@@ -163,6 +168,7 @@ class Plugin {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ahrefs/class-ahrefs-client.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
             new Admin\External_Data_Admin();
             return;

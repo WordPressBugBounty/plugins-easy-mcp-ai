@@ -26,6 +26,15 @@ class Draft_Posts_Resource extends Base_Resource {
             'posts_per_page' => 50,
             'orderby'        => 'modified',
             'order'          => 'DESC',
+            
+            
+            
+            
+            
+            
+            
+            
+            'ignore_sticky_posts' => true,
         );
 
         
@@ -37,10 +46,24 @@ class Draft_Posts_Resource extends Base_Resource {
 
         $posts = array();
         foreach ( $query->posts as $post ) {
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            $modified_gmt = $post->post_modified_gmt;
+            if ( empty( $modified_gmt ) || '0000-00-00 00:00:00' === $modified_gmt ) {
+                $modified_gmt = \get_gmt_from_date( $post->post_modified );
+            }
+
             $posts[] = array(
                 'id'       => (int) $post->ID,
                 'title'    => get_the_title( $post ),
-                'modified' => $post->post_modified_gmt,
+                'modified' => $modified_gmt,
                 'author'   => get_the_author_meta( 'display_name', $post->post_author ),
             );
         }

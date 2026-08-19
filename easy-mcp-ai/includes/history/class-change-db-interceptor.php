@@ -510,12 +510,43 @@ class Change_DB_Interceptor {
                 $params[] = (int) $val;
             }
         }
-        // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $conds is built above from regex-whitelisted `identifier` = %s|%d pairs ONLY (the sniff cannot see the placeholders inside the variable); $table/columns are ^[A-Za-z0-9_]+$-validated identifiers, which placeholders cannot carry; every VALUE is bound via prepare($params); a pre-image read of a row about to change is inherently uncacheable. Same pattern as class-change-log-repository.php.
-        $row = $wpdb->get_row(
-            $wpdb->prepare( "SELECT * FROM `{$table}` WHERE " . implode( ' AND ', $conds ) . ' LIMIT 1', $params ),
-            'ARRAY_A'
-        );
-        // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $suppressible  = method_exists( $wpdb, 'suppress_errors' );
+        $prev_suppress = $suppressible ? $wpdb->suppress_errors( true ) : false;
+
+        try {
+            // phpcs:disable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $conds is built above from regex-whitelisted `identifier` = %s|%d pairs ONLY (the sniff cannot see the placeholders inside the variable); $table/columns are ^[A-Za-z0-9_]+$-validated identifiers, which placeholders cannot carry; every VALUE is bound via prepare($params); a pre-image read of a row about to change is inherently uncacheable. Same pattern as class-change-log-repository.php.
+            $row = $wpdb->get_row(
+                $wpdb->prepare( "SELECT * FROM `{$table}` WHERE " . implode( ' AND ', $conds ) . ' LIMIT 1', $params ),
+                'ARRAY_A'
+            );
+            // phpcs:enable WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        } finally {
+            if ( $suppressible ) {
+                $wpdb->suppress_errors( $prev_suppress );
+            }
+        }
+
         return is_array( $row ) ? $row : ( is_object( $row ) ? (array) $row : null );
     }
 
@@ -850,7 +881,24 @@ class Change_DB_Interceptor {
             }
         }
 
-        if ( null !== $pk && '' !== (string) $pk && ctype_digit( (string) $pk ) ) {
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( null !== $pk && '' !== (string) $pk && ctype_digit( (string) $pk )
+            && ! isset( self::$core_tables[ $stripped ] ) ) {
             $out[] = array( array( 'col' => 'id', 'val' => (string) (int) $pk ) );
         }
 

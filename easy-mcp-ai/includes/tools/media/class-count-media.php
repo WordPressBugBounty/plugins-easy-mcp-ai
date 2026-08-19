@@ -14,7 +14,7 @@ class Count_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns attachment counts grouped by MIME type. Optional: `mime_type` (e.g. \'image/jpeg\') to filter to a single type. Returns { mime_type_filter (the `mime_type` echoed back, or "" when unfiltered), counts } where `counts` is the `wp_count_attachments()` object: { \'image/jpeg\': 12, \'image/png\': 5, ..., \'trash\': 3 } — each value is a scalar count, not an object.';
+        return 'Returns attachment counts grouped by MIME type. Optional: `mime_type` (e.g. \'image/jpeg\') to filter to a single type. Returns { mime_type_filter (the `mime_type` echoed back, or "" when unfiltered), counts } where `counts` is the `wp_count_attachments()` object: { \'image/jpeg\': 12, \'image/png\': 5, ..., \'trash\': 3 } — each value is an INTEGER count, not an object and not a numeric string.';
     }
 
     public function get_category() {
@@ -51,6 +51,6 @@ class Count_Media extends Base_Tool {
             ? sanitize_text_field( (string) $arguments['mime_type'] )
             : '';
         $counts = $mime ? wp_count_attachments( $mime ) : wp_count_attachments();
-        return array( 'mime_type_filter' => $mime, 'counts' => (array) $counts );
+        return array( 'mime_type_filter' => $mime, 'counts' => $this->normalize_counts( $counts ) );
     }
 }

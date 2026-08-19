@@ -40,10 +40,28 @@ class Check_Conflicts {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const KNOWN_MCP_PLUGINS = array(
         'wordpress-mcp' => 'WordPress MCP',
         'mcp-adapter'   => 'MCP Adapter',
-        'ai-services'   => 'AI Services',
         'wp-mcp-server' => 'WP MCP Server',
     );
 
@@ -68,6 +86,11 @@ class Check_Conflicts {
     );
 
     
+    const CACHE_COVERED    = 'covered';
+    const CACHE_UNCOVERED  = 'uncovered';
+    const CACHE_UNREADABLE = 'unreadable';
+
+    
 
 
     public static function run() {
@@ -80,11 +103,21 @@ class Check_Conflicts {
             self::evaluate_security_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_security_plugins', self::KNOWN_SECURITY_PLUGINS ) ),
             self::evaluate_rest_filters( array() !== $foreign_rest_auth, $foreign_rest_auth ),
             self::evaluate_hook_stripping( self::count_hook_reassertions(), self::change_capture_enabled() ),
-            self::evaluate_cache_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_cache_plugins', self::KNOWN_CACHE_PLUGINS ) ),
+            self::evaluate_cache_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_cache_plugins', self::KNOWN_CACHE_PLUGINS ), self::cache_coverage_now() ),
         );
     }
 
     
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -103,11 +136,18 @@ class Check_Conflicts {
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 sprintf(
-                    /* translators: %s: comma-separated plugin names. */
-                    __( 'Also active: %s. Two plugins answering the same OAuth discovery addresses means an AI client may connect to whichever responds first, so a connection can succeed and still reach the wrong plugin.', 'easy-mcp-ai' ),
+                    
+                    
+                    
+                    
+                    count( $found ) > 1
+                        /* translators: %s: comma-separated plugin names. */
+                        ? __( 'Also active: %s. If they also serve MCP or OAuth discovery on this site, an AI client may connect to whichever answers first, so a connection can succeed and still reach the wrong plugin.', 'easy-mcp-ai' )
+                        /* translators: %s: a plugin name. */
+                        : __( 'Also active: %s. If it also serves MCP or OAuth discovery on this site, an AI client may connect to whichever answers first, so a connection can succeed and still reach the wrong plugin.', 'easy-mcp-ai' ),
                     implode( ', ', $found )
                 ),
-                __( 'Keep one MCP plugin active and deactivate the other, then reconnect your AI client.', 'easy-mcp-ai' ),
+                __( 'Check which plugin your AI client is actually connected to. If it is the wrong one, keep a single MCP plugin active, deactivate the other, and reconnect.', 'easy-mcp-ai' ),
                 array( 'competing_mcp_plugins' => $found )
             );
         }
@@ -126,29 +166,51 @@ class Check_Conflicts {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public static function evaluate_security_plugins( $found ) {
         
         
+        
+        
+        $label = __( 'Firewall and security plugins', 'easy-mcp-ai' );
+
+        
+        
         if ( null === $found ) {
-            return Diagnostic_Result::unknown( 'e2', Diagnostic_Result::TIER_WARNING, __( 'No firewall is filtering API traffic', 'easy-mcp-ai' ), __( 'Could not read the list of active plugins.', 'easy-mcp-ai' ) );
+            return Diagnostic_Result::unknown( 'e2', Diagnostic_Result::TIER_INFO, $label, __( 'Could not read the list of active plugins.', 'easy-mcp-ai' ) );
         }
         $found = (array) $found;
-        
-        
-        
-        $label = __( 'No firewall is filtering API traffic', 'easy-mcp-ai' );
 
         if ( ! empty( $found ) ) {
-            return Diagnostic_Result::warn(
+            return Diagnostic_Result::pass(
                 'e2',
-                Diagnostic_Result::TIER_WARNING,
+                Diagnostic_Result::TIER_INFO,
                 $label,
                 sprintf(
-                    /* translators: %s: comma-separated plugin names. */
-                    __( 'Detected: %s. Nothing here shows a problem — these plugins are working normally on most sites. But if an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is a common cause worth ruling out.', 'easy-mcp-ai' ),
+                    count( $found ) > 1
+                        /* translators: %s: comma-separated plugin names. */
+                        ? __( 'Detected: %s. These plugins work normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent.', 'easy-mcp-ai' )
+                        /* translators: %s: a plugin name. */
+                        : __( 'Detected: %s. This plugin works normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent.', 'easy-mcp-ai' ),
                     implode( ', ', $found )
                 ),
-                __( 'If connections are failing, allow requests to /wp-json/easy-mcp-ai/ and /.well-known/oauth-* in that plugin\'s firewall settings, and confirm it is not filtering by user agent.', 'easy-mcp-ai' ),
                 array( 'security_plugins' => $found )
             );
         }
@@ -160,7 +222,7 @@ class Check_Conflicts {
         
         return Diagnostic_Result::pass(
             'e2',
-            Diagnostic_Result::TIER_WARNING,
+            Diagnostic_Result::TIER_INFO,
             $label,
             __( 'No firewall plugin found among the active plugins. This cannot see protection that runs outside WordPress — a host-level firewall, a must-use plugin, or a CDN rule.', 'easy-mcp-ai' ),
             array( 'security_plugins' => array() )
@@ -168,6 +230,20 @@ class Check_Conflicts {
     }
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -214,8 +290,8 @@ class Check_Conflicts {
                 'e3',
                 Diagnostic_Result::TIER_WARNING,
                 $label,
-                __( 'Another plugin or theme is modifying REST API authentication on this site. That is often legitimate, but plugins that restrict or disable the REST API also work this way, and this plugin reaches WordPress through it.', 'easy-mcp-ai' ) . $named,
-                __( 'If AI clients receive authentication errors, look for a "disable REST API" or "restrict REST API" setting and exempt the easy-mcp-ai/v1 namespace.', 'easy-mcp-ai' ),
+                __( 'Another plugin or theme filters REST API authentication on this site, and this plugin reaches WordPress through that API. Plugins that legitimately add their own authentication — WooCommerce, Jetpack and similar — are already excluded from this check, so what is named here is worth identifying: a "disable REST API" or "restrict REST API" feature works the same way.', 'easy-mcp-ai' ) . $named,
+                __( 'Identify the plugin the callback above belongs to. If it offers a "disable REST API" or "restrict REST API" setting, exempt the easy-mcp-ai/v1 namespace so AI clients can authenticate.', 'easy-mcp-ai' ),
                 
                 
                 
@@ -247,6 +323,30 @@ class Check_Conflicts {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public static function evaluate_hook_stripping( $marker_count, $capture_enabled ) {
         $label = __( 'Change tracking hooks stay registered', 'easy-mcp-ai' );
 
@@ -254,7 +354,7 @@ class Check_Conflicts {
         if ( null === $marker_count ) {
             return Diagnostic_Result::unknown(
                 'e4',
-                Diagnostic_Result::TIER_WARNING,
+                Diagnostic_Result::TIER_INFO,
                 $label,
                 __( 'Could not read the change history table.', 'easy-mcp-ai' )
             );
@@ -264,53 +364,140 @@ class Check_Conflicts {
         if ( ! $capture_enabled ) {
             return Diagnostic_Result::unknown(
                 'e4',
-                Diagnostic_Result::TIER_WARNING,
+                Diagnostic_Result::TIER_INFO,
                 $label,
                 __( 'Could not verify — change history recording is switched off, so no evidence is collected either way.', 'easy-mcp-ai' )
             );
         }
 
         if ( (int) $marker_count > 0 ) {
-            return Diagnostic_Result::warn(
+            return Diagnostic_Result::pass(
                 'e4',
-                Diagnostic_Result::TIER_WARNING,
+                Diagnostic_Result::TIER_INFO,
                 $label,
                 sprintf(
                     /* translators: 1: number of recorded reassertion events, 2: number of days in the reporting window. */
-                    __( 'On %1$d occasion(s) in the last %2$d days, another plugin removed this plugin\'s tracking hooks during an AI request. They were re-registered automatically and the change was still recorded, so nothing was lost.', 'easy-mcp-ai' ),
+                    __( 'On %1$d occasion(s) in the last %2$d days, another plugin removed this plugin\'s tracking hooks during an AI request. They were re-registered automatically and the change was still recorded, so nothing was lost and no action is needed. If you are investigating missing history entries, the Change History page lists the affected requests.', 'easy-mcp-ai' ),
                     (int) $marker_count,
                     self::REASSERTION_WINDOW_DAYS
                 ),
-                __( 'No action needed. If you are investigating missing history entries, the Change History page lists the affected requests.', 'easy-mcp-ai' ),
                 array( 'hook_reassertions' => (int) $marker_count )
             );
         }
 
-        return Diagnostic_Result::pass( 'e4', Diagnostic_Result::TIER_WARNING, $label, '', array( 'hook_reassertions' => 0 ) );
+        
+        
+        
+        return Diagnostic_Result::pass(
+            'e4',
+            Diagnostic_Result::TIER_INFO,
+            $label,
+            sprintf(
+                /* translators: %d: number of days in the reporting window. */
+                __( 'No hook removals recorded in the last %d days.', 'easy-mcp-ai' ),
+                self::REASSERTION_WINDOW_DAYS
+            ),
+            array( 'hook_reassertions' => 0 )
+        );
     }
 
     
-    public static function evaluate_cache_plugins( $found ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_cache_plugins( $found, $coverage = null ) {
+        $label = __( 'Caching excludes API endpoints', 'easy-mcp-ai' );
+
         
         
         if ( null === $found ) {
-            return Diagnostic_Result::unknown( 'e5', Diagnostic_Result::TIER_WARNING, __( 'Caching excludes API endpoints', 'easy-mcp-ai' ), __( 'Could not read the list of active plugins.', 'easy-mcp-ai' ) );
+            return Diagnostic_Result::unknown( 'e5', Diagnostic_Result::TIER_WARNING, $label, __( 'Could not read the list of active plugins.', 'easy-mcp-ai' ) );
         }
         $found = (array) $found;
-        $label = __( 'Caching excludes API endpoints', 'easy-mcp-ai' );
 
-        if ( ! empty( $found ) ) {
+        if ( empty( $found ) ) {
+            return Diagnostic_Result::pass(
+                'e5',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'No caching plugin found among the active plugins. Caching done by the host or a CDN is not visible from here.', 'easy-mcp-ai' ),
+                array( 'cache_plugins' => array() )
+            );
+        }
+
+        $coverage = is_array( $coverage ) ? $coverage : array();
+        $uncovered = array();
+        $unreadable = array();
+        foreach ( $found as $name ) {
+            $verdict = isset( $coverage[ $name ] ) ? $coverage[ $name ] : self::CACHE_UNREADABLE;
+            if ( self::CACHE_UNCOVERED === $verdict ) {
+                $uncovered[] = $name;
+            } elseif ( self::CACHE_COVERED !== $verdict ) {
+                $unreadable[] = $name;
+            }
+        }
+
+        $evidence = array(
+            'cache_plugins'  => $found,
+            'coverage'       => $coverage,
+            'checked_paths'  => array_values( self::protected_paths() ),
+        );
+
+        if ( $uncovered ) {
             return Diagnostic_Result::warn(
                 'e5',
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 sprintf(
-                    /* translators: %s: comma-separated plugin names. */
-                    __( 'Detected: %s. Page caches normally leave API requests alone, but a cached authentication or discovery response can make a connection succeed once and then fail, or keep working after a token is revoked.', 'easy-mcp-ai' ),
-                    implode( ', ', $found )
+                    count( $uncovered ) > 1
+                        /* translators: %s: comma-separated plugin names. */
+                        ? __( '%s are caching without an exclusion for this plugin\'s endpoints. A cached authentication or discovery response can make a connection succeed once and then fail, or keep working after a token is revoked.', 'easy-mcp-ai' )
+                        /* translators: %s: a plugin name. */
+                        : __( '%s is caching without an exclusion for this plugin\'s endpoints. A cached authentication or discovery response can make a connection succeed once and then fail, or keep working after a token is revoked.', 'easy-mcp-ai' ),
+                    implode( ', ', $uncovered )
                 ),
-                __( 'Exclude /wp-json/easy-mcp-ai/ and /.well-known/oauth-* from page caching in that plugin\'s settings.', 'easy-mcp-ai' ),
-                array( 'cache_plugins' => $found )
+                sprintf(
+                    count( $uncovered ) > 1
+                        /* translators: %s: comma-separated URL paths to exclude. */
+                        ? __( 'Exclude %s from page caching in each of those plugins\' settings.', 'easy-mcp-ai' )
+                        /* translators: %s: comma-separated URL paths to exclude. */
+                        : __( 'Exclude %s from page caching in that plugin\'s settings.', 'easy-mcp-ai' ),
+                    self::list_paths( self::exclusion_hints() )
+                ),
+                $evidence
+            );
+        }
+
+        if ( $unreadable ) {
+            return Diagnostic_Result::unknown(
+                'e5',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                sprintf(
+                    count( $unreadable ) > 1
+                        /* translators: 1: comma-separated plugin names, 2: comma-separated URL paths to exclude. */
+                        ? __( 'Detected: %1$s. Their exclusion rules could not be read from here, so this was not verified either way. If AI connections drop or behave inconsistently, exclude %2$s from page caching.', 'easy-mcp-ai' )
+                        /* translators: 1: a plugin name, 2: comma-separated URL paths to exclude. */
+                        : __( 'Detected: %1$s. Its exclusion rules could not be read from here, so this was not verified either way. If AI connections drop or behave inconsistently, exclude %2$s from page caching.', 'easy-mcp-ai' ),
+                    implode( ', ', $unreadable ),
+                    self::list_paths( self::exclusion_hints() )
+                ),
+                $evidence
             );
         }
 
@@ -318,9 +505,417 @@ class Check_Conflicts {
             'e5',
             Diagnostic_Result::TIER_WARNING,
             $label,
-            __( 'No caching plugin found among the active plugins. Caching done by the host or a CDN is not visible from here.', 'easy-mcp-ai' ),
-            array( 'cache_plugins' => array() )
+            sprintf(
+                count( $found ) > 1
+                    /* translators: %s: comma-separated plugin names. */
+                    ? __( 'Detected: %s. Their own exclusion rules already cover this plugin\'s endpoints.', 'easy-mcp-ai' )
+                    /* translators: %s: a plugin name. */
+                    : __( 'Detected: %s. Its own exclusion rules already cover this plugin\'s endpoints.', 'easy-mcp-ai' ),
+                implode( ', ', $found )
+            ),
+            $evidence
         );
+    }
+
+    
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function protected_paths() {
+        $paths = array();
+
+        
+        
+        
+        
+        
+        
+        foreach ( array(
+            'MCP endpoint'        => array( 'rest_url', 'easy-mcp-ai/v1/mcp' ),
+            'OAuth server'        => array( 'home_url', '/.well-known/oauth-authorization-server' ),
+            'OAuth resource'      => array( 'home_url', '/.well-known/oauth-protected-resource' ),
+            'OpenID discovery'    => array( 'home_url', '/.well-known/openid-configuration' ),
+        ) as $label => $spec ) {
+            list( $fn, $arg ) = $spec;
+            if ( ! function_exists( $fn ) ) {
+                continue;
+            }
+            $parts = \wp_parse_url( (string) $fn( $arg ) );
+            if ( ! is_array( $parts ) || ! isset( $parts['path'] ) || '' === $parts['path'] ) {
+                continue;
+            }
+            $subject = $parts['path'];
+            if ( isset( $parts['query'] ) && '' !== $parts['query'] ) {
+                $subject .= '?' . $parts['query'];
+            }
+            $paths[ $label ] = $subject;
+        }
+
+        return $paths;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function exclusion_hints() {
+        $hints = array();
+
+        foreach ( self::protected_paths() as $subject ) {
+            if ( false !== strpos( $subject, 'rest_route=' ) ) {
+                $hints[] = 'rest_route=/easy-mcp-ai/';
+                continue;
+            }
+            
+            
+            $ns = strpos( $subject, '/easy-mcp-ai/' );
+            if ( false !== $ns ) {
+                $hints[] = substr( $subject, 0, $ns + strlen( '/easy-mcp-ai/' ) );
+                continue;
+            }
+            $oauth = strpos( $subject, '/oauth-' );
+            if ( false !== $oauth ) {
+                $hints[] = substr( $subject, 0, $oauth + strlen( '/oauth-' ) ) . '*';
+                continue;
+            }
+            $hints[] = $subject;
+        }
+
+        return array_values( array_unique( $hints ) );
+    }
+
+    
+
+
+
+    private static function list_paths( array $hints ) {
+        if ( count( $hints ) < 2 ) {
+            return implode( '', $hints );
+        }
+        $last = array_pop( $hints );
+        return sprintf(
+            /* translators: 1: comma-separated list of all but the last item, 2: the last item. */
+            __( '%1$s and %2$s', 'easy-mcp-ai' ),
+            implode( ', ', $hints ),
+            $last
+        );
+    }
+
+    
+
+
+
+
+
+
+
+    private static function regex_hits( $pattern, $subject, $insensitive = false ) {
+        if ( '' === $pattern || false !== strpos( $pattern, '~' ) ) {
+            return false;
+        }
+        // phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged -- a third party's stored pattern may not compile; false is the answer, not a warning.
+        return 1 === @preg_match( '~' . $pattern . '~' . ( $insensitive ? 'i' : '' ), $subject );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function rule_covers( $slug, $rule, $subject ) {
+        
+        
+        
+        
+        
+        
+        $candidates = array( $rule );
+        if ( 'wp-rocket' === $slug ) {
+            $candidates[] = rtrim( (string) $rule, '/' );
+        }
+
+        foreach ( array_unique( $candidates ) as $r ) {
+            $r = trim( (string) $r );
+            if ( '' === $r ) {
+                continue;
+            }
+
+            if ( 'w3-total-cache' === $slug && self::regex_hits( $r, $subject, true ) ) {
+                return true;
+            }
+            if ( 'wp-super-cache' === $slug && self::regex_hits( $r, $subject ) ) {
+                return true;
+            }
+            if ( 'litespeed-cache' === $slug && self::litespeed_hits( $r, $subject ) ) {
+                return true;
+            }
+            if ( 'wp-rocket' === $slug ) {
+                
+                
+                
+                if ( self::regex_hits( $r, $subject, true )
+                    || false !== strpos( $subject, $r ) ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    
+    private static function litespeed_hits( $rule, $subject ) {
+        $starts = '^' === substr( $rule, 0, 1 );
+        $ends   = '$' === substr( $rule, -1 );
+
+        if ( $starts && $ends ) {
+            return substr( $rule, 1, -1 ) === $subject;
+        }
+        if ( $ends ) {
+            $needle = substr( $rule, 0, -1 );
+            return '' !== $needle && substr( $subject, -strlen( $needle ) ) === $needle;
+        }
+        if ( $starts ) {
+            $needle = substr( $rule, 1 );
+            return '' !== $needle && 0 === strpos( $subject, $needle );
+        }
+        return false !== strpos( $subject, $rule );
+    }
+
+    
+    private static function wpfc_hits( $entry, $subject ) {
+        if ( ! is_object( $entry ) || ! isset( $entry->content ) ) {
+            return false;
+        }
+        if ( isset( $entry->type ) && 'page' !== $entry->type ) {
+            return false;
+        }
+        $content = trim( (string) $entry->content );
+        $prefix  = isset( $entry->prefix ) ? (string) $entry->prefix : '';
+        if ( '' === $content ) {
+            return false;
+        }
+
+        switch ( $prefix ) {
+            case 'exact':
+                return strtolower( trim( $content, '/' ) ) === strtolower( trim( $subject, '/' ) );
+            case 'regex':
+                return self::regex_hits( $content, $subject, true );
+            case 'startwith':
+                
+                
+                
+                
+                
+                return 0 === stripos( ltrim( $subject, '/' ), ltrim( $content, '/' ) );
+            case 'contain':
+                return false !== stripos( $subject, $content );
+        }
+
+        return false;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private static function cache_rules_for( $slug ) {
+        try {
+            switch ( $slug ) {
+                case 'wp-rocket':
+                    if ( function_exists( 'get_rocket_option' ) ) {
+                        $rules = \get_rocket_option( 'cache_reject_uri', array() );
+                        return is_array( $rules ) ? $rules : null;
+                    }
+                    return null;
+
+                case 'wp-super-cache':
+                    
+                    
+                    return isset( $GLOBALS['cache_rejected_uri'] ) && is_array( $GLOBALS['cache_rejected_uri'] )
+                        ? $GLOBALS['cache_rejected_uri']
+                        : null;
+
+                case 'w3-total-cache':
+                    if ( function_exists( 'w3tc_config' ) ) {
+                        $config = \w3tc_config();
+                        if ( is_object( $config ) && method_exists( $config, 'get_array' ) ) {
+                            $rules = $config->get_array( 'pgcache.reject.uri' );
+                            return is_array( $rules ) ? $rules : null;
+                        }
+                    }
+                    return null;
+
+                case 'litespeed-cache':
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    $rules = \apply_filters( 'litespeed_conf', 'cache-exc' );
+                    return is_array( $rules ) ? $rules : null;
+
+                case 'wp-fastest-cache':
+                    
+                    
+                    
+                    
+                    
+                    
+                    $json = \get_option( 'WpFastestCacheExclude', '' );
+                    if ( ! is_string( $json ) || '' === $json ) {
+                        return array();
+                    }
+                    $rules = json_decode( $json );
+                    return is_array( $rules ) ? $rules : null;
+            }
+        } catch ( \Throwable $e ) {
+            
+            
+            return null;
+        }
+
+        return null;
+    }
+
+    
+
+
+
+
+
+    public static function cache_exclusion_coverage( array $detected, ?array $paths = null ) {
+        $paths = null === $paths ? self::protected_paths() : $paths;
+        if ( ! $paths ) {
+            
+            return array_fill_keys( array_values( $detected ), self::CACHE_UNREADABLE );
+        }
+
+        $coverage = array();
+        foreach ( $detected as $slug => $name ) {
+            $rules = self::cache_rules_for( $slug );
+            if ( null === $rules ) {
+                $coverage[ $name ] = self::CACHE_UNREADABLE;
+                continue;
+            }
+
+            $all_covered = true;
+            foreach ( $paths as $subject ) {
+                $hit = false;
+                foreach ( $rules as $rule ) {
+                    $hit = ( 'wp-fastest-cache' === $slug )
+                        ? self::wpfc_hits( $rule, $subject )
+                        : self::rule_covers( $slug, $rule, $subject );
+                    if ( $hit ) {
+                        break;
+                    }
+                }
+                if ( ! $hit ) {
+                    $all_covered = false;
+                    break;
+                }
+            }
+
+            $coverage[ $name ] = $all_covered ? self::CACHE_COVERED : self::CACHE_UNCOVERED;
+        }
+
+        return $coverage;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function cache_coverage_now() {
+        $detected = self::detected_cache_plugins();
+        return null === $detected ? null : self::cache_exclusion_coverage( $detected );
+    }
+
+    
+
+
+
+
+    private static function detected_cache_plugins() {
+        $known = \apply_filters( 'easy_mcp_ai_diagnostics_known_cache_plugins', self::KNOWN_CACHE_PLUGINS );
+        if ( ! is_array( $known ) ) {
+            $known = self::KNOWN_CACHE_PLUGINS;
+        }
+
+        $active = self::active_plugin_paths();
+        if ( null === $active ) {
+            return null;
+        }
+
+        $slugs = array();
+        foreach ( $active as $path ) {
+            $path = (string) $path;
+            $dir  = ( false !== strpos( $path, '/' ) ) ? substr( $path, 0, strpos( $path, '/' ) ) : $path;
+
+            $slugs[ strtolower( $dir ) ] = true;
+        }
+
+        $found = array();
+        foreach ( $known as $slug => $name ) {
+            if ( isset( $slugs[ strtolower( (string) $slug ) ] ) ) {
+                $found[ (string) $slug ] = (string) $name;
+            }
+        }
+
+        return $found;
     }
 
     

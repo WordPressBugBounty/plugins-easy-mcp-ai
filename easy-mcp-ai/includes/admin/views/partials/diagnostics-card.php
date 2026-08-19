@@ -198,7 +198,7 @@ $rerun_url = \wp_nonce_url(
             <?php
             printf(
                 /* translators: 1: number of warnings to review, 2: total number of checks. */
-                esc_html__( '%1$d thing(s) to review across %2$d checks — nothing failed.', 'easy-mcp-ai' ),
+                esc_html__( '%1$d thing(s) to review across %2$d checks — nothing failed. Worth reading only if something is not working.', 'easy-mcp-ai' ),
                 count( $warnings ),
                 (int) $summary['total']
             );
@@ -297,9 +297,28 @@ $rerun_url = \wp_nonce_url(
         <?php if ( ! empty( $problems ) ) : ?>
             <ul style="margin:10px 0 10px 1.2em;list-style:disc;">
                 <?php foreach ( $problems as $problem ) : ?>
+                    <?php
+                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    $is_fail = ( Diagnostic_Result::STATUS_FAIL === $problem->status() );
+                    ?>
                     <li style="margin-bottom:6px;">
+                        <?php echo $problem->problem_badge_html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in Diagnostic_Result::problem_badge_html(). ?>
                         <strong><?php echo esc_html( $problem->label() ); ?></strong>
-                        <?php if ( Diagnostic_Result::STATUS_FAIL === $problem->status() ) : ?>
+                        <?php if ( $is_fail ) : ?>
                             <span style="color:#b32d2e;font-size:11px;font-weight:600;">[<?php esc_html_e( 'BLOCKING', 'easy-mcp-ai' ); ?>]</span>
                         <?php endif; ?>
                         <br><?php echo esc_html( $problem->detail() ); ?>

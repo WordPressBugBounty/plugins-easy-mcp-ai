@@ -7,14 +7,31 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class Get_Customer extends Base_Tool {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Get_Coupon extends Base_Tool {
 
     public function get_name() {
-        return 'wp_wc_get_customer';
+        return 'wp_wc_get_coupon';
     }
 
     public function get_description() {
-        return 'Gets a single WooCommerce customer by ID. Required: `id` (WooCommerce customer ID — same as WordPress user ID; get it from `wp_wc_list_customers`). Returns WooCommerce\'s `/wc/v3/customers/<id>` response verbatim: id, email, first_name, last_name, username, role, avatar_url, is_paying_customer, billing (address object), shipping (address object), meta_data, date_created, date_modified. Note `orders_count` and `total_spent` are NOT returned — WooCommerce dropped them from the v3 customer schema (they remain only in the deprecated v1/v2 controllers). Use `wp_wc_list_orders` filtered by customer, or `wp_wc_report_customers`, for order totals. Requires WooCommerce active.';
+        return 'Gets a single WooCommerce coupon by ID. Required: `id` (get it from `wp_wc_list_coupons`). Returns WooCommerce\'s `/wc/v3/coupons/<id>` response verbatim: id, code, amount, discount_type (percent/fixed_cart/fixed_product), description, date_created, date_modified, date_expires, usage_count, individual_use, product_ids, excluded_product_ids, usage_limit, usage_limit_per_user, limit_usage_to_x_items, free_shipping, product_categories, excluded_product_categories, exclude_sale_items, minimum_amount, maximum_amount, email_restrictions, used_by, meta_data. Use this to verify fields that `wp_wc_update_coupon` accepts but does not echo back. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -40,7 +57,7 @@ class Get_Customer extends Base_Tool {
             'properties' => array(
                 'id' => array(
                     'type'        => 'integer',
-                    'description' => 'The ID of the customer to retrieve.',
+                    'description' => 'The ID of the coupon to retrieve.',
                 ),
             ),
             'required'   => array( 'id' ),
@@ -53,9 +70,8 @@ class Get_Customer extends Base_Tool {
         }
 
         $this->validate_required( $arguments, array( 'id' ) );
-        $id   = $this->parse_required_id( $arguments['id'], 'id' );
-        $data = $this->rest_request( 'GET', '/wc/v3/customers/' . $id );
+        $id = $this->parse_required_id( $arguments['id'], 'id' );
 
-        return $data;
+        return $this->rest_request( 'GET', '/wc/v3/coupons/' . $id );
     }
 }

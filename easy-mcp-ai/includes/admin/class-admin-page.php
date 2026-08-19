@@ -811,7 +811,10 @@ class Admin_Page {
             __( 'SEMrush', 'easy-mcp-ai' )               => \get_option( 'easy_mcp_ai_semrush_api_key', '' ) !== '',
             
             
-            __( 'Ahrefs (DR)', 'easy-mcp-ai' )           => (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false ),
+            
+            
+            __( 'Ahrefs (DR)', 'easy-mcp-ai' )           => '' !== (string) \get_option( 'easy_mcp_ai_ahrefs_api_key', '' )
+                && (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false ),
         );
 
         require EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/dashboard.php';
@@ -874,8 +877,7 @@ class Admin_Page {
             'semrush' => array( 'label' => 'Semrush',             'option' => 'easy_mcp_ai_semrush_api_key' ),
             'seranking' => array( 'label' => 'SE Ranking',         'option' => 'easy_mcp_ai_seranking_api_key' ),
             
-            
-            'ahrefs' => array( 'label' => 'Ahrefs (DR)',        'option' => 'easy_mcp_ai_ahrefs_enabled', 'keyless' => true ),
+            'ahrefs' => array( 'label' => 'Ahrefs (DR)',        'option' => 'easy_mcp_ai_ahrefs_api_key' ),
         );
 
         $tools_by_category = $this->tool_registry->get_tools_by_category();
@@ -958,7 +960,6 @@ class Admin_Page {
             $external[ $info['label'] ] = array(
                 'status'  => $status,
                 'tools'   => $tools,
-                'keyless' => ! empty( $info['keyless'] ),
             );
         }
 
@@ -1162,7 +1163,8 @@ class Admin_Page {
         $dfs_missing      = ! $dfs_configured;
         $semrush_missing  = ! $semrush_configured;
         
-        $ahrefs_disabled  = ! (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
+        $ahrefs_disabled  = '' === (string) \get_option( 'easy_mcp_ai_ahrefs_api_key', '' )
+            || ! (bool) \get_option( 'easy_mcp_ai_ahrefs_enabled', false );
 
         return array(
             'total'    => $total,
@@ -1234,6 +1236,13 @@ class Admin_Page {
                 return 'cursor://anysphere.cursor-deeplink/mcp/install'
                     . '?name=' . rawurlencode( $name )
                     . '&config=' . rawurlencode( $config );
+            case 'chatgpt':
+                
+                
+                
+                
+                
+                return 'https://chatgpt.com/plugins#settings/Connectors?create-connector=true&redirectAfter=%2Fplugins';
             case 'vscode':
                 $obj   = (string) wp_json_encode( array( 'name' => $name, 'type' => 'http', 'url' => $url ) );
                 $inner = 'vscode:mcp/install?' . rawurlencode( $obj );
@@ -1298,19 +1307,22 @@ class Admin_Page {
             array(
                 'id'           => 'chatgpt',
                 'name'         => __( 'ChatGPT (Developer Mode)', 'easy-mcp-ai' ),
+                'connect_type'       => 'chatgpt',
+                'connect_link_label' => __( 'Connect to ChatGPT', 'easy-mcp-ai' ),
+                'connect_note'       => __( 'Opens the New Plugin form on ChatGPT\'s Connectors screen. Unlike the other one-click buttons, ChatGPT does not accept a pre-filled server — type a name and paste the MCP endpoint URL below yourself.', 'easy-mcp-ai' ),
                 'oauth_steps'  => array(
-                    __( 'Go to Settings > Apps > Advanced settings and enable Developer Mode', 'easy-mcp-ai' ),
-                    __( 'Go to Create apps', 'easy-mcp-ai' ),
-                    __( 'Enter a name (e.g. "WordPress") and paste the MCP endpoint URL (below)', 'easy-mcp-ai' ),
-                    __( 'Select OAuth as the authentication method', 'easy-mcp-ai' ),
-                    __( 'Check "I trust this application" and click Create', 'easy-mcp-ai' ),
-                    __( 'Complete the OAuth login flow — no token needed', 'easy-mcp-ai' ),
+                    __( 'Click Connect to ChatGPT above', 'easy-mcp-ai' ),
+                    __( 'Enter a name (e.g. "WordPress") and paste the MCP endpoint URL (below) as the Connection URL', 'easy-mcp-ai' ),
+                    __( 'Leave Authentication set to OAuth', 'easy-mcp-ai' ),
+                    __( 'Tick "I understand and want to continue", then click Create', 'easy-mcp-ai' ),
+                    __( 'The authorization page opens — click Approve, and you are returned to ChatGPT. No token needed', 'easy-mcp-ai' ),
+                    __( 'If the tools are not listed yet, click Refresh next to Information on the connector page', 'easy-mcp-ai' ),
                 ),
                 'oauth_config' => '%s',
                 'hint'         => __( 'Alternative — create a connector with a token embedded in the URL:', 'easy-mcp-ai' ),
                 'config'       => '%s/YOUR_API_TOKEN',
-                'note'         => __( 'Requires Pro, Plus, Business, Enterprise, or Education plan. Replace YOUR_API_TOKEN with your actual token (e.g. wpmcp_abc123…).', 'easy-mcp-ai' ),
-                'link'         => 'https://chatgpt.com/',
+                'note'         => __( 'ChatGPT may show a warning notice after connecting; that is expected for any custom MCP server. Replace YOUR_API_TOKEN with your actual token (e.g. wpmcp_abc123…).', 'easy-mcp-ai' ),
+                'link'         => 'https://chatgpt.com/plugins#settings/Connectors?create-connector=true&redirectAfter=%2Fplugins',
             ),
             array(
                 'id'           => 'claude-desktop',

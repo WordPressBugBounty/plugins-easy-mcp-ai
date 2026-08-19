@@ -37,7 +37,18 @@ $render_guide_body = function( array $guide, string $endpoint_url, string $token
 				<p class="wp-mcp-mt-8">
 					<a href="<?php echo esc_url( $connect_url, array( 'http', 'https', 'cursor' ) ); ?>"<?php echo $connect_is_web ? ' target="_blank" rel="noopener noreferrer"' : ''; ?> class="button button-primary button-small"><?php echo esc_html( ! empty( $guide['connect_link_label'] ) ? $guide['connect_link_label'] : __( 'Connect', 'easy-mcp-ai' ) ); ?> <span class="dashicons dashicons-external" style="font-size:14px;width:14px;height:14px;vertical-align:middle;"></span></a>
 				</p>
-				<p class="description" style="font-size:11px;opacity:0.8;"><?php esc_html_e( 'One-click: opens the app with this server pre-filled — just confirm to add and connect (OAuth, no token needed).', 'easy-mcp-ai' ); ?></p>
+				<?php
+				
+				
+				
+				?>
+				<p class="description" style="font-size:11px;opacity:0.8;"><?php
+					echo esc_html(
+						! empty( $guide['connect_note'] )
+							? $guide['connect_note']
+							: __( 'One-click: opens the app with this server pre-filled — just confirm to add and connect (OAuth, no token needed).', 'easy-mcp-ai' )
+					);
+				?></p>
 			<?php endif; ?>
 		<?php endif; ?>
 		<?php if ( ! empty( $guide['signup_link'] ) ) : ?>

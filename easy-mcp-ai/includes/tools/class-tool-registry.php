@@ -257,6 +257,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\WooCommerce\\Update_Customer',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Delete_Customer',
             'Easy_MCP_AI\\Tools\\WooCommerce\\List_Coupons',
+            'Easy_MCP_AI\\Tools\\WooCommerce\\Get_Coupon',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Create_Coupon',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Update_Coupon',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Delete_Coupon',

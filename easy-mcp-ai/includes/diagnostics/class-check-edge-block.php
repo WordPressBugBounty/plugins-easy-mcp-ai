@@ -34,29 +34,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 namespace Easy_MCP_AI\Diagnostics;
 
 if ( ! defined( 'ABSPATH' ) ) {
