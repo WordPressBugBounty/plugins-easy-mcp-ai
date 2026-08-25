@@ -52,7 +52,22 @@ class Transport {
 
 
     public function handle_header_probe( $request ) {
-        $headers = function_exists( 'getallheaders' ) ? (array) getallheaders() : array();
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $headers = function_exists( 'getallheaders' ) ? (array) getallheaders() : null;
 
         return \rest_ensure_response(
             \Easy_MCP_AI\Diagnostics\Check_Header_Probe::probe_response(

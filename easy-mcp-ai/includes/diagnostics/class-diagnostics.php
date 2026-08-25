@@ -82,6 +82,7 @@ class Diagnostics {
         'class-check-multisite.php',
         'class-check-header-probe.php',
         'class-check-edge-block.php',
+        'class-check-discovery.php',
     );
 
     
@@ -138,6 +139,10 @@ class Diagnostics {
 
 
 
+
+
+
+
     public static function register_core_checks( $tool_registry = null ) {
         self::register( array( Check_Transport::class, 'run' ), 'a' );
         self::register( array( Check_Notices::class, 'run' ), 'a' );
@@ -164,6 +169,12 @@ class Diagnostics {
         
         
         self::register( array( Check_Edge_Block::class, 'run' ), 'a9', true );
+        
+        
+        
+        
+        
+        self::register( array( Check_Discovery::class, 'run' ), 'a10', true );
         self::register( array( Check_Observability::class, 'run' ), 'h', true );
         self::register( array( Check_Multisite::class, 'run' ), 'i', true );
     }

@@ -269,11 +269,31 @@ class Server {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
         }
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         if ( null !== $allowed_tools ) {
             if ( ! $this->permission_guard->can_use_tool_with_scope( $allowed_tools, $tool_name ) ) {
+                $this->log_refusal( $token_id, $tool_name, $arguments );
                 return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
             }
         } elseif ( ! $this->permission_guard->can_use_tool( $token_id, $tool_name ) ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
         }
 
@@ -285,19 +305,23 @@ class Server {
         $tool = $this->tool_registry->get_tool( $tool_name );
         if ( null === $tool ) {
             
+            $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Unknown tool' );
         }
 
         $required_cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
         if ( $required_cap && ! \current_user_can( $required_cap ) ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient WordPress permissions for this tool' );
         }
 
         if ( ! empty( $this->disabled_tools ) && in_array( $tool_name, $this->disabled_tools, true ) ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
         }
 
         if ( ! $this->tool_matches_pattern_filter( $tool_name ) ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
         }
 
@@ -587,6 +611,53 @@ class Server {
         }
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function log_refusal( $token_id, $tool_name, $arguments ) {
+        if ( null === $token_id ) {
+            return;
+        }
+
+        $limit = (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $key   = 'easy_mcp_ai_reflog_' . (int) $token_id;
+
+        if ( \wp_using_ext_object_cache() ) {
+            \wp_cache_add( $key, 0, 'easy_mcp_ai', 60 );
+            if ( (int) \wp_cache_incr( $key, 1, 'easy_mcp_ai' ) > $limit ) {
+                return;
+            }
+        } else {
+            $written = (int) \get_transient( $key );
+            if ( $written >= $limit ) {
+                return;
+            }
+            \set_transient( $key, $written + 1, 60 );
+        }
+
+        $this->log_tool_call( $token_id, $tool_name, $arguments, self::STATUS_REFUSED );
+    }
+
     private function check_rate_limit( $token_id ) {
         if ( null === $token_id ) {
             return true; 
@@ -633,6 +704,30 @@ class Server {
             array( '%d', '%s', '%s', '%s', '%s', '%s' )
         );
     }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    const STATUS_REFUSED = 'refused';
 
     private function log_tool_call( $token_id, $tool_name, $arguments, $status ) {
         if ( ! $this->audit_log_enabled ) {

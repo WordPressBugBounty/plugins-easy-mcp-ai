@@ -44,6 +44,89 @@ class OAuth_Routes {
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/.well-known/oauth-authorization-server',
+            array(
+                'methods'             => \WP_REST_Server::READABLE,
+                'callback'            => array( new Discovery(), 'get_authorization_server_metadata' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/discovery/oauth-protected-resource',
+            array(
+                'methods'             => \WP_REST_Server::READABLE,
+                'callback'            => array( new Discovery(), 'get_protected_resource_metadata' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/discovery/oauth-authorization-server',
+            array(
+                'methods'             => \WP_REST_Server::READABLE,
+                'callback'            => array( new Discovery(), 'get_authorization_server_metadata' ),
+                'permission_callback' => '__return_true',
+            )
+        );
 
         
 

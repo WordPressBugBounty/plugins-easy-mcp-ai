@@ -26,6 +26,12 @@
 
 
 
+
+
+
+
+
+
 namespace Easy_MCP_AI\Diagnostics;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -107,7 +113,7 @@ class Check_Observability {
             $label,
             sprintf(
                 /* translators: 1: number of rejected requests, 2: number of hours in the window. */
-                __( '%1$d request(s) were refused in the last %2$d hours because the token was missing, expired or not recognised. This counts failed authentication only — requests refused for insufficient permission, or for exceeding the rate limit, are not recorded.', 'easy-mcp-ai' ),
+                __( '%1$d request(s) were refused in the last %2$d hours because the token was missing, expired or not recognised. This counts failed authentication only. Requests refused for insufficient permission are recorded separately, on the Audit Log screen, and are not counted here; requests refused for exceeding the rate limit are not recorded at all.', 'easy-mcp-ai' ),
                 (int) $count,
                 self::FAILURE_WINDOW_HOURS
             ),

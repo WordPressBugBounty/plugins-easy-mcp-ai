@@ -77,6 +77,29 @@ class Check_Conflicts {
     );
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+    const KNOWN_COMING_SOON_PLUGINS = array(
+        'coming-soon'                     => 'SeedProd',
+        'under-construction-page'         => 'UnderConstructionPage',
+        'minimal-coming-soon-maintenance-mode' => 'Minimal Coming Soon & Maintenance Mode',
+        'maintenance'                     => 'Maintenance',
+        'wp-maintenance-mode'             => 'WP Maintenance Mode',
+        'cmp-coming-soon-maintenance'     => 'CMP — Coming Soon & Maintenance',
+        'site-offline'                    => 'Site Offline / Coming Soon',
+    );
+
+    
     const KNOWN_CACHE_PLUGINS = array(
         'litespeed-cache'  => 'LiteSpeed Cache',
         'wp-rocket'        => 'WP Rocket',
@@ -104,6 +127,7 @@ class Check_Conflicts {
             self::evaluate_rest_filters( array() !== $foreign_rest_auth, $foreign_rest_auth ),
             self::evaluate_hook_stripping( self::count_hook_reassertions(), self::change_capture_enabled() ),
             self::evaluate_cache_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_cache_plugins', self::KNOWN_CACHE_PLUGINS ), self::cache_coverage_now() ),
+            self::evaluate_coming_soon_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_coming_soon_plugins', self::KNOWN_COMING_SOON_PLUGINS ) ),
         );
     }
 
@@ -206,9 +230,9 @@ class Check_Conflicts {
                 sprintf(
                     count( $found ) > 1
                         /* translators: %s: comma-separated plugin names. */
-                        ? __( 'Detected: %s. These plugins work normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent.', 'easy-mcp-ai' )
+                        ? __( 'Detected: %s. These plugins work normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent. Cover the ?rest_route=/easy-mcp-ai/ form of the same address too: a rule written only against the path silently misses it.', 'easy-mcp-ai' )
                         /* translators: %s: a plugin name. */
-                        : __( 'Detected: %s. This plugin works normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent.', 'easy-mcp-ai' ),
+                        : __( 'Detected: %s. This plugin works normally on most sites and nothing here indicates a problem. If an AI client cannot connect, a firewall rule refusing requests before WordPress sees them is worth ruling out: allow /wp-json/easy-mcp-ai/ and /.well-known/oauth-*, and check it is not filtering by user agent. Cover the ?rest_route=/easy-mcp-ai/ form of the same address too: a rule written only against the path silently misses it.', 'easy-mcp-ai' ),
                     implode( ', ', $found )
                 ),
                 array( 'security_plugins' => $found )
@@ -398,6 +422,74 @@ class Check_Conflicts {
                 self::REASSERTION_WINDOW_DAYS
             ),
             array( 'hook_reassertions' => 0 )
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_coming_soon_plugins( $found ) {
+        
+        
+        
+        $label = __( 'Coming-soon and maintenance pages', 'easy-mcp-ai' );
+
+        
+        
+        if ( null === $found ) {
+            return Diagnostic_Result::unknown(
+                'e6',
+                Diagnostic_Result::TIER_INFO,
+                $label,
+                __( 'Could not read the list of active plugins, so this was not checked.', 'easy-mcp-ai' )
+            );
+        }
+
+        $found = (array) $found;
+
+        if ( empty( $found ) ) {
+            return Diagnostic_Result::pass(
+                'e6',
+                Diagnostic_Result::TIER_INFO,
+                $label,
+                __( 'No coming-soon or maintenance plugin found among the active plugins. A holding page added by your theme or your host would not be visible from here.', 'easy-mcp-ai' ),
+                array( 'coming_soon_plugins' => array() )
+            );
+        }
+
+        return Diagnostic_Result::pass(
+            'e6',
+            Diagnostic_Result::TIER_INFO,
+            $label,
+            sprintf(
+                count( $found ) > 1
+                    /* translators: %s: comma-separated plugin names. */
+                    ? __( 'Detected: %s. Nothing here indicates a problem — putting a site behind a holding page is a deliberate choice. Worth knowing, though: the screen where you approve an AI client is a normal page on the front of your site, not part of the admin area, so a holding page can hide it. If approving a connection never loads, allow the address ?easy_mcp_ai_oauth=authorize through, or switch the holding page off while you connect.', 'easy-mcp-ai' )
+                    /* translators: %s: a plugin name. */
+                    : __( 'Detected: %s. Nothing here indicates a problem — putting a site behind a holding page is a deliberate choice. Worth knowing, though: the screen where you approve an AI client is a normal page on the front of your site, not part of the admin area, so a holding page can hide it. If approving a connection never loads, allow the address ?easy_mcp_ai_oauth=authorize through, or switch the holding page off while you connect.', 'easy-mcp-ai' ),
+                implode( ', ', $found )
+            ),
+            array( 'coming_soon_plugins' => $found )
         );
     }
 

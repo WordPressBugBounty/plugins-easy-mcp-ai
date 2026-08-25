@@ -59,6 +59,54 @@
             document.body.removeChild(textarea);
         }
 
+        // Fetch-then-copy: for a document whose CURRENT contents are wanted,
+        // not a fixed string. A10 uses this so an owner on a host that answers
+        // /.well-known/ itself can lift each discovery document straight out of
+        // the page, rather than opening the URL and hand-selecting the JSON —
+        // which is where a real support case corrupted the file twice.
+        //
+        // Same-origin, so no CORS and no credentials needed beyond the session.
+        // Labels come from data attributes rather than a localised global: this
+        // renders on the dashboard, and the only wp_localize_script call lives
+        // on the audit screen. PHP already has the translations.
+        $('.wp-mcp-fetch-copy-btn').on('click', function () {
+            var button = $(this);
+            var url = button.data('fetch');
+            if (!url || button.prop('disabled')) {
+                return;
+            }
+
+            // Remember the TRUE label once, not whatever the button happens to
+            // read now. A retry clicked during the 3-second "Could not copy"
+            // window used to capture that failure text as `original`, so a
+            // successful retry restored "Could not copy" permanently.
+            var original = button.data('originalLabel');
+            if (typeof original === 'undefined') {
+                original = button.text();
+                button.data('originalLabel', original);
+            }
+            button.prop('disabled', true).text(button.data('busy') || 'Copying...');
+
+            $.get(url).done(function (data, status, xhr) {
+                // Copy the raw body, not jQuery's parsed object — the file has
+                // to be byte-for-byte what the endpoint served.
+                var text = xhr.responseText;
+                button.prop('disabled', false);
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function () {
+                        showCopied(button.text(original));
+                    }).catch(function () {
+                        fallbackCopy(text, button.text(original));
+                    });
+                } else {
+                    fallbackCopy(text, button.text(original));
+                }
+            }).fail(function () {
+                button.prop('disabled', false).text(button.data('failed') || 'Could not copy');
+                setTimeout(function () { button.text(original); }, 3000);
+            });
+        });
+
         // Select All Tools checkbox.
         var $selectAll = $('#wp-mcp-select-all-tools');
         var $toolCheckboxes = $('.wp-mcp-tool-checkbox');

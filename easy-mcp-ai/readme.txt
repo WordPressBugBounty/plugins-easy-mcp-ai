@@ -4,7 +4,7 @@ Tags: mcp, ai, chatgpt, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.15
+Stable tag: 1.7.16
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -416,6 +416,14 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 
 == Changelog ==
 
+= 1.7.16 =
+* New: Four new diagnostics find connection problems that sit outside WordPress, on your host, CDN or another plugin.
+* New: Diagnostics warn when a saved copy of your sign-in details no longer matches this site.
+* New: Calls refused before they run are now recorded in the Audit Log.
+* Fixed: Refused and failed sign-in rows in the Audit Log no longer show a green OK.
+* Fixed: Several diagnostics now name the actual cause instead of a generic one.
+* New: The copied system info and diagnostics now opens with a reminder to send it privately rather than post it publicly.
+
 = 1.7.15 =
 * New: The Ahrefs Domain Rating tool now takes a free Ahrefs APIv3 key, which Ahrefs began requiring.
 * New: Diagnostics now name any ability you switched on that WordPress did not register.
@@ -595,6 +603,9 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 * Fully internationalized (i18n ready)
 
 == Upgrade Notice ==
+
+= 1.7.16 =
+New checks can surface host or proxy faults that were always there. Press "Re-run checks" on the dashboard to see them. Nothing else to do.
 
 = 1.7.15 =
 Add a free Ahrefs APIv3 key under External Data if you use the Domain Rating tool; Ahrefs now rejects requests without one. Media and post counts are returned as numbers rather than text.

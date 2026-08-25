@@ -325,6 +325,55 @@ $rerun_url = \wp_nonce_url(
                         <?php if ( '' !== $problem->fix() ) : ?>
                             <br><em style="color:#646970;"><?php echo esc_html( $problem->fix() ); ?></em>
                         <?php endif; ?>
+                        <?php
+                        
+
+
+
+
+
+
+
+
+
+
+
+                        if ( 'a10' === $problem->id() ) :
+                            
+
+
+
+
+
+
+
+
+
+
+
+                            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-check-discovery.php';
+                            ?>
+                            <br>
+                            <?php foreach ( \Easy_MCP_AI\Diagnostics\Check_Discovery::mirror_urls() as $doc_name => $doc_url ) : ?>
+                                <button type="button"
+                                        class="button button-small wp-mcp-fetch-copy-btn"
+                                        style="margin:6px 6px 0 0;"
+                                        data-fetch="<?php echo esc_url( $doc_url ); ?>"
+                                        data-busy="<?php esc_attr_e( 'Copying…', 'easy-mcp-ai' ); ?>"
+                                        data-failed="<?php esc_attr_e( 'Could not copy', 'easy-mcp-ai' ); ?>">
+                                    <?php
+                                    printf(
+                                        /* translators: %s: the discovery document's filename, e.g. oauth-protected-resource. */
+                                        esc_html__( 'Copy %s', 'easy-mcp-ai' ),
+                                        esc_html( $doc_name )
+                                    );
+                                    ?>
+                                </button>
+                            <?php endforeach; ?>
+                            <br><span style="color:#646970;font-size:11px;">
+                                <?php esc_html_e( 'Save each one into your site\'s .well-known folder, using exactly that name and no file extension.', 'easy-mcp-ai' ); ?>
+                            </span>
+                        <?php endif; ?>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -519,6 +568,18 @@ $rerun_url = \wp_nonce_url(
             . '?subject=' . rawurlencode( $support_subject )
             . '&body=' . rawurlencode( $support_body );
         ?>
+        <?php
+        
+
+
+
+
+
+
+
+
+
+        ?>
         <span style="align-self:stretch;display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap;font-size:12px;">
 
             <span style="color:#646970;"><?php esc_html_e( 'Need help with a connection issue?', 'easy-mcp-ai' ); ?></span>
@@ -603,4 +664,24 @@ $rerun_url = \wp_nonce_url(
                title="<?php esc_attr_e( 'Opens your email app with a blank template. Your site data is NOT included — paste it in yourself so you can see what you are sending.', 'easy-mcp-ai' ); ?>"><?php esc_html_e( 'Email support', 'easy-mcp-ai' ); ?></a>
         </span>
         </span>
+
+    <?php
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    ?>
+    <p style="flex:1 1 100%;margin:0;color:#646970;font-size:12px;">
+        <?php esc_html_e( 'These checks look inside WordPress only. If everything here passes and your AI client still cannot connect, the client may be holding an old sign-in — remove the connector there, add it again, and start a fresh chat.', 'easy-mcp-ai' ); ?>
+    </p>
 </div>

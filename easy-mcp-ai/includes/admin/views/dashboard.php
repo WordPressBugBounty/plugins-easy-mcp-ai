@@ -180,7 +180,19 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				
 				
 				
+				
+				
+				
+				
+				
+				
+				
+				
+				
+				
 				$system_info_text = implode( "\n", array(
+					'# PRIVATE — describes this site. Send to support@easymcpai.com; do not post publicly.',
+					'',
 					'Easy MCP AI — System Info',
 					'Plugin Version:   ' . EASY_MCP_AI_VERSION,
 					'WordPress:        ' . $env_wp_version,

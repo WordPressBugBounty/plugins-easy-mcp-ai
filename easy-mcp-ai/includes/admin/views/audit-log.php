@@ -99,7 +99,13 @@ function easy_mcp_ai_view_audit_log( $total, $entries, $page, $total_pages, $mes
                             }
                         }
                     }
-                    $is_error     = ! empty( $entry['result_status'] ) && 'error' === strtolower( $entry['result_status'] );
+                    
+                    
+                    
+                    
+                    
+                    $status_raw   = ! empty( $entry['result_status'] ) ? strtolower( $entry['result_status'] ) : '';
+                    $is_error     = in_array( $status_raw, array( 'error', 'refused', 'auth_failure' ), true );
                     $token_display = ! empty( $entry['token_name'] ) ? $entry['token_name'] : '#' . $entry['token_id'];
                     ?>
                     <tr id="audit-<?php echo absint( $entry['id'] ); ?>">

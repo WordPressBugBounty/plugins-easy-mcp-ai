@@ -48,6 +48,32 @@ class Check_Header_Probe {
     const ROUTE = '/header-probe';
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function mcp_probe_headers( $secret ) {
+        return array(
+            'Mcp-Session-Id'       => 'emai-probe-' . substr( (string) $secret, 0, 12 ),
+            'Mcp-Protocol-Version' => '2025-11-25',
+        );
+    }
+
+    
     const TIMEOUT = 5;
 
     
@@ -65,11 +91,23 @@ class Check_Header_Probe {
         
         $secret = '';
 
+        
+        
+        
+        
+        
+        
         try {
             $secret = self::arm();
 
             if ( '' === $secret ) {
-                return array( self::unknown( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ) );
+                
+                
+                
+                return array(
+                    self::unknown( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+                    self::unknown_mcp_headers( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+                );
             }
 
             try {
@@ -77,11 +115,104 @@ class Check_Header_Probe {
             } catch ( \Throwable $e ) {
                 $body = null;
             }
+        } catch ( \Throwable $e ) {
+            
+            
+            return array(
+                self::unknown( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+                self::unknown_mcp_headers( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+            );
         } finally {
             self::disarm();
         }
 
-        return array( self::evaluate( $body, $secret ) );
+        
+        
+        
+        
+        
+        return array(
+            self::evaluate( $body, $secret ),
+            self::evaluate_mcp_headers( $body, $secret ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_mcp_headers( $body, $secret ) {
+        $label = __( 'AI session headers reach this site', 'easy-mcp-ai' );
+
+        
+        if ( ! is_array( $body ) || ! isset( $body['proof'] )
+            || ! hash_equals( self::expected_proof( $secret ), (string) $body['proof'] ) ) {
+            return Diagnostic_Result::unknown(
+                'a11',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'The test request did not reach this site\'s own code, so there is nothing to report. Some hosts stop a site from calling its own address; on its own that is not a fault.', 'easy-mcp-ai' )
+            );
+        }
+
+        
+        
+        
+        
+        
+        if ( isset( $body['headers_collected'] ) && ! $body['headers_collected'] ) {
+            return Diagnostic_Result::unknown(
+                'a11',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'This site\'s server does not hand PHP a list of the request headers, so whether the session headers arrived could not be measured. That is a property of the server software, not a fault, and sign-in itself is checked separately.', 'easy-mcp-ai' )
+            );
+        }
+
+        
+        
+        if ( ! isset( $body['mcp_headers'] ) || ! is_array( $body['mcp_headers'] ) ) {
+            return Diagnostic_Result::unknown(
+                'a11',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'This site answered without the session-header result, so it was not measured.', 'easy-mcp-ai' )
+            );
+        }
+
+        $lost = array_keys( array_filter( $body['mcp_headers'], static function ( $ok ) {
+            return ! $ok;
+        } ) );
+
+        if ( empty( $lost ) ) {
+            return Diagnostic_Result::pass(
+                'a11',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'The headers an AI client uses to keep its session reached this site unchanged.', 'easy-mcp-ai' ),
+                $body['mcp_headers']
+            );
+        }
+
+        return Diagnostic_Result::warn(
+            'a11',
+            Diagnostic_Result::TIER_WARNING,
+            $label,
+            sprintf(
+                /* translators: %s: comma-separated HTTP header names. */
+                __( 'A test request carrying the headers an AI client uses to keep its session arrived without them, or with them altered: %s. Something between the internet and PHP is removing or rewriting them. Signing in can still succeed, and then every call after it behaves as though it were the first — which reads as an assistant that connects and then forgets.', 'easy-mcp-ai' ),
+                implode( ', ', $lost )
+            ),
+            __( 'Ask your host or CDN to pass these headers through unchanged. They are ordinary request headers; a proxy, a security rule or an aggressive header allow-list is the usual cause.', 'easy-mcp-ai' ),
+            $body['mcp_headers']
+        );
     }
 
     
@@ -121,7 +252,14 @@ class Check_Header_Probe {
 
 
 
-    public static function probe_response( array $server, array $headers, $secret ) {
+    public static function probe_response( array $server, $headers, $secret ) {
+        
+        
+        
+        
+        $collected = is_array( $headers );
+        $headers   = $collected ? $headers : array();
+
         $found_in_headers = false;
         foreach ( array_keys( $headers ) as $name ) {
             if ( 0 === strcasecmp( (string) $name, 'Authorization' ) ) {
@@ -142,10 +280,29 @@ class Check_Header_Probe {
             ? (bool) $GLOBALS['easy_mcp_ai_server_had_auth_header']
             : ! empty( $server['HTTP_AUTHORIZATION'] );
 
+        
+        
+        
+        $mcp = array();
+        foreach ( self::mcp_probe_headers( $secret ) as $name => $expected ) {
+            $mcp[ $name ] = false;
+            foreach ( $headers as $got_name => $got_value ) {
+                if ( 0 === strcasecmp( (string) $got_name, $name ) ) {
+                    $mcp[ $name ] = ( (string) $got_value === $expected );
+                    break;
+                }
+            }
+        }
+
         return array(
-            'proof'         => self::expected_proof( $secret ),
-            'server_var'    => $server_delivered,
-            'getallheaders' => $found_in_headers,
+            'proof'             => self::expected_proof( $secret ),
+            'server_var'        => $server_delivered,
+            'getallheaders'     => $found_in_headers,
+            'headers_collected' => $collected,
+            
+            
+            
+            'mcp_headers'       => $collected ? $mcp : null,
         );
     }
 
@@ -257,7 +414,10 @@ class Check_Header_Probe {
             array(
                 'timeout'     => self::TIMEOUT,
                 'redirection' => 0,
-                'headers'     => array( 'Authorization' => 'Bearer ' . $secret ),
+                'headers'     => array_merge(
+                    array( 'Authorization' => 'Bearer ' . $secret ),
+                    self::mcp_probe_headers( $secret )
+                ),
                 
                 
                 
@@ -280,5 +440,18 @@ class Check_Header_Probe {
 
     private static function unknown( $reason ) {
         return Diagnostic_Result::unknown( 'a1', Diagnostic_Result::TIER_WARNING, self::label(), $reason );
+    }
+
+    
+
+
+
+    private static function unknown_mcp_headers( $reason ) {
+        return Diagnostic_Result::unknown(
+            'a11',
+            Diagnostic_Result::TIER_WARNING,
+            __( 'AI session headers reach this site', 'easy-mcp-ai' ),
+            $reason
+        );
     }
 }
