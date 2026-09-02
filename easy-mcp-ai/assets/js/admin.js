@@ -62,8 +62,8 @@
         // Fetch-then-copy: for a document whose CURRENT contents are wanted,
         // not a fixed string. A10 uses this so an owner on a host that answers
         // /.well-known/ itself can lift each discovery document straight out of
-        // the page, rather than opening the URL and hand-selecting the JSON —
-        // which is where a real support case corrupted the file twice.
+        // the page, rather than opening the URL and hand-selecting the JSON — a
+        // manual step that has produced corrupted files in practice.
         //
         // Same-origin, so no CORS and no credentials needed beyond the session.
         // Labels come from data attributes rather than a localised global: this

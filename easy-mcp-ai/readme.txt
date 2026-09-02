@@ -4,7 +4,7 @@ Tags: mcp, ai, chatgpt, claude, mcp-server
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.7.16
+Stable tag: 1.7.17
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -415,6 +415,16 @@ Please report security bugs found in the source code of the Easy MCP AI for Word
 6. External Data — connect Google Search Console, Google Analytics 4, Semrush, and DataForSEO with encrypted credentials
 
 == Changelog ==
+
+#####   Version 1.7.17 (2026-09-02)
+
+Easy MCP AI has been acquired by Themeisle 🎉
+Were happy to announce that Themeisle is now the new owner of Easy MCP AI. This acquisition will help ensure the plugins continued development, better support, and exciting new updates in the future.
+
+Your existing setup will continue to work as usual, no action is required on your part.
+
+
+
 
 = 1.7.16 =
 * New: Four new diagnostics find connection problems that sit outside WordPress, on your host, CDN or another plugin.
