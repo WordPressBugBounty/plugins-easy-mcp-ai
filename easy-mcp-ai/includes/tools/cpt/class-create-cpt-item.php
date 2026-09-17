@@ -65,7 +65,7 @@ class Create_CPT_Item extends Base_Tool {
                 ),
                 'excerpt'   => array(
                     'type'        => 'string',
-                    'description' => 'The excerpt for the item.',
+                    'description' => 'The excerpt for the item. HTML is accepted and sanitized by WordPress per the calling user\'s capability.',
                 ),
                 'slug'      => array(
                     'type'        => 'string',
@@ -114,7 +114,12 @@ class Create_CPT_Item extends Base_Tool {
             $params['content'] = $arguments['content'];
         }
         if ( isset( $arguments['excerpt'] ) ) {
-            $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
+            
+            
+            
+            
+            
+            $params['excerpt'] = $arguments['excerpt'];
         }
         if ( ! empty( $arguments['slug'] ) ) {
             $params['slug'] = sanitize_title( $arguments['slug'] );

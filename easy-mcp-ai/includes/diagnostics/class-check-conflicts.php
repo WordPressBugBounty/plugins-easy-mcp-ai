@@ -124,7 +124,7 @@ class Check_Conflicts {
         return array(
             self::evaluate_competing_mcp( self::active_from( 'easy_mcp_ai_diagnostics_known_mcp_plugins', self::KNOWN_MCP_PLUGINS ) ),
             self::evaluate_security_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_security_plugins', self::KNOWN_SECURITY_PLUGINS ) ),
-            self::evaluate_rest_filters( array() !== $foreign_rest_auth, $foreign_rest_auth ),
+            self::evaluate_rest_filters( array() !== $foreign_rest_auth, $foreign_rest_auth, self::rest_auth_override_active(), self::rest_auth_observation(), self::foreign_rest_auth_identities() ),
             self::evaluate_hook_stripping( self::count_hook_reassertions(), self::change_capture_enabled() ),
             self::evaluate_cache_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_cache_plugins', self::KNOWN_CACHE_PLUGINS ), self::cache_coverage_now() ),
             self::evaluate_coming_soon_plugins( self::active_from( 'easy_mcp_ai_diagnostics_known_coming_soon_plugins', self::KNOWN_COMING_SOON_PLUGINS ) ),
@@ -272,8 +272,109 @@ class Check_Conflicts {
 
 
 
-    public static function evaluate_rest_filters( $hooked, array $foreign = array() ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_rest_filters( $hooked, array $foreign = array(), $override_active = false, $observation = null, $identities = null ) {
         $label = __( 'REST API authentication unmodified', 'easy-mcp-ai' );
+        
+        
+        
+        $identities = is_array( $identities ) ? $identities : $foreign;
+
+        if ( $hooked && $override_active ) {
+            $evidence = array(
+                'rest_authentication_hooked' => true,
+                'callbacks'                  => array_values( $foreign ),
+                'override_active'            => true,
+                'observation'                => $observation,
+            );
+            $fix_own_allowlist = __( 'Identify the plugin the callback above belongs to and allow the easy-mcp-ai/v1 endpoints in its own REST settings. Then press Re-run checks.', 'easy-mcp-ai' );
+
+            
+            
+            
+            if ( is_array( $observation ) && $observation['reached'] && self::observation_matches( $observation, $identities ) ) {
+                $when = \wp_date( \get_option( 'date_format', 'Y-m-d' ), $observation['time'] );
+                if ( $observation['seen'] && $observation['cleared'] ) {
+                    $measured = sprintf(
+                        /* translators: 1: date, 2: a WP_Error code such as rest_cannot_access. */
+                        __( 'Measured on %1$s: a test request to this plugin\'s endpoints was refused with a sign-in challenge (%2$s) and let through to the plugin, which then checked the credential itself.', 'easy-mcp-ai' ),
+                        $when,
+                        '' !== $observation['code'] ? $observation['code'] : '401'
+                    );
+                } else {
+                    $measured = sprintf(
+                        /* translators: %s: date. */
+                        __( 'Measured on %s: a test request to this plugin\'s endpoints reached the plugin without being refused by that filter.', 'easy-mcp-ai' ),
+                        $when
+                    );
+                }
+                return Diagnostic_Result::pass(
+                    'e3',
+                    Diagnostic_Result::TIER_INFO,
+                    __( 'AI routes get past REST authentication filters', 'easy-mcp-ai' ),
+                    __( 'Another plugin or theme filters REST API authentication on this site, and this plugin\'s own endpoints are exempted from a "sign in required" refusal there; the filter keeps protecting every other REST route.', 'easy-mcp-ai' ) . ' ' . $measured . self::named_callbacks( $foreign ),
+                    $evidence
+                );
+            }
+
+            
+            
+            
+            
+            if ( ! is_array( $observation ) ) {
+                $why = __( 'Whether the exemption lets a request through on this site has not been measured yet.', 'easy-mcp-ai' );
+                $fix = __( 'Press Re-run checks: the connection test sends a real request through that filter and records what it answered.', 'easy-mcp-ai' );
+            } elseif ( ! self::observation_matches( $observation, $identities ) ) {
+                $why = __( 'The filter callbacks have changed since the exemption was last measured, so the earlier measurement no longer applies.', 'easy-mcp-ai' );
+                $fix = __( 'Press Re-run checks so the connection test measures the filter as it is now.', 'easy-mcp-ai' );
+            } else {
+                $why = sprintf(
+                    /* translators: %s: date. */
+                    __( 'Measured on %s: a test request to this plugin\'s endpoints did not get through to the plugin. The exemption covers a "sign in required" refusal only; a refusal that enforces a policy (an IP or rate rule, or a plugin that blocks at dispatch, as Solid Security\'s and All-In-One Security\'s REST restrictions do) is not cleared, and the callback named here is the likely cause.', 'easy-mcp-ai' ),
+                    \wp_date( \get_option( 'date_format', 'Y-m-d' ), $observation['time'] )
+                );
+                $fix = $fix_own_allowlist;
+            }
+
+            return Diagnostic_Result::warn(
+                'e3',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'Another plugin or theme filters REST API authentication on this site. This plugin exempts its own endpoints from a "sign in required" refusal there, but not from a policy refusal.', 'easy-mcp-ai' ) . ' ' . $why . self::named_callbacks( $foreign ),
+                $fix,
+                $evidence
+            );
+        }
 
         if ( $hooked ) {
             
@@ -292,23 +393,7 @@ class Check_Conflicts {
 
 
 
-            $shown   = array_slice( $foreign, 0, 3 );
-            $named   = '';
-            if ( $shown ) {
-                $named = ' ' . sprintf(
-                    /* translators: %s: comma-separated list of PHP callback names. */
-                    __( 'Found: %s.', 'easy-mcp-ai' ),
-                    implode( ', ', $shown )
-                );
-                $remaining = count( $foreign ) - count( $shown );
-                if ( $remaining > 0 ) {
-                    $named .= ' ' . sprintf(
-                        /* translators: %d: number of additional callbacks not listed. */
-                        _n( 'And %d more.', 'And %d more.', $remaining, 'easy-mcp-ai' ),
-                        $remaining
-                    );
-                }
-            }
+            $named = self::named_callbacks( $foreign );
 
             return Diagnostic_Result::warn(
                 'e3',
@@ -482,11 +567,11 @@ class Check_Conflicts {
             Diagnostic_Result::TIER_INFO,
             $label,
             sprintf(
-                count( $found ) > 1
-                    /* translators: %s: comma-separated plugin names. */
-                    ? __( 'Detected: %s. Nothing here indicates a problem — putting a site behind a holding page is a deliberate choice. Worth knowing, though: the screen where you approve an AI client is a normal page on the front of your site, not part of the admin area, so a holding page can hide it. If approving a connection never loads, allow the address ?easy_mcp_ai_oauth=authorize through, or switch the holding page off while you connect.', 'easy-mcp-ai' )
-                    /* translators: %s: a plugin name. */
-                    : __( 'Detected: %s. Nothing here indicates a problem — putting a site behind a holding page is a deliberate choice. Worth knowing, though: the screen where you approve an AI client is a normal page on the front of your site, not part of the admin area, so a holding page can hide it. If approving a connection never loads, allow the address ?easy_mcp_ai_oauth=authorize through, or switch the holding page off while you connect.', 'easy-mcp-ai' ),
+                
+                
+                
+                /* translators: %s: the plugin name, or a comma-separated list of plugin names when more than one is active. */
+                __( 'Detected: %s. Nothing here indicates a problem — putting a site behind a holding page is a deliberate choice. Worth knowing, though: the screen where you approve an AI client is a normal page on the front of your site, not part of the admin area, so a holding page can hide it. If approving a connection never loads, allow the address ?easy_mcp_ai_oauth=authorize through, or switch the holding page off while you connect.', 'easy-mcp-ai' ),
                 implode( ', ', $found )
             ),
             array( 'coming_soon_plugins' => $found )
@@ -1289,6 +1374,146 @@ class Check_Conflicts {
     
 
 
+
+
+
+    private static function named_callbacks( array $foreign ) {
+        $shown = array_slice( $foreign, 0, 3 );
+        if ( ! $shown ) {
+            return '';
+        }
+        $named = ' ' . sprintf(
+            /* translators: %s: comma-separated list of PHP callback names. */
+            __( 'Found: %s.', 'easy-mcp-ai' ),
+            implode( ', ', $shown )
+        );
+        $remaining = count( $foreign ) - count( $shown );
+        if ( $remaining > 0 ) {
+            $named .= ' ' . sprintf(
+                /* translators: %d: number of additional callbacks not listed. */
+                _n( 'And %d more.', 'And %d more.', $remaining, 'easy-mcp-ai' ),
+                $remaining
+            );
+        }
+        return $named;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private static function rest_auth_override_active() {
+        if ( ! class_exists( '\Easy_MCP_AI\MCP\Rest_Auth_Override' ) ) {
+            $file = dirname( __DIR__ ) . '/mcp/class-rest-auth-override.php';
+            if ( is_readable( $file ) ) {
+                require_once $file;
+            }
+        }
+        if ( ! class_exists( '\Easy_MCP_AI\MCP\Rest_Auth_Override' ) ) {
+            return false;
+        }
+        return \Easy_MCP_AI\MCP\Rest_Auth_Override::enabled();
+    }
+
+    
+
+
+
+    const REST_AUTH_OBSERVATION_OPTION = 'easy_mcp_ai_rest_auth_observed';
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function record_rest_auth_observation( $body, $secret ) {
+        $reached = is_array( $body ) && ! empty( $body['proof'] )
+            && class_exists( '\Easy_MCP_AI\Diagnostics\Check_Header_Probe' )
+            && hash_equals( Check_Header_Probe::expected_proof( $secret ), (string) $body['proof'] );
+
+        $seen = ( $reached && isset( $body['rest_auth'] ) && is_array( $body['rest_auth'] ) ) ? $body['rest_auth'] : null;
+
+        \update_option(
+            self::REST_AUTH_OBSERVATION_OPTION,
+            array(
+                'time'      => time(),
+                'reached'   => $reached,
+                'seen'      => null !== $seen,
+                'code'      => ( null !== $seen && isset( $seen['code'] ) ) ? (string) $seen['code'] : '',
+                'status'    => ( null !== $seen && isset( $seen['status'] ) && is_numeric( $seen['status'] ) ) ? (int) $seen['status'] : null,
+                'cleared'   => null !== $seen && ! empty( $seen['cleared'] ),
+                
+                'callbacks' => self::foreign_rest_auth_identities(),
+            ),
+            false
+        );
+    }
+
+    
+
+
+
+
+
+
+    public static function rest_auth_observation() {
+        $o = \get_option( self::REST_AUTH_OBSERVATION_OPTION, null );
+        if ( ! is_array( $o ) || ! isset( $o['time'], $o['reached'], $o['callbacks'] ) || ! is_array( $o['callbacks'] ) ) {
+            return null;
+        }
+        return array(
+            'time'      => (int) $o['time'],
+            'reached'   => (bool) $o['reached'],
+            'seen'      => ! empty( $o['seen'] ),
+            'code'      => isset( $o['code'] ) ? (string) $o['code'] : '',
+            'status'    => ( isset( $o['status'] ) && is_numeric( $o['status'] ) ) ? (int) $o['status'] : null,
+            'cleared'   => ! empty( $o['cleared'] ),
+            'callbacks' => array_values( array_map( 'strval', $o['callbacks'] ) ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function observation_matches( array $observation, array $foreign ) {
+        
+        
+        
+        $then = array_values( array_map( 'strval', $observation['callbacks'] ) );
+        $now  = array_values( array_map( 'strval', $foreign ) );
+        sort( $then );
+        sort( $now );
+        return $then === $now;
+    }
+
+    
+
+
     public static function has_third_party_rest_auth_hook( array $callback_names ) {
         
         
@@ -1301,7 +1526,34 @@ class Check_Conflicts {
 
 
 
-    private static function rest_auth_callback_names() {
+    public static function rest_auth_callback_names() {
+        $names = array();
+        foreach ( self::rest_auth_callbacks() as $cb ) {
+            $names[] = $cb['name'];
+        }
+        return $names;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function rest_auth_callbacks() {
         global $wp_filter;
 
         if ( ! isset( $wp_filter['rest_authentication_errors'] ) ) {
@@ -1313,28 +1565,79 @@ class Check_Conflicts {
             return array();
         }
 
-        $names = array();
-        foreach ( $hook->callbacks as $priority_group ) {
+        $out = array();
+        foreach ( $hook->callbacks as $priority => $priority_group ) {
             if ( ! is_array( $priority_group ) ) {
                 continue;
             }
+            $i = 0;
             foreach ( $priority_group as $entry ) {
                 $callback = isset( $entry['function'] ) ? $entry['function'] : null;
+                ++$i;
 
                 if ( is_string( $callback ) ) {
-                    $names[] = $callback;
+                    $out[] = array( 'name' => $callback, 'id' => $callback );
                 } elseif ( is_array( $callback ) && isset( $callback[1] ) ) {
-                    $owner   = is_object( $callback[0] ) ? get_class( $callback[0] ) : (string) $callback[0];
-                    $names[] = $owner . '::' . $callback[1];
+                    $owner = is_object( $callback[0] ) ? get_class( $callback[0] ) : (string) $callback[0];
+                    $name  = $owner . '::' . $callback[1];
+                    $out[] = array( 'name' => $name, 'id' => $name );
                 } elseif ( $callback instanceof \Closure ) {
                     
                     
-                    $names[] = 'closure';
+                    $out[] = array( 'name' => 'closure', 'id' => self::closure_identity( $callback, (string) $priority . '#' . $i ) );
+                } elseif ( is_object( $callback ) && method_exists( $callback, '__invoke' ) ) {
+                    $name  = get_class( $callback ) . '::__invoke';
+                    $out[] = array( 'name' => $name, 'id' => $name );
                 }
             }
         }
 
-        return $names;
+        return $out;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function closure_identity( $closure, $position ) {
+        try {
+            $ref  = new \ReflectionFunction( $closure );
+            $file = $ref->getFileName();
+            $line = $ref->getStartLine();
+            if ( is_string( $file ) && '' !== $file && is_int( $line ) ) {
+                $file = function_exists( 'wp_normalize_path' ) ? \wp_normalize_path( $file ) : str_replace( '\\', '/', $file );
+                if ( defined( 'ABSPATH' ) ) {
+                    $root = function_exists( 'wp_normalize_path' ) ? \wp_normalize_path( ABSPATH ) : str_replace( '\\', '/', ABSPATH );
+                    if ( 0 === strpos( $file, $root ) ) {
+                        $file = substr( $file, strlen( $root ) );
+                    }
+                }
+                return 'closure:' . $file . ':' . $line;
+            }
+        } catch ( \Throwable $e ) {
+            unset( $e );
+        }
+        return 'closure:@' . $position;
+    }
+
+    
+
+
+
+
+
+    public static function foreign_rest_auth_identities() {
+        $ids = array();
+        foreach ( self::rest_auth_callbacks() as $cb ) {
+            if ( array() !== self::foreign_rest_auth_callbacks( array( $cb['name'] ) ) ) {
+                $ids[] = $cb['id'];
+            }
+        }
+        return $ids;
     }
 
     private static function change_capture_enabled() {

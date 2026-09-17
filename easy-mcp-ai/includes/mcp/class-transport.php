@@ -73,7 +73,10 @@ class Transport {
             \Easy_MCP_AI\Diagnostics\Check_Header_Probe::probe_response(
                 $_SERVER, // phpcs:ignore WordPressVIPMinimum.Variables.RestrictedVariables.cache_constraints___SERVER -- Presence check only; no value is read or returned.
                 $headers,
-                (string) $request->get_param( 'probe' )
+                (string) $request->get_param( 'probe' ),
+                
+                
+                class_exists( '\Easy_MCP_AI\MCP\Rest_Auth_Override' ) ? Rest_Auth_Override::observed() : null
             )
         );
     }
@@ -169,8 +172,8 @@ class Transport {
             return $headers;
         }
 
-        foreach ( array( 'Mcp-Session-Id', 'Last-Event-ID' ) as $header ) {
-            if ( ! in_array( $header, $headers, true ) ) {
+        foreach ( array( 'Mcp-Session-Id', 'Last-Event-ID', 'MCP-Protocol-Version', 'Mcp-Method', 'Mcp-Name' ) as $header ) {
+            if ( ! in_array( strtolower( $header ), array_map( 'strtolower', $headers ), true ) ) {
                 $headers[] = $header;
             }
         }
@@ -227,8 +230,59 @@ class Transport {
         }
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function inject_basic_api_key( \WP_REST_Request $request ) {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Auth_Header' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-auth-header.php';
+        }
+        $header = $request->get_header( 'authorization' );
+        if ( $header ) {
+            if ( 0 !== stripos( $header, 'Basic ' ) ) {
+                return; 
+            }
+            $key = \Easy_MCP_AI\Auth_Header::api_key_from_basic( $header );
+            if ( null !== $key ) {
+                $request->set_header( 'Authorization', 'Bearer ' . $key );
+            }
+            return;
+        }
+        if ( isset( $_SERVER['PHP_AUTH_USER'] ) || isset( $_SERVER['PHP_AUTH_PW'] ) ) {
+            
+            $key = \Easy_MCP_AI\Auth_Header::api_key_from_pair(
+                isset( $_SERVER['PHP_AUTH_USER'] ) ? (string) $_SERVER['PHP_AUTH_USER'] : '', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+                isset( $_SERVER['PHP_AUTH_PW'] ) ? (string) $_SERVER['PHP_AUTH_PW'] : '' // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+            );
+            if ( null !== $key ) {
+                $request->set_header( 'Authorization', 'Bearer ' . $key );
+            }
+        }
+    }
+
     public function handle_post( \WP_REST_Request $request ) {
         $this->inject_url_token( $request );
+        $this->inject_basic_api_key( $request );
 
         
         
@@ -261,6 +315,16 @@ class Transport {
             
             
             $error_code = is_int( $parsed->get_error_data() ) ? $parsed->get_error_data() : Error_Codes::PARSE_ERROR;
+            $version = $request->get_header( 'mcp-protocol-version' );
+            if ( $version && ! in_array( $version, Server::LEGACY_PROTOCOL_VERSIONS, true ) ) {
+                
+                
+                json_decode( $request->get_body() );
+                if ( Error_Codes::PARSE_ERROR === $error_code && JSON_ERROR_NONE === json_last_error() ) {
+                    return $this->modern_error( null, Error_Codes::INVALID_REQUEST, 'Expected a JSON-RPC request object' );
+                }
+                return $this->modern_error( null, $error_code, $parsed->get_error_message() );
+            }
             return new \WP_REST_Response( JSON_RPC::error_response( null, $error_code, $parsed->get_error_message() ), 400 );
         }
 
@@ -345,6 +409,35 @@ class Transport {
         }
 
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $ip_refusal = $this->refuse_if_ip_forbidden( $token_id, $auth_source_for_request, $wp_user_id, $oauth_client_id );
+        if ( $ip_refusal ) {
+            return $ip_refusal;
+        }
+
+        
+        
+        $wire = json_decode( $request->get_body() );
+        $header_version = $request->get_header( 'mcp-protocol-version' );
+        $body_version = isset( $wire->params->_meta->{'io.modelcontextprotocol/protocolVersion'} )
+            ? $wire->params->_meta->{'io.modelcontextprotocol/protocolVersion'} : null;
+        $modern = ( $header_version && ! in_array( $header_version, Server::LEGACY_PROTOCOL_VERSIONS, true ) )
+            || ( null !== $body_version && ! in_array( $body_version, Server::LEGACY_PROTOCOL_VERSIONS, true ) )
+            || ( isset( $parsed['method'] ) && 'server/discover' === $parsed['method'] && ! $header_version );
+        if ( $modern ) {
+            return $this->process_modern_message( $wire, $request, $token_id, $wp_user_id, $allowed_tools, $auth_source_for_request, $oauth_client_id );
+        }
+
+        
         $is_initialize = isset( $parsed['method'] ) && 'initialize' === $parsed['method'];
         if ( ! $is_initialize ) {
             $header_error = $this->validate_protocol_version_header( $request );
@@ -358,6 +451,9 @@ class Transport {
         if ( isset( $parsed[0] ) && ( is_array( $parsed[0] ) || is_wp_error( $parsed[0] ) ) ) {
             
             $session_version = $this->get_session_protocol_version( $request );
+            if ( ! $session_version ) {
+                $session_version = $header_version ?: '2025-03-26';
+            }
             if ( $session_version && version_compare( $session_version, '2025-06-18', '>=' ) ) {
                 return new \WP_REST_Response(
                     JSON_RPC::error_response( null, Error_Codes::INVALID_REQUEST, 'JSON-RPC batching was removed in MCP protocol 2025-06-18' ),
@@ -387,6 +483,118 @@ class Transport {
         }
     }
 
+    
+    private function modern_error( $id, $code, $message, $status = 400, $data = null ) {
+        $body = JSON_RPC::error_response( $id, $code, $message, $data );
+        if ( null === $id ) {
+            unset( $body['id'] );
+        }
+        $response = new \WP_REST_Response( $body, $status );
+        $response->header( 'Cache-Control', 'no-store, private' );
+        $this->add_cors_headers( $response );
+        return $response;
+    }
+
+    
+
+
+
+    private function process_modern_message( $wire, $request, $token_id, $wp_user_id, $allowed_tools, $auth_source, $client_id ) {
+        $id = isset( $wire->id ) && ( is_string( $wire->id ) || is_int( $wire->id ) || ( is_float( $wire->id ) && is_finite( $wire->id ) ) ) ? $wire->id : null;
+        if ( ! ( $wire instanceof \stdClass ) || null === $id || ! isset( $wire->method ) || ! is_string( $wire->method ) ) {
+            
+            return $this->modern_error( null, Error_Codes::INVALID_REQUEST, 'Expected a single JSON-RPC request with a string or number id' );
+        }
+        $params = isset( $wire->params ) ? $wire->params : null;
+        $meta = $params instanceof \stdClass && isset( $params->_meta ) ? $params->_meta : null;
+        $version = $meta instanceof \stdClass && isset( $meta->{'io.modelcontextprotocol/protocolVersion'} )
+            ? $meta->{'io.modelcontextprotocol/protocolVersion'} : null;
+        $header_version = $request->get_header( 'mcp-protocol-version' );
+        
+        
+        
+        
+        
+        
+        if ( $header_version && ! in_array( $header_version, Server::SUPPORTED_PROTOCOL_VERSIONS, true ) ) {
+            return $this->modern_error( $id, Error_Codes::UNSUPPORTED_PROTOCOL_VERSION, 'Unsupported protocol version', 400, array(
+                'supported' => Server::SUPPORTED_PROTOCOL_VERSIONS, 'requested' => $header_version,
+            ) );
+        }
+        if ( ! $header_version ) {
+            
+            return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'MCP-Protocol-Version header is required' );
+        }
+        if ( ! is_string( $version ) || '' === $version ) {
+            
+            
+            return $this->modern_error( $id, Error_Codes::INVALID_PARAMS, 'Request metadata must include io.modelcontextprotocol/protocolVersion' );
+        }
+        if ( $version !== $header_version ) {
+            return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'MCP-Protocol-Version must match request metadata' );
+        }
+        if ( Server::PROTOCOL_VERSION !== $version ) {
+            
+            
+            return $this->modern_error( $id, Error_Codes::UNSUPPORTED_PROTOCOL_VERSION, 'Unsupported protocol version', 400, array(
+                'supported' => Server::SUPPORTED_PROTOCOL_VERSIONS, 'requested' => $version,
+            ) );
+        }
+        $method = $request->get_header( 'mcp-method' );
+        if ( ! $method || ! preg_match( '/^[\x21-\x7e]+$/D', $method ) || $method !== $wire->method ) {
+            return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'Mcp-Method must match the request method' );
+        }
+        $name_fields = array( 'tools/call' => 'name', 'prompts/get' => 'name', 'resources/read' => 'uri' );
+        if ( isset( $name_fields[ $method ] ) ) {
+            $field = $name_fields[ $method ];
+            $name = $request->get_header( 'mcp-name' );
+            if ( ! is_string( $name ) || '' === $name || ! preg_match( '/^[\x20-\x7e\x09]+$/D', $name ) || trim( $name ) !== $name ) {
+                return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'Missing or malformed Mcp-Name' );
+            }
+            if ( 0 === strpos( $name, '=?base64?' ) && '?=' === substr( $name, -2 ) ) {
+                $encoded = substr( $name, 9, -2 );
+                $name = base64_decode( $encoded, true );
+                if ( false === $name || base64_encode( $name ) !== $encoded || ! preg_match( '//u', $name ) ) {
+                    return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'Malformed Base64 Mcp-Name' );
+                }
+            }
+            if ( ! isset( $params->$field ) || ! is_string( $params->$field ) || $name !== $params->$field ) {
+                return $this->modern_error( $id, Error_Codes::HEADER_MISMATCH, 'Mcp-Name must match the request name or URI' );
+            }
+        }
+        $capabilities = isset( $meta->{'io.modelcontextprotocol/clientCapabilities'} ) ? $meta->{'io.modelcontextprotocol/clientCapabilities'} : null;
+        if ( ! ( $capabilities instanceof \stdClass ) ) {
+            return $this->modern_error( $id, Error_Codes::INVALID_PARAMS, 'clientCapabilities must be a JSON object' );
+        }
+        if ( property_exists( $meta, 'io.modelcontextprotocol/clientInfo' ) ) {
+            $info = $meta->{'io.modelcontextprotocol/clientInfo'};
+            if ( ! ( $info instanceof \stdClass ) || ! isset( $info->name, $info->version ) || ! is_string( $info->name ) || ! is_string( $info->version ) ) {
+                return $this->modern_error( $id, Error_Codes::INVALID_PARAMS, 'clientInfo must include string name and version fields' );
+            }
+        }
+        if ( 'tools/call' === $method && property_exists( $params, 'arguments' ) && ! ( $params->arguments instanceof \stdClass ) ) {
+            return $this->modern_error( $id, Error_Codes::INVALID_PARAMS, 'Tool arguments must be a JSON object' );
+        }
+        if ( ! $this->set_current_user( $wp_user_id ) ) {
+            return $this->make_unauthorized_response( null, 401, 'invalid_token' );
+        }
+        $this->token_manager->update_last_used( $token_id );
+        
+        
+        $message = json_decode( $request->get_body(), true );
+        $this->server->set_request_identity( $auth_source, $wp_user_id, $client_id );
+        try {
+            $body = $this->server->handle_modern_message( $message, $token_id, $allowed_tools );
+        } finally {
+            $this->server->clear_request_identity();
+        }
+        $status = isset( $body['error']['code'] ) && Error_Codes::METHOD_NOT_FOUND === $body['error']['code'] ? 404 : 200;
+        $response = new \WP_REST_Response( $body, $status );
+        $response->header( 'Cache-Control', 'no-store, private' );
+        $this->add_cors_headers( $response );
+        return $response;
+    }
+
     private function process_single_message( $message, $token_id, $wp_user_id, $request, $batch_revalidated = null, $allowed_tools = null, $auth_source = null, $oauth_client_id = null ) {
         $method = isset( $message['method'] ) ? $message['method'] : '';
 
@@ -407,7 +615,7 @@ class Transport {
             $response_data = $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id );
             $response = new \WP_REST_Response( $response_data, 200 );
             if ( ! isset( $response_data['error'] ) ) {
-                $negotiated = $this->server->get_last_negotiated_version() ?? Server::PROTOCOL_VERSION;
+                $negotiated = $this->server->get_last_negotiated_version() ?? Server::LEGACY_PROTOCOL_VERSION;
                 $session_id = $this->server->get_session_manager()->create( $token_id, $wp_user_id, $negotiated, $auth_source );
                 $response->header( 'Mcp-Session-Id', $session_id );
             }
@@ -619,6 +827,7 @@ class Transport {
 
     public function handle_delete( \WP_REST_Request $request ) {
         $this->inject_url_token( $request );
+        $this->inject_basic_api_key( $request );
 
         $origin_error = $this->validate_origin( $request, (bool) $request->get_header( 'authorization' ) );
         if ( $origin_error ) {
@@ -626,27 +835,50 @@ class Transport {
         }
 
         
-        $token_id    = null;
-        $auth_source = null;
+        $token_id          = null;
+        $auth_source       = null;
+        $delete_wp_user_id = 0;
+        $delete_client_id  = null;
         if ( $this->is_oauth_available() ) {
             $oauth_tm        = new OAuth_Token_Manager();
             $oauth_validator = new OAuth_Token_Validator( $oauth_tm );
             $oauth_result    = $oauth_validator->authenticate( $request );
             if ( ! \is_wp_error( $oauth_result ) ) {
-                $token_id    = $oauth_result['token_id'];
-                $auth_source = 'oauth';
+                $token_id          = $oauth_result['token_id'];
+                $auth_source       = 'oauth';
+                $delete_wp_user_id = isset( $oauth_result['wp_user_id'] ) ? (int) $oauth_result['wp_user_id'] : 0;
+                $delete_client_id  = isset( $oauth_result['client_id'] ) ? $oauth_result['client_id'] : null;
             }
         }
         if ( null === $token_id ) {
             $auth        = new Token_Auth( $this->token_manager );
             $legacy_result = $auth->authenticate( $request );
             if ( ! \is_wp_error( $legacy_result ) ) {
-                $token_id    = $legacy_result['token_id'];
-                $auth_source = 'legacy';
+                $token_id          = $legacy_result['token_id'];
+                $auth_source       = 'legacy';
+                $delete_wp_user_id = isset( $legacy_result['wp_user_id'] ) ? (int) $legacy_result['wp_user_id'] : 0;
             }
         }
         if ( null === $token_id ) {
             return $this->make_unauthorized_response( array( 'error' => 'Authentication required' ) );
+        }
+        
+        
+        
+        
+        
+        $ip_refusal = $this->refuse_if_ip_forbidden( $token_id, $auth_source, $delete_wp_user_id, $delete_client_id );
+        if ( $ip_refusal ) {
+            return $ip_refusal;
+        }
+
+        
+        
+        if ( Server::PROTOCOL_VERSION === $request->get_header( 'mcp-protocol-version' ) ) {
+            $response = new \WP_REST_Response( null, 405 );
+            $response->header( 'Allow', 'POST, OPTIONS' );
+            $this->add_cors_headers( $response );
+            return $response;
         }
 
         $session_id = $request->get_header( 'mcp-session-id' );
@@ -1014,11 +1246,11 @@ class Transport {
             $this->server->get_session_manager()->destroy( $session_id );
             return false;
         }
-        $auth = new Token_Auth( $this->token_manager );
-        if ( ! $auth->check_ip_allowed() ) {
-            $this->server->get_session_manager()->destroy( $session_id );
-            return false;
-        }
+        
+        
+        
+        
+        
         $this->server->get_session_manager()->touch( $session_id );
         return array(
             'token_id'    => (int) $token['id'],
@@ -1065,6 +1297,86 @@ class Transport {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-validator.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
         }
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function refuse_if_ip_forbidden( $token_id, $auth_source, $wp_user_id, $client_id ) {
+        $auth = new Token_Auth( $this->token_manager );
+        if ( $auth->check_ip_allowed() ) {
+            return null;
+        }
+        $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' )
+            ? (string) \Easy_MCP_AI\Client_IP::get()
+            : ( isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
+        if ( $this->ip_refusal_log_budget_allows( $auth_source, $token_id ) ) {
+            $this->server->log_auth_failure( $ip, 'ip_forbidden', array(
+                'token_id'        => (int) $token_id,
+                'auth_source'     => $auth_source,
+                'wp_user_id'      => (int) $wp_user_id,
+                'oauth_client_id' => $client_id,
+            ) );
+        }
+        $response = new \WP_REST_Response( array(
+            'error'             => 'ip_forbidden',
+            'error_description' => 'This credential is valid but requests from your IP address are not permitted by the site\'s IP whitelist.',
+        ), 403 );
+        $this->add_cors_headers( $response );
+        return $response;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private function ip_refusal_log_budget_allows( $auth_source, $token_id ) {
+        
+        
+        $limit = (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        if ( $limit < 1 ) {
+            $limit = 60;
+        }
+        $key = 'easy_mcp_ai_ipreflog_' . ( 'oauth' === $auth_source ? 'oauth' : 'legacy' ) . '_' . (int) $token_id;
+
+        if ( \wp_using_ext_object_cache() ) {
+            \wp_cache_add( $key, 0, 'easy_mcp_ai', 60 );
+            return (int) \wp_cache_incr( $key, 1, 'easy_mcp_ai' ) <= $limit;
+        }
+        $written = (int) \get_transient( $key );
+        if ( $written >= $limit ) {
+            return false;
+        }
+        \set_transient( $key, $written + 1, 60 );
         return true;
     }
 

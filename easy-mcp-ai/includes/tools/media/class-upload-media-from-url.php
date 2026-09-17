@@ -57,7 +57,7 @@ class Upload_Media_From_Url extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Downloads a file from a public HTTPS URL and imports it into the WordPress media library. Required: `url` (HTTPS only by default — local/private IPs blocked via DNS-resolved SSRF check; site owners can allow http via the easy_mcp_ai_allow_http_media_url filter). Optional: `filename` (defaults to URL basename), `title`, `alt_text`, `caption`, `post_id` (attach to a parent post). Size limit: site `wp_max_upload_size()`. Returns { id, source_url, mime_type, title, file_size }. Avoids the ~33% base64 overhead of wp_upload_media.';
+        return 'Downloads a file from a URL and imports it into the WordPress media library. Supply exactly one source: `url` (a public HTTPS URL — HTTPS only by default, local/private IPs blocked via DNS-resolved SSRF check; site owners can allow http via the easy_mcp_ai_allow_http_media_url filter) or `file` (a client file handoff — a generated or user-attached file the client references as an object with download_url and file_id, which the client fills in). Local paths and bare file IDs cannot be fetched. Optional: `filename` (override; for a file handoff the resolved name must carry an allowed extension such as image.png), `title`, `alt_text`, `caption`, `post_id` (attach to a parent post). Size limit: site `wp_max_upload_size()`. Returns { id, source_url, mime_type, title, file_size }; use id as featured_media or source_url in post content. Avoids the ~33% base64 overhead of wp_upload_media.';
     }
 
     public function get_category() {
@@ -83,11 +83,22 @@ class Upload_Media_From_Url extends Base_Tool {
             'properties' => array(
                 'url'      => array(
                     'type'        => 'string',
-                    'description' => 'Public HTTPS URL to the file (http allowed only if the site enables the easy_mcp_ai_allow_http_media_url filter). Private/internal IPs are rejected.',
+                    'description' => 'Public HTTPS URL to the file (http allowed only if the site enables the easy_mcp_ai_allow_http_media_url filter). Private/internal IPs are rejected. Supply either url or file, never both.',
+                ),
+                'file'     => array(
+                    'type'        => 'object',
+                    'description' => 'Client file handoff (a generated or user-attached file the client references). The client fills this in; download_url is a temporary HTTPS URL the site fetches. Supply either file or url, never both.',
+                    'properties'  => array(
+                        'download_url' => array( 'type' => 'string' ),
+                        'file_id'      => array( 'type' => 'string' ),
+                        'mime_type'    => array( 'type' => 'string' ),
+                        'file_name'    => array( 'type' => 'string' ),
+                    ),
+                    'required'    => array( 'download_url', 'file_id' ),
                 ),
                 'filename' => array(
                     'type'        => 'string',
-                    'description' => 'Optional filename override (defaults to URL basename).',
+                    'description' => 'Optional filename override. Resolution order: this value, then file.file_name, then the URL basename. For a file handoff the resolved name must carry an allowed extension (signed download URLs often have none).',
                 ),
                 'title'    => array(
                     'type'        => 'string',
@@ -106,14 +117,104 @@ class Upload_Media_From_Url extends Base_Tool {
                     'description' => 'Optional parent post ID to attach the media to.',
                 ),
             ),
-            'required'   => array( 'url' ),
+            
+            
+            
+            
+            
+            
         );
     }
 
-    public function execute( array $arguments ) {
-        $this->validate_required( $arguments, array( 'url' ) );
+    
 
-        $url = $this->validate_remote_url( (string) $arguments['url'] );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function get_definition() {
+        $definition          = parent::get_definition();
+        $definition['_meta'] = array( 'openai/fileParams' => array( 'file' ) );
+        return $definition;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public function get_redacted_arguments() {
+        return array( 'url' );
+    }
+
+    public function execute( array $arguments ) {
+        
+        
+        
+        $has_url  = array_key_exists( 'url', $arguments );
+        $has_file = array_key_exists( 'file', $arguments );
+        if ( $has_url === $has_file ) {
+            throw new \InvalidArgumentException( 'Supply exactly one source: url, or file (a client file handoff carrying download_url and file_id).' );
+        }
+
+        $filename_hint = '';
+        if ( $has_file ) {
+            $file          = $this->validate_file_reference( $arguments['file'] );
+            $source_url    = $file['download_url'];
+            $filename_hint = isset( $file['file_name'] ) ? (string) $file['file_name'] : '';
+        } else {
+            $this->validate_required( $arguments, array( 'url' ) );
+            $source_url = (string) $arguments['url'];
+        }
+
+        $url = $this->validate_remote_url( $source_url );
+
+        
+        
+        
+        
+        $filename = '';
+        if ( ! empty( $arguments['filename'] ) ) {
+            $filename = sanitize_file_name( (string) $arguments['filename'] );
+        }
+        if ( '' === $filename && '' !== $filename_hint ) {
+            $filename = sanitize_file_name( $filename_hint );
+        }
+        if ( '' === $filename ) {
+            $path     = (string) wp_parse_url( $url, PHP_URL_PATH );
+            $filename = sanitize_file_name( basename( $path ) );
+        }
+        if ( $has_file ) {
+            
+            
+            
+            
+            $type = wp_check_filetype( $filename );
+            if ( '' === $filename || empty( $type['type'] ) ) {
+                throw new \InvalidArgumentException( 'Supply filename with an allowed file extension (for example image.png): the file handoff carries no usable filename.' );
+            }
+        }
+        if ( '' === $filename ) {
+            $filename = 'remote-' . wp_generate_password( 8, false ) . '.bin';
+        }
 
         $max_bytes = wp_max_upload_size();
 
@@ -155,18 +256,7 @@ class Upload_Media_From_Url extends Base_Tool {
         
         
         
-        $filename = '';
-        if ( ! empty( $arguments['filename'] ) ) {
-            $filename = sanitize_file_name( (string) $arguments['filename'] );
-        }
-        if ( '' === $filename ) {
-            $path     = (string) wp_parse_url( $url, PHP_URL_PATH );
-            $filename = sanitize_file_name( basename( $path ) );
-        }
-        if ( '' === $filename ) {
-            $filename = 'remote-' . wp_generate_password( 8, false ) . '.bin';
-        }
-
+        
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/image.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -192,8 +282,13 @@ class Upload_Media_From_Url extends Base_Tool {
         );
         if ( is_wp_error( $response ) ) {
             \wp_delete_file( $tmp_file );
+            
+            
+            
+            
+            
             throw new \RuntimeException(
-                sprintf( 'Could not fetch remote URL: %s', $response->get_error_message() ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                sprintf( 'Could not fetch remote URL (%s). Request a fresh URL or file handoff and retry.', sanitize_key( (string) $response->get_error_code() ) ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
         $status = (int) wp_remote_retrieve_response_code( $response );
@@ -292,6 +387,37 @@ class Upload_Media_From_Url extends Base_Tool {
             'title'      => $attachment ? (string) $attachment->post_title : '',
             'file_size'  => $body_len,
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    private function validate_file_reference( $file ) {
+        if ( ! is_array( $file ) ) {
+            throw new \InvalidArgumentException( 'file must be a client file object carrying download_url and file_id; local paths and bare file IDs cannot be fetched.' );
+        }
+        foreach ( array( 'download_url', 'file_id' ) as $key ) {
+            if ( ! isset( $file[ $key ] ) || ! is_string( $file[ $key ] ) || '' === trim( $file[ $key ] ) ) {
+                throw new \InvalidArgumentException( 'file.download_url and file.file_id must be non-empty strings supplied by the client.' );
+            }
+        }
+        foreach ( array( 'file_name', 'mime_type' ) as $key ) {
+            if ( array_key_exists( $key, $file ) && ! is_string( $file[ $key ] ) ) {
+                throw new \InvalidArgumentException( 'file.file_name and file.mime_type must be strings when supplied.' );
+            }
+        }
+        $file['download_url'] = trim( $file['download_url'] );
+        return $file;
     }
 
     

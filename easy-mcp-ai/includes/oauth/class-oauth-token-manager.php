@@ -440,9 +440,13 @@ class OAuth_Token_Manager {
                 
                 
                 'ip_address'    => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
-                'created_at'    => \current_time( 'mysql', true ),
+                
+                
+                'auth_source'     => 'oauth',
+                'oauth_client_id' => '' !== $client_id ? $client_id : null,
+                'created_at'      => \current_time( 'mysql', true ),
             ),
-            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+            array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
         );
     }
 

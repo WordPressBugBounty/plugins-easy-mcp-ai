@@ -399,6 +399,9 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\History\\History_Diff',
 
             
+            'Easy_MCP_AI\\Tools\\Audit\\Audit_List',
+
+            
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Overview',
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Organic_Keywords',
             'Easy_MCP_AI\\Tools\\Semrush\\Competitors_Organic',

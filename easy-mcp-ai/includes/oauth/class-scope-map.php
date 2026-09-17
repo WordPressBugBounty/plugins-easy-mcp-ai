@@ -74,6 +74,7 @@ class Scope_Map {
             'wp_dfs_account_balance',
         ),
         'mcp:history:read'       => array( 'wp_history_list', 'wp_history_get', 'wp_history_diff' ),
+        'mcp:audit:read'         => array( 'wp_audit_list' ),
         'mcp:semrush:read'       => array(
             'wp_semrush_domain_overview',
             'wp_semrush_domain_organic_keywords',
@@ -565,6 +566,20 @@ class Scope_Map {
         $categories = array();
         $seen       = array();
 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Dynamic_Tool_Registrar' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-dynamic-tool-registrar.php';
+        }
+
         foreach ( array_keys( self::SCOPE_MAP ) as $leaf ) {
             $parts = explode( ':', $leaf );
             $slug  = $parts[1];
@@ -609,6 +624,7 @@ class Scope_Map {
                 'user_update' => __( 'Users — Update', 'easy-mcp-ai' ),
                 'user_delete' => __( 'Users — Delete', 'easy-mcp-ai' ),
                 'history'     => __( 'Change History (audit log of MCP edits)', 'easy-mcp-ai' ),
+                'audit'       => __( 'Audit Log (every MCP call, all users — admin only)', 'easy-mcp-ai' ),
             );
 
             $is_core        = in_array( $slug, self::CORE_CATEGORIES, true );
@@ -616,7 +632,7 @@ class Scope_Map {
             $plugin_required = $is_plugin ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
             
-            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug ) {
+            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug || 'audit' === $slug ) {
                 $default_read  = false;
                 $default_write = false;
             } elseif ( 'users' === $slug ) {

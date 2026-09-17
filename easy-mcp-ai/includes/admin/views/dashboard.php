@@ -75,7 +75,6 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				$set_change_retention = (int) get_option( 'easy_mcp_ai_change_log_retention', 30 );
 				$set_force_draft      = (bool) get_option( 'easy_mcp_ai_force_draft_on_create', false );
 				$set_max_title        = (int) get_option( 'easy_mcp_ai_max_title_length', 0 );
-				$set_admin_language   = (string) get_option( 'easy_mcp_ai_admin_language', '' );
 				$set_disabled_tools   = count( (array) get_option( 'easy_mcp_ai_disabled_tools', array() ) );
 				$set_allowed_patterns = count( (array) get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ) );
 				$set_oauth_cap        = (string) get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
@@ -198,7 +197,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 					'WordPress:        ' . $env_wp_version,
 					'PHP Version:      ' . PHP_VERSION,
 					'Database:         ' . $db_display,
-					'Protocol:         2025-11-25 / 2025-06-18 / 2025-03-26',
+					'Protocol:         2026-07-28 / 2025-11-25 / 2025-06-18 / 2025-03-26',
 					'Active Tokens:    ' . (int) $token_count,
 					'Active Clients:   ' . (int) $oauth_client_count,
 					'Registered Tools: ' . (int) $tool_count,
@@ -241,7 +240,6 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 					'Change History:        ' . ( $set_change_enabled ? 'Enabled (' . $set_change_retention . '-day retention)' : 'Disabled' ),
 					'Force Draft on Create: ' . ( $set_force_draft ? 'Yes' : 'No' ),
 					'Max Title Length:      ' . ( 0 === $set_max_title ? '0 (unlimited)' : $set_max_title ),
-					'Admin Language:        ' . ( '' === $set_admin_language ? 'Site default' : $set_admin_language ),
 					'Disabled Tools:        ' . $set_disabled_tools,
 					'Allowed Tool Patterns: ' . $set_allowed_patterns,
 					'OAuth Min Capability:  ' . $set_oauth_cap,
@@ -357,7 +355,7 @@ function easy_mcp_ai_view_dashboard( $endpoint_url, $token_count, $tool_count, $
 				<tbody>
 					<tr>
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'Protocol Version', 'easy-mcp-ai' ); ?></td>
-						<td><code>2025-11-25 / 2025-06-18 / 2025-03-26</code></td>
+						<td><code>2026-07-28 / 2025-11-25 / 2025-06-18 / 2025-03-26</code></td>
 					</tr>
 					<tr>
 						<td class="wp-mcp-status-label"><?php esc_html_e( 'Plugin Version', 'easy-mcp-ai' ); ?></td>

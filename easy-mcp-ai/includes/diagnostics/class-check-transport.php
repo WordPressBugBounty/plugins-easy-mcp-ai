@@ -84,7 +84,9 @@ class Check_Transport {
             self::evaluate_proxy_ip(
                 isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '',
                 self::forwarding_header_present(),
-                (bool) \has_filter( 'easy_mcp_ai_client_ip' )
+                (bool) \has_filter( 'easy_mcp_ai_client_ip' ),
+                self::trusted_proxies_configured(),
+                self::resolved_client_ip()
             ),
             self::evaluate_cron(
                 self::unscheduled_cleanup_events(),
@@ -183,7 +185,11 @@ class Check_Transport {
 
         $is_fastcgi = in_array( strtolower( (string) $sapi ), self::FASTCGI_SAPIS, true );
 
-        if ( false !== strpos( (string) $htaccess, self::AUTH_RULE_MARKER ) ) {
+        
+        
+        
+        
+        if ( self::has_active_auth_rule( $htaccess ) ) {
             
             
             
@@ -359,21 +365,50 @@ class Check_Transport {
 
 
 
-    public static function evaluate_proxy_ip( $remote_addr, $forwarding_header_present, $filter_hooked ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_proxy_ip( $remote_addr, $forwarding_header_present, $filter_hooked, $trusted_configured = false, $resolved_addr = null ) {
         $label    = __( 'Client IP resolves per visitor', 'easy-mcp-ai' );
         $evidence = array(
-            'remote_addr'       => (string) $remote_addr,
-            'forwarding_header' => (bool) $forwarding_header_present,
-            'filter_hooked'     => (bool) $filter_hooked,
+            'remote_addr'        => (string) $remote_addr,
+            'forwarding_header'  => (bool) $forwarding_header_present,
+            'filter_hooked'      => (bool) $filter_hooked,
+            'trusted_proxies'    => (bool) $trusted_configured,
+            'resolved_addr'      => null === $resolved_addr ? null : (string) $resolved_addr,
         );
 
-        if ( self::is_loopback_or_private( (string) $remote_addr ) && $forwarding_header_present && ! $filter_hooked ) {
+        if ( self::is_loopback_or_private( (string) $remote_addr ) && $forwarding_header_present && ! $filter_hooked && ! $trusted_configured ) {
             return Diagnostic_Result::warn(
                 'a6',
                 Diagnostic_Result::TIER_WARNING,
                 $label,
-                __( 'Every request reaches PHP from the same internal address, because a proxy or CDN sits in front of this site. OAuth rate limits are counted per IP, so all visitors currently share one allowance and one busy client can exhaust it for everyone.', 'easy-mcp-ai' ),
-                __( 'Best fixed on the server: mod_remoteip on Apache, or set_real_ip_from / real_ip_header on nginx — that corrects WordPress and every other plugin at once. Alternatively hook the easy_mcp_ai_client_ip filter to return the real address.', 'easy-mcp-ai' ),
+                __( 'This site appears to be behind a proxy or CDN: every request reaches PHP from the same internal address. Per-IP rate limits, the failed-authentication lockout, the IP whitelist and the addresses in the Audit Log are therefore shared across all visitors.', 'easy-mcp-ai' ),
+                __( 'Declare the proxy with the EASY_MCP_AI_TRUSTED_PROXIES constant in wp-config.php — see https://docs.easymcpai.com/trusted-proxies. Best of all is fixing it on the server — mod_remoteip on Apache, or set_real_ip_from / real_ip_header on nginx — which corrects WordPress and every other plugin at once. The easy_mcp_ai_client_ip filter remains available.', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
+
+        if ( $trusted_configured && $forwarding_header_present && ! $filter_hooked && null !== $resolved_addr && (string) $resolved_addr === (string) $remote_addr ) {
+            return Diagnostic_Result::warn(
+                'a6',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'Trusted proxies are declared, but this request still resolved to the proxy address: the proxy that delivered it is not on the list, or the declared client-IP header is not the one it sends.', 'easy-mcp-ai' ),
+                __( 'Add the address shown in the evidence to EASY_MCP_AI_TRUSTED_PROXIES in wp-config.php, or set EASY_MCP_AI_CLIENT_IP_HEADER to the header your proxy actually sends (Cloudflare sends CF-Connecting-IP) — see https://docs.easymcpai.com/trusted-proxies.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -519,6 +554,27 @@ class Check_Transport {
             $candidates[] = $abspath . '.htaccess';
         }
         return $candidates;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function has_active_auth_rule( $htaccess ) {
+        if ( ! class_exists( '\Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule' ) ) {
+            require_once __DIR__ . '/class-htaccess-auth-rule.php';
+        }
+        return Htaccess_Auth_Rule::has_effective_rule( $htaccess );
     }
 
     
@@ -799,8 +855,24 @@ class Check_Transport {
         return (bool) ini_get( 'short_open_tag' );
     }
 
+    
+    private static function trusted_proxies_configured() {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Client_IP' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
+        }
+        return count( \Easy_MCP_AI\Client_IP::trusted_proxies() ) > 0;
+    }
+
+    
+    private static function resolved_client_ip() {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Client_IP' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
+        }
+        return (string) \Easy_MCP_AI\Client_IP::get();
+    }
+
     private static function forwarding_header_present() {
-        foreach ( array( 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED_PROTO', 'HTTP_X_REAL_IP', 'HTTP_FORWARDED' ) as $key ) {
+        foreach ( array( 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED_PROTO', 'HTTP_X_REAL_IP', 'HTTP_FORWARDED', 'HTTP_CF_CONNECTING_IP', 'HTTP_TRUE_CLIENT_IP' ) as $key ) {
             if ( isset( $_SERVER[ $key ] ) && '' !== $_SERVER[ $key ] ) {
                 return true;
             }

@@ -77,6 +77,12 @@ $error       = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET[
         </div>
     <?php endif; ?>
 
+    <?php if ( 'invalid_expiry' === $error ) : ?>
+        <div class="notice notice-error is-dismissible">
+            <p><?php esc_html_e( 'Nothing was saved: the custom expiration date is missing or not in the future. Pick a valid future date, choose a preset, or select "No expiration".', 'easy-mcp-ai' ); ?></p>
+        </div>
+    <?php endif; ?>
+
     <?php if ( 'invalid_user' === $error ) : ?>
         <div class="notice notice-error is-dismissible">
             <p><?php esc_html_e( 'Invalid user selected. Tokens can only be assigned to administrators, editors, or authors.', 'easy-mcp-ai' ); ?></p>
@@ -127,23 +133,119 @@ $error       = isset( $_GET['error'] ) ? sanitize_text_field( wp_unslash( $_GET[
             </tr>
 
             <tr>
-                <th scope="row">
-                    <label for="expires_at"><?php esc_html_e( 'Expiration Date', 'easy-mcp-ai' ); ?></label>
-                </th>
+                <th scope="row"><?php esc_html_e( 'Expiration', 'easy-mcp-ai' ); ?></th>
                 <td>
                     <?php
+                    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    $expiry_presets = \Easy_MCP_AI\Admin\Admin_Page::token_expiry_presets();
+                    $expiry_custom  = \Easy_MCP_AI\Admin\Admin_Page::TOKEN_EXPIRY_CUSTOM;
+                    $expiry_never   = \Easy_MCP_AI\Admin\Admin_Page::TOKEN_EXPIRY_NEVER;
+                    
+                    $expiry_options = array_merge( array_map( 'strval', array_keys( $expiry_presets ) ), array( $expiry_custom, $expiry_never ) );
+
                     if ( $has_draft ) {
-                        $expires_value = (string) ( $draft['expires_at'] ?? '' );
+                        $v_expiry_preset = (string) ( $draft['expires_preset'] ?? '' );
+                        $v_expiry_date   = (string) ( $draft['expires_at'] ?? '' );
                     } elseif ( $is_edit ) {
-                        $expires_value = ! empty( $token['expires_at'] ) ? gmdate( 'Y-m-d', strtotime( $token['expires_at'] . ' UTC' ) ) : '';
+                        $v_expiry_date   = ! empty( $token['expires_at'] ) ? gmdate( 'Y-m-d', strtotime( $token['expires_at'] . ' UTC' ) ) : '';
+                        $v_expiry_preset = '' !== $v_expiry_date ? $expiry_custom : $expiry_never;
                     } else {
-                        $expires_value = gmdate( 'Y-m-d', strtotime( '+30 days' ) );
+                        $v_expiry_preset = \Easy_MCP_AI\Admin\Admin_Page::TOKEN_EXPIRY_DEFAULT_PRESET;
+                        $v_expiry_date   = '';
+                    }
+                    if ( ! in_array( $v_expiry_preset, $expiry_options, true ) ) {
+                        
+                        
+                        $v_expiry_preset = '' !== $v_expiry_date ? $expiry_custom : $expiry_never;
+                    }
+                    $expiry_date_format = (string) get_option( 'date_format' );
+                    if ( '' === $expiry_date_format ) {
+                        $expiry_date_format = 'F j, Y';
                     }
                     ?>
-                    <input type="date" id="expires_at" name="expires_at" class="regular-text"
-                        value="<?php echo esc_attr( $expires_value ); ?>"
-                        min="<?php echo esc_attr( gmdate( 'Y-m-d', strtotime( '+1 day' ) ) ); ?>">
-                    <p class="description"><?php esc_html_e( 'Leave empty for a token that never expires.', 'easy-mcp-ai' ); ?></p>
+                    <?php
+                    
+                    
+                    $expiry_label_for = static function ( $ymd ) use ( $expiry_date_format ) {
+                        return wp_date( $expiry_date_format, strtotime( $ymd . ' 23:59:59 UTC' ), new \DateTimeZone( 'UTC' ) );
+                    };
+                    /* translators: %s: the calculated expiration date */
+                    $expiry_hint_expires = __( 'The token will expire on %s.', 'easy-mcp-ai' );
+                    $expiry_hint_never   = __( 'The token will never expire.', 'easy-mcp-ai' );
+                    $expiry_hint_pick    = __( 'Pick the date the token should stop working.', 'easy-mcp-ai' );
+                    if ( $expiry_never === $v_expiry_preset ) {
+                        $expiry_hint = $expiry_hint_never;
+                    } elseif ( $expiry_custom === $v_expiry_preset ) {
+                        $expiry_hint = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $v_expiry_date )
+                            ? sprintf( $expiry_hint_expires, $expiry_label_for( $v_expiry_date ) )
+                            : $expiry_hint_pick;
+                    } else {
+                        $expiry_hint = sprintf( $expiry_hint_expires, $expiry_label_for( \Easy_MCP_AI\Admin\Admin_Page::token_expiry_preset_date( $expiry_presets[ $v_expiry_preset ] ) ) );
+                    }
+                    ?>
+                    <div class="wp-mcp-expiry-row">
+                        <label for="expires_preset" class="screen-reader-text"><?php esc_html_e( 'Expiration', 'easy-mcp-ai' ); ?></label>
+                        <select id="expires_preset" name="expires_preset"
+                            data-hint-expires="<?php echo esc_attr( $expiry_hint_expires ); ?>"
+                            data-hint-never="<?php echo esc_attr( $expiry_hint_never ); ?>"
+                            data-hint-pick="<?php echo esc_attr( $expiry_hint_pick ); ?>">
+                            <?php foreach ( $expiry_presets as $expiry_value => $expiry_days ) : ?>
+                                <?php
+                                $expiry_value = (string) $expiry_value;
+                                $expiry_shown = $expiry_label_for( \Easy_MCP_AI\Admin\Admin_Page::token_expiry_preset_date( $expiry_days ) );
+                                ?>
+                                <option value="<?php echo esc_attr( $expiry_value ); ?>" data-date="<?php echo esc_attr( $expiry_shown ); ?>" <?php selected( $v_expiry_preset, $expiry_value ); ?>>
+                                    <?php
+                                    echo esc_html( sprintf(
+                                        /* translators: 1: number of days, 2: the calculated expiration date, e.g. "30 days (Oct 14, 2026)" */
+                                        _n( '%1$d day (%2$s)', '%1$d days (%2$s)', $expiry_days, 'easy-mcp-ai' ),
+                                        $expiry_days,
+                                        $expiry_shown
+                                    ) );
+                                    ?>
+                                </option>
+                            <?php endforeach; ?>
+                            <option value="<?php echo esc_attr( $expiry_custom ); ?>" <?php selected( $v_expiry_preset, $expiry_custom ); ?>><?php esc_html_e( 'Custom', 'easy-mcp-ai' ); ?></option>
+                            <option value="<?php echo esc_attr( $expiry_never ); ?>" <?php selected( $v_expiry_preset, $expiry_never ); ?>><?php esc_html_e( 'No expiration', 'easy-mcp-ai' ); ?></option>
+                        </select>
+                        <span class="wp-mcp-expiry-custom">
+                            <label for="expires_at" class="screen-reader-text"><?php esc_html_e( 'Custom expiration date', 'easy-mcp-ai' ); ?></label>
+                            <?php
+                            
+                            
+                            
+                            $expiry_initial_label = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $v_expiry_date ) ? $expiry_label_for( $v_expiry_date ) : '';
+                            ?>
+                            <input type="date" id="expires_at" name="expires_at"
+                                value="<?php echo esc_attr( $v_expiry_date ); ?>"
+                                data-initial="<?php echo esc_attr( $v_expiry_date ); ?>"
+                                data-initial-label="<?php echo esc_attr( $expiry_initial_label ); ?>"
+                                min="<?php echo esc_attr( \Easy_MCP_AI\Admin\Admin_Page::token_expiry_preset_date( 1 ) ); ?>">
+                        </span>
+                    </div>
+                    <p class="description wp-mcp-expiry-hint" <?php echo $expiry_never === $v_expiry_preset ? 'data-never="1"' : ''; ?>><?php echo esc_html( $expiry_hint ); ?></p>
                 </td>
             </tr>
 

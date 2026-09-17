@@ -43,36 +43,31 @@ if ( ! defined( 'ABSPATH' ) ) {
     <form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="wp-mcp-history-filter">
         <input type="hidden" name="page" value="easy-mcp-ai-history">
         <p>
-            <label>
-                <?php esc_html_e( 'Object type', 'easy-mcp-ai' ); ?>
+            <label class="wp-mcp-filter-grow">
+                <span class="screen-reader-text"><?php esc_html_e( 'Object type', 'easy-mcp-ai' ); ?></span>
                 <select name="object_type">
-                    <option value=""><?php esc_html_e( 'All', 'easy-mcp-ai' ); ?></option>
+                    <option value=""><?php esc_html_e( 'All object types', 'easy-mcp-ai' ); ?></option>
                     <?php foreach ( (array) $object_types as $easy_mcp_ai_t ) : ?>
                         <option value="<?php echo esc_attr( $easy_mcp_ai_t ); ?>" <?php selected( $filter_object_type, $easy_mcp_ai_t ); ?>><?php echo esc_html( $easy_mcp_ai_t ); ?></option>
                     <?php endforeach; ?>
                 </select>
             </label>
-            &nbsp;
-            <label>
-                <?php esc_html_e( 'Object ID', 'easy-mcp-ai' ); ?>
-                <input type="text" name="object_id" value="<?php echo esc_attr( $filter_object_id ); ?>" size="12">
+            <label class="wp-mcp-filter-grow">
+                <span class="screen-reader-text"><?php esc_html_e( 'Object ID', 'easy-mcp-ai' ); ?></span>
+                <input type="text" name="object_id" value="<?php echo esc_attr( $filter_object_id ); ?>" placeholder="<?php esc_attr_e( 'Object ID', 'easy-mcp-ai' ); ?>" size="12">
             </label>
-            &nbsp;
-            <label>
-                <?php esc_html_e( 'Tool', 'easy-mcp-ai' ); ?>
-                <input type="text" name="tool_name" value="<?php echo esc_attr( $filter_tool_name ); ?>" size="20">
+            <label class="wp-mcp-filter-grow">
+                <span class="screen-reader-text"><?php esc_html_e( 'Tool', 'easy-mcp-ai' ); ?></span>
+                <input type="text" name="tool_name" value="<?php echo esc_attr( $filter_tool_name ); ?>" placeholder="<?php esc_attr_e( 'Tool name', 'easy-mcp-ai' ); ?>" size="20">
             </label>
-            &nbsp;
             <label>
-                <?php esc_html_e( 'User ID', 'easy-mcp-ai' ); ?>
-                <input type="number" name="wp_user_id" value="<?php echo $filter_wp_user_id ? esc_attr( $filter_wp_user_id ) : ''; ?>" min="1" class="small-text">
+                <span class="screen-reader-text"><?php esc_html_e( 'User ID', 'easy-mcp-ai' ); ?></span>
+                <input type="number" name="wp_user_id" value="<?php echo $filter_wp_user_id ? esc_attr( $filter_wp_user_id ) : ''; ?>" min="1" placeholder="<?php esc_attr_e( 'User ID', 'easy-mcp-ai' ); ?>">
             </label>
-            &nbsp;
             <label>
                 <?php esc_html_e( 'From', 'easy-mcp-ai' ); ?>
                 <input type="datetime-local" name="since" value="<?php echo esc_attr( str_replace( ' ', 'T', substr( $filter_since, 0, 16 ) ) ); ?>">
             </label>
-            &nbsp;
             <label>
                 <?php esc_html_e( 'To', 'easy-mcp-ai' ); ?>
                 <input type="datetime-local" name="until" value="<?php echo esc_attr( str_replace( ' ', 'T', substr( $filter_until, 0, 16 ) ) ); ?>">

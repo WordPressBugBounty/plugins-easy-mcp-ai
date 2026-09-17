@@ -63,9 +63,7 @@ class Activator {
         if ( ! \is_admin() && ! $is_rest && ! $is_cli && ! \wp_doing_cron() ) {
             return;
         }
-        if ( \get_option( 'easy_mcp_ai_db_version' ) !== EASY_MCP_AI_VERSION ) {
-            self::create_tables();
-        }
+        self::maybe_upgrade_core_tables();
         
         
         self::maybe_upgrade_oauth_tables();
@@ -84,8 +82,86 @@ class Activator {
         }
     }
 
+    
+
+
+
+
+
+
+
+
+    const AUDIT_REQUIRED_COLUMNS = array( 'auth_source', 'wp_user_id', 'oauth_client_id', 'duration_ms' );
+
+    
+
+
+
+
+
+
+
+
+
+    const AUDIT_REQUIRED_INDEXES = array( 'user_time', 'source_time' );
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function maybe_upgrade_core_tables() {
+        if ( \get_option( 'easy_mcp_ai_db_version' ) !== EASY_MCP_AI_VERSION ) {
+            self::create_tables();
+        }
+    }
+
+    
+
+
+
+
+    private static function column_exists( $table, $column ) {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return true;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on a plugin-owned table.
+        $found = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", $column ) );
+        return ! empty( $found );
+    }
+
+    
+
+
+
+    private static function index_exists( $table, $index_name ) {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return true;
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on a plugin-owned table; SHOW INDEX cannot take a placeholder for the table.
+        $found = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $index_name ) );
+        return ! empty( $found );
+    }
+
     private static function create_tables() {
         global $wpdb;
+        
+        
+        
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_charset_collate' ) ) {
+            return;
+        }
         $charset_collate = $wpdb->get_charset_collate();
         $tokens_table = $wpdb->prefix . 'easy_mcp_ai_tokens';
         $audit_table  = $wpdb->prefix . 'easy_mcp_ai_audit_log';
@@ -115,14 +191,22 @@ class Activator {
             arguments longtext DEFAULT NULL,
             result_status varchar(20) NOT NULL DEFAULT 'success',
             ip_address varchar(45) DEFAULT NULL,
+            auth_source varchar(16) DEFAULT NULL,
+            wp_user_id bigint(20) unsigned DEFAULT NULL,
+            oauth_client_id varchar(191) DEFAULT NULL,
+            duration_ms int unsigned DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY token_id (token_id),
             KEY tool_name (tool_name(150)),
-            KEY created_at (created_at)
+            KEY created_at (created_at),
+            KEY user_time (wp_user_id, created_at),
+            KEY source_time (auth_source, created_at)
         ) {$charset_collate};";
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        if ( ! function_exists( 'dbDelta' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        }
         \dbDelta( $sql );
 
         
@@ -132,13 +216,34 @@ class Activator {
         
         
         
+        if ( ! method_exists( $wpdb, 'esc_like' ) || ! method_exists( $wpdb, 'get_var' ) ) {
+            return; 
+        }
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on plugin-owned tables.
         $tokens_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $tokens_table ) ) ) === $tokens_table;
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one-off existence check on plugin-owned tables.
         $audit_exists  = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $audit_table ) ) ) === $audit_table;
-        if ( $tokens_exists && $audit_exists ) {
-            \update_option( 'easy_mcp_ai_db_version', EASY_MCP_AI_VERSION );
+        if ( ! $tokens_exists || ! $audit_exists ) {
+            return;
         }
+        
+        
+        
+        
+        
+        foreach ( self::AUDIT_REQUIRED_COLUMNS as $column ) {
+            if ( ! self::column_exists( $audit_table, $column ) ) {
+                return;
+            }
+        }
+        
+        
+        foreach ( self::AUDIT_REQUIRED_INDEXES as $index_name ) {
+            if ( ! self::index_exists( $audit_table, $index_name ) ) {
+                return;
+            }
+        }
+        \update_option( 'easy_mcp_ai_db_version', EASY_MCP_AI_VERSION );
     }
 
     

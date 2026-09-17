@@ -38,86 +38,12 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
         </div>
     <?php endif; endif; ?>
 
+
     <form method="post" action="<?php echo esc_url( admin_url( 'admin.php?page=easy-mcp-ai-settings' ) ); ?>">
         <?php wp_nonce_field( 'easy_mcp_ai_save_settings' ); ?>
         <input type="hidden" name="easy_mcp_ai_save_settings" value="1">
 
         <table class="form-table" role="presentation">
-            <tr>
-                <th scope="row">
-                    <label for="admin_language"><?php esc_html_e( 'Admin Language', 'easy-mcp-ai' ); ?></label>
-                </th>
-                <td>
-                    <div class="wp-mcp-lang-select" data-placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>">
-                        <input type="hidden" id="admin_language" name="admin_language" value="<?php echo esc_attr( $settings['admin_language'] ); ?>" />
-                        <input type="text" id="admin_language_display" class="wp-mcp-lang-display" autocomplete="off" placeholder="<?php esc_attr_e( 'Search language…', 'easy-mcp-ai' ); ?>" value="<?php
-                            $easy_mcp_current_lang = $settings['admin_language'];
-                            $easy_mcp_languages = array(
-                                ''      => __( 'Default (WordPress language)', 'easy-mcp-ai' ),
-                                'en_US' => 'English',
-                                'ar'    => 'العربية',
-                                'bg_BG' => 'Български',
-                                'bn_BD' => 'বাংলা',
-                                'cs_CZ' => 'Čeština',
-                                'da_DK' => 'Dansk',
-                                'de_DE' => 'Deutsch',
-                                'el'    => 'Ελληνικά',
-                                'es_ES' => 'Español',
-                                'es_MX' => 'Español (México)',
-                                'et'    => 'Eesti',
-                                'fa_IR' => 'فارسی',
-                                'fi'    => 'Suomi',
-                                'fr_FR' => 'Français',
-                                'gu'    => 'ગુજરાતી',
-                                'he_IL' => 'עברית',
-                                'hi_IN' => 'हिन्दी',
-                                'hr'    => 'Hrvatski',
-                                'hu_HU' => 'Magyar',
-                                'id_ID' => 'Bahasa Indonesia',
-                                'it_IT' => 'Italiano',
-                                'ja'    => '日本語',
-                                'kn'    => 'ಕನ್ನಡ',
-                                'ko_KR' => '한국어',
-                                'lt_LT' => 'Lietuvių',
-                                'lv'    => 'Latviešu',
-                                'ml_IN' => 'മലയാളം',
-                                'mr'    => 'मराठी',
-                                'ms_MY' => 'Bahasa Melayu',
-                                'nb_NO' => 'Norsk (Bokmål)',
-                                'nl_NL' => 'Nederlands',
-                                'pa_IN' => 'ਪੰਜਾਬੀ',
-                                'pl_PL' => 'Polski',
-                                'pt_BR' => 'Português (Brasil)',
-                                'pt_PT' => 'Português (Portugal)',
-                                'ro_RO' => 'Română',
-                                'ru_RU' => 'Русский',
-                                'sk_SK' => 'Slovenčina',
-                                'sr_RS' => 'Српски',
-                                'sv_SE' => 'Svenska',
-                                'sw'    => 'Kiswahili',
-                                'ta_IN' => 'தமிழ்',
-                                'te'    => 'తెలుగు',
-                                'th'    => 'ไทย',
-                                'tl'    => 'Filipino',
-                                'tr_TR' => 'Türkçe',
-                                'uk'    => 'Українська',
-                                'ur'    => 'اردو',
-                                'vi'    => 'Tiếng Việt',
-                                'zh_CN' => '中文 (简体)',
-                                'zh_TW' => '中文 (繁體)',
-                            );
-                            echo esc_attr( isset( $easy_mcp_languages[ $easy_mcp_current_lang ] ) ? $easy_mcp_languages[ $easy_mcp_current_lang ] : '' );
-                        ?>" />
-                        <ul class="wp-mcp-lang-options" role="listbox">
-                            <?php foreach ( $easy_mcp_languages as $code => $name ) : ?>
-                                <li role="option" data-value="<?php echo esc_attr( $code ); ?>" data-label="<?php echo esc_attr( $name ); ?>"<?php if ( $code === $easy_mcp_current_lang ) echo ' class="wp-mcp-lang-active"'; ?>><?php echo esc_html( $name ); ?> <span class="wp-mcp-lang-code"><?php echo esc_html( $code ); ?></span></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </div>
-                    <p class="description"><?php esc_html_e( 'Language for the Easy MCP AI admin interface. Defaults to the WordPress site language.', 'easy-mcp-ai' ); ?></p>
-                </td>
-            </tr>
-
             <tr>
                 <th scope="row">
                     <label for="rate_limit_per_minute"><?php esc_html_e( 'Rate Limit (per minute)', 'easy-mcp-ai' ); ?></label>
@@ -371,6 +297,17 @@ function easy_mcp_ai_view_settings( $settings, $all_tool_names, $message, $ip_in
                 <td>
                     <textarea id="ip_whitelist" name="ip_whitelist" rows="4" cols="50" class="large-text code"><?php echo esc_textarea( $settings['ip_whitelist'] ); ?></textarea>
                     <p class="description"><?php esc_html_e( 'One IP address or CIDR range per line (e.g., 203.0.113.10 or 192.168.1.0/24). Leave empty to allow all IPs.', 'easy-mcp-ai' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'Applies to every request on the MCP endpoint, whether it authenticates with an API key or an OAuth grant. A request from an address that is not listed is refused with 403 and recorded in the Audit Log. Cloud clients such as claude.ai and ChatGPT connect from the vendor\'s servers, not from the user\'s machine — for those users either list the vendor\'s IP ranges or leave this empty.', 'easy-mcp-ai' ); ?></p>
+                    <p class="description">
+                        <?php
+                        printf(
+                            /* translators: 1: the EASY_MCP_AI_TRUSTED_PROXIES constant name, 2: link to the trusted-proxies guide */
+                            wp_kses( __( 'Behind a reverse proxy, load balancer or CDN such as Cloudflare, WordPress sees the proxy\'s address for every visitor, so this list, the rate limits and the Audit Log cannot tell visitors apart. Declare the proxy with the %1$s constant in wp-config.php — see %2$s.', 'easy-mcp-ai' ), array( 'code' => array(), 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ),
+                            '<code>EASY_MCP_AI_TRUSTED_PROXIES</code>',
+                            '<a href="' . esc_url( \Easy_MCP_AI\Client_IP::DOC_URL ) . '" target="_blank" rel="noopener">' . esc_html__( 'Trusted proxies', 'easy-mcp-ai' ) . '</a>'
+                        );
+                        ?>
+                    </p>
                 </td>
             </tr>
         </table>

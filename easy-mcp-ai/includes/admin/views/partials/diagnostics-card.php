@@ -102,6 +102,24 @@ $rerun_url = \wp_nonce_url(
     \admin_url( 'admin.php?page=easy-mcp-ai&easy_mcp_ai_action=rerun_diagnostics' ),
     'easy_mcp_ai_rerun_diagnostics'
 );
+
+
+
+
+
+
+
+$auth_rule_outcome = isset( $_GET['diagnostics'] ) ? \sanitize_key( \wp_unslash( $_GET['diagnostics'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own nonce-checked handler's redirect.
+if ( ! in_array( $auth_rule_outcome, array( 'auth_rule_written', 'auth_rule_failed', 'auth_rule_refused' ), true ) ) {
+    $auth_rule_outcome = '';
+}
+$a1_result = null;
+foreach ( $results as $r ) {
+    if ( 'a1' === $r->id() ) {
+        $a1_result = $r;
+        break;
+    }
+}
 ?>
 <?php
 
@@ -279,6 +297,38 @@ $rerun_url = \wp_nonce_url(
         <?php endif; ?>
     </p>
 
+    <?php if ( '' !== $auth_rule_outcome ) : ?>
+        <?php
+        
+
+
+
+
+
+
+        $a1_now = ( $a1_result instanceof Diagnostic_Result ) ? $a1_result->status() : Diagnostic_Result::STATUS_UNKNOWN;
+        if ( 'auth_rule_written' === $auth_rule_outcome && Diagnostic_Result::STATUS_PASS === $a1_now ) {
+            $auth_rule_colour  = '#00733f';
+            $auth_rule_message = __( 'The rewrite rule was added to .htaccess and the checks were re-run: an Authorization header now reaches WordPress.', 'easy-mcp-ai' );
+        } elseif ( 'auth_rule_written' === $auth_rule_outcome && Diagnostic_Result::STATUS_WARN === $a1_now ) {
+            $auth_rule_colour  = '#996800';
+            $auth_rule_message = __( 'The rewrite rule was added to .htaccess, but the re-run check still reports the Authorization header lost. On this server the rule is not what delivers the header: PHP running as FastCGI needs CGIPassAuth On in the web server configuration, which only your host can set — quote the check above when asking them.', 'easy-mcp-ai' );
+        } elseif ( 'auth_rule_written' === $auth_rule_outcome ) {
+            $auth_rule_colour  = '#646970';
+            $auth_rule_message = __( 'The rewrite rule was added to .htaccess. The re-run check could not measure whether the header now arrives; press Re-run checks to try again.', 'easy-mcp-ai' );
+        } elseif ( 'auth_rule_failed' === $auth_rule_outcome ) {
+            $auth_rule_colour  = '#b32d2e';
+            $auth_rule_message = __( 'The rewrite rule could not be written: .htaccess is missing or not writable by PHP. Add the block shown below by hand, above the WordPress block.', 'easy-mcp-ai' );
+        } else {
+            $auth_rule_colour  = '#b32d2e';
+            $auth_rule_message = __( 'Not permitted: on a network only a super administrator can change .htaccess.', 'easy-mcp-ai' );
+        }
+        ?>
+        <p style="margin:0 0 8px;padding:8px 12px;border-left:4px solid <?php echo esc_attr( $auth_rule_colour ); ?>;background:#f6f7f7;">
+            <?php echo esc_html( $auth_rule_message ); ?>
+        </p>
+    <?php endif; ?>
+
     <details>
         <summary style="cursor:pointer;color:#2271b1;">
             <?php
@@ -373,6 +423,60 @@ $rerun_url = \wp_nonce_url(
                             <br><span style="color:#646970;font-size:11px;">
                                 <?php esc_html_e( 'Save each one into your site\'s .well-known folder, using exactly that name and no file extension.', 'easy-mcp-ai' ); ?>
                             </span>
+                        <?php endif; ?>
+                        <?php
+                        
+
+
+
+
+
+
+
+
+
+
+
+                        if ( 'a1' === $problem->id() ) :
+                            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-htaccess-auth-rule.php';
+                            $auth_rule = \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::offer_now( $problem );
+                            ?>
+                            <?php if ( \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::OFFER_BUTTON === $auth_rule['offer'] ) : ?>
+                                <form method="post" action="<?php echo esc_url( \admin_url( 'admin.php?page=easy-mcp-ai' ) ); ?>" style="margin:6px 0 0;">
+                                    <?php \wp_nonce_field( 'easy_mcp_ai_write_auth_rule' ); ?>
+                                    <input type="hidden" name="easy_mcp_ai_write_auth_rule" value="1">
+                                    <button type="submit" class="button button-small"><?php esc_html_e( 'Add the rewrite rule to .htaccess', 'easy-mcp-ai' ); ?></button>
+                                    <span style="color:#646970;font-size:11px;margin-left:6px;">
+                                        <?php
+                                        printf(
+                                            /* translators: %s: filesystem path of the .htaccess file. */
+                                            esc_html__( 'Writes the standard Authorization passthrough rule under its own marker in %s, above the WordPress block, and re-runs the checks. Nothing else in the file is touched.', 'easy-mcp-ai' ),
+                                            esc_html( $auth_rule['path'] )
+                                        );
+                                        ?>
+                                    </span>
+                                </form>
+                            <?php elseif ( \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::OFFER_PASTE === $auth_rule['offer'] ) : ?>
+                                <br><span style="color:#646970;font-size:11px;">
+                                    <?php
+                                    printf(
+                                        /* translators: %s: filesystem path of the .htaccess file. */
+                                        esc_html__( '%s is missing or not writable by PHP, so the rule cannot be added from here. Paste this block into it, above the WordPress block:', 'easy-mcp-ai' ),
+                                        esc_html( $auth_rule['path'] )
+                                    );
+                                    ?>
+                                </span>
+                                <pre id="wp-mcp-auth-rule-block" style="margin:6px 0;padding:8px;background:#f6f7f7;font-size:11px;overflow-x:auto;"><?php echo esc_html( \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::block_text() ); ?></pre>
+                                <button type="button" class="button button-small wp-mcp-copy-btn" data-copy-target="wp-mcp-auth-rule-block"><?php esc_html_e( 'Copy the rule', 'easy-mcp-ai' ); ?></button>
+                            <?php elseif ( \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::OFFER_ALREADY_PRESENT === $auth_rule['offer'] ) : ?>
+                                <br><span style="color:#646970;font-size:11px;">
+                                    <?php esc_html_e( 'The .htaccess rewrite rule that passes the header is already present, so adding it again would change nothing. On this server the header is delivered by CGIPassAuth On in the web server configuration, which only your host can set.', 'easy-mcp-ai' ); ?>
+                                </span>
+                            <?php elseif ( \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::OFFER_NOT_APPLICABLE === $auth_rule['offer'] ) : ?>
+                                <br><span style="color:#646970;font-size:11px;">
+                                    <?php esc_html_e( 'This server does not read .htaccess (nginx, Caddy and IIS do not), so there is no rewrite rule to add. On nginx the header is passed with a fastcgi_param directive; ask your host to forward the Authorization header to PHP.', 'easy-mcp-ai' ); ?>
+                                </span>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </li>
                 <?php endforeach; ?>

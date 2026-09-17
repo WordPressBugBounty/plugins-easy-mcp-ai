@@ -158,13 +158,19 @@ class Diagnostics {
         self::register( function () use ( $tool_registry ) {
             return Check_Tool_Visibility::run( $tool_registry );
         }, 'd' );
+        
+        
+        
+        
+        
+        
+        self::register( array( Check_Header_Probe::class, 'run' ), 'a1', true );
         self::register( array( Check_Conflicts::class, 'run' ), 'e' );
         self::register( array( Check_Config::class, 'run' ), 'f' );
         self::register( array( Check_Environment::class, 'run' ), 'g' );
         
         
         
-        self::register( array( Check_Header_Probe::class, 'run' ), 'a1', true );
         
         
         

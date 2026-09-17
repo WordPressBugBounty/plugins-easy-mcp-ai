@@ -62,7 +62,7 @@ class Update_CPT_Item extends Base_Tool {
                 ),
                 'excerpt'   => array(
                     'type'        => 'string',
-                    'description' => 'New excerpt for the item.',
+                    'description' => 'New excerpt for the item. HTML is accepted and sanitized by WordPress per the calling user\'s capability.',
                 ),
                 'slug'      => array(
                     'type'        => 'string',
@@ -99,7 +99,12 @@ class Update_CPT_Item extends Base_Tool {
             $params['status'] = sanitize_text_field( $arguments['status'] );
         }
         if ( isset( $arguments['excerpt'] ) ) {
-            $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
+            
+            
+            
+            
+            
+            $params['excerpt'] = $arguments['excerpt'];
         }
         if ( ! empty( $arguments['slug'] ) ) {
             $params['slug'] = sanitize_title( $arguments['slug'] );

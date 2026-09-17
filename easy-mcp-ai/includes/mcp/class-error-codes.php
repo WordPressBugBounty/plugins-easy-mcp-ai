@@ -19,6 +19,9 @@ class Error_Codes {
     const NOT_INITIALIZED     = -32005;
     const FORBIDDEN           = -32007;
 
+    const HEADER_MISMATCH = -32020;
+    const UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
     private static $messages = array(
         self::PARSE_ERROR        => 'Parse error',
         self::INVALID_REQUEST    => 'Invalid Request',

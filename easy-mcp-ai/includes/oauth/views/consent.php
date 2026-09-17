@@ -19,6 +19,11 @@
 
 
 
+
+
+
+
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -78,18 +83,20 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
 
 
     ?>
-    <form method="post" action="<?php echo esc_url( home_url( '?easy_mcp_ai_oauth=authorize' ) ); ?>" style="margin:0;">
-        <?php wp_nonce_field( 'easy_mcp_ai_oauth_consent_' . $client_id ); ?>
+    <form method="post" action="<?php echo esc_url( $form_action ); ?>" style="margin:0;">
+        <?php wp_nonce_field( $nonce_action ); ?>
 
-        <input type="hidden" name="response_type" value="<?php echo esc_attr( $request_params['response_type'] ); ?>">
-        <input type="hidden" name="client_id" value="<?php echo esc_attr( $request_params['client_id'] ); ?>">
-        <input type="hidden" name="redirect_uri" value="<?php echo esc_attr( $request_params['redirect_uri'] ); ?>">
-        <input type="hidden" name="code_challenge" value="<?php echo esc_attr( $request_params['code_challenge'] ); ?>">
-        <input type="hidden" name="code_challenge_method" value="<?php echo esc_attr( $request_params['code_challenge_method'] ); ?>">
-        <input type="hidden" name="state" value="<?php echo esc_attr( $request_params['state'] ); ?>">
-        <input type="hidden" name="resource" value="<?php echo esc_attr( $request_params['resource'] ); ?>">
-        <input type="hidden" name="scope" value="<?php echo esc_attr( $request_params['scope'] ); ?>">
-        <input type="hidden" name="scope_sig" value="<?php echo esc_attr( isset( $request_params['scope_sig'] ) ? $request_params['scope_sig'] : '' ); ?>">
+        <?php
+        
+
+
+
+
+
+        foreach ( $hidden_fields as $easy_mcp_ai_hidden_name => $easy_mcp_ai_hidden_value ) :
+            ?>
+        <input type="hidden" name="<?php echo esc_attr( $easy_mcp_ai_hidden_name ); ?>" value="<?php echo esc_attr( $easy_mcp_ai_hidden_value ); ?>">
+        <?php endforeach; ?>
 
         <?php  ?>
         <div id="scope-hidden-fields"></div>
@@ -102,8 +109,8 @@ $easy_mcp_ai_brand_info_br    = '#c9dcf5';
                 <?php echo esc_html__( 'Client ID:', 'easy-mcp-ai' ); ?>
                 <code style="background:#eef0f3;padding:2px 6px;border-radius:4px;font-size:11px;"><?php echo esc_html( $client_id_prefix ); ?>&hellip;</code>
                 &nbsp;&middot;&nbsp;
-                <?php echo esc_html__( 'Redirects to:', 'easy-mcp-ai' ); ?>
-                <code style="background:#eef0f3;padding:2px 6px;border-radius:4px;font-size:11px;"><?php echo esc_html( $redirect_host ); ?></code>
+                <?php echo esc_html( $context_label ); ?>
+                <code style="background:#eef0f3;padding:2px 6px;border-radius:4px;font-size:11px;"><?php echo esc_html( $context_value ); ?></code>
             </div>
         </div>
 

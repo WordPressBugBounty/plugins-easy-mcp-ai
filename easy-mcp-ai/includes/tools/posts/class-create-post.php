@@ -58,7 +58,7 @@ class Create_Post extends Base_Tool {
                 ),
                 'excerpt'        => array(
                     'type'        => 'string',
-                    'description' => 'The excerpt for the post.',
+                    'description' => 'The excerpt for the post. HTML is accepted and sanitized by WordPress per the calling user\'s capability.',
                 ),
                 'categories'     => array(
                     'type'        => 'array',
@@ -129,7 +129,12 @@ class Create_Post extends Base_Tool {
         }
 
         if ( isset( $arguments['excerpt'] ) ) {
-            $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
+            
+            
+            
+            
+            
+            $params['excerpt'] = $arguments['excerpt'];
         }
 
         if ( ! empty( $arguments['categories'] ) ) {

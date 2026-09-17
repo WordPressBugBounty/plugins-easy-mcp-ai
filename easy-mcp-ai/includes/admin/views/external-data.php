@@ -835,7 +835,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                     <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
                     <li><?php esc_html_e( 'In Google Search Console, go to Settings → Users and permissions and add the service account email as a User (Restricted or Full permissions).', 'easy-mcp-ai' ); ?></li>
                 </ol>
-                <?php /* translators: %s: URL to the official Google Search Console setup guide */ ?>
+                <?php /* translators: %s: URL to the provider's official setup guide (same string on the Search Console and Analytics cards) */ ?>
                 <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/webmaster-tools/v1/prereqs' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
                 </div>
             </div>
@@ -992,7 +992,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
                     <li><?php esc_html_e( 'Open the JSON file in any text editor, then copy and paste its entire contents into the field below.', 'easy-mcp-ai' ); ?></li>
                     <li><?php esc_html_e( 'In Google Analytics 4, go to Admin → Property Access Management and add the service account email with Viewer (or higher) permissions.', 'easy-mcp-ai' ); ?></li>
                 </ol>
-                <?php /* translators: %s: URL to the official Google Analytics setup guide */ ?>
+                <?php /* translators: %s: URL to the provider's official setup guide (same string on the Search Console and Analytics cards) */ ?>
                 <p style="margin:.5em 0 0; font-size:.85em; color:#646970;"><?php echo wp_kses( sprintf( __( 'Need more detail? <a href="%s" target="_blank" rel="noopener noreferrer">View the official setup guide</a>.', 'easy-mcp-ai' ), 'https://developers.google.com/analytics/devguides/reporting/data/v1/quickstart-client-libraries' ), array( 'a' => array( 'href' => array(), 'target' => array(), 'rel' => array() ) ) ); ?></p>
                 </div>
             </div>

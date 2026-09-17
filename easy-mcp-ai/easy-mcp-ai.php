@@ -3,15 +3,17 @@
  * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
  * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 243 tools. Free.
- * Version:     1.7.17
+ * Version:     1.7.18
  * Author:      EasyMCPAI
- * Author URI:
+ * Author URI:  https://easymcpai.com/
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: easy-mcp-ai
  * Domain Path: /languages
  * Requires at least: 6.0
  * Requires PHP: 7.4
+ * WordPress Available:  yes
+ * Requires License:    no
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -208,6 +210,24 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
                 $easy_mcp_ai_bearer = Easy_MCP_AI\Auth_Header::recover_bearer( $easy_mcp_ai_hdrs );
                 if ( null !== $easy_mcp_ai_bearer ) {
                     $_SERVER['HTTP_AUTHORIZATION'] = $easy_mcp_ai_bearer;
+                } elseif ( ! isset( $_SERVER['PHP_AUTH_USER'] ) && ! isset( $_SERVER['PHP_AUTH_PW'] ) ) {
+                    
+
+
+
+
+
+
+
+
+
+
+
+                    $easy_mcp_ai_basic = Easy_MCP_AI\Auth_Header::recover_basic_api_key( $easy_mcp_ai_hdrs );
+                    if ( null !== $easy_mcp_ai_basic ) {
+                        $_SERVER['HTTP_AUTHORIZATION'] = $easy_mcp_ai_basic;
+                    }
+                    unset( $easy_mcp_ai_basic );
                 }
                 unset( $easy_mcp_ai_bearer );
             }
@@ -217,13 +237,37 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     unset( $easy_mcp_ai_req, $easy_mcp_ai_own );
 }
 
-define( 'EASY_MCP_AI_VERSION', '1.7.17' );
+define( 'EASY_MCP_AI_VERSION', '1.7.18' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-plugin.php';
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-themeisle-sdk.php';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+$easy_mcp_ai_autoload = EASY_MCP_AI_PLUGIN_DIR . 'vendor/autoload.php';
+if ( is_readable( $easy_mcp_ai_autoload ) ) {
+    require_once $easy_mcp_ai_autoload;
+}
+unset( $easy_mcp_ai_autoload );
+Easy_MCP_AI\Themeisle_SDK::register( __FILE__ );
 
 register_activation_hook( __FILE__, array( 'Easy_MCP_AI\\Activator', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'Easy_MCP_AI\\Deactivator', 'deactivate' ) );

@@ -11,7 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Server {
-    const PROTOCOL_VERSION = '2025-11-25';
+    const PROTOCOL_VERSION = '2026-07-28';
+    
+    const LEGACY_PROTOCOL_VERSION = '2025-11-25';
     const SERVER_NAME      = 'easy-mcp-ai';
 
     
@@ -145,7 +147,56 @@ class Server {
     }
 
     
-    const SUPPORTED_PROTOCOL_VERSIONS = array( '2025-11-25', '2025-06-18', '2025-03-26' );
+    const LEGACY_PROTOCOL_VERSIONS = array( '2025-11-25', '2025-06-18', '2025-03-26' );
+    const SUPPORTED_PROTOCOL_VERSIONS = array( '2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26' );
+
+    
+
+
+
+
+    public function handle_modern_message( $message, $token_id = null, $allowed_tools = null ) {
+        $id = isset( $message['id'] ) ? $message['id'] : null;
+        if ( null === $token_id ) {
+            return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        $method = $message['method'];
+        if ( 'server/discover' === $method ) {
+            if ( ! $this->check_rate_limit( $token_id ) ) {
+                return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+            }
+            $response = JSON_RPC::success_response( $id, array(
+                'supportedVersions' => self::SUPPORTED_PROTOCOL_VERSIONS,
+                'capabilities' => array( 'tools' => new \stdClass(), 'resources' => new \stdClass() ),
+                'instructions' => 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.',
+            ) );
+        } elseif ( in_array( $method, array( 'tools/list', 'tools/call', 'resources/list', 'resources/read' ), true ) ) {
+            $response = $this->handle_message( $message, $token_id, $allowed_tools );
+        } else {
+            return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Method not found' );
+        }
+        if ( isset( $response['error'] ) ) {
+            if ( 'resources/read' === $method && Error_Codes::RESOURCE_NOT_FOUND === $response['error']['code'] ) {
+                $response['error']['code'] = Error_Codes::INVALID_PARAMS;
+            }
+            return $response;
+        }
+        $response['result']['resultType'] = 'complete';
+        $response['result']['_meta']['io.modelcontextprotocol/serverInfo'] = array(
+            'name' => self::SERVER_NAME, 'version' => EASY_MCP_AI_VERSION,
+        );
+        if ( in_array( $method, array( 'server/discover', 'tools/list', 'resources/list', 'resources/read' ), true ) ) {
+            
+            $response['result']['ttlMs'] = 0;
+            $response['result']['cacheScope'] = 'private';
+        }
+        if ( 'tools/list' === $method ) {
+            usort( $response['result']['tools'], function ( $a, $b ) {
+                return strcmp( $a['name'], $b['name'] );
+            } );
+        }
+        return $response;
+    }
 
     private function handle_initialize( $id, $params, $token_id ) {
         
@@ -158,11 +209,11 @@ class Server {
         
         
         $client_version = isset( $params['protocolVersion'] ) ? $params['protocolVersion'] : null;
-        if ( $client_version && in_array( $client_version, self::SUPPORTED_PROTOCOL_VERSIONS, true ) ) {
+        if ( $client_version && in_array( $client_version, self::LEGACY_PROTOCOL_VERSIONS, true ) ) {
             $negotiated_version = $client_version;
         } else {
             
-            $negotiated_version = self::PROTOCOL_VERSION;
+            $negotiated_version = self::LEGACY_PROTOCOL_VERSION;
         }
 
         
@@ -334,6 +385,12 @@ class Server {
         $audit_id     = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
         $final_status = null;
         $result       = null;
+        
+        
+        
+        
+        
+        $exec_started = null;
 
         
         
@@ -373,6 +430,7 @@ class Server {
             
             
             $arguments    = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
+            $exec_started = microtime( true );
             $result       = $tool->execute( $arguments );
             $final_status = 'success';
             
@@ -459,7 +517,8 @@ class Server {
             
             
             
-            $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status );
+            $duration_ms = null === $exec_started ? null : (int) round( ( microtime( true ) - $exec_started ) * 1000 );
+            $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status, $duration_ms );
             if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
                 
                 
@@ -509,7 +568,7 @@ class Server {
 
 
 
-                    \do_action( 'easy_mcp_ai_tool_mutated', $tool_name, self::redact_sensitive_args( $arguments ), $result );
+                    \do_action( 'easy_mcp_ai_tool_mutated', $tool_name, $this->redact_for_tool( $tool_name, $arguments ), $result );
                 }
             }
         }
@@ -686,26 +745,49 @@ class Server {
         return true;
     }
 
-    public function log_auth_failure( $ip, $reason ) {
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    public function log_auth_failure( $ip, $reason, array $identity = array() ) {
         if ( ! $this->audit_log_enabled ) {
             return;
         }
         global $wpdb;
+        $source = isset( $identity['auth_source'] ) && in_array( $identity['auth_source'], array( 'legacy', 'oauth' ), true )
+            ? $identity['auth_source']
+            : null;
         $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct insert required for audit logging.
             $wpdb->prefix . 'easy_mcp_ai_audit_log',
             array(
-                'token_id'      => 0,
-                'tool_name'     => '_auth_failure',
-                'arguments'     => wp_json_encode( array( 'reason' => $reason ) ),
-                'result_status' => 'auth_failure',
-                'ip_address'    => $ip,
-                'created_at'    => current_time( 'mysql', true ),
+                'token_id'        => ! empty( $identity['token_id'] ) ? (int) $identity['token_id'] : 0,
+                'tool_name'       => '_auth_failure',
+                'arguments'       => wp_json_encode( array( 'reason' => $reason ) ),
+                'result_status'   => 'auth_failure',
+                'ip_address'      => $ip,
+                'auth_source'     => $source,
+                'wp_user_id'      => ! empty( $identity['wp_user_id'] ) ? (int) $identity['wp_user_id'] : null,
+                'oauth_client_id' => ! empty( $identity['oauth_client_id'] ) ? (string) $identity['oauth_client_id'] : null,
+                'created_at'      => current_time( 'mysql', true ),
             ),
-            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+            array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
         );
     }
 
     
+
+
+
+
 
 
 
@@ -734,34 +816,86 @@ class Server {
             return 0;
         }
         global $wpdb;
-        $safe_args = self::redact_sensitive_args( $arguments );
+        $safe_args = $this->redact_for_tool( $tool_name, $arguments );
+        
+        
+        
+        
+        
+        
+        
+        
+        $source = in_array( $this->request_auth_source, array( 'legacy', 'oauth' ), true ) ? $this->request_auth_source : null;
         $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct insert required for audit logging.
             $wpdb->prefix . 'easy_mcp_ai_audit_log',
             array(
-                'token_id'      => $token_id ? (int) $token_id : 0,
-                'tool_name'     => $tool_name,
-                'arguments'     => wp_json_encode( $safe_args ),
-                'result_status' => $status,
-                'ip_address'    => self::get_client_ip(),
-                'created_at'    => current_time( 'mysql', true ),
+                'token_id'        => $token_id ? (int) $token_id : 0,
+                'tool_name'       => $tool_name,
+                'arguments'       => wp_json_encode( $safe_args ),
+                'result_status'   => $status,
+                'ip_address'      => self::get_client_ip(),
+                'auth_source'     => $source,
+                'wp_user_id'      => $this->request_wp_user_id > 0 ? (int) $this->request_wp_user_id : null,
+                'oauth_client_id' => ( is_string( $this->request_client_id ) && '' !== $this->request_client_id ) ? $this->request_client_id : null,
+                'created_at'      => current_time( 'mysql', true ),
             ),
-            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+            array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
         );
         return (int) $wpdb->insert_id;
     }
 
-    private function update_audit_status( $audit_id, $status ) {
+    
+
+
+
+
+    private function update_audit_status( $audit_id, $status, $duration_ms = null ) {
         if ( ! $this->audit_log_enabled || ! $audit_id ) {
             return;
         }
         global $wpdb;
+        $data   = array( 'result_status' => $status );
+        $format = array( '%s' );
+        if ( null !== $duration_ms ) {
+            $data['duration_ms'] = max( 0, (int) $duration_ms );
+            $format[]            = '%d';
+        }
         $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct update required to finalize audit status.
             $wpdb->prefix . 'easy_mcp_ai_audit_log',
-            array( 'result_status' => $status ),
+            $data,
             array( 'id' => (int) $audit_id ),
-            array( '%s' ),
+            $format,
             array( '%d' )
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private function redact_for_tool( $tool_name, $args ) {
+        $safe = self::redact_sensitive_args( $args );
+        if ( ! is_array( $safe ) || ! is_string( $tool_name ) || '' === $tool_name || ! $this->tool_registry ) {
+            return $safe;
+        }
+        $tool = $this->tool_registry->get_tool( $tool_name );
+        if ( ! $tool || ! method_exists( $tool, 'get_redacted_arguments' ) ) {
+            return $safe;
+        }
+        foreach ( (array) $tool->get_redacted_arguments() as $key ) {
+            if ( is_string( $key ) && array_key_exists( $key, $safe ) ) {
+                $safe[ $key ] = '[REDACTED]';
+            }
+        }
+        return $safe;
     }
 
     private static function redact_sensitive_args( $args ) {
@@ -769,7 +903,7 @@ class Server {
             return $args;
         }
         
-        $sensitive_pattern = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/i';
+        $sensitive_pattern = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|download_url|file_id|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/i';
         $result = array();
         foreach ( $args as $key => $value ) {
             if ( preg_match( $sensitive_pattern, $key ) ) {

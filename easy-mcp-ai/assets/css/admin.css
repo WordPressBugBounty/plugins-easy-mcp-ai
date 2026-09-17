@@ -168,6 +168,38 @@
     margin: 0;
 }
 
+/* Audit Log / Change History filter bar: one row inside the 1200px wrapper.
+   Text fields and dropdowns (.wp-mcp-filter-grow) share the space left after the
+   fixed-width date inputs and buttons; labels are inline-flex + nowrap so a caption
+   can never wrap away from its own field. Below ~1000px the row wraps gracefully. */
+.wp-mcp-history-filter p {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin: 8px 0;
+}
+.wp-mcp-history-filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    min-width: 0;
+    white-space: nowrap;
+}
+.wp-mcp-history-filter label.wp-mcp-filter-grow { flex: 1 1 80px; }
+.wp-mcp-history-filter label.wp-mcp-filter-grow-2 { flex: 2 1 140px; }
+.wp-mcp-history-filter label.wp-mcp-filter-grow input,
+.wp-mcp-history-filter label.wp-mcp-filter-grow select {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 260px;
+}
+.wp-mcp-history-filter input[type="number"] { width: 70px; }
+.wp-mcp-history-filter input[type="datetime-local"] { width: 155px; }
+.wp-mcp-history-filter .wp-mcp-filter-hint { color: #646970; font-size: 12px; }
+
 /* Filter Controls */
 .wp-mcp-filters {
     display: flex;
@@ -325,6 +357,22 @@
     border: 1px solid #dcdcde;
     border-radius: 4px;
     cursor: pointer;
+}
+
+/* Token expiration presets (GitHub-style select + inline date picker) */
+.wp-mcp-expiry-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.wp-mcp-expiry-row select {
+    min-width: 220px;
+}
+
+.wp-mcp-expiry-hint[data-never] {
+    color: #b32d2e;
 }
 
 /* Token Notice */
@@ -562,79 +610,6 @@
     column-count: 3;
     margin: 4px 0 0 18px;
 }
-.wp-mcp-lang-select {
-    position: relative;
-    display: inline-block;
-    width: 320px;
-}
-.wp-mcp-lang-display {
-    width: 100%;
-    padding: 6px 30px 6px 8px;
-    box-sizing: border-box;
-    border: 1px solid #8c8f94;
-    border-radius: 4px;
-    font-size: 14px;
-    line-height: 1.5;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%23646970' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
-    cursor: pointer;
-}
-.wp-mcp-lang-display:focus {
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
-    outline: none;
-}
-.wp-mcp-lang-select.is-open .wp-mcp-lang-display {
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-}
-.wp-mcp-lang-options {
-    display: none !important;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    max-height: 250px;
-    overflow-y: auto;
-    margin: 0;
-    padding: 0;
-    list-style: none !important;
-    background: #fff;
-    border: 1px solid #2271b1;
-    border-top: none;
-    border-radius: 0 0 4px 4px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
-    z-index: 100;
-}
-.wp-mcp-lang-select.is-open .wp-mcp-lang-options {
-    display: block !important;
-}
-.wp-mcp-lang-options li {
-    padding: 8px 12px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    list-style: none !important;
-    margin: 0;
-}
-.wp-mcp-lang-options li:hover,
-.wp-mcp-lang-options li.wp-mcp-lang-highlight {
-    background: #f0f6fc;
-}
-.wp-mcp-lang-options li.wp-mcp-lang-active {
-    font-weight: 600;
-}
-.wp-mcp-lang-code {
-    color: #999;
-    font-size: 12px;
-    margin-left: 8px;
-}
-.wp-mcp-lang-options li.wp-mcp-lang-hidden {
-    display: none !important;
-}
-
 /* =========================================================
    Plugin Integrations Page
    ========================================================= */

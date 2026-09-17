@@ -365,57 +365,7 @@ class Authorization_Endpoint {
 
 
     private function handle_approve_action( \WP_REST_Request $request, array $params, \WP_User $user ) {
-        $raw_scopes       = $request->get_param( 'scopes' );
-        $all_scopes       = Scope_Map::get_all_scopes();
-        $submitted_scopes = array();
-
-        if ( is_array( $raw_scopes ) ) {
-            foreach ( $raw_scopes as $s ) {
-                $submitted_scopes[] = sanitize_text_field( $s );
-            }
-        }
-
-        
-        
-        
-        if ( ! empty( $params['scope'] ) ) {
-            $requested_scope_list = array_filter( array_map( 'trim', explode( ' ', $params['scope'] ) ) );
-        } else {
-            $requested_scope_list = array_filter( array_map( 'trim', explode( ' ', Scope_Map::get_default_scope() ) ) );
-        }
-        $client_requested_mcp = in_array( 'mcp', $requested_scope_list, true );
-
-        
-        
-        
-        
-        if ( $client_requested_mcp && in_array( 'mcp', $submitted_scopes, true ) ) {
-            $this->store_consent( $user->ID, $params['client_id'], 'mcp' );
-            $code = $this->mint_authorization_code( $params, $user->ID, 'mcp' );
-            if ( null === $code ) {
-                return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ), 'code_issue_failed' );
-            }
-            return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
-        }
-
-        
-        $valid_submitted = array_values( array_intersect( $submitted_scopes, $all_scopes ) );
-
-        
-        
-
-        if ( ! empty( $requested_scope_list ) && ! $client_requested_mcp ) {
-            $valid_submitted = array_values( array_intersect( $valid_submitted, $requested_scope_list ) );
-        }
-
-        
-        if ( $client_requested_mcp && in_array( 'mcp', $submitted_scopes, true ) ) {
-            $scope_string = 'mcp';
-        } elseif ( ! empty( $valid_submitted ) && empty( array_diff( $all_scopes, $valid_submitted ) ) ) {
-            $scope_string = 'mcp';
-        } else {
-            $scope_string = implode( ' ', $valid_submitted );
-        }
+        $scope_string = self::resolve_granted_scope( $params['scope'], $request->get_param( 'scopes' ) );
 
         
         
@@ -425,13 +375,83 @@ class Authorization_Endpoint {
             return $this->handle_approved_without_scopes( $params );
         }
 
-        $this->store_consent( $user->ID, $params['client_id'], $scope_string );
+        self::store_consent( $user->ID, $params['client_id'], $scope_string );
         $code = $this->mint_authorization_code( $params, $user->ID, $scope_string );
         if ( null === $code ) {
             return $this->redirect_with_error( $params, 'server_error', __( 'Failed to issue authorization code.', 'easy-mcp-ai' ), 'code_issue_failed' );
         }
 
         return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function resolve_granted_scope( $requested_scope, $submitted_scopes ) {
+        $all_scopes = Scope_Map::get_all_scopes();
+        $submitted  = array();
+
+        if ( is_array( $submitted_scopes ) ) {
+            foreach ( $submitted_scopes as $s ) {
+                $submitted[] = sanitize_text_field( $s );
+            }
+        }
+
+        
+        
+        
+        if ( ! empty( $requested_scope ) ) {
+            $requested_scope_list = array_filter( array_map( 'trim', explode( ' ', (string) $requested_scope ) ) );
+        } else {
+            $requested_scope_list = array_filter( array_map( 'trim', explode( ' ', Scope_Map::get_default_scope() ) ) );
+        }
+        $client_requested_mcp = in_array( 'mcp', $requested_scope_list, true );
+
+        
+        
+        
+        
+        if ( $client_requested_mcp && in_array( 'mcp', $submitted, true ) ) {
+            return 'mcp';
+        }
+
+        
+        $valid_submitted = array_values( array_intersect( $submitted, $all_scopes ) );
+
+        
+        
+        if ( ! empty( $requested_scope_list ) && ! $client_requested_mcp ) {
+            $valid_submitted = array_values( array_intersect( $valid_submitted, $requested_scope_list ) );
+        }
+
+        
+        if ( ! empty( $valid_submitted ) && empty( array_diff( $all_scopes, $valid_submitted ) ) ) {
+            return 'mcp';
+        }
+
+        return implode( ' ', $valid_submitted );
     }
 
     
@@ -503,19 +523,56 @@ class Authorization_Endpoint {
         $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct insert required for audit logging; mirrors Server::log_auth_failure().
             $wpdb->prefix . 'easy_mcp_ai_audit_log',
             array(
-                'token_id'      => 0,
-                'tool_name'     => '_oauth_authorize',
-                'arguments'     => wp_json_encode( $details ),
-                'result_status' => 'auth_failure',
+                'token_id'        => 0,
+                'tool_name'       => '_oauth_authorize',
+                'arguments'       => wp_json_encode( $details ),
+                'result_status'   => 'auth_failure',
                 
                 
                 
                 
-                'ip_address'    => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
-                'created_at'    => current_time( 'mysql', true ),
+                'ip_address'      => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
+                
+                
+                
+                'auth_source'     => 'oauth',
+                'wp_user_id'      => $details['wp_user_id'] > 0 ? (int) $details['wp_user_id'] : null,
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                'oauth_client_id' => self::column_safe_client_id( $details['client_id'] ),
+                'created_at'      => current_time( 'mysql', true ),
             ),
-            array( '%d', '%s', '%s', '%s', '%s', '%s' )
+            array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
         );
+    }
+
+    
+
+
+    const AUDIT_CLIENT_ID_MAX_LENGTH = 191;
+
+    
+
+
+
+
+
+
+
+
+    public static function column_safe_client_id( $client_id ) {
+        $client_id = (string) $client_id;
+        if ( '' === $client_id || strlen( $client_id ) > self::AUDIT_CLIENT_ID_MAX_LENGTH ) {
+            return null;
+        }
+        return $client_id;
     }
 
     
@@ -777,13 +834,26 @@ class Authorization_Endpoint {
 
 
 
-    private function store_consent( $user_id, $client_id, $scope ) {
+
+
+
+
+
+
+
+
+
+
+    public static function store_consent( $user_id, $client_id, $scope ) {
         global $wpdb;
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
         $now   = current_time( 'mysql', true );
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom plugin table; name is prefixed by $wpdb->prefix (trusted); upsert cannot use $wpdb->insert().
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom plugin table; name is prefixed by $wpdb->prefix (trusted); upsert cannot use $wpdb->insert().
         $wpdb->query( $wpdb->prepare( "INSERT INTO {$table} (wp_user_id, client_id, scope, granted_at, updated_at) VALUES (%d, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE scope = VALUES(scope), updated_at = VALUES(updated_at)", $user_id, $client_id, $scope, $now, $now ) );
+        $id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE wp_user_id = %d AND client_id = %s LIMIT 1", $user_id, $client_id ) );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        return (int) $id;
     }
 
     

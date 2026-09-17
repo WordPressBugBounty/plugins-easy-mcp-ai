@@ -37,7 +37,7 @@
 
         function showCopied(button) {
             var original = button.text();
-            button.text('Copied!');
+            button.text(wp.i18n.__('Copied!', 'easy-mcp-ai'));
             setTimeout(function () {
                 button.text(original);
             }, 2000);
@@ -85,7 +85,7 @@
                 original = button.text();
                 button.data('originalLabel', original);
             }
-            button.prop('disabled', true).text(button.data('busy') || 'Copying...');
+            button.prop('disabled', true).text(button.data('busy') || wp.i18n.__('Copying...', 'easy-mcp-ai'));
 
             $.get(url).done(function (data, status, xhr) {
                 // Copy the raw body, not jQuery's parsed object — the file has
@@ -102,7 +102,7 @@
                     fallbackCopy(text, button.text(original));
                 }
             }).fail(function () {
-                button.prop('disabled', false).text(button.data('failed') || 'Could not copy');
+                button.prop('disabled', false).text(button.data('failed') || wp.i18n.__('Could not copy', 'easy-mcp-ai'));
                 setTimeout(function () { button.text(original); }, 3000);
             });
         });
@@ -135,7 +135,11 @@
             } else if ($checked.length === 1) {
                 $label.text($checked.first().closest('label').text().trim());
             } else {
-                $label.text($checked.length + ' selected');
+                $label.text(wp.i18n.sprintf(
+                    /* translators: %d: number of selected filter options */
+                    wp.i18n._n('%d selected', '%d selected', $checked.length, 'easy-mcp-ai'),
+                    $checked.length
+                ));
             }
         }
 
@@ -305,118 +309,59 @@
             }
         });
 
-        // Language searchable dropdown.
-        var $langWidget = $('.wp-mcp-lang-select');
-        if ($langWidget.length) {
-            var $langHidden = $langWidget.find('#admin_language');
-            var $langInput = $langWidget.find('#admin_language_display');
-            var $langList = $langWidget.find('.wp-mcp-lang-options');
-            var $langItems = $langList.find('li');
-            var $highlighted = $();
-
-            function langFilter(query) {
-                var q = query.toLowerCase();
-                $langItems.each(function () {
-                    var label = ($(this).data('label') || '').toLowerCase();
-                    var val = ($(this).data('value') || '').toLowerCase();
-                    $(this).toggleClass('wp-mcp-lang-hidden', q !== '' && label.indexOf(q) === -1 && val.indexOf(q) === -1);
-                });
-                $langItems.filter('.wp-mcp-lang-hidden:first').prev().removeClass('wp-mcp-lang-hidden');
-            }
-
-            function langHighlight($item) {
-                $highlighted.removeClass('wp-mcp-lang-highlight');
-                $highlighted = $item.addClass('wp-mcp-lang-highlight');
-                if ($item.length) {
-                    var listTop = $langList.scrollTop();
-                    var listBottom = listTop + $langList.height();
-                    var itemTop = $item.position().top + listTop;
-                    var itemBottom = itemTop + $item.outerHeight();
-                    if (itemBottom > listBottom) {
-                        $langList.scrollTop(itemBottom - $langList.height());
-                    } else if (itemTop < listTop) {
-                        $langList.scrollTop(itemTop);
-                    }
+        // Token expiration presets (issue #61), GitHub-style: a select with
+        // the date picker beside it and a hint naming the resolved date.
+        // Presentation only: the select submits for itself and the server
+        // reads it first. This hides the picker unless "Custom" is selected
+        // and keeps the hint in step; without scripts the picker stays
+        // visible and the server-rendered hint stands.
+        var $expiryPreset = $('#expires_preset');
+        if ($expiryPreset.length) {
+            var $expiryCustom = $('.wp-mcp-expiry-custom');
+            var $expiryDate = $expiryCustom.find('input[type="date"]');
+            var $expiryHint = $('.wp-mcp-expiry-hint');
+            var expiryHints = {
+                expires: $expiryPreset.data('hint-expires') || '%s',
+                never: $expiryPreset.data('hint-never') || '',
+                pick: $expiryPreset.data('hint-pick') || ''
+            };
+            var formatPickedDate = function (ymd) {
+                var parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+                if (!parts) {
+                    return '';
                 }
-            }
-
-            function langSelect($item) {
-                var val = $item.data('value');
-                var label = $item.data('label');
-                $langHidden.val(val);
-                $langInput.val(label).data('current-label', label);
-                $langItems.removeClass('wp-mcp-lang-active');
-                $item.addClass('wp-mcp-lang-active');
-                $langWidget.removeClass('is-open');
-                langFilter(''); // Reset filter when closed
-            }
-
-            // Store initial label
-            $langInput.data('current-label', $langInput.val());
-
-            $langInput.on('focus', function () {
-                // When focused, clear the input to allow immediate searching
-                $(this).val('');
-                $langWidget.addClass('is-open');
-                $langItems.removeClass('wp-mcp-lang-hidden');
-                langHighlight($langItems.filter('.wp-mcp-lang-active'));
-            }).on('blur', function () {
-                // Short delay to allow click events on dropdown items to fire first
-                setTimeout(function() {
-                    if (!$langWidget.hasClass('is-open')) {
-                        // Restore the selected label if closed
-                        $langInput.val($langInput.data('current-label'));
-                    }
-                }, 150);
-            }).on('click', function (e) {
-                // If already focused and clicked, don't clear again
-                if (!$langWidget.hasClass('is-open')) {
-                    $(this).val('');
-                    $langWidget.addClass('is-open');
-                    $langItems.removeClass('wp-mcp-lang-hidden');
-                    langHighlight($langItems.filter('.wp-mcp-lang-active'));
+                // The date the page loaded with is already formatted server-side
+                // in the site's date format; keep that so it reads like the presets.
+                if (ymd === String($expiryDate.data('initial')) && $expiryDate.data('initial-label')) {
+                    return String($expiryDate.data('initial-label'));
                 }
-            }).on('input', function () {
-                $langWidget.addClass('is-open');
-                langFilter($(this).val());
-                var $visible = $langItems.not('.wp-mcp-lang-hidden');
-                langHighlight($visible.first());
-            }).on('keydown', function (e) {
-                var $visible = $langItems.not('.wp-mcp-lang-hidden');
-                if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    var idx = $visible.index($highlighted);
-                    langHighlight($visible.eq(Math.min(idx + 1, $visible.length - 1)));
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    var idx = $visible.index($highlighted);
-                    langHighlight($visible.eq(Math.max(idx - 1, 0)));
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if ($highlighted.length) {
-                        langSelect($highlighted);
-                    }
-                } else if (e.key === 'Escape') {
-                    $langWidget.removeClass('is-open');
+                // The stored expiry is end-of-day UTC; name that UTC day.
+                var d = new Date(Date.UTC(+parts[1], +parts[2] - 1, +parts[3]));
+                return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+            };
+            var syncExpiry = function () {
+                var value = $expiryPreset.val();
+                var isCustom = value === 'custom';
+                var hint;
+                $expiryCustom.toggle(isCustom);
+                if (value === 'never') {
+                    hint = expiryHints.never;
+                } else if (isCustom) {
+                    var picked = formatPickedDate($expiryDate.val());
+                    hint = picked ? expiryHints.expires.replace('%s', picked) : expiryHints.pick;
+                } else {
+                    hint = expiryHints.expires.replace('%s', $expiryPreset.find('option:selected').data('date') || '');
+                }
+                $expiryHint.text(hint).attr('data-never', value === 'never' ? '1' : null);
+            };
+            $expiryPreset.on('change', function () {
+                syncExpiry();
+                if ($(this).val() === 'custom') {
+                    $expiryDate.trigger('focus');
                 }
             });
-
-            $langList.on('mousedown', 'li:not(.wp-mcp-lang-hidden)', function (e) {
-                e.preventDefault();
-                langSelect($(this));
-            }).on('mouseover', 'li:not(.wp-mcp-lang-hidden)', function () {
-                langHighlight($(this));
-            });
-
-            $(document).on('click.wp-mcp-lang', function (e) {
-                if (!$(e.target).closest($langWidget).length) {
-                    if ($langWidget.hasClass('is-open')) {
-                        $langWidget.removeClass('is-open');
-                        $langInput.val($langInput.data('current-label'));
-                        langFilter('');
-                    }
-                }
-            });
+            $expiryDate.on('change input', syncExpiry);
+            syncExpiry();
         }
 
     });
@@ -574,7 +519,11 @@
         });
         var group = $card.data('group');
         $('[data-group="' + group + '"].wp-mcp-tool-counts').first().text(
-            enabled + ' / ' + total + ' tools enabled \u00b7 ' + readCount + ' read, ' + writeCount + ' write'
+            wp.i18n.sprintf(
+                /* translators: 1: enabled tool count, 2: total tool count, 3: read tool count, 4: write tool count */
+                wp.i18n.__('%1$s / %2$s tools enabled \u00b7 %3$s read, %4$s write', 'easy-mcp-ai'),
+                enabled, total, readCount, writeCount
+            )
         );
     }
 

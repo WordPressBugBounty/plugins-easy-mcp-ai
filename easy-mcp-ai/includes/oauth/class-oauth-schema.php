@@ -34,7 +34,46 @@ class OAuth_Schema {
 
 
 
-    const DB_VERSION = '1.0.6';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    const DB_VERSION = '1.0.7';
     const VERSION_OPTION = 'easy_mcp_ai_oauth_db_version';
 
     
@@ -48,7 +87,12 @@ class OAuth_Schema {
         $charset_collate = $wpdb->get_charset_collate();
         $prefix          = $wpdb->prefix . 'easy_mcp_ai_oauth_';
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        
+        
+        
+        if ( ! function_exists( 'dbDelta' ) ) {
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        }
 
         $clients_table = $prefix . 'clients';
         $sql_clients   = "CREATE TABLE {$clients_table} (
@@ -61,6 +105,8 @@ class OAuth_Schema {
             scope VARCHAR(255) NOT NULL DEFAULT '',
             software_id VARCHAR(255) DEFAULT NULL,
             software_version VARCHAR(64) DEFAULT NULL,
+            client_secret_hash CHAR(64) DEFAULT NULL,
+            token_endpoint_auth_method VARCHAR(32) NOT NULL DEFAULT 'none',
             created_at DATETIME NOT NULL,
             created_by_ip VARCHAR(45) NOT NULL DEFAULT '',
             is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -109,7 +155,8 @@ class OAuth_Schema {
             UNIQUE KEY refresh_hash (refresh_hash),
             KEY client_user_idx (client_id, wp_user_id),
             KEY refresh_parent_idx (refresh_parent_id),
-            KEY active_expires_idx (is_active, expires_at)
+            KEY active_expires_idx (is_active, expires_at),
+            KEY expires_at_idx (expires_at)
         ) {$charset_collate};";
 
         $consents_table = $prefix . 'consents';
@@ -125,10 +172,41 @@ class OAuth_Schema {
             KEY client_id_idx (client_id)
         ) {$charset_collate};";
 
+        
+        
+        
+        
+        
+        
+        
+        
+        $device_table = $prefix . 'device_codes';
+        $sql_device   = "CREATE TABLE {$device_table} (
+            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            device_code_hash CHAR(64) NOT NULL,
+            user_code_hash CHAR(64) NOT NULL,
+            client_id VARCHAR(64) NOT NULL,
+            wp_user_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            consent_id BIGINT UNSIGNED DEFAULT NULL,
+            resource TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            status VARCHAR(16) NOT NULL DEFAULT 'pending',
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL,
+            last_polled_at DATETIME DEFAULT NULL,
+            decided_at DATETIME DEFAULT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY device_code_hash (device_code_hash),
+            UNIQUE KEY user_code_hash (user_code_hash),
+            KEY expires_at_idx (expires_at),
+            KEY client_id_idx (client_id)
+        ) {$charset_collate};";
+
         dbDelta( $sql_clients );
         dbDelta( $sql_codes );
         dbDelta( $sql_tokens );
         dbDelta( $sql_consents );
+        dbDelta( $sql_device );
 
         
         
@@ -140,6 +218,7 @@ class OAuth_Schema {
             $codes_table,
             $tokens_table,
             $consents_table,
+            $device_table,
         );
         foreach ( $expected as $table ) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table existence check; name is $wpdb->prefix-derived.
@@ -165,6 +244,20 @@ class OAuth_Schema {
             }
         }
 
+        
+        
+        
+        
+        
+        
+        foreach ( self::REQUIRED_COLUMNS as $table_suffix => $column_names ) {
+            foreach ( $column_names as $column_name ) {
+                if ( ! self::column_exists( $prefix . $table_suffix, $column_name ) ) {
+                    return;
+                }
+            }
+        }
+
         update_option( self::VERSION_OPTION, self::DB_VERSION );
     }
 
@@ -181,8 +274,20 @@ class OAuth_Schema {
 
 
     const REQUIRED_INDEXES = array(
-        'codes'    => array( 'client_id_idx' ), 
-        'consents' => array( 'client_id_idx' ), 
+        'codes'         => array( 'client_id_idx' ),  
+        'consents'      => array( 'client_id_idx' ),  
+        'access_tokens' => array( 'expires_at_idx' ), 
+    );
+
+    
+
+
+
+
+
+
+    const REQUIRED_COLUMNS = array(
+        'clients' => array( 'client_secret_hash', 'token_endpoint_auth_method' ), 
     );
 
     
@@ -204,6 +309,25 @@ class OAuth_Schema {
         }
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; name is $wpdb->prefix-derived, index name is a class constant. SHOW INDEX cannot take a placeholder for the table.
         $found = $wpdb->get_var( $wpdb->prepare( "SHOW INDEX FROM `{$table}` WHERE Key_name = %s", $index_name ) );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        return ! empty( $found );
+    }
+
+    
+
+
+
+
+
+
+
+    public static function column_exists( $table, $column_name ) {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return true;
+        }
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; name is $wpdb->prefix-derived, column name is a class constant. SHOW COLUMNS cannot take a placeholder for the table.
+        $found = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `{$table}` LIKE %s", $column_name ) );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
         return ! empty( $found );
     }

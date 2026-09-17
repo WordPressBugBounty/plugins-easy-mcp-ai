@@ -77,7 +77,7 @@ class Update_Page extends Base_Tool {
                 ),
                 'excerpt'    => array(
                     'type'        => 'string',
-                    'description' => 'Page excerpt.',
+                    'description' => 'Page excerpt. HTML is accepted and sanitized by WordPress per the calling user\'s capability.',
                 ),
                 'author'     => array(
                     'type'        => 'integer',
@@ -151,7 +151,12 @@ class Update_Page extends Base_Tool {
         }
 
         if ( isset( $arguments['excerpt'] ) && '' !== $arguments['excerpt'] ) {
-            $params['excerpt'] = sanitize_text_field( $arguments['excerpt'] );
+            
+            
+            
+            
+            
+            $params['excerpt'] = $arguments['excerpt'];
         }
 
         if ( isset( $arguments['author'] ) ) {

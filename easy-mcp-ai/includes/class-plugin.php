@@ -76,6 +76,9 @@ class Plugin {
         \add_action( 'plugins_loaded', array( 'Easy_MCP_AI\Activator', 'maybe_upgrade' ) );
         \add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_oauth' ) );
         
+        
+        \add_filter( 'application_password_is_api_request', array( __CLASS__, 'exempt_oauth_client_credentials_from_application_passwords' ) );
+        
         if ( \is_multisite() ) {
             \add_action( 'wp_initialize_site', array( $this, 'on_new_site' ), 10, 1 );
             
@@ -102,8 +105,10 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-session.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-gemini-safe-schema.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-transport.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-rest-auth-override.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-server.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-manager.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-auth-header.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-auth.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-permission-guard.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-base-tool.php';
@@ -125,6 +130,7 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-redactor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-context.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-audit-log-repository.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-recorder.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-db-interceptor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-external-intent.php';
@@ -194,17 +200,6 @@ class Plugin {
     }
 
     public function init_admin() {
-        $admin_lang = \get_option( 'easy_mcp_ai_admin_language', '' );
-        if ( ! empty( $admin_lang ) ) {
-            
-            
-            $safe_lang = preg_replace( '/[^a-zA-Z_]/', '', $admin_lang );
-            $mo_file = EASY_MCP_AI_PLUGIN_DIR . 'languages/easy-mcp-ai-' . $safe_lang . '.mo';
-            if ( file_exists( $mo_file ) ) {
-                \unload_textdomain( 'easy-mcp-ai' );
-                \load_textdomain( 'easy-mcp-ai', $mo_file );
-            }
-        }
         $this->load_mcp_includes();
         $this->token_manager = new Auth\Token_Manager();
         $this->tool_registry = new Tools\Tool_Registry();
@@ -393,6 +388,10 @@ class Plugin {
         
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
+        
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-device-authorization.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
         $discovery = new OAuth\Discovery();
         $rest_req  = new \WP_REST_Request( 'GET' );
@@ -593,13 +592,22 @@ class Plugin {
     public function handle_oauth_authorize_request() {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check; authorize handler enforces its own nonce downstream.
         $oauth_param = isset( $_GET['easy_mcp_ai_oauth'] ) ? sanitize_text_field( wp_unslash( $_GET['easy_mcp_ai_oauth'] ) ) : '';
-        if ( 'authorize' !== $oauth_param ) {
+        
+        
+        
+        
+        
+        if ( 'authorize' !== $oauth_param && 'device' !== $oauth_param ) {
             return;
         }
         if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
             return;
         }
-        $this->handle_oauth_authorize();
+        
+        
+        
+        Activator::maybe_upgrade_core_tables();
+        $this->handle_oauth_authorize( $oauth_param );
     }
 
     
@@ -610,7 +618,11 @@ class Plugin {
 
 
 
-    private function handle_oauth_authorize() {
+
+
+
+
+    private function handle_oauth_authorize( $flow = 'authorize' ) {
         
         
         
@@ -637,19 +649,23 @@ class Plugin {
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-token-endpoint.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-authorization-endpoint.php';
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-device-authorization.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-device-verification.php';
 
         $method  = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
         $request = new \WP_REST_Request( $method );
 
         if ( 'POST' === $method ) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified inside Authorization_Endpoint::handle_post().
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified inside Authorization_Endpoint::handle_post() / Device_Verification::handle_post().
             $request->set_body_params( isset( $_POST ) ? \wp_unslash( $_POST ) : array() );
         } else {
             // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- OAuth params, no state change.
             $request->set_query_params( isset( $_GET ) ? \wp_unslash( $_GET ) : array() );
         }
 
-        $endpoint = new OAuth\Authorization_Endpoint();
+        $endpoint = ( 'device' === $flow ) ? new OAuth\Device_Verification() : new OAuth\Authorization_Endpoint();
         $response = 'POST' === $method ? $endpoint->handle_post( $request ) : $endpoint->handle_get( $request );
 
         
@@ -752,6 +768,12 @@ class Plugin {
         
         
         \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
+        
+        
+        
+        
+        Activator::maybe_upgrade_core_tables();
+
 
         $this->token_manager     = new Auth\Token_Manager();
         $this->tool_registry     = new Tools\Tool_Registry();
@@ -798,6 +820,13 @@ class Plugin {
         $transport->register_routes();
 
         
+        
+        
+        
+        
+        MCP\Rest_Auth_Override::register();
+
+        
         if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
@@ -809,8 +838,27 @@ class Plugin {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-validator.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-authorization-endpoint.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-token-endpoint.php';
+            
+            
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-device-authorization.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-consent-screen.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-routes.php';
+
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            OAuth\OAuth_Schema::maybe_upgrade();
+
             $oauth_routes = new OAuth\OAuth_Routes();
             $oauth_routes->register_routes();
         }
@@ -821,7 +869,7 @@ class Plugin {
             'posts', 'pages', 'media', 'taxonomy', 'comments',
             'users', 'site', 'menus', 'plugins', 'themes',
             'revisions', 'meta', 'search', 'blocks', 'cpt', 'templates', 'styles',
-            'history',
+            'history', 'audit',
         );
 
         
@@ -963,6 +1011,21 @@ class Plugin {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public function cleanup_oauth_storage() {
         if ( ! \wp_doing_cron() ) {
             return;
@@ -972,6 +1035,7 @@ class Plugin {
         $tokens_table   = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
         $clients_table  = $wpdb->prefix . 'easy_mcp_ai_oauth_clients';
         $consents_table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
+        $device_table   = $wpdb->prefix . 'easy_mcp_ai_oauth_device_codes';
 
         $i = 0;
         do {
@@ -986,7 +1050,22 @@ class Plugin {
         do {
             // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix.
             $deleted = $wpdb->query(
-                "DELETE FROM `{$tokens_table}` WHERE is_active = 0 AND COALESCE(refresh_expires_at, expires_at) < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY) LIMIT 500"
+                "DELETE FROM `{$tokens_table}` WHERE expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY) AND COALESCE(refresh_expires_at, expires_at) < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY) LIMIT 500"
+            );
+            // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
+
+        
+        
+        
+        
+        
+        
+        $i = 0;
+        do {
+            // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix.
+            $deleted = $wpdb->query(
+                "DELETE FROM `{$device_table}` WHERE expires_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY) LIMIT 500"
             );
             // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
         } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
@@ -1006,6 +1085,7 @@ class Plugin {
                        AND NOT EXISTS (SELECT 1 FROM `{$tokens_table}` t   WHERE t.client_id = `{$clients_table}`.client_id)
                        AND NOT EXISTS (SELECT 1 FROM `{$consents_table}` s WHERE s.client_id = `{$clients_table}`.client_id)
                        AND NOT EXISTS (SELECT 1 FROM `{$codes_table}` k    WHERE k.client_id = `{$clients_table}`.client_id)
+                       AND NOT EXISTS (SELECT 1 FROM `{$device_table}` d   WHERE d.client_id = `{$clients_table}`.client_id)
                      LIMIT 500",
                     $client_retention
                 )
@@ -1290,11 +1370,170 @@ class Plugin {
             'easy_mcp_ai_oauth_codes',
             'easy_mcp_ai_oauth_access_tokens',
             'easy_mcp_ai_oauth_consents',
+            'easy_mcp_ai_oauth_device_codes',
             'easy_mcp_ai_change_log',
         ) as $suffix ) {
             $tables[] = $wpdb->prefix . $suffix;
         }
         return $tables;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function exempt_oauth_client_credentials_from_application_passwords( $is_api_request ) {
+        if ( ! $is_api_request ) {
+            return $is_api_request;
+        }
+        if ( ! isset( $_SERVER['PHP_AUTH_USER'] ) || ! is_string( $_SERVER['PHP_AUTH_USER'] ) ) {
+            return $is_api_request;
+        }
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Read-only path match; not stored or output.
+
+        
+        if ( preg_match( '/^[a-f0-9]{32}$/', $_SERVER['PHP_AUTH_USER'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Shape test only; the value is neither stored nor output.
+            && self::is_oauth_client_auth_path( $request_uri ) ) {
+            return false;
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        if ( self::is_api_key_basic_path( $request_uri ) ) {
+            if ( ! class_exists( '\\Easy_MCP_AI\\Auth_Header' ) ) {
+                require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-auth-header.php';
+            }
+            $pw = isset( $_SERVER['PHP_AUTH_PW'] ) && is_string( $_SERVER['PHP_AUTH_PW'] ) ? $_SERVER['PHP_AUTH_PW'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Shape test only; the value is neither stored nor output.
+            
+            
+            if ( Auth_Header::pair_has_plugin_credential_shape( $_SERVER['PHP_AUTH_USER'], $pw ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Shape test only.
+                return false;
+            }
+        }
+        return $is_api_request;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function is_api_key_basic_path( $request_uri ) {
+        $request_uri = (string) $request_uri;
+        if ( '' === $request_uri ) {
+            return false;
+        }
+        $candidates = array( $request_uri );
+        if ( false !== strpos( $request_uri, 'rest_route=' ) ) {
+            $candidates[] = rawurldecode( $request_uri );
+        }
+        foreach ( $candidates as $uri ) {
+            $path = (string) wp_parse_url( $uri, PHP_URL_PATH );
+            $rest = '';
+            $qs   = (string) wp_parse_url( $uri, PHP_URL_QUERY );
+            if ( '' !== $qs ) {
+                parse_str( $qs, $q );
+                $rest = isset( $q['rest_route'] ) && is_string( $q['rest_route'] ) ? $q['rest_route'] : '';
+            }
+            foreach ( array( $path, $rest ) as $p ) {
+                if ( '' === $p ) {
+                    continue;
+                }
+                if ( preg_match( '#/easy-mcp-ai/v1/(mcp|header-probe)(/|$)#', $p ) ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function is_oauth_client_auth_path( $request_uri ) {
+        $request_uri = (string) $request_uri;
+        if ( '' === $request_uri ) {
+            return false;
+        }
+        $candidates = array( $request_uri );
+        if ( false !== strpos( $request_uri, 'rest_route=' ) ) {
+            $candidates[] = rawurldecode( $request_uri );
+        }
+        foreach ( $candidates as $uri ) {
+            $path = (string) wp_parse_url( $uri, PHP_URL_PATH );
+            $rest = '';
+            $qs   = (string) wp_parse_url( $uri, PHP_URL_QUERY );
+            if ( '' !== $qs ) {
+                parse_str( $qs, $q );
+                $rest = isset( $q['rest_route'] ) && is_string( $q['rest_route'] ) ? $q['rest_route'] : '';
+            }
+            foreach ( array( $path, $rest ) as $p ) {
+                $p = rtrim( $p, '/' );
+                if ( '' === $p ) {
+                    continue;
+                }
+                foreach ( array( '/easy-mcp-ai/v1/oauth/token', '/easy-mcp-ai/v1/oauth/revoke' ) as $suffix ) {
+                    if ( substr( $p, -strlen( $suffix ) ) === $suffix ) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     

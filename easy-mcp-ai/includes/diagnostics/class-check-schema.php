@@ -39,6 +39,7 @@ class Check_Schema {
         'easy_mcp_ai_oauth_codes',
         'easy_mcp_ai_oauth_access_tokens',
         'easy_mcp_ai_oauth_consents',
+        'easy_mcp_ai_oauth_device_codes',
     );
 
     

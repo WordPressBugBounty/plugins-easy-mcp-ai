@@ -24,18 +24,44 @@ class Consent_Screen {
 
 
 
-    public static function render( $client, $user, $scope, array $request_params, $script_nonce = '' ) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function render( $client, $user, $scope, array $request_params, $script_nonce = '', array $options = array() ) {
 
         $client_name       = isset( $client->client_name ) ? $client->client_name : __( 'Unknown Application', 'easy-mcp-ai' );
         $client_id         = isset( $client->client_id ) ? $client->client_id : '';
         $client_id_prefix  = substr( $client_id, 0, 8 );
-        $redirect_host     = wp_parse_url( $request_params['redirect_uri'], PHP_URL_HOST );
-        $user_display_name = $user->display_name;
-        $user_roles        = implode( ', ', $user->roles );
+        $redirect_host     = isset( $request_params['redirect_uri'] ) ? wp_parse_url( $request_params['redirect_uri'], PHP_URL_HOST ) : '';
+        $user_display_name = isset( $user->display_name ) ? (string) $user->display_name : '';
+        $user_roles        = implode( ', ', isset( $user->roles ) && is_array( $user->roles ) ? $user->roles : array() );
         $categories        = Scope_Map::get_categories();
         $default_scope     = Scope_Map::get_default_scope();
         $scope_list        = array_filter( array_map( 'trim', explode( ' ', $scope ) ) );
         $is_mcp_wildcard   = in_array( 'mcp', $scope_list, true );
+
+        $default_hidden = array();
+        foreach ( array( 'response_type', 'client_id', 'redirect_uri', 'code_challenge', 'code_challenge_method', 'state', 'resource', 'scope', 'scope_sig' ) as $field ) {
+            $default_hidden[ $field ] = isset( $request_params[ $field ] ) ? (string) $request_params[ $field ] : '';
+        }
+
+        $form_action   = isset( $options['form_action'] ) ? (string) $options['form_action'] : home_url( '?easy_mcp_ai_oauth=authorize' );
+        $hidden_fields = isset( $options['hidden_fields'] ) && is_array( $options['hidden_fields'] ) ? $options['hidden_fields'] : $default_hidden;
+        $nonce_action  = isset( $options['nonce_action'] ) ? (string) $options['nonce_action'] : 'easy_mcp_ai_oauth_consent_' . $client_id;
+        $context_label = isset( $options['context_label'] ) ? (string) $options['context_label'] : __( 'Redirects to:', 'easy-mcp-ai' );
+        $context_value = isset( $options['context_value'] ) ? (string) $options['context_value'] : (string) $redirect_host;
 
         
         $template_vars = array(
@@ -51,6 +77,11 @@ class Consent_Screen {
             'default_scope'     => $default_scope,
             'request_params'    => $request_params,
             'script_nonce'      => $script_nonce,
+            'form_action'       => $form_action,
+            'hidden_fields'     => $hidden_fields,
+            'nonce_action'      => $nonce_action,
+            'context_label'     => $context_label,
+            'context_value'     => $context_value,
         );
 
         

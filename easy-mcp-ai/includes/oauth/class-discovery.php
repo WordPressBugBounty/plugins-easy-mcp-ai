@@ -75,12 +75,23 @@ class Discovery {
             'authorization_endpoint'                => home_url( '?easy_mcp_ai_oauth=authorize' ),
             'token_endpoint'                        => $rest_base . '/oauth/token',
             'revocation_endpoint'                   => $rest_base . '/oauth/revoke',
+            
+            
+            
+            
+            'device_authorization_endpoint'         => $rest_base . '/oauth/device',
             'response_types_supported'                     => array( 'code' ),
             'response_modes_supported'                     => array( 'query' ),
-            'grant_types_supported'                        => array( 'authorization_code', 'refresh_token' ),
+            'grant_types_supported'                        => array( 'authorization_code', 'refresh_token', Device_Authorization::GRANT_TYPE ),
             'code_challenge_methods_supported'             => array( 'S256' ),
-            'token_endpoint_auth_methods_supported'        => array( 'none' ),
-            'revocation_endpoint_auth_methods_supported'   => array( 'none' ),
+            
+            
+            
+            
+            
+            
+            'token_endpoint_auth_methods_supported'        => Client_Registry::SUPPORTED_AUTH_METHODS,
+            'revocation_endpoint_auth_methods_supported'   => Client_Registry::SUPPORTED_AUTH_METHODS,
             'scopes_supported'                             => $scopes,
             
             

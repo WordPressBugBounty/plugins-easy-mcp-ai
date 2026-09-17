@@ -14,7 +14,7 @@ class Upload_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Uploads a file to the WordPress media library from base64-encoded content. Required: `filename` (e.g. "photo.jpg" — extension determines MIME type), `content_base64` (base64-encoded file bytes). Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. SVG is NOT accepted on a default WordPress install (no default MIME entry) unless a plugin enables it. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }. Empty-string handling differs by field: an empty `title` is ignored (the attachment keeps its auto-generated title from the filename), while an empty `caption` or `alt_text` is applied as-is, clearing that field.';
+        return 'Uploads a file to the WordPress media library from base64-encoded content. Required: `filename` (e.g. "photo.jpg" — extension determines MIME type), `content_base64` (base64-encoded file bytes, or a data:<mime>;base64,... URI). For a file the client holds as a URL, or hands off as a file reference, use wp_upload_media_from_url instead. Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. SVG is NOT accepted on a default WordPress install (no default MIME entry) unless a plugin enables it. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }. Empty-string handling differs by field: an empty `title` is ignored (the attachment keeps its auto-generated title from the filename), while an empty `caption` or `alt_text` is applied as-is, clearing that field.';
     }
 
     public function get_category() {
@@ -71,14 +71,30 @@ class Upload_Media extends Base_Tool {
         
         
         $max_upload_bytes = wp_max_upload_size();
-        $encoded_length   = strlen( $arguments['content_base64'] );
+        if ( ! is_string( $arguments['filename'] ) || ! is_string( $arguments['content_base64'] ) ) {
+            throw new \InvalidArgumentException( 'filename and content_base64 must be strings.' );
+        }
+        
+        
+        
+        
+        $encoded = $arguments['content_base64'];
+        $offset  = 0;
+        if ( 0 === strncasecmp( $encoded, 'data:', 5 ) ) {
+            $comma = strpos( $encoded, ',' );
+            if ( false === $comma || $comma > 128 || ! preg_match( '#^data:[a-z0-9.+-]+/[a-z0-9.+-]+;base64$#i', substr( $encoded, 0, $comma ) ) ) {
+                throw new \InvalidArgumentException( 'Use a base64 data URI: data:<mime>;base64,<content>.' );
+            }
+            $offset = $comma + 1;
+        }
+        $encoded_length = strlen( $encoded ) - $offset;
         if ( $encoded_length > (int) ceil( $max_upload_bytes * 4 / 3 ) ) {
             throw new \InvalidArgumentException(
                 sprintf( 'File too large. Maximum upload size is %s.', \size_format( $max_upload_bytes ) ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
 
-        $decoded = base64_decode( $arguments['content_base64'], true );
+        $decoded = base64_decode( $offset ? substr( $encoded, $offset ) : $encoded, true );
 
         if ( false === $decoded ) {
             throw new \InvalidArgumentException( 'Invalid base64-encoded content.' );

@@ -69,7 +69,9 @@ class Check_Header_Probe {
     public static function mcp_probe_headers( $secret ) {
         return array(
             'Mcp-Session-Id'       => 'emai-probe-' . substr( (string) $secret, 0, 12 ),
-            'Mcp-Protocol-Version' => '2025-11-25',
+            'Mcp-Protocol-Version' => '2026-07-28',
+            'Mcp-Method'           => 'tools/call',
+            'Mcp-Name'             => 'emai_probe_' . substr( (string) $secret, 0, 12 ),
         );
     }
 
@@ -107,6 +109,7 @@ class Check_Header_Probe {
                 return array(
                     self::unknown( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
                     self::unknown_mcp_headers( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+                    self::unknown_basic( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
                 );
             }
 
@@ -115,12 +118,24 @@ class Check_Header_Probe {
             } catch ( \Throwable $e ) {
                 $body = null;
             }
+            
+            
+            
+            
+            
+            
+            try {
+                $basic_body = self::send_probe( $secret, 'basic' );
+            } catch ( \Throwable $e ) {
+                $basic_body = null;
+            }
         } catch ( \Throwable $e ) {
             
             
             return array(
                 self::unknown( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
                 self::unknown_mcp_headers( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
+                self::unknown_basic( __( 'Could not prepare the connection test on this site.', 'easy-mcp-ai' ) ),
             );
         } finally {
             self::disarm();
@@ -131,10 +146,95 @@ class Check_Header_Probe {
         
         
         
+        
+        if ( class_exists( '\Easy_MCP_AI\Diagnostics\Check_Conflicts' ) ) {
+            try {
+                Check_Conflicts::record_rest_auth_observation( $body, $secret );
+            } catch ( \Throwable $e ) {
+                
+                
+                unset( $e );
+            }
+        }
+
+        
+        
+        
+        
+        
         return array(
             self::evaluate( $body, $secret ),
             self::evaluate_mcp_headers( $body, $secret ),
+            self::evaluate_basic( $basic_body, $secret ),
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_basic( $body, $secret ) {
+        if ( ! is_array( $body ) || empty( $body['proof'] )
+            || ! hash_equals( self::expected_proof( $secret ), (string) $body['proof'] ) ) {
+            return self::unknown_basic(
+                __( 'The test request did not reach this site\'s own code, so the result would not mean anything. Some hosts block a site from calling itself; that on its own is not a fault.', 'easy-mcp-ai' )
+            );
+        }
+
+        
+        if ( ! array_key_exists( 'php_auth', $body ) ) {
+            return self::unknown_basic( __( 'This site answered without the username-and-password result, so it was not measured.', 'easy-mcp-ai' ) );
+        }
+
+        $label      = self::basic_label();
+        $in_server  = ! empty( $body['server_var'] );
+        $in_php     = ! empty( $body['php_auth'] );
+        $in_headers = ! empty( $body['getallheaders'] );
+        $evidence   = array( 'server_var' => $in_server, 'php_auth' => $in_php, 'getallheaders' => $in_headers );
+
+        if ( $in_server || $in_php ) {
+            return Diagnostic_Result::pass( 'a13', Diagnostic_Result::TIER_WARNING, $label, __( 'Confirmed: an API key sent as a username and password reaches WordPress.', 'easy-mcp-ai' ), $evidence );
+        }
+
+        if ( $in_headers ) {
+            return Diagnostic_Result::warn(
+                'a13',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'The web server is not passing a username-and-password sign-in to PHP in the normal way. This plugin recovers it from a fallback source, so bridges that sign in this way still work today — but a site relying on that fallback breaks as soon as anything about the server changes.', 'easy-mcp-ai' ),
+                __( 'Open Settings → Permalinks and press Save Changes so WordPress writes the rewrite that passes the header to PHP properly.', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
+
+        return Diagnostic_Result::warn(
+            'a13',
+            Diagnostic_Result::TIER_WARNING,
+            $label,
+            __( 'A username-and-password sign-in sent to this site never reaches WordPress. Bridges and connectors that only offer username and password fields cannot sign in with an API key here; clients that send a Bearer token are unaffected.', 'easy-mcp-ai' ),
+            __( 'On Apache with mod_php, re-save Settings → Permalinks to restore the rewrite. On FastCGI or PHP-FPM the web server needs CGIPassAuth On, or the nginx equivalent, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
+            $evidence
+        );
+    }
+
+    private static function basic_label() {
+        return __( 'API keys sent as a username and password reach WordPress', 'easy-mcp-ai' );
+    }
+
+    private static function unknown_basic( $detail ) {
+        return Diagnostic_Result::unknown( 'a13', Diagnostic_Result::TIER_WARNING, self::basic_label(), $detail );
     }
 
     
@@ -252,7 +352,7 @@ class Check_Header_Probe {
 
 
 
-    public static function probe_response( array $server, $headers, $secret ) {
+    public static function probe_response( array $server, $headers, $secret, $rest_auth = null ) {
         
         
         
@@ -283,6 +383,11 @@ class Check_Header_Probe {
         
         
         
+        $php_auth = ! empty( $server['PHP_AUTH_USER'] ) || ! empty( $server['PHP_AUTH_PW'] );
+
+        
+        
+        
         $mcp = array();
         foreach ( self::mcp_probe_headers( $secret ) as $name => $expected ) {
             $mcp[ $name ] = false;
@@ -297,12 +402,21 @@ class Check_Header_Probe {
         return array(
             'proof'             => self::expected_proof( $secret ),
             'server_var'        => $server_delivered,
+            'php_auth'          => $php_auth,
             'getallheaders'     => $found_in_headers,
             'headers_collected' => $collected,
             
             
             
             'mcp_headers'       => $collected ? $mcp : null,
+            
+            
+            
+            
+            
+            
+            
+            'rest_auth'         => is_array( $rest_auth ) ? $rest_auth : null,
         );
     }
 
@@ -398,7 +512,7 @@ class Check_Header_Probe {
     
 
 
-    private static function send_probe( $secret ) {
+    private static function send_probe( $secret, $scheme = 'bearer' ) {
         if ( ! function_exists( 'wp_remote_get' ) || ! function_exists( 'rest_url' ) ) {
             return null;
         }
@@ -415,7 +529,7 @@ class Check_Header_Probe {
                 'timeout'     => self::TIMEOUT,
                 'redirection' => 0,
                 'headers'     => array_merge(
-                    array( 'Authorization' => 'Bearer ' . $secret ),
+                    array( 'Authorization' => self::probe_authorization( $secret, $scheme ) ),
                     self::mcp_probe_headers( $secret )
                 ),
                 
@@ -432,6 +546,32 @@ class Check_Header_Probe {
         $decoded = json_decode( (string) \wp_remote_retrieve_body( $response ), true );
 
         return is_array( $decoded ) ? $decoded : null;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function probe_authorization( $secret, $scheme = 'bearer' ) {
+        if ( 'basic' === $scheme ) {
+            return 'Basic ' . base64_encode( 'easy-mcp:wpmcp_' . (string) $secret );
+        }
+        return 'Bearer ' . (string) $secret;
     }
 
     private static function label() {

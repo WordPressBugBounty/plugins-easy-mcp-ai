@@ -174,6 +174,23 @@ class OAuth_Routes {
         );
 
         
+        
+        
+        
+        
+        
+        
+        register_rest_route(
+            self::NAMESPACE_V1,
+            '/oauth/device',
+            array(
+                'methods'             => \WP_REST_Server::CREATABLE,
+                'callback'            => array( new Device_Authorization(), 'handle_device_request' ),
+                'permission_callback' => '__return_true',
+            )
+        );
+
+        
 
         register_rest_route(
             self::NAMESPACE_V1,
@@ -291,10 +308,24 @@ class OAuth_Routes {
         
         
         
-        $token     = is_string( $request->get_param( 'token' ) ) ? $request->get_param( 'token' ) : '';
+        
+        
+        
+        
+        $query_error = Token_Endpoint::reject_query_credentials( $request, array( 'token', 'client_secret' ) );
+        if ( null !== $query_error ) {
+            return $query_error;
+        }
+        $token     = Token_Endpoint::body_param( $request, 'token' );
         $hint      = sanitize_text_field( $request->get_param( 'token_type_hint' ) );
         
-        $client_id = sanitize_text_field( $request->get_param( 'client_id' ) );
+        
+        
+        $basic     = Token_Endpoint::read_basic_credentials( $request );
+        $client_id = Token_Endpoint::resolve_client_id( $request, $basic );
+        if ( $client_id instanceof \WP_REST_Response ) {
+            return $client_id;
+        }
 
         
         
@@ -308,6 +339,22 @@ class OAuth_Routes {
             $response->header( 'X-Content-Type-Options', 'nosniff' );
             $response->header( 'Cache-Control', 'no-store' );
             return $response;
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        $client = ( new Client_Registry() )->get_client( $client_id );
+        if ( null !== $client ) {
+            $auth_error = Token_Endpoint::authenticate_client( $request, $client, $basic );
+            if ( null !== $auth_error ) {
+                return $auth_error;
+            }
         }
 
         $token_hash = hash( 'sha256', $token );

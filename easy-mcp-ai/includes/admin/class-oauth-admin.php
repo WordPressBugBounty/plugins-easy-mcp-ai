@@ -76,6 +76,12 @@ class OAuth_Admin {
         if ( isset( $_GET['scope_updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p><strong>' . \esc_html__( 'Scope updated.', 'easy-mcp-ai' ) . '</strong> ' . Admin_Page::tool_cache_hint_html() . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- esc_html__ + pre-escaped helper
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
+        } elseif ( isset( $_GET['secret_rotated'] ) ) {
+            $this->render_rotated_secret_notice();
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
+        } elseif ( isset( $_GET['secret_rotate_failed'] ) ) {
+            echo '<div class="notice notice-error is-dismissible"><p>' . \esc_html__( 'The client secret was not rotated: the client is not an active confidential client.', 'easy-mcp-ai' ) . '</p></div>';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect.
         } elseif ( isset( $_GET['updated'] ) ) {
             echo '<div class="notice notice-success is-dismissible"><p>' . \esc_html__( 'Settings saved.', 'easy-mcp-ai' ) . '</p></div>';
         }
@@ -162,6 +168,11 @@ class OAuth_Admin {
     private function render_clients_table() {
         global $wpdb;
 
+        
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
+
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_clients';
         $tokens_table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
 
@@ -233,6 +244,7 @@ class OAuth_Admin {
                     <th><?php \esc_html_e( 'Client Name', 'easy-mcp-ai' ); ?></th>
                     <th><?php \esc_html_e( 'Client ID', 'easy-mcp-ai' ); ?></th>
                     <th><?php \esc_html_e( 'Redirect URIs', 'easy-mcp-ai' ); ?></th>
+                    <th><?php \esc_html_e( 'Auth Method', 'easy-mcp-ai' ); ?></th>
                     <th><?php \esc_html_e( 'Created', 'easy-mcp-ai' ); ?></th>
                     <th><?php \esc_html_e( 'Active Tokens', 'easy-mcp-ai' ); ?></th>
                     <th><?php \esc_html_e( 'Status', 'easy-mcp-ai' ); ?></th>
@@ -242,7 +254,7 @@ class OAuth_Admin {
             <tbody>
                 <?php if ( empty( $clients ) ) : ?>
                     <tr>
-                        <td colspan="7">
+                        <td colspan="8">
                             <?php \esc_html_e( 'No registered clients.', 'easy-mcp-ai' ); ?>
                             <a href="<?php echo \esc_url( \admin_url( 'admin.php?page=easy-mcp-ai' ) ); ?>">
                                 <?php \esc_html_e( 'Connect to AI Client', 'easy-mcp-ai' ); ?>
@@ -266,6 +278,13 @@ class OAuth_Admin {
                                 }
                                 ?>
                             </td>
+                            <td>
+                                <?php
+                                $easy_mcp_ai_method       = \Easy_MCP_AI\OAuth\Client_Registry::effective_auth_method( $client );
+                                $easy_mcp_ai_confidential = \Easy_MCP_AI\OAuth\Client_Registry::is_confidential_method( $easy_mcp_ai_method );
+                                echo \esc_html( self::describe_auth_method( $easy_mcp_ai_method ) );
+                                ?>
+                            </td>
                             <td><?php echo \esc_html( $client->created_at ); ?></td>
                             <td><?php echo \esc_html( $client->active_tokens ); ?></td>
                             <td>
@@ -284,6 +303,37 @@ class OAuth_Admin {
                                    onclick="return confirm('<?php \esc_attr_e( 'Revoke this client and all its tokens?', 'easy-mcp-ai' ); ?>');">
                                     <?php \esc_html_e( 'Revoke', 'easy-mcp-ai' ); ?>
                                 </a>
+                                <?php if ( $easy_mcp_ai_confidential ) : ?>
+                                    <?php
+                                    
+
+
+
+
+
+
+                                    ?>
+                                    <?php
+                                    
+
+
+
+
+
+
+
+
+
+                                    $easy_mcp_ai_confirm = \wp_json_encode( \__( 'Rotate the secret for this client? The current secret stops working immediately and the new one is shown once.', 'easy-mcp-ai' ) );
+                                    ?>
+                                    <form method="post" action="<?php echo \esc_url( \admin_url( 'admin.php?page=easy-mcp-ai-oauth' ) ); ?>" style="display:inline"
+                                          onsubmit="return confirm(<?php echo \esc_attr( $easy_mcp_ai_confirm ); ?>);">
+                                        <?php \wp_nonce_field( 'easy_mcp_ai_oauth_rotate_secret_' . $client->client_id ); ?>
+                                        <input type="hidden" name="easy_mcp_ai_oauth_action" value="rotate_secret" />
+                                        <input type="hidden" name="client_id" value="<?php echo \esc_attr( $client->client_id ); ?>" />
+                                        <button type="submit" class="button button-secondary"><?php \esc_html_e( 'Rotate secret', 'easy-mcp-ai' ); ?></button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -683,6 +733,9 @@ class OAuth_Admin {
             case 'save_scope':
                 $this->action_save_scope();
                 break;
+            case 'rotate_secret':
+                $this->action_rotate_secret();
+                break;
         }
     }
 
@@ -748,6 +801,105 @@ class OAuth_Admin {
     
 
 
+
+
+
+
+
+
+
+    private function action_rotate_secret() {
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by check_admin_referer() immediately below; the client_id is needed to build the nonce action.
+        $client_id = isset( $_POST['client_id'] ) ? \sanitize_text_field( \wp_unslash( $_POST['client_id'] ) ) : '';
+        if ( '' === $client_id ) {
+            return;
+        }
+
+        \check_admin_referer( 'easy_mcp_ai_oauth_rotate_secret_' . $client_id );
+
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-client-registry.php';
+        $secret = ( new \Easy_MCP_AI\OAuth\Client_Registry() )->rotate_secret( $client_id );
+
+        if ( null === $secret ) {
+            \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-oauth&secret_rotate_failed=1' ) );
+            exit;
+        }
+
+        \update_user_meta(
+            \get_current_user_id(),
+            self::rotated_secret_meta_key( $client_id ),
+            array(
+                'token'   => $secret,
+                'expires' => time() + 60,
+            )
+        );
+
+        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-oauth&secret_rotated=' . \rawurlencode( $client_id ) ) );
+        exit;
+    }
+
+    
+
+
+
+
+
+    private static function rotated_secret_meta_key( $client_id ) {
+        return '_easy_mcp_ai_new_token_secret_' . $client_id;
+    }
+
+    
+
+
+    private function render_rotated_secret_notice() {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only display flag set by our own redirect; the meta row is scoped to the current user.
+        $client_id = isset( $_GET['secret_rotated'] ) ? \sanitize_text_field( \wp_unslash( $_GET['secret_rotated'] ) ) : '';
+        if ( '' === $client_id ) {
+            return;
+        }
+        $meta_key = self::rotated_secret_meta_key( $client_id );
+        $stored   = \get_user_meta( \get_current_user_id(), $meta_key, true );
+        $secret   = '';
+        if ( is_array( $stored ) && ! empty( $stored['token'] ) && isset( $stored['expires'] ) && (int) $stored['expires'] >= time() ) {
+            $secret = (string) $stored['token'];
+        }
+        
+        if ( '' !== $stored && false !== $stored ) {
+            \delete_user_meta( \get_current_user_id(), $meta_key );
+        }
+
+        if ( '' === $secret ) {
+            echo '<div class="notice notice-warning is-dismissible"><p>' . \esc_html__( 'The rotated secret has already been shown, or the one-minute display window passed. Rotate again to obtain a new one.', 'easy-mcp-ai' ) . '</p></div>';
+            return;
+        }
+
+        echo '<div class="notice notice-success"><p><strong>' . \esc_html__( 'New client secret — copy it now; it will not be shown again.', 'easy-mcp-ai' ) . '</strong></p>';
+        echo '<p><code style="user-select:all;font-size:1.1em;">' . \esc_html( $secret ) . '</code></p>';
+        echo '<p>' . \esc_html__( 'The previous secret stopped working when you rotated. Existing tokens stay valid; the client must present the new secret on its next token request.', 'easy-mcp-ai' ) . '</p></div>';
+    }
+
+    
+
+
+
+
+
+    private static function describe_auth_method( $method ) {
+        switch ( $method ) {
+            case \Easy_MCP_AI\OAuth\Client_Registry::AUTH_METHOD_POST:
+                return \__( 'Confidential (secret in request body)', 'easy-mcp-ai' );
+            case \Easy_MCP_AI\OAuth\Client_Registry::AUTH_METHOD_BASIC:
+                return \__( 'Confidential (HTTP Basic)', 'easy-mcp-ai' );
+            case \Easy_MCP_AI\OAuth\Client_Registry::AUTH_METHOD_NONE:
+                return \__( 'Public (PKCE only)', 'easy-mcp-ai' );
+            default:
+                return \__( 'Unusable — revoke and re-register', 'easy-mcp-ai' );
+        }
+    }
+
+    
+
+
     private function action_revoke_grant() {
         $consent_id = isset( $_GET['consent_id'] ) ? \absint( $_GET['consent_id'] ) : 0;
         if ( ! $consent_id ) {
@@ -772,6 +924,29 @@ class OAuth_Admin {
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
         if ( $consent ) {
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+            $wpdb->update(
+                $consents_table,
+                array(
+                    'scope'      => '',
+                    'updated_at' => \current_time( 'mysql', true ),
+                ),
+                array( 'id' => $consent_id ),
+                array( '%s', '%s' ),
+                array( '%d' )
+            );
+
             
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
             $wpdb->update(

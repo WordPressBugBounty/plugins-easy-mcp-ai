@@ -35,7 +35,14 @@ class Admin_Page {
         $this->token_manager             = $token_manager;
         $this->tool_registry             = $tool_registry;
         $this->plugin_integrations_page  = new Plugin_Integrations_Page();
-        \add_action( 'admin_menu', array( $this, 'register_menus' ) );
+        
+        
+        
+        
+        
+        
+        
+        \add_action( 'admin_menu', array( $this, 'register_menus' ), 9 );
         \add_action( 'admin_menu', array( $this, 'register_external_data_menu' ), 11 );
         \add_action( 'admin_menu', array( $this, 'register_log_menus' ), 12 );
         \add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
@@ -282,10 +289,59 @@ class Admin_Page {
         $css_ver  = file_exists( $css_path ) ? (string) filemtime( $css_path ) : EASY_MCP_AI_VERSION;
         $js_ver   = file_exists( $js_path ) ? (string) filemtime( $js_path ) : EASY_MCP_AI_VERSION;
         \wp_enqueue_style( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/css/admin.css', array(), $css_ver );
-        \wp_enqueue_script( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/js/admin.js', array( 'jquery' ), $js_ver, true );
+        
+        
+        
+        
+        
+        \wp_enqueue_script( 'easy-mcp-ai-admin', EASY_MCP_AI_PLUGIN_URL . 'assets/js/admin.js', array( 'jquery', 'wp-i18n' ), $js_ver, true );
+        \wp_set_script_translations( 'easy-mcp-ai-admin', 'easy-mcp-ai' );
         if ( false !== strpos( $hook, 'plugin-integrations' ) ) {
             \add_thickbox();
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function write_auth_rule() {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-diagnostic-result.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-htaccess-auth-rule.php';
+
+        $is_multisite = function_exists( 'is_multisite' ) && \is_multisite();
+        $may_write    = \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::may_write(
+            \current_user_can( 'manage_options' ),
+            $is_multisite,
+            $is_multisite && \is_super_admin(),
+            $is_multisite && \current_user_can( 'manage_network_options' )
+        );
+        if ( ! $may_write ) {
+            return 'auth_rule_refused';
+        }
+
+        $written = \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::write(
+            \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::htaccess_path()
+        );
+        if ( ! $written ) {
+            return 'auth_rule_failed';
+        }
+
+        
+        
+        if ( class_exists( '\Easy_MCP_AI\Diagnostics\Diagnostics' ) ) {
+            \Easy_MCP_AI\Diagnostics\Diagnostics::run( true );
+        }
+
+        return 'auth_rule_written';
     }
 
     public function handle_form_actions() {
@@ -304,10 +360,17 @@ class Admin_Page {
             \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai&diagnostics=rerun' ) );
             exit;
         }
+        
+        
+        
+        if ( isset( $_POST['easy_mcp_ai_write_auth_rule'] ) && \check_admin_referer( 'easy_mcp_ai_write_auth_rule' ) ) {
+            \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai&diagnostics=' . self::write_auth_rule() ) );
+            exit;
+        }
         if ( isset( $_POST['easy_mcp_ai_create_token'] ) && \check_admin_referer( 'easy_mcp_ai_create_token' ) ) {
             $name          = isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '';
             $wp_user_id    = isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : \get_current_user_id();
-            $expires_at    = isset( $_POST['expires_at'] ) && ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null;
+            $expires_at    = self::resolve_submitted_expiry_from_post();
             $allowed_tools = self::resolve_submitted_allowed_tools();
             if ( ! $this->is_assignable_user( $wp_user_id ) ) {
                 self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=invalid_user' ) );
@@ -315,13 +378,16 @@ class Admin_Page {
             if ( empty( $allowed_tools ) ) {
                 self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=tools_required' ) );
             }
+            if ( \is_wp_error( $expires_at ) ) {
+                self::refuse_token_form( 'new', 0, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=new&error=invalid_expiry' ) );
+            }
             $this->handle_create_token( $name, $wp_user_id, $allowed_tools, $expires_at );
         }
         if ( isset( $_POST['easy_mcp_ai_update_token'] ) && \check_admin_referer( 'easy_mcp_ai_update_token' ) ) {
             $token_id      = isset( $_POST['token_id'] ) ? absint( $_POST['token_id'] ) : 0;
             $name          = isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '';
             $wp_user_id    = isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : 0;
-            $expires_at    = isset( $_POST['expires_at'] ) && ! empty( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : null;
+            $expires_at    = self::resolve_submitted_expiry_from_post( $this->stored_expiry_date( $token_id ) );
             $allowed_tools = self::resolve_submitted_allowed_tools();
             $is_active     = isset( $_POST['is_active'] ) ? 1 : 0;
             if ( ! $this->is_assignable_user( $wp_user_id ) ) {
@@ -331,6 +397,9 @@ class Admin_Page {
             }
             if ( empty( $allowed_tools ) ) {
                 self::refuse_token_form( 'edit', $token_id, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=edit&token_id=' . $token_id . '&error=tools_required' ) );
+            }
+            if ( \is_wp_error( $expires_at ) ) {
+                self::refuse_token_form( 'edit', $token_id, \admin_url( 'admin.php?page=easy-mcp-ai-tokens&action=edit&token_id=' . $token_id . '&error=invalid_expiry' ) );
             }
             $this->handle_update_token( $token_id, $name, $wp_user_id, $allowed_tools, $expires_at, $is_active );
         }
@@ -358,7 +427,6 @@ class Admin_Page {
                 'max_title_length'      => isset( $_POST['max_title_length'] ) ? absint( $_POST['max_title_length'] ) : 0,
                 'audit_log_enabled'     => isset( $_POST['audit_log_enabled'] ) ? 1 : 0,
                 'allowed_tool_patterns' => isset( $_POST['allowed_tool_patterns'] ) ? sanitize_text_field( wp_unslash( $_POST['allowed_tool_patterns'] ) ) : '',
-                'admin_language'        => isset( $_POST['admin_language'] ) ? sanitize_text_field( wp_unslash( $_POST['admin_language'] ) ) : '',
                 'change_log_enabled'    => isset( $_POST['change_log_enabled'] ) ? 1 : 0,
                 'change_log_retention'  => isset( $_POST['change_log_retention'] ) ? absint( $_POST['change_log_retention'] ) : 30,
                 'oauth_min_capability'  => isset( $_POST['oauth_min_capability'] ) ? sanitize_key( wp_unslash( $_POST['oauth_min_capability'] ) ) : 'publish_posts',
@@ -576,6 +644,7 @@ class Admin_Page {
             'token_id'      => (int) $token_id,
             'name'          => isset( $_POST['token_name'] ) ? sanitize_text_field( wp_unslash( $_POST['token_name'] ) ) : '',
             'wp_user_id'    => isset( $_POST['wp_user_id'] ) ? absint( $_POST['wp_user_id'] ) : 0,
+            'expires_preset' => isset( $_POST['expires_preset'] ) ? sanitize_key( wp_unslash( $_POST['expires_preset'] ) ) : '',
             'expires_at'    => isset( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : '',
             'is_active'     => isset( $_POST['is_active'] ) ? 1 : 0,
             'all_tools'     => isset( $_POST['allowed_tools_all'] ) ? 1 : 0,
@@ -591,6 +660,140 @@ class Admin_Page {
         self::stash_token_form_draft( self::submitted_token_form( $context, $token_id ) );
         \wp_safe_redirect( $url );
         exit;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function token_expiry_presets() {
+        return array( '7' => 7, '30' => 30, '60' => 60, '90' => 90 );
+    }
+
+    
+    const TOKEN_EXPIRY_DEFAULT_PRESET = '30';
+
+    
+    const TOKEN_EXPIRY_CUSTOM = 'custom';
+
+    
+    const TOKEN_EXPIRY_NEVER = 'never';
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function token_expiry_preset_date( $days, $now = null ) {
+        $now = null === $now ? time() : (int) $now;
+        return gmdate( 'Y-m-d', $now + ( (int) $days * DAY_IN_SECONDS ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function resolve_submitted_expiry( $preset, $custom, $stored = null, $now = null ) {
+        $preset  = is_string( $preset ) ? $preset : '';
+        $custom  = is_string( $custom ) ? trim( $custom ) : '';
+        $presets = self::token_expiry_presets();
+        $now     = null === $now ? time() : (int) $now;
+
+        if ( isset( $presets[ $preset ] ) ) {
+            return self::token_expiry_preset_date( $presets[ $preset ], $now );
+        }
+        if ( self::TOKEN_EXPIRY_NEVER === $preset ) {
+            return null;
+        }
+        if ( self::TOKEN_EXPIRY_CUSTOM !== $preset ) {
+            
+            if ( '' === $custom ) {
+                return null;
+            }
+        }
+        if ( null !== $stored && '' !== $custom && $custom === (string) $stored ) {
+            
+            return $custom;
+        }
+        if ( ! preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $custom, $m ) || ! checkdate( (int) $m[2], (int) $m[3], (int) $m[1] ) ) {
+            return new \WP_Error( 'invalid_expiry', __( 'Choose a valid expiration date.', 'easy-mcp-ai' ) );
+        }
+        if ( $custom < self::token_expiry_preset_date( 1, $now ) ) {
+            return new \WP_Error( 'invalid_expiry', __( 'The expiration date must be in the future.', 'easy-mcp-ai' ) );
+        }
+        return $custom;
+    }
+
+    
+
+
+
+
+
+    private static function resolve_submitted_expiry_from_post( $stored = null ) {
+        // phpcs:disable WordPress.Security.NonceVerification.Missing -- both call sites run check_admin_referer() before reaching here.
+        $preset = isset( $_POST['expires_preset'] ) ? sanitize_key( wp_unslash( $_POST['expires_preset'] ) ) : '';
+        $custom = isset( $_POST['expires_at'] ) ? sanitize_text_field( wp_unslash( $_POST['expires_at'] ) ) : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Missing
+        return self::resolve_submitted_expiry( $preset, $custom, $stored );
+    }
+
+    
+
+
+
+
+
+
+
+    private function stored_expiry_date( $token_id ) {
+        if ( ! $token_id ) {
+            return null;
+        }
+        $token = $this->token_manager->get_token_by_id( $token_id );
+        if ( ! is_array( $token ) || empty( $token['expires_at'] ) ) {
+            return null;
+        }
+        return gmdate( 'Y-m-d', strtotime( $token['expires_at'] . ' UTC' ) );
     }
 
     private static function resolve_submitted_allowed_tools() {
@@ -655,7 +858,6 @@ class Admin_Page {
             'max_title_length'       => max( 0, $post_data['max_title_length'] ),
             'audit_log_enabled'      => $post_data['audit_log_enabled'],
             'allowed_tool_patterns'  => $patterns,
-            'admin_language'         => $post_data['admin_language'],
             'change_log_enabled'     => $post_data['change_log_enabled'],
             'change_log_retention'   => max( 1, min( 3650, (int) $post_data['change_log_retention'] ) ),
             
@@ -850,6 +1052,7 @@ class Admin_Page {
             'templates' => 'Templates',
             'styles'    => 'Global Styles',
             'history'   => 'Change History',
+            'audit'     => 'Audit Log',
             'general'   => 'General',
         );
 
@@ -1513,13 +1716,40 @@ class Admin_Page {
 
     public function render_audit_page() {
         global $wpdb;
-        $table     = \esc_sql( $wpdb->prefix . 'easy_mcp_ai_audit_log' );
-        $page      = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-        $per_page  = 50;
-        $offset    = ( $page - 1 ) * $per_page;
-        $retention = (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 );
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table name is not user input
-        $total     = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$table}` WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL %d DAY)", $retention ) );
+        if ( ! class_exists( '\\Easy_MCP_AI\\Audit_Log_Repository' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-audit-log-repository.php';
+        }
+        $repo     = new \Easy_MCP_AI\Audit_Log_Repository();
+        $page     = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $per_page = \Easy_MCP_AI\Audit_Log_Repository::PER_PAGE;
+        $offset   = ( $page - 1 ) * $per_page;
+
+        
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only filter args.
+        $filter_search      = isset( $_GET['s'] )             ? sanitize_text_field( wp_unslash( $_GET['s'] ) )             : '';
+        $filter_tool_name   = isset( $_GET['tool_name'] )     ? sanitize_text_field( wp_unslash( $_GET['tool_name'] ) )     : '';
+        $filter_wp_user_id  = isset( $_GET['wp_user_id'] )    ? absint( $_GET['wp_user_id'] )                                : 0;
+        $filter_auth_source = isset( $_GET['auth_source'] )   ? sanitize_key( wp_unslash( $_GET['auth_source'] ) )          : '';
+        $filter_status      = isset( $_GET['result_status'] ) ? sanitize_text_field( wp_unslash( $_GET['result_status'] ) ) : '';
+        $filter_since       = isset( $_GET['since'] )         ? sanitize_text_field( wp_unslash( $_GET['since'] ) )         : '';
+        $filter_until       = isset( $_GET['until'] )         ? sanitize_text_field( wp_unslash( $_GET['until'] ) )         : '';
+        // phpcs:enable WordPress.Security.NonceVerification.Recommended
+        if ( ! in_array( $filter_auth_source, array( 'legacy', 'oauth', \Easy_MCP_AI\Audit_Log_Repository::SOURCE_UNKNOWN ), true ) ) {
+            $filter_auth_source = '';
+        }
+        $sql_since = self::coerce_datetime_local( $filter_since );
+        $sql_until = self::coerce_datetime_local( $filter_until );
+
+        $filters = array(
+            'search'        => $filter_search,
+            'tool_name'     => $filter_tool_name,
+            'wp_user_id'    => $filter_wp_user_id,
+            'auth_source'   => $filter_auth_source,
+            'result_status' => $filter_status,
+            'since'         => $sql_since,
+            'until'         => $sql_until,
+        );
+
         
 
 
@@ -1540,14 +1770,8 @@ class Admin_Page {
 
 
 
-
-
-
-
-
-
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- table names are not user input
-        $entries   = $wpdb->get_results( $wpdb->prepare( "SELECT l.*, t.name as token_name FROM (SELECT id FROM `{$table}` ORDER BY created_at DESC, id DESC LIMIT %d OFFSET %d) k JOIN `{$table}` l ON l.id = k.id LEFT JOIN `{$wpdb->prefix}easy_mcp_ai_tokens` t ON l.token_id = t.id ORDER BY l.created_at DESC, l.id DESC", $per_page, $offset ), ARRAY_A );
+        $total   = $repo->count( $filters );
+        $entries = $repo->attach_labels( $repo->query( $filters, $per_page, $offset ) );
 
         
         
@@ -1565,6 +1789,19 @@ class Admin_Page {
             }
         }
 
+        
+        $filter_tools    = $repo->distinct( 'tool_name' );
+        $filter_statuses = $repo->distinct( 'result_status' );
+        $filter_users    = array();
+        $user_ids        = array_filter( array_map( 'intval', $repo->distinct( 'wp_user_id' ) ) );
+        if ( $user_ids ) {
+            foreach ( (array) \get_users( array( 'include' => $user_ids, 'fields' => array( 'ID', 'user_login' ) ) ) as $u ) {
+                if ( is_object( $u ) && isset( $u->ID ) ) {
+                    $filter_users[ (int) $u->ID ] = (string) $u->user_login;
+                }
+            }
+        }
+
         $total_pages = ceil( $total / $per_page );
         $message     = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $changes_nonce = \wp_create_nonce( 'easy_mcp_ai_changes_for_audit' );
@@ -1576,7 +1813,39 @@ class Admin_Page {
             'nonce'           => $changes_nonce,
             'failedToLoadMsg' => __( 'Failed to load changes.', 'easy-mcp-ai' ),
         ) );
+        $audit_filters = array(
+            'search'        => $filter_search,
+            'tool_name'     => $filter_tool_name,
+            'wp_user_id'    => $filter_wp_user_id,
+            'auth_source'   => $filter_auth_source,
+            'result_status' => $filter_status,
+            'since'         => $sql_since,
+            'until'         => $sql_until,
+            'tools'         => $filter_tools,
+            'statuses'      => $filter_statuses,
+            'users'         => $filter_users,
+        );
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/audit-log.php';
+    }
+
+    
+
+
+
+
+
+
+
+    public static function coerce_datetime_local( $raw ) {
+        $raw = (string) $raw;
+        if ( '' === $raw ) {
+            return '';
+        }
+        $raw = str_replace( 'T', ' ', $raw );
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/', $raw ) ) {
+            return strlen( $raw ) === 16 ? $raw . ':00' : $raw;
+        }
+        return '';
     }
 
     public function render_change_log_page() {
@@ -1698,7 +1967,6 @@ class Admin_Page {
             'max_title_length'       => (int)   \get_option( 'easy_mcp_ai_max_title_length', 0 ),
             'audit_log_enabled'      => (bool)  \get_option( 'easy_mcp_ai_audit_log_enabled', true ),
             'allowed_tool_patterns'  => (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ),
-            'admin_language'         =>         \get_option( 'easy_mcp_ai_admin_language', '' ),
             'change_log_enabled'     => (bool)  \get_option( 'easy_mcp_ai_change_log_enabled', true ),
             'change_log_retention'   => \Easy_MCP_AI\Plugin::change_log_retention_days(),
             'oauth_min_capability'   =>         \get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ),
@@ -1710,6 +1978,9 @@ class Admin_Page {
         ) );
         $message    = isset( $_GET['message'] ) ? sanitize_text_field( wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
         $ip_invalid = isset( $_GET['ip_invalid'] ) ? sanitize_text_field( wp_unslash( $_GET['ip_invalid'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-client-ip.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/settings.php';
     }
 }

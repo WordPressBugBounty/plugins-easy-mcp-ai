@@ -89,6 +89,20 @@ abstract class Base_Tool {
         return ucwords( str_replace( '_', ' ', $rest ) );
     }
 
+    
+
+
+
+
+
+
+
+
+
+    public function get_redacted_arguments() {
+        return array();
+    }
+
     public function get_annotations() {
         return array(
             'title'           => $this->get_title(),
