@@ -198,6 +198,22 @@ class Audit_Log_Repository {
 
 
 
+    public function find( $id ) {
+        global $wpdb;
+        $table = $this->table();
+        $cols  = self::qualify_columns( self::list_columns() );
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; constant column list; the id is bound.
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT {$cols} FROM `{$table}` l WHERE l.id = %d", (int) $id ), ARRAY_A );
+        return is_array( $row ) ? $row : null;
+    }
+
+    
+
+
+
+
+
+
 
     public function distinct( $column ) {
         global $wpdb;
@@ -262,8 +278,11 @@ class Audit_Log_Repository {
             $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
             $table        = $wpdb->prefix . 'easy_mcp_ai_tokens';
             // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- placeholders generated per id, plugin-owned table.
-            foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, name FROM `{$table}` WHERE id IN ({$placeholders})", ...$ids ), ARRAY_A ) as $t ) {
+            foreach ( (array) $wpdb->get_results( $wpdb->prepare( "SELECT id, name, created_by, wp_user_id FROM `{$table}` WHERE id IN ({$placeholders})", ...$ids ), ARRAY_A ) as $t ) {
                 $tokens[ (int) $t['id'] ] = (string) $t['name'];
+                if ( ! empty( $t['created_by'] ) && (int) $t['created_by'] === (int) $t['wp_user_id'] ) {
+                    $tokens[ (int) $t['id'] ] .= ' (' . __( 'self-service', 'easy-mcp-ai' ) . ')';
+                }
             }
             // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         }

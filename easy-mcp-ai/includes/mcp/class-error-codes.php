@@ -18,9 +18,16 @@ class Error_Codes {
     const SESSION_EXPIRED     = -32004;
     const NOT_INITIALIZED     = -32005;
     const FORBIDDEN           = -32007;
+    
+    
+    const PAUSED              = -32008;
 
     const HEADER_MISMATCH = -32020;
+    
+    const MISSING_CLIENT_CAPABILITY = -32021;
     const UNSUPPORTED_PROTOCOL_VERSION = -32022;
+
+    const PAUSED_MESSAGE = 'This site has paused AI access. Ask the site owner to resume it.';
 
     private static $messages = array(
         self::PARSE_ERROR        => 'Parse error',
@@ -34,6 +41,7 @@ class Error_Codes {
         self::RATE_LIMITED       => 'Rate limit exceeded',
         self::SESSION_EXPIRED    => 'Session expired',
         self::NOT_INITIALIZED    => 'Server not initialized',
+        self::PAUSED             => self::PAUSED_MESSAGE,
     );
 
     public static function get_message( $code ) {

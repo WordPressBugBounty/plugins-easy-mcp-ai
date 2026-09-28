@@ -121,11 +121,11 @@ class Semrush_Client {
 	public function get_api_key(): string {
 		$enc = \get_option( self::OPTION_API_KEY, '' );
 		if ( empty( $enc ) ) {
-			throw new \RuntimeException( 'Semrush API key not configured. Go to Easy MCP AI → External Data.' );
+			throw new \RuntimeException( 'Semrush API key not configured. Go to Easy MCP AI → Tools → External data.' );
 		}
 		$plain = self::decrypt( $enc );
 		if ( false === $plain || '' === $plain ) {
-			throw new \RuntimeException( 'Failed to decrypt Semrush API key. Re-save credentials in Easy MCP AI → External Data.' );
+			throw new \RuntimeException( 'Failed to decrypt Semrush API key. Re-save credentials in Easy MCP AI → Tools → External data.' );
 		}
 		return $plain;
 	}
@@ -223,7 +223,7 @@ class Semrush_Client {
 			case self::ERR_PARAM_VS_DOMAIN:
 				throw new \RuntimeException( 'Missing required parameter: vs_domain.' );
 			case self::ERR_KEY_HASH_FAILURE:
-				throw new \RuntimeException( 'Semrush API key invalid (hash failure). Verify the key at semrush.com → Subscription info.' );
+				throw new \RuntimeException( 'Semrush API key invalid (hash failure). Use the Version 3 key from semrush.com → My Profile → API Keys.' );
 			case self::ERR_INVALID_IMPORT_KEY:
 				throw new \RuntimeException( 'Semrush API key format is invalid.' );
 			case self::ERR_WRONG_KEY_ID_PAIR:

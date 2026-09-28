@@ -30,7 +30,7 @@ class Domain_Organic_Keywords extends Base_Tool {
 			'type'       => 'object',
 			'required'   => array( 'domain' ),
 			'properties' => array(
-				'domain'         => array( 'type' => 'string' ),
+				'domain'         => array( 'description' => 'The domain to analyse, without protocol (e.g. example.com).', 'type' => 'string' ),
 				'database'       => array( 'type' => 'string', 'default' => 'us' ),
 				'display_limit'  => array( 'type' => 'integer', 'default' => 100, 'minimum' => 1, 'maximum' => 100000, 'description' => 'Max rows to return; default 100, max 100000 — as with phrase_questions and related_keywords. Most other Semrush tools cap at 10000.' ),
 				'display_offset' => array( 'type' => 'integer', 'minimum' => 0 ),

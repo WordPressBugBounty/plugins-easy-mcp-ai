@@ -99,7 +99,13 @@ class Auth_Header {
     }
 
     
-    const API_KEY_PATTERN = '/^wpmcp_[a-f0-9]{64}$/';
+
+
+
+
+
+
+    const API_KEY_PATTERN = '/^wpmcp_(?:[a-f0-9]{6}_)?[a-f0-9]{64}$/';
 
     
 

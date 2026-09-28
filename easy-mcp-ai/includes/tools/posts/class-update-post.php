@@ -14,7 +14,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`. Returns { id, title, status, link, modified }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`. Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, modified }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -108,6 +108,10 @@ class Update_Post extends Base_Tool {
                     'type'        => 'boolean',
                     'description' => 'Whether the post should be sticky.',
                 ),
+                'meta'           => array(
+                    'type'        => 'object',
+                    'description' => 'Meta key-value pairs to set. Only keys registered for the REST API persist, including the SEO keys of enabled plugin integrations (Rank Math, Yoast, SEOPress, The SEO Framework — see wp_update_post_meta for the list on this site); dropped keys are reported back as meta_ignored.',
+                ),
             ),
             'required'   => array( 'post_id' ),
         );
@@ -198,18 +202,25 @@ class Update_Post extends Base_Tool {
             $params['sticky'] = (bool) $arguments['sticky'];
         }
 
-        
-        
-        
-        
-        $data = $this->rest_request( 'PUT', '/wp/v2/posts/' . $post_id, $params, 'id,title,status,modified,link' );
+        $meta_sent = $this->apply_meta_argument( $arguments, $params );
 
-        return array(
+        
+        
+        
+        
+        $data = $this->rest_request( 'PUT', '/wp/v2/posts/' . $post_id, $params, 'id,title,status,modified,link' . ( $meta_sent ? ',meta' : '' ) );
+
+        $result = array(
             'id'       => $data['id'],
             'title'    => $data['title']['raw'] ?? $data['title']['rendered'],
             'status'   => $data['status'],
             'modified' => $data['modified'],
             'link'     => $data['link'],
         );
+        if ( $meta_sent ) {
+            $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], isset( $data['meta'] ) ? $data['meta'] : array() ) );
+        }
+
+        return $result;
     }
 }

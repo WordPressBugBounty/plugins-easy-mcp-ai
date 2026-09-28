@@ -17,7 +17,9 @@ class Activator {
                     self::create_tables();
                     self::create_oauth_tables();
                     self::create_change_log_tables();
+                    self::create_tasks_tables();
                     self::set_default_options();
+                    self::mark_setup_complete_if_in_use();
                 } finally {
                     \restore_current_blog();
                 }
@@ -26,7 +28,9 @@ class Activator {
             self::create_tables();
             self::create_oauth_tables();
             self::create_change_log_tables();
+            self::create_tasks_tables();
             self::set_default_options();
+            self::mark_setup_complete_if_in_use();
         }
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_audit_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_audit_log' );
@@ -40,11 +44,19 @@ class Activator {
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_change_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_change_log' );
         }
+        if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_tasks' ) ) {
+            \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_tasks' );
+        }
         
         
         
         if ( $flush_rewrite ) {
             \flush_rewrite_rules();
+            
+            
+            if ( ! $network_wide ) {
+                Admin\Setup_State::arm_activation_redirect();
+            }
         }
     }
 
@@ -68,6 +80,7 @@ class Activator {
         
         self::maybe_upgrade_oauth_tables();
         self::maybe_upgrade_change_log_tables();
+        self::maybe_upgrade_tasks_tables();
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_audit_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_audit_log' );
         }
@@ -79,6 +92,9 @@ class Activator {
         }
         if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_change_log' ) ) {
             \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_change_log' );
+        }
+        if ( ! \wp_next_scheduled( 'easy_mcp_ai_cleanup_tasks' ) ) {
+            \wp_schedule_event( time(), 'daily', 'easy_mcp_ai_cleanup_tasks' );
         }
     }
 
@@ -117,12 +133,34 @@ class Activator {
 
 
 
+    const TOKENS_REQUIRED_COLUMNS = array( 'created_by', 'site_host_hash' );
+
+    
+
+
+
+
+
+
+
+
+
+
+
 
 
     public static function maybe_upgrade_core_tables() {
         if ( \get_option( 'easy_mcp_ai_db_version' ) !== EASY_MCP_AI_VERSION ) {
+            
+            self::mark_setup_complete_if_in_use();
             self::create_tables();
         }
+    }
+
+    
+    private static function mark_setup_complete_if_in_use() {
+        require_once __DIR__ . '/admin/class-setup-state.php';
+        Admin\Setup_State::mark_complete_if_in_use();
     }
 
     
@@ -173,6 +211,8 @@ class Activator {
             token_prefix varchar(14) NOT NULL,
             allowed_tools longtext NOT NULL,
             wp_user_id bigint(20) unsigned NOT NULL,
+            created_by bigint(20) unsigned DEFAULT NULL,
+            site_host_hash varchar(64) DEFAULT NULL,
             last_used_at datetime DEFAULT NULL,
             expires_at datetime DEFAULT NULL,
             is_active tinyint(1) NOT NULL DEFAULT 1,
@@ -231,6 +271,25 @@ class Activator {
         
         
         
+        
+        
+        
+        
+        foreach ( self::TOKENS_REQUIRED_COLUMNS as $column ) {
+            if ( ! self::column_exists( $tokens_table, $column ) ) { return; }
+        }
+        
+        
+        
+        
+        if ( ! self::backfill_token_site_host( $tokens_table ) ) {
+            return;
+        }
+        
+        
+        
+        
+        
         foreach ( self::AUDIT_REQUIRED_COLUMNS as $column ) {
             if ( ! self::column_exists( $audit_table, $column ) ) {
                 return;
@@ -250,7 +309,45 @@ class Activator {
 
 
 
+
+
+
+
+
+
+
+
+
+
+    private static function backfill_token_site_host( $tokens_table ) {
+        global $wpdb;
+        if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'query' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return true; 
+        }
+        require_once __DIR__ . '/class-site-host.php'; 
+        $host_hash = \Easy_MCP_AI\Site_Host::current_hash();
+        if ( '' === $host_hash ) {
+            return false; 
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- one-off backfill on a plugin-owned table; the table name is plugin-controlled.
+        $result = $wpdb->query( $wpdb->prepare( "UPDATE `{$tokens_table}` SET site_host_hash = %s WHERE site_host_hash IS NULL", $host_hash ) );
+        return false !== $result;
+    }
+
+    
+
+
+
     private static function create_oauth_tables() {
+        
+        
+        
+        
+        $move_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-site-move.php';
+        if ( file_exists( $move_file ) ) {
+            require_once $move_file;
+            OAuth\OAuth_Site_Move::ensure_recorded();
+        }
         $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
         if ( file_exists( $schema_file ) ) {
             require_once $schema_file;
@@ -329,6 +426,24 @@ class Activator {
 
 
 
+    private static function create_tasks_tables() {
+        $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/tasks/class-task-schema.php';
+        if ( ! file_exists( $schema_file ) ) {
+            return;
+        }
+        require_once $schema_file;
+        \Easy_MCP_AI\Tasks\Task_Schema::create_tables();
+    }
+
+    private static function maybe_upgrade_tasks_tables() {
+        $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/tasks/class-task-schema.php';
+        if ( ! file_exists( $schema_file ) ) {
+            return;
+        }
+        require_once $schema_file;
+        \Easy_MCP_AI\Tasks\Task_Schema::maybe_upgrade();
+    }
+
     private static function maybe_upgrade_change_log_tables() {
         $schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-schema.php';
         if ( ! file_exists( $schema_file ) ) {
@@ -355,6 +470,14 @@ class Activator {
             
             
             
+            
+            
+            
+            
+            
+            
+            
+            
             'disabled_tools'         => array(
                 'wp_update_site_settings',
                 'wp_create_user',
@@ -364,13 +487,27 @@ class Activator {
                 'wp_update_template',
                 'wp_update_global_styles',
                 'wp_delete_user_meta',
+                
+                'wp_run_cron_event',
+                
+                
+                'wp_activate_plugin',
+                'wp_deactivate_plugin',
+                'wp_update_plugin',
+                'wp_switch_theme',
+                'wp_update_theme',
+                
+                
+                'wp_update_theme_mod',
+                'wp_delete_theme_mod',
+                'wp_update_custom_css',
             ),
             'enabled_abilities'      => array(),
             'enabled_hooks'          => array(),
         );
         foreach ( $defaults as $key => $value ) {
             if ( false === \get_option( 'easy_mcp_ai_' . $key ) ) {
-                \update_option( 'easy_mcp_ai_' . $key, $value );
+                \add_option( 'easy_mcp_ai_' . $key, $value );
             }
         }
     }

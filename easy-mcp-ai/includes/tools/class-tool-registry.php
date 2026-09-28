@@ -180,6 +180,14 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Comments\\Create_Comment',
             'Easy_MCP_AI\\Tools\\Comments\\Update_Comment',
             'Easy_MCP_AI\\Tools\\Comments\\Delete_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Approve_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Unapprove_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Spam_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Unspam_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Trash_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Untrash_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Reply_To_Comment',
+            'Easy_MCP_AI\\Tools\\Comments\\Bulk_Moderate_Comments',
             'Easy_MCP_AI\\Tools\\Users\\List_Users',
             'Easy_MCP_AI\\Tools\\Users\\Get_User',
             'Easy_MCP_AI\\Tools\\Users\\Create_User',
@@ -194,8 +202,14 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Menus\\List_Menu_Items',
             'Easy_MCP_AI\\Tools\\Menus\\Create_Menu_Item',
             'Easy_MCP_AI\\Tools\\Plugins\\List_Plugins',
+            'Easy_MCP_AI\\Tools\\Plugins\\Activate_Plugin',
+            'Easy_MCP_AI\\Tools\\Plugins\\Deactivate_Plugin',
+            'Easy_MCP_AI\\Tools\\Plugins\\List_Plugin_Updates',
+            'Easy_MCP_AI\\Tools\\Plugins\\Update_Plugin',
             'Easy_MCP_AI\\Tools\\Themes\\List_Themes',
             'Easy_MCP_AI\\Tools\\Themes\\Get_Active_Theme',
+            'Easy_MCP_AI\\Tools\\Themes\\Switch_Theme',
+            'Easy_MCP_AI\\Tools\\Themes\\Update_Theme',
             
             'Easy_MCP_AI\\Tools\\Revisions\\List_Revisions',
             'Easy_MCP_AI\\Tools\\Revisions\\Get_Revision',
@@ -211,6 +225,10 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Blocks\\Create_Block',
             'Easy_MCP_AI\\Tools\\Blocks\\Update_Block',
             'Easy_MCP_AI\\Tools\\Blocks\\Delete_Block',
+            'Easy_MCP_AI\\Tools\\Blocks\\List_Patterns',
+            'Easy_MCP_AI\\Tools\\Blocks\\Get_Post_Blocks',
+            'Easy_MCP_AI\\Tools\\Blocks\\Update_Post_Blocks',
+            'Easy_MCP_AI\\Tools\\Blocks\\List_Block_Types',
             
             'Easy_MCP_AI\\Tools\\Site\\Get_Post_Statuses',
             
@@ -225,6 +243,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Menus\\Delete_Menu',
             'Easy_MCP_AI\\Tools\\Menus\\Update_Menu_Item',
             'Easy_MCP_AI\\Tools\\Menus\\Delete_Menu_Item',
+            'Easy_MCP_AI\\Tools\\Menus\\Reorder_Menu_Items',
             
             'Easy_MCP_AI\\Tools\\Templates\\List_Templates',
             'Easy_MCP_AI\\Tools\\Templates\\Get_Template',
@@ -232,6 +251,20 @@ class Tool_Registry {
             
             'Easy_MCP_AI\\Tools\\Styles\\Get_Global_Styles',
             'Easy_MCP_AI\\Tools\\Styles\\Update_Global_Styles',
+            
+            'Easy_MCP_AI\\Tools\\Appearance\\Get_Theme_Mods',
+            'Easy_MCP_AI\\Tools\\Appearance\\Update_Theme_Mod',
+            'Easy_MCP_AI\\Tools\\Appearance\\Delete_Theme_Mod',
+            'Easy_MCP_AI\\Tools\\Appearance\\Get_Custom_Css',
+            'Easy_MCP_AI\\Tools\\Appearance\\Update_Custom_Css',
+            
+            'Easy_MCP_AI\\Tools\\Widgets\\List_Sidebars',
+            'Easy_MCP_AI\\Tools\\Widgets\\List_Widgets',
+            'Easy_MCP_AI\\Tools\\Widgets\\Get_Widget',
+            'Easy_MCP_AI\\Tools\\Widgets\\List_Widget_Types',
+            'Easy_MCP_AI\\Tools\\Widgets\\Create_Widget',
+            'Easy_MCP_AI\\Tools\\Widgets\\Update_Widget',
+            'Easy_MCP_AI\\Tools\\Widgets\\Delete_Widget',
             
             'Easy_MCP_AI\\Tools\\WooCommerce\\List_Products',
             'Easy_MCP_AI\\Tools\\WooCommerce\\Get_Product',
@@ -307,6 +340,8 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\SEO\\Yoast_Get_Head',
             'Easy_MCP_AI\\Tools\\SEO\\Yoast_Get_Post_Seo',
             'Easy_MCP_AI\\Tools\\SEO\\Yoast_Update_Post_Seo',
+            'Easy_MCP_AI\\Tools\\SEO\\Yoast_Get_Term_Seo',
+            'Easy_MCP_AI\\Tools\\SEO\\Yoast_Update_Term_Seo',
             'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Head',
             'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Post_Seo',
             'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Update_Post_Seo',
@@ -394,12 +429,22 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Posts\\Replace_In_Post',
 
             
+            'Easy_MCP_AI\\Tools\\Taxonomy\\List_Terms',
+
+            
             'Easy_MCP_AI\\Tools\\History\\History_List',
             'Easy_MCP_AI\\Tools\\History\\History_Get',
             'Easy_MCP_AI\\Tools\\History\\History_Diff',
 
             
             'Easy_MCP_AI\\Tools\\Audit\\Audit_List',
+
+            
+            'Easy_MCP_AI\\Tools\\Site_Health\\Get_Site_Health',
+            'Easy_MCP_AI\\Tools\\Site_Health\\List_Cron_Events',
+            'Easy_MCP_AI\\Tools\\Site_Health\\Run_Cron_Event',
+            'Easy_MCP_AI\\Tools\\Site_Health\\Get_Error_Log',
+            'Easy_MCP_AI\\Tools\\Site_Health\\Get_Easy_Mcp_Diagnostics',
 
             
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Overview',

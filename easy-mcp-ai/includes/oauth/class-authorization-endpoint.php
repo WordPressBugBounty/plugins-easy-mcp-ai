@@ -6,6 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-keys.php';
+
+
 
 
 
@@ -50,7 +53,7 @@ class Authorization_Endpoint {
 
 
     public static function resolved_min_capability() {
-        $stored = get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        $stored = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
         if ( ! is_string( $stored ) || ! in_array( $stored, array( 'publish_posts', 'edit_others_posts', 'manage_options' ), true ) ) {
             $stored = 'publish_posts';
         }
@@ -365,7 +368,7 @@ class Authorization_Endpoint {
 
 
     private function handle_approve_action( \WP_REST_Request $request, array $params, \WP_User $user ) {
-        $scope_string = self::resolve_granted_scope( $params['scope'], $request->get_param( 'scopes' ) );
+        $scope_string = self::resolve_granted_scope( $params['scope'], self::submitted_scopes( $request->get_param( 'access_level' ), $request->get_param( 'scopes' ) ) );
 
         
         
@@ -382,6 +385,26 @@ class Authorization_Endpoint {
         }
 
         return $this->redirect_with_code( $params['redirect_uri'], $code, $params['state'] );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function submitted_scopes( $access_level, $submitted_scopes ) {
+        switch ( is_string( $access_level ) ? $access_level : '' ) {
+            case 'read':
+                return Scope_Map::get_read_scopes();
+            case 'full':
+                return array( 'mcp' );
+        }
+        return $submitted_scopes;
     }
 
     
@@ -497,7 +520,7 @@ class Authorization_Endpoint {
 
 
     private function log_authorize_failure( $reason, array $params = array() ) {
-        if ( ! get_option( 'easy_mcp_ai_audit_log_enabled', true ) ) {
+        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) {
             return;
         }
 
@@ -786,25 +809,31 @@ class Authorization_Endpoint {
         $message = esc_html( $error->get_error_message() );
         $title   = esc_html__( 'Authorization Error', 'easy-mcp-ai' );
 
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-console-styles.php';
+        $site = esc_html( \Easy_MCP_AI\Console_Styles::site_label() );
+
         $html  = '<!DOCTYPE html>' . "\n";
-        $html .= '<html lang="en">' . "\n";
+        $html .= '<html lang="' . esc_attr( get_locale() ) . '">' . "\n";
         $html .= '<head>' . "\n";
         $html .= '<meta charset="utf-8">' . "\n";
         $html .= '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
-        $html .= '<title>' . $title . '</title>' . "\n";
-        $html .= '<style>' . "\n";
-        $html .= 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif; background: #f0f0f1; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }' . "\n";
-        $html .= '.error-box { background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #d63638; padding: 24px 32px; max-width: 480px; border-radius: 4px; }' . "\n";
-        $html .= 'h1 { font-size: 18px; margin: 0 0 12px; color: #1d2327; }' . "\n";
-        $html .= 'p { color: #50575e; margin: 0; line-height: 1.6; }' . "\n";
-        $html .= 'code { background: #f0f0f1; padding: 2px 6px; border-radius: 3px; font-size: 13px; }' . "\n";
-        $html .= '</style>' . "\n";
+        $html .= '<meta name="robots" content="noindex, nofollow">' . "\n";
+        $html .= '<title>' . $title . ' &mdash; ' . $site . '</title>' . "\n";
+        $html .= \Easy_MCP_AI\Console_Styles::inline() . "\n";
         $html .= '</head>' . "\n";
-        $html .= '<body>' . "\n";
-        $html .= '<div class="error-box">' . "\n";
-        $html .= '<h1>' . $title . '</h1>' . "\n";
-        $html .= '<p><code>' . $code . '</code>: ' . $message . '</p>' . "\n";
+        $html .= '<body class="emcp-page">' . "\n";
+        $html .= '<div class="emcp-shell emcp-shell--narrow">' . "\n";
+        $html .= '<div class="emcp-topbar">' . \Easy_MCP_AI\Console_Styles::logo();
+        $html .= '<h1 class="emcp-topbar__title">' . $title . '</h1>';
+        $html .= \Easy_MCP_AI\Console_Styles::site_name() . '</div>' . "\n";
+        $html .= '<div class="emcp-body">' . "\n";
+        $html .= '<div class="emcp-notice emcp-notice--error">' . "\n";
+        $html .= '<p class="emcp-notice__title"><code class="emcp-mono">' . $code . '</code></p>' . "\n";
+        $html .= '<p>' . $message . '</p>' . "\n";
         $html .= '</div>' . "\n";
+        $html .= '</div>' . "\n";
+        $html .= '</div>' . "\n";
+        $html .= '<p class="emcp-pagenote"><span class="emcp-dot"></span>' . esc_html__( 'Powered by Easy MCP AI', 'easy-mcp-ai' ) . '</p>' . "\n";
         $html .= '</body>' . "\n";
         $html .= '</html>' . "\n";
 
@@ -868,7 +897,7 @@ class Authorization_Endpoint {
         global $wpdb;
 
         $raw_code  = bin2hex( random_bytes( 32 ) );
-        $code_hash = hash( 'sha256', $raw_code );
+        $code_hash = \Easy_MCP_AI\Auth\Token_Keys::hash_current( $raw_code );
         $table     = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
         $expires   = gmdate( 'Y-m-d H:i:s', time() + self::CODE_LIFETIME );
 

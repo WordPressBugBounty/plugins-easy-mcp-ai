@@ -61,8 +61,8 @@ class Check_Tool_Visibility {
     public static function run( $registry = null ) {
         return self::run_with_definitions(
             self::tool_definitions( $registry ),
-            (array) \get_option( 'easy_mcp_ai_disabled_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() )
+            (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() ),
+            (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() )
         );
     }
 
@@ -408,7 +408,7 @@ class Check_Tool_Visibility {
                     __( 'These tokens reach only a small part of the tool set because of their WordPress user\'s role: %s.', 'easy-mcp-ai' ),
                     implode( '; ', $limited )
                 ),
-                __( 'Assign the token to a user with a higher role, or lower the minimum capability for External Data tools in Settings.', 'easy-mcp-ai' ),
+                __( 'Assign the token to a user with a higher role, or lower the minimum capability for External Data tools under Easy MCP AI → Settings → Advanced.', 'easy-mcp-ai' ),
                 array( 'limited_tokens' => $limited )
             );
         }
@@ -436,7 +436,7 @@ class Check_Tool_Visibility {
                     __( 'These tool filter patterns match no tool at all: %s. A pattern that matches nothing hides tools without any warning.', 'easy-mcp-ai' ),
                     implode( ', ', $dead )
                 ),
-                __( 'Correct or remove the pattern under Settings → Allowed Tool Patterns.', 'easy-mcp-ai' ),
+                __( 'Correct or remove the pattern under Easy MCP AI → Settings → Advanced → Whitelist tools.', 'easy-mcp-ai' ),
                 array( 'dead_patterns' => $dead )
             );
         }
@@ -567,7 +567,7 @@ class Check_Tool_Visibility {
                     count( $missing ),
                     implode( ', ', $missing )
                 ),
-                __( 'The plugin that published these abilities may have been deactivated, renamed them, or may conflict with another plugin bundling the same abilities library. Untick them under Easy MCP AI → Abilities, or resolve the conflicting plugin. Every other tool is unaffected.', 'easy-mcp-ai' ),
+                __( 'The plugin that published these abilities may have been deactivated, renamed them, or may conflict with another plugin bundling the same abilities library. Untick them under Easy MCP AI → Tools → Abilities, or resolve the conflicting plugin. Every other tool is unaffected.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -603,7 +603,7 @@ class Check_Tool_Visibility {
                     $label,
                     sprintf(
                         /* translators: 1: "1 ability" or "N abilities", 2: nothing — the count is already inside %1$s. */
-                        __( '%1$s available on this site. None are switched on, which is the default — abilities are opt-in under Easy MCP AI → Abilities.', 'easy-mcp-ai' ),
+                        __( '%1$s available on this site. None are switched on, which is the default — abilities are opt-in under Easy MCP AI → Tools → Abilities.', 'easy-mcp-ai' ),
                         sprintf(
                             /* translators: %d: number of abilities registered in WordPress. */
                             \_n( '%d ability is', '%d abilities are', (int) $registered_in_wp, 'easy-mcp-ai' ),
@@ -766,11 +766,11 @@ class Check_Tool_Visibility {
     private static function stage_fix( $stage ) {
         switch ( $stage ) {
             case 'token_allowlist':
-                return __( 'Edit the token under API Tokens and widen the tools it may use.', 'easy-mcp-ai' );
+                return __( 'Edit the token under Easy MCP AI → Connections → API tokens and widen the tools it may use.', 'easy-mcp-ai' );
             case 'disabled_tools':
-                return __( 'Re-enable the tools you need under Settings → Disabled Tools.', 'easy-mcp-ai' );
+                return __( 'Re-enable the tools you need under Easy MCP AI → Tools → Core.', 'easy-mcp-ai' );
             case 'allowed_tool_patterns':
-                return __( 'Correct or clear the patterns under Settings → Allowed Tool Patterns.', 'easy-mcp-ai' );
+                return __( 'Correct or clear the patterns under Easy MCP AI → Settings → Advanced → Whitelist tools.', 'easy-mcp-ai' );
             case 'capability':
                 return __( 'Assign the token to a WordPress user whose role permits these actions — an Editor or Administrator for most tools.', 'easy-mcp-ai' );
             default:

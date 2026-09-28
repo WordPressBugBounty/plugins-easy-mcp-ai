@@ -32,7 +32,7 @@ class Server {
 
     public static function effective_required_capability( $category, $tool_default_cap ) {
         if ( in_array( $category, \Easy_MCP_AI\Tools\Base_Tool::EXTERNAL_DATA_CATEGORIES, true ) ) {
-            $cap = \get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
+            $cap = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
             
             
             
@@ -73,15 +73,32 @@ class Server {
     private $request_wp_user_id  = 0;
     private $request_client_id   = null;
 
+    
+    
+    
+    private $task_manager        = null;
+    private $skip_rate_limit     = false;
+
+    
+
+
+
+
+
+
+
+
+    private static $active_call = null;
+
     public function __construct( Tool_Registry $tool_registry, Resource_Registry $resource_registry, Token_Manager $token_manager ) {
         $this->tool_registry     = $tool_registry;
         $this->resource_registry = $resource_registry;
         $this->token_manager     = $token_manager;
         $this->session_manager   = new Session();
         $this->permission_guard  = new Permission_Guard( $token_manager );
-        $this->disabled_tools       = (array) get_option( 'easy_mcp_ai_disabled_tools', array() );
-        $this->audit_log_enabled    = (bool)  get_option( 'easy_mcp_ai_audit_log_enabled', true );
-        $this->allowed_tool_patterns = (array) get_option( 'easy_mcp_ai_allowed_tool_patterns', array() );
+        $this->disabled_tools       = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
+        $this->audit_log_enabled    = (bool)  \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true );
+        $this->allowed_tool_patterns = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() );
 
         
         
@@ -110,6 +127,59 @@ class Server {
         $this->request_auth_source = null;
         $this->request_wp_user_id  = 0;
         $this->request_client_id   = null;
+    }
+
+    
+    public function get_request_identity() {
+        return array(
+            'auth_source' => $this->request_auth_source,
+            'wp_user_id'  => (int) $this->request_wp_user_id,
+            'client_id'   => $this->request_client_id,
+        );
+    }
+
+    public function get_token_manager() {
+        return $this->token_manager;
+    }
+
+    public function get_task_manager() {
+        if ( null === $this->task_manager ) {
+            $dir = dirname( __DIR__ ) . '/tasks/';
+            require_once $dir . 'class-task-schema.php';
+            require_once $dir . 'interface-task-store.php';
+            require_once $dir . 'class-wpdb-task-store.php';
+            require_once $dir . 'class-task-contract.php';
+            require_once $dir . 'class-task-scheduler.php';
+            require_once $dir . 'class-task-manager.php';
+            $this->task_manager = new \Easy_MCP_AI\Tasks\Task_Manager( $this, $this->tool_registry, new \Easy_MCP_AI\Tasks\Wpdb_Task_Store() );
+        }
+        return $this->task_manager;
+    }
+
+    public function set_task_manager( $task_manager ) {
+        $this->task_manager = $task_manager;
+    }
+
+    
+
+
+
+
+
+    public function call_tool_internal( $id, $tool_name, array $arguments, $token_id, $allowed_tools, $count_rate_limit ) {
+        $previous              = $this->skip_rate_limit;
+        $this->skip_rate_limit = ! $count_rate_limit;
+        try {
+            return $this->handle_tools_call( $id, array( 'name' => $tool_name, 'arguments' => $arguments ), $token_id, $allowed_tools );
+        } finally {
+            $this->skip_rate_limit = $previous;
+        }
+    }
+
+    
+    public function audit_task_event( $token_id, $event, array $details ) {
+        $audit_id = $this->log_tool_call( $token_id, $event, $details, 'success' );
+        return (int) $audit_id;
     }
 
     public function handle_message( $message, $token_id = null, $allowed_tools = null ) {
@@ -167,11 +237,30 @@ class Server {
             }
             $response = JSON_RPC::success_response( $id, array(
                 'supportedVersions' => self::SUPPORTED_PROTOCOL_VERSIONS,
-                'capabilities' => array( 'tools' => new \stdClass(), 'resources' => new \stdClass() ),
+                'capabilities' => array(
+                    'tools'      => new \stdClass(),
+                    'resources'  => new \stdClass(),
+                    'extensions' => array( 'io.modelcontextprotocol/tasks' => new \stdClass() ),
+                ),
                 'instructions' => 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.',
             ) );
-        } elseif ( in_array( $method, array( 'tools/list', 'tools/call', 'resources/list', 'resources/read' ), true ) ) {
+        } elseif ( in_array( $method, array( 'tasks/get', 'tasks/update', 'tasks/cancel' ), true ) ) {
+            $response = $this->handle_task_method( $id, $method, isset( $message['params'] ) ? $message['params'] : array(), $token_id, $allowed_tools );
+        } elseif ( 'tools/call' === $method ) {
+            $response = $this->handle_modern_tools_call( $message, $token_id, $allowed_tools );
+        } elseif ( in_array( $method, array( 'tools/list', 'resources/list', 'resources/read' ), true ) ) {
             $response = $this->handle_message( $message, $token_id, $allowed_tools );
+        } elseif ( 'subscriptions/listen' === $method && self::listens_for_tasks( $message ) && ! self::client_declared_tasks( $message['params'] ) ) {
+            
+            
+            
+            
+            
+            return JSON_RPC::error_response( $id, Error_Codes::MISSING_CLIENT_CAPABILITY, 'Missing required client capability', array(
+                'requiredCapabilities' => array( 'extensions' => array( 'io.modelcontextprotocol/tasks' => new \stdClass() ) ),
+            ) );
+        } elseif ( 'subscriptions/listen' === $method ) {
+            $response = $this->handle_subscriptions_listen( $id, isset( $message['params'] ) ? $message['params'] : array(), $token_id );
         } else {
             return JSON_RPC::error_response( $id, Error_Codes::METHOD_NOT_FOUND, 'Method not found' );
         }
@@ -181,7 +270,9 @@ class Server {
             }
             return $response;
         }
-        $response['result']['resultType'] = 'complete';
+        if ( ! isset( $response['result']['resultType'] ) ) {
+            $response['result']['resultType'] = 'complete';
+        }
         $response['result']['_meta']['io.modelcontextprotocol/serverInfo'] = array(
             'name' => self::SERVER_NAME, 'version' => EASY_MCP_AI_VERSION,
         );
@@ -196,6 +287,117 @@ class Server {
             } );
         }
         return $response;
+    }
+
+    
+
+
+
+
+    private function handle_modern_tools_call( $message, $token_id, $allowed_tools ) {
+        $params = isset( $message['params'] ) && is_array( $message['params'] ) ? $message['params'] : array();
+        if ( self::client_declared_tasks( $params ) ) {
+            $response = $this->get_task_manager()->call( isset( $message['id'] ) ? $message['id'] : null, $params, $token_id, $allowed_tools );
+            if ( null !== $response ) {
+                return $response;
+            }
+        }
+        return $this->handle_message( $message, $token_id, $allowed_tools );
+    }
+
+    
+
+
+
+
+    public static function client_declared_tasks( $params ) {
+        $key = 'io.modelcontextprotocol/clientCapabilities';
+        if ( ! is_array( $params ) || ! isset( $params['_meta'][ $key ]['extensions'] ) || ! is_array( $params['_meta'][ $key ]['extensions'] ) ) {
+            return false;
+        }
+        $extensions = $params['_meta'][ $key ]['extensions'];
+        return array_key_exists( 'io.modelcontextprotocol/tasks', $extensions ) && is_array( $extensions['io.modelcontextprotocol/tasks'] );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function handle_subscriptions_listen( $id, $params, $token_id ) {
+        $params = is_array( $params ) ? $params : array();
+        if ( array_key_exists( 'notifications', $params ) && ! is_array( $params['notifications'] ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'notifications must be a JSON object' );
+        }
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+        return JSON_RPC::success_response( $id, array(
+            '_meta' => array( self::SUBSCRIPTION_ID_META => $id ),
+        ) );
+    }
+
+    
+    const SUBSCRIPTION_ID_META = 'io.modelcontextprotocol/subscriptionId';
+
+    
+
+
+
+
+    public static function subscriptions_acknowledged( $id ) {
+        return array(
+            'jsonrpc' => '2.0',
+            'method'  => 'notifications/subscriptions/acknowledged',
+            'params'  => array(
+                '_meta'         => array( self::SUBSCRIPTION_ID_META => $id ),
+                'notifications' => new \stdClass(),
+            ),
+        );
+    }
+
+    
+    private static function listens_for_tasks( $message ) {
+        return isset( $message['params']['notifications'] ) && is_array( $message['params']['notifications'] )
+            && array_key_exists( 'taskIds', $message['params']['notifications'] );
+    }
+
+    private function handle_task_method( $id, $method, $params, $token_id, $allowed_tools ) {
+        $params = is_array( $params ) ? $params : array();
+        if ( ! self::client_declared_tasks( $params ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::MISSING_CLIENT_CAPABILITY, 'Missing required client capability', array(
+                'requiredCapabilities' => array( 'extensions' => array( 'io.modelcontextprotocol/tasks' => new \stdClass() ) ),
+            ) );
+        }
+        if ( ! $this->check_rate_limit( $token_id ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
+        }
+        $manager = $this->get_task_manager();
+        if ( 'tasks/get' === $method ) {
+            return $manager->get( $id, $params, $token_id, $allowed_tools );
+        }
+        if ( 'tasks/cancel' === $method ) {
+            return $manager->cancel( $id, $params, $token_id, $allowed_tools );
+        }
+        return $manager->update( $id, $params, $token_id );
     }
 
     private function handle_initialize( $id, $params, $token_id ) {
@@ -239,9 +441,39 @@ class Server {
         return isset( $this->last_negotiated_version ) ? $this->last_negotiated_version : null;
     }
 
+    
+    public static function is_paused() {
+        return true === \Easy_MCP_AI\Config::get( 'paused' );
+    }
+
+    
+    public static function available_tools( Tool_Registry $registry, $require_instance = false, $definitions = null ) {
+        if ( ! \Easy_MCP_AI\Config::tool_policy_valid() ) {
+            return array();
+        }
+        $disabled = (array) \Easy_MCP_AI\Config::get( 'disabled_tools' );
+        $patterns = (array) \Easy_MCP_AI\Config::get( 'allowed_tool_patterns' );
+        return array_values( array_filter( null === $definitions ? $registry->get_all_definitions() : $definitions, static function ( $definition ) use ( $registry, $disabled, $patterns, $require_instance ) {
+            $name = $definition['name'];
+            if ( in_array( $name, $disabled, true ) ) {
+                return false;
+            }
+            if ( ! self::matches_tool_patterns( $name, $patterns ) ) {
+                return false;
+            }
+            $tool = $registry->get_tool( $name );
+            if ( ! $tool ) { return ! $require_instance; }
+            $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
+            return ! $cap || \current_user_can( $cap );
+        } ) );
+    }
+
     private function handle_tools_list( $id, $params, $token_id, $allowed_tools = null ) {
         if ( null === $token_id ) {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        if ( ! \Easy_MCP_AI\Config::tool_policy_valid() || self::is_paused() ) {
+            return JSON_RPC::success_response( $id, array( 'tools' => array() ) );
         }
         if ( ! $this->check_rate_limit( $token_id ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
@@ -265,30 +497,7 @@ class Server {
                 return false;
             } ) );
         }
-        if ( ! empty( $this->disabled_tools ) ) {
-            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
-                return ! in_array( $tool['name'], $this->disabled_tools, true );
-            } ) );
-        }
-        if ( ! empty( $this->allowed_tool_patterns ) ) {
-            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
-                return $this->tool_matches_pattern_filter( $tool['name'] );
-            } ) );
-        }
-        
-        
-        
-        
-        
-        
-        $all_tools = array_values( array_filter( $all_tools, function ( $tool ) {
-            $instance = $this->tool_registry->get_tool( $tool['name'] );
-            if ( null === $instance ) {
-                return true; 
-            }
-            $cap = self::effective_required_capability( $instance->get_category(), $instance->get_required_capability() );
-            return ! $cap || \current_user_can( $cap );
-        } ) );
+        $all_tools = self::available_tools( $this->tool_registry, false, $all_tools );
         $all_tools = array_map( function ( $tool ) {
             $tool['inputSchema'] = Gemini_Safe_Schema::sanitize( $tool['inputSchema'] )['schema'];
             if ( isset( $tool['outputSchema'] ) ) {
@@ -322,6 +531,16 @@ class Server {
         
         
         
+        if ( self::is_paused() ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
+            return JSON_RPC::error_response( $id, Error_Codes::PAUSED, Error_Codes::PAUSED_MESSAGE );
+        }
+        if ( ! \Easy_MCP_AI\Config::tool_policy_valid() ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Invalid deployment tool policy' );
+        }
+        
+        
+        
         
         
         
@@ -349,7 +568,7 @@ class Server {
         }
 
         
-        if ( ! $this->check_rate_limit( $token_id ) ) {
+        if ( ! $this->skip_rate_limit && ! $this->check_rate_limit( $token_id ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
         }
 
@@ -391,6 +610,7 @@ class Server {
         
         
         $exec_started = null;
+        $outer_call   = self::$active_call;
 
         
         
@@ -430,6 +650,18 @@ class Server {
             
             
             $arguments    = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
+            
+            
+            
+            
+            if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
+                \Easy_MCP_AI\Meta\Meta_Exposure::register_for_request();
+            }
+            self::$active_call = array(
+                'server'        => $this,
+                'token_id'      => $token_id,
+                'allowed_tools' => $allowed_tools,
+            );
             $exec_started = microtime( true );
             $result       = $tool->execute( $arguments );
             $final_status = 'success';
@@ -498,8 +730,15 @@ class Server {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
+            $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) );
+            
+            
+            
+            if ( $e instanceof Detailed_Tool_Error && '' !== trim( $e->get_details() ) ) {
+                $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
+            }
             return JSON_RPC::success_response( $id, array(
-                'content' => array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) ),
+                'content' => $content,
                 'isError' => true,
             ) );
         } catch ( \Error $e ) {
@@ -514,6 +753,7 @@ class Server {
                 'isError' => true,
             ) );
         } finally {
+            self::$active_call = $outer_call;
             
             
             
@@ -579,10 +819,66 @@ class Server {
 
 
 
-    public static function sanitize_error_message( $message ) {
+
+
+
+
+
+
+
+
+
+
+    public static function current_call_may_use( string $tool_name ): ?bool {
+        if ( null === self::$active_call ) {
+            return null;
+        }
+        return self::$active_call['server']->token_may_use(
+            self::$active_call['token_id'],
+            self::$active_call['allowed_tools'],
+            $tool_name
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function token_may_use( $token_id, ?array $allowed_tools, string $tool_name ): bool {
+        if ( null !== $allowed_tools ) {
+            if ( ! $this->permission_guard->can_use_tool_with_scope( $allowed_tools, $tool_name ) ) {
+                return false;
+            }
+        } elseif ( ! $this->permission_guard->can_use_tool( $token_id, $tool_name ) ) {
+            return false;
+        }
+        $tool = $this->tool_registry->get_tool( $tool_name );
+        if ( null === $tool ) {
+            return false;
+        }
+        return array() !== self::available_tools( $this->tool_registry, true, array( $tool->get_definition() ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function sanitize_error_message( $message, int $max_length = Detailed_Tool_Error::MAX_MESSAGE ) {
         if ( ! is_string( $message ) || '' === $message ) {
             return 'Tool execution failed.';
         }
+
+        $message = \Easy_MCP_AI\Config::brand( $message );
 
         
         $message = preg_replace( '/\s*Stack trace:.*$/s', '', $message );
@@ -611,9 +907,10 @@ class Server {
         $message = preg_replace( '/\[?::1\]?|\blocalhost\b/i', '[internal]', $message );
 
         
-        $message = trim( $message );
-        if ( strlen( $message ) > 200 ) {
-            $message = substr( $message, 0, 200 ) . '…[truncated]';
+        $message    = trim( $message );
+        $max_length = max( 1, $max_length );
+        if ( strlen( $message ) > $max_length ) {
+            $message = substr( $message, 0, $max_length ) . '…[truncated]';
         }
 
         return '' === $message ? 'Tool execution failed.' : $message;
@@ -622,6 +919,11 @@ class Server {
     private function handle_resources_list( $id, $params, $token_id ) {
         if ( null === $token_id ) {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        
+        
+        if ( self::is_paused() ) {
+            return JSON_RPC::success_response( $id, array( 'resources' => array() ) );
         }
         if ( ! $this->check_rate_limit( $token_id ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
@@ -638,6 +940,10 @@ class Server {
     private function handle_resources_read( $id, $params, $token_id ) {
         if ( null === $token_id ) {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
+        }
+        
+        if ( self::is_paused() ) {
+            return JSON_RPC::error_response( $id, Error_Codes::PAUSED, Error_Codes::PAUSED_MESSAGE );
         }
         if ( ! $this->check_rate_limit( $token_id ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Rate limit exceeded. Please try again later.' );
@@ -698,7 +1004,7 @@ class Server {
             return;
         }
 
-        $limit = (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', 60 );
         $key   = 'easy_mcp_ai_reflog_' . (int) $token_id;
 
         if ( \wp_using_ext_object_cache() ) {
@@ -721,7 +1027,7 @@ class Server {
         if ( null === $token_id ) {
             return true; 
         }
-        $limit     = (int) get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $limit     = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', 60 );
         $cache_key = 'easy_mcp_ai_rate_' . (int) $token_id;
 
         
@@ -936,12 +1242,22 @@ class Server {
         return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
     }
 
-    private function tool_matches_pattern_filter( $tool_name ) {
-        if ( empty( $this->allowed_tool_patterns ) ) {
+    
+
+
+
+
+
+
+
+
+
+    public static function matches_tool_patterns( $tool_name, array $patterns ) {
+        if ( empty( $patterns ) ) {
             return true;
         }
-        foreach ( $this->allowed_tool_patterns as $pattern ) {
-            $pattern = trim( $pattern );
+        foreach ( $patterns as $pattern ) {
+            $pattern = trim( (string) $pattern );
             if ( '' === $pattern ) {
                 continue;
             }
@@ -954,6 +1270,10 @@ class Server {
             }
         }
         return false;
+    }
+
+    private function tool_matches_pattern_filter( $tool_name ) {
+        return self::matches_tool_patterns( $tool_name, (array) $this->allowed_tool_patterns );
     }
 
     public function get_session_manager() {

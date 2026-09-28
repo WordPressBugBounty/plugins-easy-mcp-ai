@@ -10,17 +10,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 namespace Easy_MCP_AI\Diagnostics;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -28,71 +17,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Diagnostics_Notices {
-
-    
-
-
-
-    public static function register() {
-        \add_action( 'admin_notices', array( __CLASS__, 'render' ) );
-    }
-
-    public static function render() {
-        if ( ! \current_user_can( 'manage_options' ) ) {
-            return;
-        }
-
-        if ( ! \function_exists( 'get_current_screen' ) ) {
-            return;
-        }
-        $screen = \get_current_screen();
-        if ( ! $screen || false === strpos( (string) $screen->id, 'easy-mcp-ai' ) ) {
-            return;
-        }
-
-        $blockers = self::current_blockers();
-        if ( empty( $blockers ) ) {
-            return;
-        }
-
-        echo '<div class="notice notice-error"><p><strong>'
-            . \esc_html(
-                \_n(
-                    'Easy MCP AI found a problem that stops AI clients connecting.',
-                    'Easy MCP AI found problems that stop AI clients connecting.',
-                    count( $blockers ),
-                    'easy-mcp-ai'
-                )
-            )
-            . '</strong></p><ul style="margin-left:1.5em;list-style:disc;">';
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-        foreach ( $blockers as $blocker ) {
-            echo '<li>'
-                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in Diagnostic_Result::problem_badge_html().
-                . $blocker->problem_badge_html()
-                . '<strong>' . \esc_html( $blocker->label() ) . '</strong> — '
-                . \esc_html( $blocker->detail() );
-            if ( '' !== $blocker->fix() ) {
-                echo '<br><em>' . \esc_html( $blocker->fix() ) . '</em>';
-            }
-            echo '</li>';
-        }
-
-        echo '</ul></div>';
-    }
 
     
 
@@ -159,42 +83,35 @@ class Diagnostics_Notices {
     
 
 
-    private static function current_blockers() {
+
+
+
+
+
+
+
+    public static function with_live( array $results, $runner = null ) {
         $live = array();
-        foreach ( self::live_results() as $result ) {
-            $live[ $result->id() ] = $result;
+        foreach ( self::live_results( $runner ) as $result ) {
+            if ( $result instanceof Diagnostic_Result && in_array( $result->id(), self::LIVE_CHECK_IDS, true ) ) {
+                $live[ $result->id() ] = $result;
+            }
         }
 
-        $out  = array();
-        $seen = array();
-
-        
-        
-        foreach ( Diagnostics::cached() as $result ) {
-            $id = $result->id();
-            if ( isset( $live[ $id ] ) ) {
-                if ( $live[ $id ]->renders_in_notice() ) {
-                    $out[] = $live[ $id ];
-                }
-                $seen[ $id ] = true;
+        $out = array();
+        foreach ( $results as $result ) {
+            if ( $result instanceof Diagnostic_Result && isset( $live[ $result->id() ] ) ) {
+                $out[] = $live[ $result->id() ];
+                unset( $live[ $result->id() ] );
                 continue;
             }
+            $out[] = $result;
+        }
+        foreach ( $live as $result ) {
             if ( $result->renders_in_notice() ) {
                 $out[] = $result;
             }
         }
-
-        
-        
-        foreach ( self::LIVE_CHECK_IDS as $id ) {
-            if ( isset( $seen[ $id ] ) || ! isset( $live[ $id ] ) ) {
-                continue;
-            }
-            if ( $live[ $id ]->renders_in_notice() ) {
-                $out[] = $live[ $id ];
-            }
-        }
-
         return $out;
     }
 }

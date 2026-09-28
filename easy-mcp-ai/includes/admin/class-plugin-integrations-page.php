@@ -5,42 +5,21 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+
+
+
+
 class Plugin_Integrations_Page {
 
-    public function __construct() {
-        \add_action( 'admin_init', array( $this, 'handle_save' ) );
-    }
+    
 
-    public function register_submenu() {
-        \add_submenu_page(
-            'easy-mcp-ai',
-            \__( 'Plugin Integrations', 'easy-mcp-ai' ),
-            \__( 'Plugins', 'easy-mcp-ai' ),
-            'manage_options',
-            'easy-mcp-ai-plugin-integrations',
-            array( $this, 'render' )
-        );
-    }
 
-    public function handle_save() {
-        if ( ! isset( $_POST['easy_mcp_ai_save_plugin_integrations'] ) ) {
-            return;
-        }
-        if ( ! \check_admin_referer( 'easy_mcp_ai_plugin_integrations' ) ) {
-            return;
-        }
-        if ( ! \current_user_can( 'manage_options' ) ) {
-            return;
-        }
 
-        $submitted_groups = isset( $_POST['enabled_groups'] )
-            ? array_map( 'sanitize_key', \wp_unslash( (array) $_POST['enabled_groups'] ) )
-            : array();
 
-        $submitted_tools = isset( $_POST['enabled_tools'] )
-            ? array_map( 'sanitize_text_field', \wp_unslash( (array) $_POST['enabled_tools'] ) )
-            : array();
 
+
+
+    public static function compute_state( array $submitted_groups, array $submitted_tools ): array {
         $all_groups = Plugin_Integration_Registry::get_groups();
 
         
@@ -83,14 +62,33 @@ class Plugin_Integrations_Page {
             }
         }
 
+        return array(
+            'enabled_groups'        => $enabled_groups,
+            'disabled_plugin_tools' => $disabled_plugin_tools,
+        );
+    }
+
+    
+
+
+
+
+
+
+    public static function persist( array $enabled_groups, array $disabled_plugin_tools ) {
         \update_option( 'easy_mcp_ai_enabled_plugin_groups', $enabled_groups );
-        \update_option( 'easy_mcp_ai_disabled_plugin_tools',  $disabled_plugin_tools );
+        
+        
+        
+        
+        
+        \Easy_MCP_AI\Config::update( 'easy_mcp_ai_disabled_plugin_tools', $disabled_plugin_tools );
 
         
         
         
         $all_plugin_tool_names = Plugin_Integration_Registry::get_all_tool_names();
-        $global_disabled       = (array) \get_option( 'easy_mcp_ai_disabled_tools', array() );
+        $global_disabled       = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
         $non_plugin            = array_values( array_diff( $global_disabled, $all_plugin_tool_names ) );
         
         
@@ -98,31 +96,10 @@ class Plugin_Integrations_Page {
         
         
         
-        \update_option(
-            'easy_mcp_ai_disabled_tools',
+        \Easy_MCP_AI\Config::update( 'easy_mcp_ai_disabled_tools',
             \Easy_MCP_AI\Admin\External_Data_Admin::merge_disabled_tool_buckets(
                 array_merge( $non_plugin, $disabled_plugin_tools )
             )
         );
-
-        \wp_safe_redirect( \admin_url( 'admin.php?page=easy-mcp-ai-plugin-integrations&message=saved' ) );
-        exit;
-    }
-
-    public function render() {
-        $all_groups      = Plugin_Integration_Registry::get_groups();
-        $enabled_groups  = (array) \get_option( 'easy_mcp_ai_enabled_plugin_groups', array() );
-        $disabled_tools  = (array) \get_option( 'easy_mcp_ai_disabled_plugin_tools',  array() );
-        $message         = isset( $_GET['message'] ) ? \sanitize_text_field( \wp_unslash( $_GET['message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-
-        
-        $groups = array();
-        foreach ( $all_groups as $group ) {
-            $group['is_installed'] = Plugin_Integration_Registry::is_installed( $group );
-            $groups[]              = $group;
-        }
-
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/views/plugin-integrations.php';
-        easy_mcp_ai_view_plugin_integrations( $groups, $enabled_groups, $disabled_tools, $message );
     }
 }

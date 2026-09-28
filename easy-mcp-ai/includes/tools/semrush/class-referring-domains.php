@@ -30,8 +30,8 @@ class Referring_Domains extends Base_Tool {
 			'type'       => 'object',
 			'required'   => array( 'target', 'target_type' ),
 			'properties' => array(
-				'target'        => array( 'type' => 'string' ),
-				'target_type'   => array( 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ) ),
+				'target'        => array( 'description' => 'The domain or URL to analyse; target_type says how to read it.', 'type' => 'string' ),
+				'target_type'   => array( 'description' => 'How to read target: root_domain, domain, or url.', 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ) ),
 				'display_limit' => array( 'type' => 'integer', 'default' => 100, 'minimum' => 1, 'maximum' => 10000 ),
 			),
 		);

@@ -360,6 +360,7 @@ class Check_Discovery {
         
         
         if ( ! empty( $blocked ) ) {
+            $evidence['reason'] = 'blocked';
             return Diagnostic_Result::fail(
                 'a10',
                 Diagnostic_Result::TIER_BLOCKER,
@@ -376,6 +377,7 @@ class Check_Discovery {
             $fix      = __( 'Replace the out-of-date copy. Open the matching /wp-json/easy-mcp-ai/v1/discovery/ address on this site, which always shows the current version, and save it over the file in your .well-known folder.', 'easy-mcp-ai' );
 
             if ( ! empty( $critical ) ) {
+                $evidence['reason'] = 'stale';
                 return Diagnostic_Result::fail(
                     'a10',
                     Diagnostic_Result::TIER_BLOCKER,

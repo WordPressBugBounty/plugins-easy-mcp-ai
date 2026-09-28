@@ -22,8 +22,10 @@ class Dynamic_Tool extends Base_Tool {
     private $output_schema;
     private $executor;
     private $annotations_override;
+    private $task_contract;
 
     
+
 
 
 
@@ -49,6 +51,7 @@ class Dynamic_Tool extends Base_Tool {
         );
         $this->output_schema = isset( $config['output_schema'] ) ? $config['output_schema'] : null;
         $this->annotations_override = isset( $config['annotations'] ) ? $config['annotations'] : null;
+        $this->task_contract = isset( $config['task'] ) && is_array( $config['task'] ) ? $config['task'] : null;
     }
 
     public function get_name()                 { return $this->name; }
@@ -57,6 +60,7 @@ class Dynamic_Tool extends Base_Tool {
     public function get_required_capability()  { return $this->capability; }
     public function get_input_schema()         { return $this->input_schema; }
     public function get_output_schema()        { return $this->output_schema; }
+    public function get_task_contract()        { return $this->task_contract; }
 
     public function get_annotations() {
         if ( null !== $this->annotations_override ) {

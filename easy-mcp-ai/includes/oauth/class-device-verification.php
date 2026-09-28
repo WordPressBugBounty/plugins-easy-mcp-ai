@@ -207,7 +207,7 @@ class Device_Verification {
             );
         }
 
-        $scope_string = Authorization_Endpoint::resolve_granted_scope( (string) $row->scope, $request->get_param( 'scopes' ) );
+        $scope_string = Authorization_Endpoint::resolve_granted_scope( (string) $row->scope, Authorization_Endpoint::submitted_scopes( $request->get_param( 'access_level' ), $request->get_param( 'scopes' ) ) );
 
         
         
@@ -335,15 +335,9 @@ class Device_Verification {
                 'nonce_action'  => 'easy_mcp_ai_oauth_device_decide_' . $normalized,
                 'context_label' => __( 'Device code:', 'easy-mcp-ai' ),
                 'context_value' => Device_Authorization::format_user_code( $normalized ),
+                'notice'        => $notice,
             )
         );
-
-        if ( '' !== $notice ) {
-            
-            
-            $banner = '<div style="background:#fff8e1;border:1px solid #e6c64a;border-radius:10px;padding:14px 18px;margin:28px 36px 0;font-size:13px;">' . esc_html( $notice ) . '</div>';
-            $html   = preg_replace( '/(<div style="padding:28px 36px;">)/', $banner . '$1', $html, 1 );
-        }
 
         $response = new \WP_REST_Response( $html, 200 );
         $response->header( 'Content-Type', 'text/html; charset=utf-8' );
@@ -499,7 +493,7 @@ class Device_Verification {
 
 
     private function log_event( $result_status, $reason, $row = null, $scope = '' ) {
-        if ( ! get_option( 'easy_mcp_ai_audit_log_enabled', true ) ) {
+        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) {
             return;
         }
 

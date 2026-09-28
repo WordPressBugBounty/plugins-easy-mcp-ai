@@ -1013,7 +1013,7 @@ class Change_DB_Interceptor {
             }
         }
 
-        $cap = (int) \apply_filters( 'easy_mcp_ai_change_log_db_rows_per_call', self::DEFAULT_ROWS_PER_CALL );
+        $cap = (int) \apply_filters( 'easy_mcp_ai_change_log_db_rows_per_call', \Easy_MCP_AI\Config::get( 'change_log_db_rows_per_call' ) );
         if ( $cap > 0 && $this->rows_written >= $cap ) {
             $this->skipped++;
             return;

@@ -486,7 +486,7 @@ class Check_Conflicts {
                 $label,
                 sprintf(
                     /* translators: 1: number of recorded reassertion events, 2: number of days in the reporting window. */
-                    __( 'On %1$d occasion(s) in the last %2$d days, another plugin removed this plugin\'s tracking hooks during an AI request. They were re-registered automatically and the change was still recorded, so nothing was lost and no action is needed. If you are investigating missing history entries, the Change History page lists the affected requests.', 'easy-mcp-ai' ),
+                    __( 'On %1$d occasion(s) in the last %2$d days, another plugin removed this plugin\'s tracking hooks during an AI request. They were re-registered automatically and the change was still recorded, so nothing was lost and no action is needed. If you are investigating missing history entries, Easy MCP AI → Activity → Change history lists the affected requests.', 'easy-mcp-ai' ),
                     (int) $marker_count,
                     self::REASSERTION_WINDOW_DAYS
                 ),
@@ -1641,7 +1641,7 @@ class Check_Conflicts {
     }
 
     private static function change_capture_enabled() {
-        return (bool) \get_option( 'easy_mcp_ai_change_log_enabled', true );
+        return (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true );
     }
 
     

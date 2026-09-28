@@ -73,7 +73,17 @@ class OAuth_Schema {
 
 
 
-    const DB_VERSION = '1.0.7';
+
+
+
+
+
+
+
+
+
+
+    const DB_VERSION = '1.0.10';
     const VERSION_OPTION = 'easy_mcp_ai_oauth_db_version';
 
     

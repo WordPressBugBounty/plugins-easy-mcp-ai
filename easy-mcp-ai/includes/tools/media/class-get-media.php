@@ -14,7 +14,7 @@ class Get_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WordPress media attachment by ID. Returns { id, title, alt_text, caption, description, mime_type, source_url (original file URL), media_type (image/video/audio/file), date, post (ID of the post it\'s attached to, 0 if unattached) }. For image attachments the response also includes top-level `width`, `height`, and `file_size` (in bytes) when those details are available.';
+        return 'Gets a single WordPress media attachment by ID. Returns { id, title, alt_text, caption, description, mime_type, source_url (original file URL), media_type (image/video/audio/file), date, post (ID of the post it\'s attached to, 0 if unattached), terms: { "<taxonomy slug>": [term IDs] } (membership in every attachment taxonomy exposed in the REST API, e.g. media folders such as `mlo-category`; empty when none is registered — resolve the IDs with `wp_list_terms`) }. For image attachments the response also includes top-level `width`, `height`, and `file_size` (in bytes) when those details are available.';
     }
 
     public function get_category() {
@@ -64,6 +64,7 @@ class Get_Media extends Base_Tool {
             'date'        => $data['date'],
             'media_type'  => $data['media_type'],
             'post'        => isset( $data['post'] ) ? (int) $data['post'] : 0,
+            'terms'       => $this->item_taxonomy_terms( $data, $this->rest_taxonomies_for( 'attachment' ) ),
         );
 
         if ( ! empty( $data['media_details']['width'] ) ) {

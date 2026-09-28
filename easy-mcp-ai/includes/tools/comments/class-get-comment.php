@@ -55,6 +55,25 @@ class Get_Comment extends Base_Tool {
         $comment_id = $this->parse_required_id( $arguments['comment_id'], 'comment_id' );
         $data       = $this->rest_request( 'GET', '/wp/v2/comments/' . $comment_id, array( 'context' => 'edit' ) );
 
+        return self::format( $data );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function format( array $data ) {
         return array(
             'id'           => $data['id'],
             'post'         => $data['post'],

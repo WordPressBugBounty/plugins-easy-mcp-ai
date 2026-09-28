@@ -5,6 +5,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/class-ability-input-policy.php';
+
 
 
 
@@ -68,8 +70,21 @@ class Dynamic_Tool_Registrar {
             
             
             
+            $policy_note = Ability_Input_Policy::describe( $slug );
+            if ( '' !== $policy_note ) {
+                $description .= ' ' . $policy_note;
+            }
+
+            
+            
+            
+            
+            
+            
+            
             
             $raw_input_schema  = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
+            $raw_input_schema  = Ability_Input_Policy::strip_schema( $slug, $raw_input_schema );
             $input_needs_wrap  = self::schema_needs_value_wrapper( $raw_input_schema );
             $input_schema      = self::finalize_input_schema( $raw_input_schema );
 
@@ -125,6 +140,16 @@ class Dynamic_Tool_Registrar {
                         $exec_args = $has_input_schema ? $arguments : null;
                     }
 
+                    
+                    
+                    
+                    
+                    
+                    $violation = Ability_Input_Policy::violation( $captured_slug, $exec_args );
+                    if ( null !== $violation ) {
+                        throw new \RuntimeException( $violation ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    }
+
                     $perm = $ability->check_permissions( $exec_args );
                     if ( \is_wp_error( $perm ) ) {
                         throw new \RuntimeException( 'Permission denied: ' . $perm->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -146,6 +171,17 @@ class Dynamic_Tool_Registrar {
             );
             if ( null !== $output_schema ) {
                 $tool_config['output_schema'] = $output_schema;
+            }
+
+            
+            
+            
+            if ( method_exists( $ability, 'get_meta_item' ) ) {
+                require_once dirname( __DIR__ ) . '/tasks/class-task-contract.php';
+                $task_contract = \Easy_MCP_AI\Tasks\Task_Contract::normalize( $ability->get_meta_item( 'task' ), $raw_input_schema );
+                if ( null !== $task_contract && ! $input_needs_wrap ) {
+                    $tool_config['task'] = $task_contract;
+                }
             }
 
             $registry->register( new Dynamic_Tool( $tool_config ) );

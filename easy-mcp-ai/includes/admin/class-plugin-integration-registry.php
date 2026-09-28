@@ -55,6 +55,7 @@ class Plugin_Integration_Registry {
                     array( 'name' => 'wp_wc_update_customer',         'description' => 'Update a customer\'s profile, billing, or shipping address.',                               'type' => 'write', 'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_delete_customer',         'description' => 'Delete a WooCommerce customer account.',                                                      'type' => 'write', 'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_list_coupons',            'description' => 'List all coupons with their discount type and usage stats.',                                  'type' => 'read',  'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_wc_get_coupon',              'description' => 'Get a single coupon by ID: code, amount, discount type, expiry, usage limits and restrictions.', 'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_create_coupon',           'description' => 'Create a coupon with discount type, amount, expiry, and usage limits.',                      'type' => 'write', 'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_update_coupon',           'description' => 'Update an existing coupon.',                                                                  'type' => 'write', 'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_delete_coupon',           'description' => 'Delete a coupon.',                                                                            'type' => 'write', 'api' => 'plugin_rest' ),
@@ -135,7 +136,7 @@ class Plugin_Integration_Registry {
             array(
                 'slug'        => 'yoast-seo',
                 'name'        => 'Yoast SEO',
-                'description' => 'Read rendered SEO head tags for any URL and read/update SEO meta (title, description, focus keyword, OG/Twitter) on posts and pages.',
+                'description' => 'Read rendered SEO head tags for any URL and read/update SEO meta (title, description, focus keyword, OG/Twitter) on posts, pages, categories, tags and other terms.',
                 'status'      => 'stable',
                 'requires'    => 'Yoast SEO (free or premium) must be active.',
                 'detector'    => 'class:WPSEO_Options',
@@ -144,6 +145,8 @@ class Plugin_Integration_Registry {
                     array( 'name' => 'wp_yoast_get_head',        'description' => 'Get the full rendered SEO head (title, meta, OG, Twitter, schema JSON-LD) for any URL. Useful for auditing or headless CMS rendering.',                               'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_yoast_get_post_seo',    'description' => 'Get structured Yoast SEO metadata for a post or page: title, description, robots, canonical, OG, Twitter, and schema data.',                                          'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_yoast_update_post_seo', 'description' => 'Update Yoast SEO fields on a post: seo_title, meta_description, focus_keyword, is_cornerstone, og_title, og_description, twitter_title, twitter_description.',        'type' => 'write', 'api' => 'php' ),
+                    array( 'name' => 'wp_yoast_get_term_seo',    'description' => 'Get the Yoast SEO values of a category, tag or other term: title, description, focus keyphrase, cornerstone, noindex, canonical, breadcrumb title, OG and X fields.', 'type' => 'read',  'api' => 'php' ),
+                    array( 'name' => 'wp_yoast_update_term_seo', 'description' => 'Update Yoast SEO values on a category, tag or other term, as Yoast\'s own term editor does: seo_title, meta_description, focus_keyword, noindex, canonical, OG and X fields.', 'type' => 'write', 'api' => 'php' ),
                 ),
             ),
             array(

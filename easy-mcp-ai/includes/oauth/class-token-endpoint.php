@@ -6,6 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-keys.php';
+
+
 
 
 
@@ -393,7 +396,7 @@ class Token_Endpoint {
         }
 
         
-        $code_hash   = hash( 'sha256', $code );
+        $code_hash   = \Easy_MCP_AI\Auth\Token_Keys::hash_current( $code );
         $codes_table = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; auth code lookup must be fresh.
@@ -1069,7 +1072,11 @@ class Token_Endpoint {
 
 
 
-    private static function canonicalize_resource_uri( string $uri ): string {
+
+
+
+
+    public static function canonicalize_resource_uri( string $uri ): string {
         $uri = trim( $uri );
         if ( '' === $uri ) {
             return '';
@@ -1197,7 +1204,7 @@ class Token_Endpoint {
 
 
     private static function is_local_dev_request(): bool {
-        if ( defined( 'EASY_MCP_AI_OAUTH_ALLOW_HTTP' ) && EASY_MCP_AI_OAUTH_ALLOW_HTTP ) {
+        if ( \Easy_MCP_AI\Config::get( 'oauth_allow_http' ) ) {
             return true;
         }
 

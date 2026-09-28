@@ -8,13 +8,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Get_Term_Fields extends Base_Tool {
+    use Acf_Rest_Tool;
 
     public function get_name() {
         return 'wp_acf_get_term_fields';
     }
 
     public function get_description() {
-        return 'Gets ACF field values attached to a taxonomy term (category, tag, or custom taxonomy). Field groups must have "Show in REST API" enabled and location rules targeting the taxonomy.';
+        return 'Gets ACF field values attached to a taxonomy term (category, tag, or custom taxonomy). Field groups need location rules targeting the taxonomy; groups with "Show in REST API" off are included when you can edit the term.';
     }
 
     public function get_category() {
@@ -41,17 +42,11 @@ class Get_Term_Fields extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        if ( ! class_exists( 'ACF' ) ) {
-            throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
-        }
+        $this->require_acf();
         $this->validate_required( $arguments, array( 'term_id', 'taxonomy' ) );
         $term_id  = $this->parse_required_id( $arguments['term_id'], 'term_id' );
         $taxonomy = $this->validate_rest_route_segment( $arguments['taxonomy'], 'taxonomy' );
-        $data     = $this->rest_request( 'GET', '/wp/v2/' . $taxonomy . '/' . $term_id );
-        return array(
-            'term_id'    => $term_id,
-            'taxonomy'   => $taxonomy,
-            'acf_fields' => $data['acf'] ?? array(),
-        );
+        return array( 'term_id' => $term_id, 'taxonomy' => $taxonomy )
+            + $this->acf_read( 'term', $term_id, '/wp/v2/' . $taxonomy . '/' . $term_id );
     }
 }

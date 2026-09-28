@@ -30,7 +30,7 @@ class Phrase_Questions extends Base_Tool {
 			'type'       => 'object',
 			'required'   => array( 'phrase' ),
 			'properties' => array(
-				'phrase'        => array( 'type' => 'string' ),
+				'phrase'        => array( 'description' => 'The keyword phrase to look up.', 'type' => 'string' ),
 				'database'      => array( 'type' => 'string', 'default' => 'us' ),
 				'display_limit' => array( 'type' => 'integer', 'default' => 100, 'minimum' => 1, 'maximum' => 100000 ),
 			),

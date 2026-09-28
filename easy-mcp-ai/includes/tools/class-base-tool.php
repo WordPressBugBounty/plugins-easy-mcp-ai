@@ -234,7 +234,7 @@ abstract class Base_Tool {
         if ( null === $title ) {
             return;
         }
-        $max = (int) get_option( 'easy_mcp_ai_max_title_length', 0 );
+        $max = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_max_title_length', 0 );
         if ( $max > 0 && mb_strlen( $title ) > $max ) {
             throw new \InvalidArgumentException(
                 sprintf( 'Title exceeds maximum allowed length of %d characters.', $max ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -248,7 +248,7 @@ abstract class Base_Tool {
 
 
     protected function maybe_force_draft( array &$params ) {
-        if ( get_option( 'easy_mcp_ai_force_draft_on_create', false ) ) {
+        if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ) ) {
             $params['status'] = 'draft';
         }
     }
@@ -297,6 +297,93 @@ abstract class Base_Tool {
         }
 
         return $value;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function rest_taxonomies_for( $object_type ) {
+        $map = array();
+        foreach ( (array) get_object_taxonomies( $object_type, 'objects' ) as $key => $tax ) {
+            if ( ! is_object( $tax ) || empty( $tax->show_in_rest ) ) {
+                continue;
+            }
+            $slug         = ! empty( $tax->name ) ? (string) $tax->name : (string) $key;
+            $map[ $slug ] = ! empty( $tax->rest_base ) ? (string) $tax->rest_base : $slug;
+        }
+        return $map;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    protected function item_taxonomy_terms( array $item, array $map ) {
+        $terms = array();
+        foreach ( $map as $slug => $rest_base ) {
+            $ids = isset( $item[ $rest_base ] ) && is_array( $item[ $rest_base ] ) ? $item[ $rest_base ] : array();
+            $terms[ $slug ] = array_values( array_map( 'intval', $ids ) );
+        }
+        return empty( $terms ) ? new \stdClass() : $terms;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function parse_taxonomy_filter( $value, $label, array $map ) {
+        $filters = $this->parse_json_param( $value, $label );
+        $params  = array();
+        foreach ( $filters as $slug => $ids ) {
+            $slug = (string) $slug;
+            if ( ! isset( $map[ $slug ] ) ) {
+                throw new \InvalidArgumentException(
+                    sprintf(
+                        '%s: unknown taxonomy "%s". Valid taxonomies: %s.',
+                        $label, // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                        $slug, // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                        empty( $map ) ? '(none exposed in the REST API)' : implode( ', ', array_keys( $map ) ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    )
+                );
+            }
+            if ( is_scalar( $ids ) ) {
+                $ids = array( $ids );
+            }
+            $clean = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+            if ( ! empty( $clean ) ) {
+                $params[ $map[ $slug ] ] = $clean;
+            }
+        }
+        return $params;
     }
 
     
@@ -356,6 +443,163 @@ abstract class Base_Tool {
         throw new \RuntimeException(
             'Could not discover global styles. This requires WordPress 6.1 or later with an active block theme.'
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function fetch_style_variations() {
+        $stylesheet = get_stylesheet();
+        $request    = new \WP_REST_Request( 'GET', '/wp/v2/global-styles/themes/' . $stylesheet . '/variations' );
+        $response   = rest_do_request( $request );
+
+        if ( $response->is_error() ) {
+            $wp_error = $response->as_error();
+            if ( 'rest_no_route' === $wp_error->get_error_code() ) {
+                throw new \RuntimeException(
+                    'Style variations endpoint is not available. This requires WordPress 6.0 or later with an active block theme (Full Site Editing).'
+                );
+            }
+            throw new \RuntimeException( $wp_error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+
+        $variations = array();
+        foreach ( (array) $response->get_data() as $variation ) {
+            if ( ! is_array( $variation ) ) {
+                continue;
+            }
+            $title = isset( $variation['title'] ) && is_scalar( $variation['title'] ) ? (string) $variation['title'] : '';
+            $slug  = isset( $variation['slug'] ) && is_string( $variation['slug'] ) && '' !== $variation['slug']
+                ? $variation['slug']
+                : ( function_exists( '_wp_to_kebab_case' ) ? _wp_to_kebab_case( $title ) : sanitize_title( $title ) );
+            if ( '' === $slug ) {
+                continue;
+            }
+            $settings = isset( $variation['settings'] ) && is_array( $variation['settings'] ) ? $variation['settings'] : array();
+            $styles   = isset( $variation['styles'] ) && is_array( $variation['styles'] ) ? $variation['styles'] : array();
+
+            $variations[] = array(
+                'slug'     => $slug,
+                'title'    => $title,
+                'scope'    => $this->style_variation_scope( $settings, $styles ),
+                'settings' => $settings,
+                'styles'   => $styles,
+            );
+        }
+
+        return $this->disambiguate_style_variation_slugs( $variations );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function style_variation_scope( array $settings, array $styles ) {
+        $touched = array();
+        $this->collect_style_variation_categories( $settings, $touched );
+        $this->collect_style_variation_categories( $styles, $touched );
+
+        $keys = array_keys( $touched );
+        if ( array( 'color' ) === $keys ) {
+            return 'color';
+        }
+        if ( array( 'typography' ) === $keys ) {
+            return 'typography';
+        }
+        return 'full';
+    }
+
+    private function collect_style_variation_categories( array $node, array &$touched ) {
+        foreach ( $node as $key => $value ) {
+            if ( 'color' === $key || 'typography' === $key ) {
+                $touched[ $key ] = true;
+                continue;
+            }
+            if ( is_array( $value ) ) {
+                $this->collect_style_variation_categories( $value, $touched );
+            } else {
+                $touched['other'] = true;
+            }
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function disambiguate_style_variation_slugs( array $variations ) {
+        $scopes_per_slug = array();
+        foreach ( $variations as $variation ) {
+            $scopes_per_slug[ $variation['slug'] ][ $variation['scope'] ] = true;
+        }
+
+        $taken = array();
+        foreach ( $variations as &$variation ) {
+            if ( count( $scopes_per_slug[ $variation['slug'] ] ) > 1 && 'full' !== $variation['scope'] ) {
+                $variation['slug'] .= '-' . $variation['scope'];
+            }
+            $base = $variation['slug'];
+            $slug = $base;
+            for ( $n = 2; isset( $taken[ $slug ] ); $n++ ) {
+                $slug = $base . '-' . $n;
+            }
+            $taken[ $slug ]    = true;
+            $variation['slug'] = $slug;
+        }
+        unset( $variation );
+
+        return $variations;
     }
 
     
@@ -678,6 +922,69 @@ abstract class Base_Tool {
         return $prefix . $snippet . $suffix;
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+    protected function apply_meta_argument( array $arguments, array &$params ) {
+        if ( ! isset( $arguments['meta'] ) ) {
+            return false;
+        }
+        $meta = $this->parse_json_param( $arguments['meta'], 'meta' );
+        if ( array() === $meta ) {
+            return false;
+        }
+        if ( array_keys( $meta ) === range( 0, count( $meta ) - 1 ) ) {
+            throw new \InvalidArgumentException( 'meta must be an object of meta key-value pairs, not a list.' );
+        }
+        $params['meta'] = $meta;
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+    protected function ignored_meta_report( array $sent, $persisted ) {
+        $persisted = is_array( $persisted ) ? $persisted : array();
+        $ignored   = array();
+        foreach ( array_keys( $sent ) as $key ) {
+            if ( ! array_key_exists( $key, $persisted ) ) {
+                $ignored[] = (string) $key;
+            }
+        }
+        if ( empty( $ignored ) ) {
+            return array();
+        }
+        $notice = sprintf(
+            'The following meta keys were sent but not persisted (they are not registered with show_in_rest=true for this post type): %s.',
+            implode( ', ', $ignored )
+        );
+        if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
+            $explained = \Easy_MCP_AI\Meta\Meta_Exposure::explain_ignored_keys( $ignored );
+            if ( ! empty( $explained ) ) {
+                $notice .= ' ' . implode( ' ', array_values( $explained ) );
+            }
+        }
+        return array(
+            'meta_ignored' => $ignored,
+            'notice'       => $notice,
+        );
+    }
+
     protected function rest_request( $method, $route, $params = array(), $fields = null ) {
         $request = new \WP_REST_Request( $method, $route );
         if ( in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) && ! empty( $params ) ) {
@@ -705,9 +1012,38 @@ abstract class Base_Tool {
         }
         $response = rest_do_request( $request );
         if ( $response->is_error() ) {
-            $error = $response->as_error();
-            throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( self::rest_error_message( $response->as_error() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $response->get_data();
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    protected static function rest_error_message( $error ) {
+        $message = $error->get_error_message();
+        if ( 'rest_invalid_param' !== $error->get_error_code() ) {
+            return $message;
+        }
+        $data    = $error->get_error_data();
+        $reasons = array();
+        if ( is_array( $data ) && isset( $data['params'] ) && is_array( $data['params'] ) ) {
+            foreach ( $data['params'] as $reason ) {
+                if ( is_string( $reason ) && '' !== trim( $reason ) && false === strpos( $message, $reason ) ) {
+                    $reasons[] = trim( $reason );
+                }
+            }
+        }
+        return empty( $reasons ) ? $message : $message . ' — ' . implode( ' ', $reasons );
     }
 }

@@ -8,13 +8,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Update_User_Fields extends Base_Tool {
+    use Acf_Rest_Tool;
 
     public function get_name() {
         return 'wp_acf_update_user_fields';
     }
 
     public function get_description() {
-        return 'Updates ACF field values attached to a WordPress user. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path (the same underlying mechanism used by wp_acf_update_fields); field keys (e.g. field_abc123) also work. Field groups must have "Show in REST API" enabled.';
+        return 'Updates ACF field values attached to a WordPress user. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path (the same underlying mechanism used by wp_acf_update_fields); field keys (e.g. field_abc123) also work. Reaches every field group assigned to the user, including groups with "Show in REST API" off, when you can edit that user. Any field that was not saved is listed in `fields_ignored` with a `notice` giving the reason.';
     }
 
     public function get_category() {
@@ -41,16 +42,11 @@ class Update_User_Fields extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        if ( ! class_exists( 'ACF' ) ) {
-            throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
-        }
+        $this->require_acf();
         $this->validate_required( $arguments, array( 'user_id', 'fields' ) );
         $user_id = $this->parse_required_id( $arguments['user_id'], 'user_id' );
         $fields  = $this->parse_json_param( $arguments['fields'], 'fields' );
-        $data    = $this->rest_request( 'POST', '/wp/v2/users/' . $user_id, array( 'acf' => $fields ) );
-        return array(
-            'user_id'    => $user_id,
-            'acf_fields' => $data['acf'] ?? array(),
-        );
+        return array( 'user_id' => $user_id )
+            + $this->acf_write( 'user', $user_id, '/wp/v2/users/' . $user_id, $fields );
     }
 }

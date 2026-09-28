@@ -1,9 +1,14 @@
 <?php
 namespace Easy_MCP_AI\OAuth;
 
+use Easy_MCP_AI\Auth\Token_Keys;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-keys.php';
 
 
 
@@ -34,14 +39,19 @@ class OAuth_Token_Manager {
 
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
 
-        $access_ttl  = (int) get_option( 'easy_mcp_ai_oauth_access_token_ttl', self::DEFAULT_ACCESS_TTL );
-        $refresh_ttl = (int) get_option( 'easy_mcp_ai_oauth_refresh_token_ttl', self::DEFAULT_REFRESH_TTL );
+        $access_ttl  = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_access_token_ttl', self::DEFAULT_ACCESS_TTL );
+        $refresh_ttl = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_refresh_token_ttl', self::DEFAULT_REFRESH_TTL );
 
         
-        $raw_access    = self::TOKEN_PREFIX . bin2hex( random_bytes( 32 ) );
-        $raw_refresh   = bin2hex( random_bytes( 32 ) );
-        $access_hash   = hash( 'sha256', $raw_access );
-        $refresh_hash  = hash( 'sha256', $raw_refresh );
+        
+        
+        
+        
+        $key_id        = Token_Keys::current_id();
+        $raw_access    = Token_Keys::mint_prefix( self::TOKEN_PREFIX ) . bin2hex( random_bytes( 32 ) );
+        $raw_refresh   = Token_Keys::mint_prefix( '' ) . bin2hex( random_bytes( 32 ) );
+        $access_hash   = Token_Keys::hash( $raw_access, $key_id );
+        $refresh_hash  = Token_Keys::hash( $raw_refresh, $key_id );
 
         $now               = current_time( 'mysql', true );
         $expires_at        = gmdate( 'Y-m-d H:i:s', time() + $access_ttl );
@@ -98,7 +108,12 @@ class OAuth_Token_Manager {
             return false;
         }
 
-        $token_hash = hash( 'sha256', $raw_token );
+        
+        $key_id     = Token_Keys::parse_id( $raw_token, self::TOKEN_PREFIX );
+        $token_hash = Token_Keys::hash( $raw_token, $key_id );
+        if ( null === $token_hash ) {
+            return false;
+        }
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; token lookup must be fresh.
         $row = $wpdb->get_row(
@@ -156,7 +171,11 @@ class OAuth_Token_Manager {
         global $wpdb;
 
         $table        = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
-        $refresh_hash = hash( 'sha256', $raw_refresh_token );
+        $key_id       = Token_Keys::parse_id( $raw_refresh_token, '' );
+        $refresh_hash = Token_Keys::hash( $raw_refresh_token, $key_id );
+        if ( null === $refresh_hash ) {
+            return false;
+        }
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; refresh lookup must be fresh.
         $row = $wpdb->get_row(
@@ -418,7 +437,7 @@ class OAuth_Token_Manager {
 
 
     private function log_refresh_event( string $event, int $chain_id, string $client_id ): void {
-        if ( ! \get_option( 'easy_mcp_ai_audit_log_enabled', true ) ) {
+        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) {
             return;
         }
         global $wpdb;
@@ -448,6 +467,17 @@ class OAuth_Token_Manager {
             ),
             array( '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' )
         );
+    }
+
+    
+
+
+
+
+
+    public static function hash_presented( string $token ): ?string {
+        $prefix = 0 === strpos( $token, self::TOKEN_PREFIX ) ? self::TOKEN_PREFIX : '';
+        return Token_Keys::hash( $token, Token_Keys::parse_id( $token, $prefix ) );
     }
 
     public function revoke_chain( int $refresh_parent_id ): bool {

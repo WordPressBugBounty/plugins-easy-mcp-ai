@@ -76,7 +76,7 @@ class GA_Client extends Abstract_Google_Client {
                 );
             }
             throw new \RuntimeException(
-                'Access denied by Google Analytics. The configured service account does not have access to this property. A site administrator can grant access in Easy MCP AI → External Data → Test Connection.'
+                'Access denied by Google Analytics. The configured service account does not have access to this property. A site administrator can grant access in Easy MCP AI → Tools → External data → Test connection.'
             );
         }
         if ( 404 === $code ) {
@@ -114,7 +114,7 @@ class GA_Client extends Abstract_Google_Client {
         $id = \get_option( self::OPTION_PROPERTY_ID, '' );
         if ( empty( $id ) ) {
             throw new \RuntimeException(
-                'No property_id provided and no default property configured. Set one in Easy MCP AI → External Data.'
+                'No property_id provided and no default property configured. Set one in Easy MCP AI → Tools → External data.'
             );
         }
         return self::normalize_property( (string) $id );

@@ -6,6 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-keys.php';
+
+
 
 
 
@@ -386,7 +389,7 @@ class Device_Authorization {
             $inserted = $wpdb->insert(
                 $table,
                 array(
-                    'device_code_hash' => hash( 'sha256', $device_code ),
+                    'device_code_hash' => \Easy_MCP_AI\Auth\Token_Keys::hash_current( $device_code ),
                     'user_code_hash'   => self::hash_user_code( $user_code ),
                     'client_id'        => $client_id,
                     'wp_user_id'       => 0,
@@ -447,7 +450,7 @@ class Device_Authorization {
         $table = self::table();
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; the lookup must be fresh.
         $row = $wpdb->get_row(
-            $wpdb->prepare( "SELECT * FROM {$table} WHERE device_code_hash = %s LIMIT 1", hash( 'sha256', (string) $device_code ) )
+            $wpdb->prepare( "SELECT * FROM {$table} WHERE device_code_hash = %s LIMIT 1", \Easy_MCP_AI\Auth\Token_Keys::hash_current( (string) $device_code ) )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
         return is_object( $row ) ? $row : null;

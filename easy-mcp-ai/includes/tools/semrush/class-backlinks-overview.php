@@ -31,7 +31,7 @@ class Backlinks_Overview extends Base_Tool {
 			'required'   => array( 'target', 'target_type' ),
 			'properties' => array(
 				'target'      => array( 'type' => 'string', 'description' => 'Domain, subdomain, or URL.' ),
-				'target_type' => array( 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ) ),
+				'target_type' => array( 'description' => 'How to read target: root_domain, domain, or url.', 'type' => 'string', 'enum' => array( 'root_domain', 'domain', 'url' ) ),
 			),
 		);
 	}

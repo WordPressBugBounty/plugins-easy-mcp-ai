@@ -16,6 +16,12 @@ class OAuth_Token_Validator {
     
 
 
+
+    const ERROR_INVALID_AUDIENCE = 'invalid_audience';
+
+    
+
+
     private $token_manager;
 
     
@@ -88,10 +94,18 @@ class OAuth_Token_Validator {
         
         
         if ( ! Token_Endpoint::resource_matches( $token_resource, $canonical_uri ) ) {
+            
+            
+            
             return new \WP_Error(
-                'invalid_audience',
+                self::ERROR_INVALID_AUDIENCE,
                 __( 'Token audience does not match this MCP server.', 'easy-mcp-ai' ),
-                array( 'status' => 403 )
+                array(
+                    'status'     => 403,
+                    'token_id'   => (int) $token_data['id'],
+                    'wp_user_id' => (int) $token_data['wp_user_id'],
+                    'client_id'  => isset( $token_data['client_id'] ) ? (string) $token_data['client_id'] : null,
+                )
             );
         }
 

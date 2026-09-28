@@ -85,7 +85,7 @@ class Client_Registry {
 
 
     public static function is_dcr_enabled() {
-        return (bool) get_option( 'easy_mcp_ai_oauth_dcr_enabled', true );
+        return (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_dcr_enabled', true );
     }
 
     
@@ -115,7 +115,7 @@ class Client_Registry {
             
             return self::dcr_error(
                 'registration_not_supported',
-                __( 'Dynamic Client Registration is disabled on this site. An administrator can enable it under Easy MCP AI > API Token & OAuth > Settings > Dynamic Client Registration.', 'easy-mcp-ai' ),
+                __( 'Dynamic Client Registration is disabled on this site. An administrator can enable it under Easy MCP AI > Connections > OAuth > Token lifetimes and client registration.', 'easy-mcp-ai' ),
                 404
             );
         }
@@ -624,7 +624,7 @@ class Client_Registry {
         global $wpdb;
 
         $table     = $wpdb->prefix . 'easy_mcp_ai_oauth_clients';
-        $max       = (int) get_option( 'easy_mcp_ai_oauth_max_clients', self::DEFAULT_MAX_CLIENTS );
+        $max       = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_max_clients', self::DEFAULT_MAX_CLIENTS );
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; live count must be fresh for cap check.
         $count     = (int) $wpdb->get_var(
             $wpdb->prepare(

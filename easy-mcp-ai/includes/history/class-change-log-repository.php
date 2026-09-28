@@ -5,6 +5,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+
+
+
 class Change_Log_Repository {
 
     
@@ -148,6 +151,44 @@ class Change_Log_Repository {
         global $wpdb;
         $table  = $this->table();
         $cols   = ( is_string( $columns ) && '' !== $columns ) ? $columns : '*';
+        $w      = self::build_where( $filters );
+        $params = array_merge( $w['params'], array( (int) $limit, (int) $offset ) );
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; $cols/$table/$where are server-built from constant column lists, all user values bound via prepared placeholders. UnfinishedPrepare fires because the query text is returned by deferred_join_sql() rather than written inline, so the sniff cannot see the placeholders it contains.
+        return $wpdb->get_results(
+            $wpdb->prepare(
+                self::deferred_join_sql( $table, $cols, $w['sql'] ),
+                ...$params
+            ),
+            ARRAY_A
+        );
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+    }
+
+    
+
+
+
+
+
+
+    public function count( array $filters ) {
+        global $wpdb;
+        $table = $this->table();
+        $w     = self::build_where( $filters );
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; the WHERE is server-built from a constant column list with every user value bound.
+        $sql = "SELECT COUNT(*) FROM {$table} WHERE {$w['sql']}";
+        return (int) $wpdb->get_var( empty( $w['params'] ) ? $sql : $wpdb->prepare( $sql, ...$w['params'] ) );
+        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+    }
+
+    
+
+
+
+
+
+
+    public static function build_where( array $filters ) {
         $where  = array( '1=1' );
         $params = array();
         foreach ( array( 'object_type', 'object_id', 'tool_name', 'wp_user_id', 'oauth_client_id', 'auth_source', 'action' ) as $f ) {
@@ -160,6 +201,11 @@ class Change_Log_Repository {
             $where[]  = 'audit_id = %d';
             $params[] = (int) $filters['audit_id'];
         }
+        if ( ! empty( $filters['drafts'] ) ) {
+            global $wpdb;
+            
+            $where[] = "action = 'create' AND object_type = 'post' AND object_id IN ( SELECT CAST( ID AS CHAR ) FROM {$wpdb->posts} WHERE post_status = 'draft' )";
+        }
         if ( ! empty( $filters['since'] ) ) {
             $where[]  = 'created_at >= %s';
             $params[] = $filters['since'];
@@ -168,17 +214,7 @@ class Change_Log_Repository {
             $where[]  = 'created_at <= %s';
             $params[] = $filters['until'];
         }
-        $params[] = (int) $limit;
-        $params[] = (int) $offset;
-        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; $cols/$table/$where are server-built from constant column lists, all user values bound via prepared placeholders. UnfinishedPrepare fires because the query text is returned by deferred_join_sql() rather than written inline, so the sniff cannot see the placeholders it contains.
-        return $wpdb->get_results(
-            $wpdb->prepare(
-                self::deferred_join_sql( $table, $cols, implode( ' AND ', $where ) ),
-                ...$params
-            ),
-            ARRAY_A
-        );
-        // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        return array( 'sql' => implode( ' AND ', $where ), 'params' => $params );
     }
 
     

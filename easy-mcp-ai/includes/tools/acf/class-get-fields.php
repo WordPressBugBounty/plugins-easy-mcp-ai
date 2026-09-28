@@ -8,13 +8,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Get_Fields extends Base_Tool {
+    use Acf_Rest_Tool;
 
     public function get_name() {
         return 'wp_acf_get_fields';
     }
 
     public function get_description() {
-        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page. Returns fields under the "acf_fields" key keyed by field name (e.g. "my_field_name"). Field groups must have "Show in REST API" enabled in ACF settings. To update fields with wp_acf_update_fields, pass these same field names (field keys like "field_abc123" also work). Works with ACF and Secure Custom Fields (SCF).';
+        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page. Returns fields under the "acf_fields" key keyed by field name (e.g. "my_field_name"). Includes groups with "Show in REST API" off when you can edit the post, as the editor screen does. To update fields with wp_acf_update_fields, pass these same field names (field keys like "field_abc123" also work). Works with ACF and Secure Custom Fields (SCF).';
     }
 
     public function get_category() {
@@ -41,16 +42,10 @@ class Get_Fields extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        if ( ! class_exists( 'ACF' ) ) {
-            throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
-        }
+        $this->require_acf();
         $post_id   = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
         $post_type = ! empty( $arguments['post_type'] ) ? $this->validate_rest_route_segment( $arguments['post_type'], 'post_type' ) : 'posts';
-        $data      = $this->rest_request( 'GET', '/wp/v2/' . $post_type . '/' . $post_id );
-        return array(
-            'post_id'    => $post_id,
-            'post_type'  => $post_type,
-            'acf_fields' => $data['acf'] ?? array(),
-        );
+        return array( 'post_id' => $post_id, 'post_type' => $post_type )
+            + $this->acf_read( 'post', $post_id, '/wp/v2/' . $post_type . '/' . $post_id );
     }
 }

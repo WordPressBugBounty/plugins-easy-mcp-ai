@@ -143,11 +143,11 @@ class Ahrefs_Client {
 	public function get_api_key(): string {
 		$enc = \get_option( self::OPTION_API_KEY, '' );
 		if ( empty( $enc ) ) {
-			throw new \RuntimeException( 'Ahrefs API key not configured. Add one at Easy MCP AI → External Data → Ahrefs. The key is free — create it in your Ahrefs account under Account settings → API keys.' );
+			throw new \RuntimeException( 'Ahrefs API key not configured. Add one at Easy MCP AI → Tools → External data → Ahrefs. The key is free — create it in your Ahrefs account under Account settings → API keys.' );
 		}
 		$plain = self::decrypt( $enc );
 		if ( false === $plain || '' === $plain ) {
-			throw new \RuntimeException( 'Failed to decrypt Ahrefs API key. Re-save it in Easy MCP AI → External Data.' );
+			throw new \RuntimeException( 'Failed to decrypt Ahrefs API key. Re-save it in Easy MCP AI → Tools → External data.' );
 		}
 		return $plain;
 	}

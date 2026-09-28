@@ -64,6 +64,9 @@ class Change_Recorder {
     private $comment_before = array();
 
     
+    private $comment_status_pending = array();
+
+    
     private $wc_product_before = array();
 
     
@@ -189,7 +192,7 @@ class Change_Recorder {
         if ( in_array( $name, self::option_allowlist(), true ) ) {
             return true;
         }
-        if ( 'allowlist' === \get_option( 'easy_mcp_ai_change_log_option_mode', 'all_except_denylist' ) ) {
+        if ( 'allowlist' === \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_option_mode', 'all_except_denylist' ) ) {
             return false;
         }
         $deny = (array) \apply_filters( 'easy_mcp_ai_change_log_option_denylist', self::$option_churn_denylist );
@@ -280,7 +283,7 @@ class Change_Recorder {
         
         
         
-        $capture_meta = (bool) \get_option( 'easy_mcp_ai_change_log_capture_meta', true );
+        $capture_meta = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_capture_meta', true );
         if ( $capture_meta ) {
             $this->track( 'update_term_meta', 'on_update_term_meta', 10, 4 );
             $this->track( 'added_term_meta', 'on_added_term_meta', 10, 4 );
@@ -387,6 +390,14 @@ class Change_Recorder {
         
         
         $this->track( 'trashed_comment', 'on_trashed_comment', 10, 2 );
+
+        
+        
+        
+        
+        
+        $this->track( 'wp_set_comment_status', 'on_comment_status_set', 10, 2 );
+        $this->track( 'transition_comment_status', 'on_transition_comment_status', 10, 3 );
 
         
         if ( class_exists( 'WooCommerce' ) ) {
@@ -983,6 +994,12 @@ class Change_Recorder {
         if ( ! Change_Context::is_active() ) {
             return;
         }
+        
+        
+        $refresh_only = Change_Context::consume_refresh_only( 'term', $term_id );
+        if ( $refresh_only && ! isset( $this->term_before[ $term_id ] ) ) {
+            return;
+        }
         $before = $this->term_before[ $term_id ] ?? null;
         $after  = function_exists( '\get_term' ) ? \get_term( $term_id, $taxonomy, ARRAY_A ) : null;
         unset( $this->term_before[ $term_id ] );
@@ -1321,14 +1338,75 @@ class Change_Recorder {
         if ( ! $this->option_should_record( $name ) || 'site_option' === $this->option_name_seen_as( $name ) ) {
             return;
         }
+        $scope = Change_Context::consume_scoped_option( $name );
         $this->write_row( array(
             'action'         => 'create',
             'object_type'    => 'option',
             'object_id'      => $name,
-            'object_subtype' => $name,
-            'after_value'    => array( 'name' => $name, 'value' => $value ),
+            'object_subtype' => self::option_subtype( $name, $scope ),
+            'after_value'    => self::option_payload( $name, $value, $scope ),
         ) );
         $this->mark_option_name_seen( $name, 'option' );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function option_subtype( $name, $scope ) {
+        return $scope ? $name . ':' . implode( ':', $scope ) : $name;
+    }
+
+    
+
+
+
+
+
+
+    public static function option_scope_from_subtype( $name, $subtype ) {
+        $prefix = (string) $name . ':';
+        if ( ! is_string( $subtype ) || 0 !== strncmp( $subtype, $prefix, strlen( $prefix ) ) || strlen( $subtype ) === strlen( $prefix ) ) {
+            return null;
+        }
+        return explode( ':', substr( $subtype, strlen( $prefix ) ) );
+    }
+
+    
+
+
+
+
+
+
+    public static function option_slice( $value, array $path ) {
+        foreach ( $path as $key ) {
+            if ( ! is_array( $value ) || ! array_key_exists( $key, $value ) ) {
+                return null;
+            }
+            $value = $value[ $key ];
+        }
+        return $value;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function option_payload( $name, $value, $scope ) {
+        if ( ! $scope ) {
+            return array( 'name' => $name, 'value' => $value );
+        }
+        return array( 'name' => $name, 'path' => $scope, 'value' => self::option_slice( $value, $scope ) );
     }
 
     public function on_updated_option( $name, $old, $new ) {
@@ -1339,13 +1417,14 @@ class Change_Recorder {
         if ( ! $this->option_should_record( $name ) || 'site_option' === $this->option_name_seen_as( $name ) ) {
             return;
         }
+        $scope = Change_Context::consume_scoped_option( $name );
         $this->write_row( array(
             'action'         => 'update',
             'object_type'    => 'option',
             'object_id'      => $name,
-            'object_subtype' => $name,
-            'before_value'   => array( 'name' => $name, 'value' => $old ),
-            'after_value'    => array( 'name' => $name, 'value' => $new ),
+            'object_subtype' => self::option_subtype( $name, $scope ),
+            'before_value'   => self::option_payload( $name, $old, $scope ),
+            'after_value'    => self::option_payload( $name, $new, $scope ),
             'changed_fields' => array( 'value' ),
         ) );
         $this->mark_option_name_seen( $name, 'option' );
@@ -1543,16 +1622,25 @@ class Change_Recorder {
         if ( ! isset( $this->comment_before[ $comment_id ] ) ) {
             return;
         }
-        $entry   = $this->comment_before[ $comment_id ];
-        $before  = is_array( $entry ) && isset( $entry['snapshot'] ) ? $entry['snapshot'] : $entry;
-        $context = is_array( $entry ) && isset( $entry['context'] )  ? $entry['context']  : null;
-        unset( $this->comment_before[ $comment_id ] );
+        list( $before, $context ) = $this->take_comment_before( $comment_id );
 
         
         if ( function_exists( '\wp_cache_delete' ) ) {
             \wp_cache_delete( $comment_id, 'comment' );
         }
-        $after = function_exists( '\get_comment' ) ? \get_comment( $comment_id ) : null;
+        $after          = function_exists( '\get_comment' ) ? \get_comment( $comment_id ) : null;
+        $changed_fields = is_array( $before ) && $after
+            ? $this->diff_keys( $before, $this->snapshot_comment( $after ) )
+            : null;
+
+        
+        
+        
+        
+        
+        if ( array() === $changed_fields ) {
+            return;
+        }
 
         $this->write_row( array(
             'action'         => 'update',
@@ -1560,10 +1648,27 @@ class Change_Recorder {
             'object_id'      => (string) $comment_id,
             'before_value'   => $before,
             'after_value'    => $this->snapshot_comment( $after ),
-            'changed_fields' => is_array( $before ) && $after
-                ? $this->diff_keys( $before, $this->snapshot_comment( $after ) )
-                : null,
+            'changed_fields' => $changed_fields,
         ), $context );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private function take_comment_before( $comment_id ) {
+        $entry = $this->comment_before[ $comment_id ];
+        unset( $this->comment_before[ $comment_id ] );
+
+        $before  = is_array( $entry ) && isset( $entry['snapshot'] ) ? $entry['snapshot'] : $entry;
+        $context = is_array( $entry ) && isset( $entry['context'] ) ? $entry['context'] : null;
+        return array( $before, $context );
     }
 
     
@@ -1670,6 +1775,129 @@ class Change_Recorder {
             'object_subtype' => 'trash',
             'before_value'   => $this->delete_before( $this->snapshot_comment( $comment ) ),
         ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function on_comment_status_set( $comment_id, $comment_status = '' ) {
+        if ( ! Change_Context::is_active() ) {
+            return;
+        }
+        if ( 'delete' === $comment_status ) {
+            return;
+        }
+        $this->comment_status_pending[ (int) $comment_id ] = true;
+    }
+
+    
+
+
+
+
+
+
+
+
+    public function on_transition_comment_status( $new_status, $old_status, $comment ) {
+        $comment_id = is_object( $comment ) && isset( $comment->comment_ID ) ? (int) $comment->comment_ID : 0;
+        if ( $comment_id <= 0 || ! isset( $this->comment_status_pending[ $comment_id ] ) ) {
+            return;
+        }
+        unset( $this->comment_status_pending[ $comment_id ] );
+
+        if ( ! Change_Context::is_active() ) {
+            return;
+        }
+
+        
+        
+        
+        if ( 'delete' === $new_status ) {
+            return;
+        }
+
+        
+        
+        
+        
+        if ( 'trash' === $new_status ) {
+            return;
+        }
+
+        $after  = $this->snapshot_comment( $comment );
+        $before = $after;
+        
+        
+        $before['comment_approved'] = self::stored_comment_status( $old_status );
+
+        $this->write_row( array(
+            'action'         => 'update',
+            'object_type'    => 'comment',
+            'object_id'      => (string) $comment_id,
+            'before_value'   => $before,
+            'after_value'    => $after,
+            'changed_fields' => $this->diff_keys( $before, $after ),
+        ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function stored_comment_status( $status ) {
+        if ( 'approved' === $status ) {
+            return '1';
+        }
+        if ( 'unapproved' === $status ) {
+            return '0';
+        }
+        return (string) $status;
     }
 
     

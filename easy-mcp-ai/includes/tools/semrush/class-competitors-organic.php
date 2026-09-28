@@ -30,7 +30,7 @@ class Competitors_Organic extends Base_Tool {
 			'type'       => 'object',
 			'required'   => array( 'domain' ),
 			'properties' => array(
-				'domain'        => array( 'type' => 'string' ),
+				'domain'        => array( 'description' => 'The domain to analyse, without protocol (e.g. example.com).', 'type' => 'string' ),
 				'database'      => array( 'type' => 'string', 'default' => 'us' ),
 				'display_limit' => array( 'type' => 'integer', 'default' => 50, 'minimum' => 1, 'maximum' => 10000 ),
 			),

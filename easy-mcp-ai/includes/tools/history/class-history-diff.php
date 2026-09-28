@@ -323,7 +323,11 @@ class History_Diff extends Base_Tool {
                 if ( ! function_exists( '\get_option' ) ) {
                     return null;
                 }
-                return array( 'value' => \get_option( $id ) );
+                
+                
+                $scope = \Easy_MCP_AI\History\Change_Recorder::option_scope_from_subtype( (string) $id, $object_subtype );
+                $live  = \get_option( $id );
+                return array( 'value' => null === $scope ? $live : \Easy_MCP_AI\History\Change_Recorder::option_slice( $live, $scope ) );
 
             case 'term':
                 if ( ! function_exists( '\get_term' ) ) {

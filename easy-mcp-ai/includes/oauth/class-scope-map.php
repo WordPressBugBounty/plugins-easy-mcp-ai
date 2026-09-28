@@ -10,37 +10,62 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Scope_Map {
 
     const SCOPE_MAP = array(
-        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full' ),
-        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post' ),
+        
+        
+        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full', 'wp_get_post_blocks' ),
+        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post', 'wp_update_post_blocks' ),
         'mcp:cpt:read'           => array( 'wp_list_cpt_items', 'wp_get_cpt_item' ),
         'mcp:cpt:write'          => array( 'wp_create_cpt_item', 'wp_update_cpt_item', 'wp_delete_cpt_item' ),
         'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media', 'wp_count_media' ),
         'mcp:media:write'        => array( 'wp_upload_media', 'wp_update_media', 'wp_delete_media', 'wp_upload_media_from_url' ),
-        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms', 'wp_get_term' ),
+        'mcp:taxonomies:read'    => array( 'wp_get_category', 'wp_list_categories', 'wp_get_tag', 'wp_list_tags', 'wp_get_taxonomies', 'wp_count_terms', 'wp_get_term', 'wp_list_terms' ),
         'mcp:taxonomies:write'   => array( 'wp_create_category', 'wp_update_category', 'wp_delete_category', 'wp_create_tag', 'wp_update_tag', 'wp_delete_tag', 'wp_create_term', 'wp_update_term', 'wp_delete_term' ),
         'mcp:term_meta:read'     => array( 'wp_get_term_meta' ),
         'mcp:term_meta:write'    => array( 'wp_update_term_meta', 'wp_delete_term_meta' ),
         'mcp:user_meta:read'     => array( 'wp_get_user_meta' ),
         'mcp:user_meta:write'    => array( 'wp_update_user_meta', 'wp_delete_user_meta' ),
         'mcp:comments:read'      => array( 'wp_get_comment', 'wp_list_comments' ),
-        'mcp:comments:write'     => array( 'wp_create_comment', 'wp_update_comment', 'wp_delete_comment' ),
+        'mcp:comments:write'     => array(
+            'wp_create_comment', 'wp_update_comment', 'wp_delete_comment',
+            'wp_approve_comment', 'wp_unapprove_comment', 'wp_spam_comment', 'wp_unspam_comment',
+            'wp_trash_comment', 'wp_untrash_comment', 'wp_reply_to_comment', 'wp_bulk_moderate_comments',
+        ),
         'mcp:users:read'         => array( 'wp_get_user', 'wp_list_users' ),
         'mcp:user_create:write'  => array( 'wp_create_user' ),
         'mcp:user_update:write'  => array( 'wp_update_user' ),
         'mcp:user_delete:write'  => array( 'wp_delete_user' ),
         'mcp:menus:read'         => array( 'wp_get_menu', 'wp_list_menus', 'wp_list_menu_items' ),
-        'mcp:menus:write'        => array( 'wp_create_menu', 'wp_update_menu', 'wp_delete_menu', 'wp_create_menu_item', 'wp_update_menu_item', 'wp_delete_menu_item' ),
-        'mcp:blocks:read'        => array( 'wp_get_block', 'wp_list_blocks', 'wp_get_template', 'wp_list_templates', 'wp_get_global_styles', 'wp_get_active_theme', 'wp_list_themes' ),
+        'mcp:menus:write'        => array( 'wp_create_menu', 'wp_update_menu', 'wp_delete_menu', 'wp_create_menu_item', 'wp_update_menu_item', 'wp_delete_menu_item', 'wp_reorder_menu_items' ),
+        'mcp:blocks:read'        => array( 'wp_get_block', 'wp_list_blocks', 'wp_list_patterns', 'wp_get_template', 'wp_list_templates', 'wp_get_global_styles', 'wp_get_active_theme', 'wp_list_themes', 'wp_list_block_types' ),
+        
+        
+        
+        
         'mcp:blocks:write'       => array( 'wp_create_block', 'wp_update_block', 'wp_delete_block' ),
         
         
         
         
-        'mcp:appearance:write'   => array( 'wp_update_template', 'wp_update_global_styles' ),
-        'mcp:plugins:read'       => array( 'wp_list_plugins' ),
+        
+        
+        'mcp:appearance:read'    => array( 'wp_get_theme_mods', 'wp_get_custom_css' ),
+        'mcp:appearance:write'   => array( 'wp_update_template', 'wp_update_global_styles', 'wp_update_theme_mod', 'wp_delete_theme_mod', 'wp_update_custom_css' ),
+        
+        
+        'mcp:widgets:read'       => array( 'wp_list_sidebars', 'wp_list_widgets', 'wp_get_widget', 'wp_list_widget_types' ),
+        'mcp:widgets:write'      => array( 'wp_create_widget', 'wp_update_widget', 'wp_delete_widget' ),
+        'mcp:plugins:read'       => array( 'wp_list_plugins', 'wp_list_plugin_updates' ),
+        
+        
+        
+        'mcp:plugins:write'      => array( 'wp_activate_plugin', 'wp_deactivate_plugin', 'wp_update_plugin' ),
+        
+        
+        'mcp:themes:read'        => array( 'wp_list_themes', 'wp_get_active_theme' ),
+        'mcp:themes:write'       => array( 'wp_switch_theme', 'wp_update_theme' ),
         'mcp:settings:read'      => array( 'wp_get_site_settings' ),
         'mcp:settings:write'     => array( 'wp_update_site_settings' ),
-        'mcp:woocommerce:read'   => array( 'wp_wc_get_product', 'wp_wc_list_products', 'wp_wc_get_order', 'wp_wc_list_orders', 'wp_wc_get_customer', 'wp_wc_list_customers', 'wp_wc_list_coupons', 'wp_wc_list_order_notes', 'wp_wc_list_order_refunds', 'wp_wc_list_payment_gateways', 'wp_wc_list_shipping_methods', 'wp_wc_list_shipping_zones', 'wp_wc_list_tax_rates', 'wp_wc_list_webhooks', 'wp_wc_list_product_categories', 'wp_wc_list_product_variations', 'wp_wc_get_product_variation', 'wp_wc_list_product_attributes', 'wp_wc_report_sales', 'wp_wc_report_orders', 'wp_wc_report_products', 'wp_wc_report_customers', 'wp_wc_report_top_sellers' ),
+        'mcp:woocommerce:read'   => array( 'wp_wc_get_product', 'wp_wc_list_products', 'wp_wc_get_order', 'wp_wc_list_orders', 'wp_wc_get_customer', 'wp_wc_list_customers', 'wp_wc_list_coupons', 'wp_wc_get_coupon', 'wp_wc_list_order_notes', 'wp_wc_list_order_refunds', 'wp_wc_list_payment_gateways', 'wp_wc_list_shipping_methods', 'wp_wc_list_shipping_zones', 'wp_wc_list_tax_rates', 'wp_wc_list_webhooks', 'wp_wc_list_product_categories', 'wp_wc_list_product_variations', 'wp_wc_get_product_variation', 'wp_wc_list_product_attributes', 'wp_wc_report_sales', 'wp_wc_report_orders', 'wp_wc_report_products', 'wp_wc_report_customers', 'wp_wc_report_top_sellers' ),
         'mcp:woocommerce:write'  => array( 'wp_wc_create_product', 'wp_wc_update_product', 'wp_wc_delete_product', 'wp_wc_create_order', 'wp_wc_update_order', 'wp_wc_create_order_note', 'wp_wc_create_customer', 'wp_wc_update_customer', 'wp_wc_delete_customer', 'wp_wc_create_coupon', 'wp_wc_update_coupon', 'wp_wc_delete_coupon', 'wp_wc_create_product_variation', 'wp_wc_update_product_variation', 'wp_wc_delete_product_variation', 'wp_wc_batch_update_products', 'wp_wc_batch_update_orders', 'wp_wc_batch_update_variations', 'wp_wc_create_product_attribute', 'wp_wc_set_product_attributes' ),
         'mcp:wc_webhooks:write'  => array( 'wp_wc_create_webhook', 'wp_wc_update_webhook', 'wp_wc_delete_webhook' ),
         'mcp:acf:read'           => array( 'wp_acf_get_fields', 'wp_acf_get_term_fields', 'wp_acf_get_user_fields', 'wp_acf_list_field_groups' ),
@@ -49,8 +74,8 @@ class Scope_Map {
         'mcp:buddypress:write'   => array( 'wp_bp_create_activity', 'wp_bp_delete_activity' ),
         'mcp:events:read'        => array( 'wp_tec_list_events', 'wp_tec_get_event', 'wp_tec_list_venues', 'wp_tec_get_venue', 'wp_tec_list_organizers' ),
         'mcp:events:write'       => array( 'wp_tec_create_event', 'wp_tec_update_event', 'wp_tec_delete_event', 'wp_tec_create_venue', 'wp_tec_create_organizer' ),
-        'mcp:yoast:read'         => array( 'wp_yoast_get_post_seo', 'wp_yoast_get_head' ),
-        'mcp:yoast:write'        => array( 'wp_yoast_update_post_seo' ),
+        'mcp:yoast:read'         => array( 'wp_yoast_get_post_seo', 'wp_yoast_get_head', 'wp_yoast_get_term_seo' ),
+        'mcp:yoast:write'        => array( 'wp_yoast_update_post_seo', 'wp_yoast_update_term_seo' ),
         'mcp:aioseo:read'        => array( 'wp_aioseo_get_post_seo', 'wp_aioseo_get_breadcrumb' ),
         'mcp:aioseo:write'       => array( 'wp_aioseo_update_post_seo' ),
         'mcp:rankmath:read'      => array( 'wp_rm_get_post_seo', 'wp_rm_get_head' ),
@@ -75,6 +100,12 @@ class Scope_Map {
         ),
         'mcp:history:read'       => array( 'wp_history_list', 'wp_history_get', 'wp_history_diff' ),
         'mcp:audit:read'         => array( 'wp_audit_list' ),
+        
+        
+        
+        
+        'mcp:site_health:read'   => array( 'wp_get_site_health', 'wp_list_cron_events', 'wp_get_error_log', 'wp_get_easy_mcp_diagnostics' ),
+        'mcp:site_health:write'  => array( 'wp_run_cron_event' ),
         'mcp:semrush:read'       => array(
             'wp_semrush_domain_overview',
             'wp_semrush_domain_organic_keywords',
@@ -503,6 +534,22 @@ class Scope_Map {
 
 
 
+    public static function get_read_scopes(): array {
+        $scopes = array();
+        foreach ( array_keys( self::SCOPE_MAP ) as $scope ) {
+            if ( ':read' === substr( $scope, -5 ) ) {
+                $scopes[] = $scope;
+            }
+        }
+        return $scopes;
+    }
+
+    
+
+
+
+
+
 
 
     public static function get_default_scope(): string {
@@ -599,6 +646,7 @@ class Scope_Map {
                 'menus'       => __( 'Menus', 'easy-mcp-ai' ),
                 'blocks'      => __( 'Blocks & Themes', 'easy-mcp-ai' ),
                 'plugins'     => __( 'Plugins', 'easy-mcp-ai' ),
+                'themes'      => __( 'Themes', 'easy-mcp-ai' ),
                 'settings'    => __( 'Settings', 'easy-mcp-ai' ),
                 'woocommerce' => 'WooCommerce',
                 'acf'         => __( 'Advanced Custom Fields', 'easy-mcp-ai' ),
@@ -618,13 +666,15 @@ class Scope_Map {
                 'tsf'         => __( 'The SEO Framework', 'easy-mcp-ai' ),
                 'term_meta'   => __( 'Term Meta', 'easy-mcp-ai' ),
                 'user_meta'   => __( 'User Meta', 'easy-mcp-ai' ),
-                'appearance'  => __( 'Site Appearance (templates & global styles)', 'easy-mcp-ai' ),
+                'appearance'  => __( 'Site Appearance (templates, global styles, theme mods & CSS)', 'easy-mcp-ai' ),
+                'widgets'     => __( 'Widgets & Sidebars', 'easy-mcp-ai' ),
                 'wc_webhooks' => 'WooCommerce Webhooks',
                 'user_create' => __( 'Users — Create', 'easy-mcp-ai' ),
                 'user_update' => __( 'Users — Update', 'easy-mcp-ai' ),
                 'user_delete' => __( 'Users — Delete', 'easy-mcp-ai' ),
                 'history'     => __( 'Change History (audit log of MCP edits)', 'easy-mcp-ai' ),
                 'audit'       => __( 'Audit Log (every MCP call, all users — admin only)', 'easy-mcp-ai' ),
+                'site_health' => __( 'Site Health, Cron & Error Log', 'easy-mcp-ai' ),
             );
 
             $is_core        = in_array( $slug, self::CORE_CATEGORIES, true );
@@ -632,7 +682,7 @@ class Scope_Map {
             $plugin_required = $is_plugin ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
             
-            if ( 'settings' === $slug || 'plugins' === $slug || 'appearance' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug || 'audit' === $slug ) {
+            if ( 'settings' === $slug || 'plugins' === $slug || 'themes' === $slug || 'appearance' === $slug || 'widgets' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug || 'audit' === $slug || 'site_health' === $slug ) {
                 $default_read  = false;
                 $default_write = false;
             } elseif ( 'users' === $slug ) {

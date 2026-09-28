@@ -29,7 +29,7 @@ class History_Get extends Base_Tool {
     public function get_input_schema() {
         return array(
             'type'       => 'object',
-            'properties' => array( 'id' => array( 'type' => 'integer' ) ),
+            'properties' => array( 'id' => array( 'description' => 'The change-log row ID, as returned by wp_history_list.', 'type' => 'integer' ) ),
             'required'   => array( 'id' ),
         );
     }

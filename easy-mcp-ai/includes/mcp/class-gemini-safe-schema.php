@@ -1069,6 +1069,19 @@ class Gemini_Safe_Schema {
         if ( ! is_string( $value ) ) {
             return $value;
         }
+        
+        
+        
+        
+        
+        
+        
+        if ( in_array( 'array', $original_types, true ) || in_array( 'object', $original_types, true ) ) {
+            $decoded = json_decode( $value, true );
+            if ( is_array( $decoded ) ) {
+                return $decoded;
+            }
+        }
         if ( in_array( 'boolean', $original_types, true ) && ( 'true' === $value || 'false' === $value ) ) {
             return 'true' === $value;
         }

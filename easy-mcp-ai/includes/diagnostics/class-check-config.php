@@ -45,19 +45,97 @@ class Check_Config {
 
     public static function run() {
         return array(
+            self::deployment_configuration(),
             self::evaluate_dcr( self::option_bool( 'easy_mcp_ai_oauth_dcr_enabled', true ) ),
-            self::evaluate_client_cap( self::count_active_clients(), (int) \get_option( 'easy_mcp_ai_oauth_max_clients', 5000 ) ),
+            self::evaluate_client_cap( self::count_active_clients(), (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_max_clients', 5000 ) ),
             self::evaluate_min_capability( self::resolved_min_capability() ),
-            self::evaluate_rate_limit( (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 ) ),
+            self::evaluate_rate_limit( (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', 60 ) ),
             self::evaluate_force_draft( self::option_bool( 'easy_mcp_ai_force_draft_on_create', false ) ),
             self::evaluate_token_expiry( self::collect_token_expiries() ),
             self::evaluate_auth_presence( self::count_active_tokens(), self::count_active_grants(), self::auth_ever_existed() ),
             self::evaluate_allow_http(
-                defined( 'EASY_MCP_AI_OAUTH_ALLOW_HTTP' ) && EASY_MCP_AI_OAUTH_ALLOW_HTTP,
+                \Easy_MCP_AI\Config::get( 'oauth_allow_http' ),
                 (string) \wp_parse_url( (string) \get_option( 'home' ), PHP_URL_HOST )
             ),
-            self::evaluate_oauth_enabled( (bool) \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ),
+            self::evaluate_oauth_enabled( (bool) \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ),
+            self::evaluate_token_keys( self::token_key_state() ),
         );
+    }
+
+    
+    private static function token_key_state() {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-keys.php';
+        return array(
+            'source'  => \Easy_MCP_AI\Auth\Token_Keys::source(),
+            'current' => \Easy_MCP_AI\Auth\Token_Keys::current_id(),
+            'ids'     => \Easy_MCP_AI\Auth\Token_Keys::ids(),
+            'errors'  => \Easy_MCP_AI\Auth\Token_Keys::errors(),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function evaluate_token_keys( array $state ) {
+        $label = __( 'Credential hashing (token keys)', 'easy-mcp-ai' );
+        if ( $state['errors'] ) {
+            $reasons = array(
+                \Easy_MCP_AI\Auth\Token_Keys::REASON_SHORT     => __( 'shorter than 32 bytes', 'easy-mcp-ai' ),
+                \Easy_MCP_AI\Auth\Token_Keys::REASON_DUPLICATE => __( 'same key ID as an earlier entry', 'easy-mcp-ai' ),
+                \Easy_MCP_AI\Auth\Token_Keys::REASON_MALFORMED => __( 'not a string', 'easy-mcp-ai' ),
+            );
+            $rejected = array();
+            foreach ( $state['errors'] as $error ) {
+                $rejected[] = $error['id'] . ' (' . ( $reasons[ $error['reason'] ] ?? $error['reason'] ) . ')';
+            }
+            $detail = sprintf(
+                /* translators: %s: rejected token key entries, by position in the list, never values. */
+                __( 'These token key entries were rejected: %s. Credentials issued under a rejected key are refused.', 'easy-mcp-ai' ),
+                implode( ', ', $rejected )
+            );
+            if ( '' === $state['current'] ) {
+                $detail .= ' ' . __( 'The first entry is the one rejected, so no current key is usable and new credentials are hashed with plain sha256.', 'easy-mcp-ai' );
+            }
+            return Diagnostic_Result::warn(
+                'f12', Diagnostic_Result::TIER_WARNING, $label,
+                $detail,
+                __( 'Correct the EASY_MCP_AI_TOKEN_KEYS value (wp-config.php, environment or the easy_mcp_ai_token_keys filter): every secret needs at least 32 bytes, and a duplicate means the same secret is listed twice or a new secret has to be generated again.', 'easy-mcp-ai' ),
+                $state
+            );
+        }
+        if ( '' === $state['current'] ) {
+            return Diagnostic_Result::pass( 'f12', Diagnostic_Result::TIER_INFO, $label, __( 'Credential hashing: sha256 (default)', 'easy-mcp-ai' ), $state );
+        }
+        /* translators: %s: token key ID. */
+        $detail  = sprintf( __( 'Credential hashing: HMAC, current key %s', 'easy-mcp-ai' ), $state['current'] );
+        $retired = array_values( array_diff( $state['ids'], array( $state['current'] ) ) );
+        if ( $retired ) {
+            /* translators: %s: token key IDs. */
+            $detail .= sprintf( __( ', still accepting %s', 'easy-mcp-ai' ), implode( ', ', $retired ) );
+        }
+        return Diagnostic_Result::pass( 'f12', Diagnostic_Result::TIER_INFO, $label, $detail, $state );
+    }
+
+    
+    public static function deployment_configuration() {
+        $controlled = \Easy_MCP_AI\Config::controlled();
+        $invalid = \Easy_MCP_AI\Config_Admin::invalid_settings();
+        $label = __( 'Deployment-controlled settings', 'easy-mcp-ai' );
+        if ( $invalid ) {
+            return Diagnostic_Result::warn(
+                'f11', Diagnostic_Result::TIER_INFO, $label,
+                implode( ', ', $invalid ),
+                __( 'Correct the invalid deployment settings. Safe fallback values are in use.', 'easy-mcp-ai' ),
+                array( 'controlled' => $controlled, 'invalid' => $invalid )
+            );
+        }
+        return Diagnostic_Result::pass( 'f11', Diagnostic_Result::TIER_INFO, $label, implode( ', ', array_keys( $controlled ) ), $controlled );
     }
 
     
@@ -73,7 +151,7 @@ class Check_Config {
                 'f1',
                 Diagnostic_Result::TIER_INFO,
                 $label,
-                __( 'Off. New AI clients cannot register themselves; each one must be added manually under OAuth Clients.', 'easy-mcp-ai' ),
+                __( 'Off. New AI clients cannot register themselves, and none can be added by hand; connections that already exist keep working.', 'easy-mcp-ai' ),
                 array( 'dcr_enabled' => false )
             );
         }
@@ -118,7 +196,7 @@ class Check_Config {
                     (int) $active,
                     (int) $max
                 ),
-                __( 'Raise the client cap, or remove clients you no longer use under OAuth Clients.', 'easy-mcp-ai' ),
+                __( 'Raise the client cap, or revoke clients you no longer use under Easy MCP AI → Connections → OAuth → Registered clients.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -148,7 +226,7 @@ class Check_Config {
             return (string) \Easy_MCP_AI\OAuth\Authorization_Endpoint::resolved_min_capability();
         }
 
-        $stored = \get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        $stored = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
         if ( ! is_string( $stored ) || ! in_array( $stored, array( 'publish_posts', 'edit_others_posts', 'manage_options' ), true ) ) {
             $stored = 'publish_posts';
         }
@@ -187,7 +265,7 @@ class Check_Config {
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 __( 'The rate limit is set to 0 calls per minute, which refuses every call an AI client makes rather than allowing unlimited calls.', 'easy-mcp-ai' ),
-                __( 'Set the rate limit in Settings to a positive number — the default of 60 suits most sites.', 'easy-mcp-ai' ),
+                __( 'Set the rate limit under Easy MCP AI → Settings → Access & safety to a positive number — the default of 60 suits most sites.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -202,7 +280,7 @@ class Check_Config {
                     __( 'Set to %d calls per minute. AI clients send bursts of calls, so a limit this low makes them fail intermittently for no visible reason.', 'easy-mcp-ai' ),
                     (int) $per_minute
                 ),
-                __( 'Raise the rate limit in Settings — the default of 60 suits most sites.', 'easy-mcp-ai' ),
+                __( 'Raise the rate limit under Easy MCP AI → Settings → Access & safety — the default of 60 suits most sites.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -273,7 +351,7 @@ class Check_Config {
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 implode( ' ', $parts ),
-                __( 'Issue a replacement token under API Tokens and update it in your AI client.', 'easy-mcp-ai' ),
+                __( 'Issue a replacement token under Easy MCP AI → Connections → API tokens and update it in your AI client.', 'easy-mcp-ai' ),
                 $evidence
             );
         }
@@ -335,7 +413,7 @@ class Check_Config {
             Diagnostic_Result::TIER_BLOCKER,
             $label,
             __( 'Every API token and OAuth grant on this site has expired or been revoked, so no AI client can connect.', 'easy-mcp-ai' ),
-            __( 'Create a new API token under API Tokens, or reconnect your AI client to issue a fresh OAuth grant.', 'easy-mcp-ai' ),
+            __( 'Create a new API token under Easy MCP AI → Connections → API tokens, or reconnect your AI client to issue a fresh OAuth grant.', 'easy-mcp-ai' ),
             $evidence
         );
     }
@@ -390,7 +468,7 @@ class Check_Config {
     
 
     private static function option_bool( $name, $default ) {
-        return (bool) \get_option( $name, $default );
+        return (bool) \Easy_MCP_AI\Config::get( $name, $default );
     }
 
     

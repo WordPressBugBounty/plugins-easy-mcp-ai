@@ -133,6 +133,18 @@ class Diagnostics {
 
 
 
+    public static function has_registered_checks() {
+        return ! empty( self::$checks );
+    }
+
+    
+
+
+
+
+
+
+
 
 
 

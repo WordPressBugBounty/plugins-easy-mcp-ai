@@ -3,7 +3,7 @@
  * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
  * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 243 tools. Free.
- * Version:     1.7.18
+ * Version:     2.0.0
  * Author:      EasyMCPAI
  * Author URI:  https://easymcpai.com/
  * License:     GPL-2.0-or-later
@@ -237,7 +237,7 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     unset( $easy_mcp_ai_req, $easy_mcp_ai_own );
 }
 
-define( 'EASY_MCP_AI_VERSION', '1.7.18' );
+define( 'EASY_MCP_AI_VERSION', '2.0.0' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -277,11 +277,14 @@ Easy_MCP_AI\Plugin::instance();
 add_filter(
     'plugin_action_links_' . EASY_MCP_AI_PLUGIN_BASENAME,
     function ( $links ) {
+        if ( \Easy_MCP_AI\Config::get( 'hide_admin' ) ) {
+            return $links;
+        }
         $prepend = array(
             'dashboard' => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai' ) ) . '">' . esc_html__( 'Getting Started', 'easy-mcp-ai' ) . '</a>',
-            'plugins'   => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-plugin-integrations' ) ) . '">' . esc_html__( 'Plugin', 'easy-mcp-ai' ) . '</a>',
-            'abilities'      => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-abilities' ) ) . '">' . esc_html__( 'Abilities', 'easy-mcp-ai' ) . '</a>',
-            'external_data'  => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-external-data' ) ) . '">' . esc_html__( 'External Data', 'easy-mcp-ai' ) . '</a>',
+            'plugins'   => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tools&section=plugins' ) ) . '">' . esc_html__( 'Plugin', 'easy-mcp-ai' ) . '</a>',
+            'abilities'      => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tools&section=abilities' ) ) . '">' . esc_html__( 'Abilities', 'easy-mcp-ai' ) . '</a>',
+            'external_data'  => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-tools&section=external' ) ) . '">' . esc_html__( 'External Data', 'easy-mcp-ai' ) . '</a>',
         );
         $append = array(
             'settings' => '<a href="' . esc_url( admin_url( 'admin.php?page=easy-mcp-ai-settings' ) ) . '">' . esc_html__( 'Settings', 'easy-mcp-ai' ) . '</a>',
@@ -293,7 +296,7 @@ add_filter(
 add_filter(
     'plugin_row_meta',
     function ( $links, $file ) {
-        if ( EASY_MCP_AI_PLUGIN_BASENAME !== $file ) {
+        if ( EASY_MCP_AI_PLUGIN_BASENAME !== $file || \Easy_MCP_AI\Config::get( 'hide_admin' ) ) {
             return $links;
         }
         $links[] = '<a href="https://wordpress.org/support/plugin/easy-mcp-ai/reviews/" target="_blank" rel="noopener">' . esc_html__( 'Rate Plugin', 'easy-mcp-ai' ) . '</a>';

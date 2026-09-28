@@ -16,6 +16,11 @@ wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_audit_log' );
 wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_oauth' );
 wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_new_token_meta' );
 wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_change_log' );
+wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_tasks' );
+wp_unschedule_hook( 'easy_mcp_ai_task_tick' ); 
+if ( function_exists( 'as_unschedule_all_actions' ) && class_exists( 'ActionScheduler', false ) && ActionScheduler::is_initialized() ) {
+    as_unschedule_all_actions( 'easy_mcp_ai_task_tick' ); 
+}
 
 
 
@@ -26,6 +31,12 @@ Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::remove( Easy_MCP_AI\Diagnostics\Htac
 
 $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
     'easy_mcp_ai_db_version',
+    'easy_mcp_ai_token_schema_version',
+    'easy_mcp_ai_self_service_keys',
+    'easy_mcp_ai_self_service_max_keys',
+    'easy_mcp_ai_self_service_max_expiry_days',
+    'easy_mcp_ai_paused',                  
+    'easy_mcp_ai_setup_complete',          
     'easy_mcp_ai_rate_limit_per_minute',
     'easy_mcp_ai_session_ttl_minutes',  
     'easy_mcp_ai_cors_origins',         
@@ -49,6 +60,7 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_oauth_dcr_enabled',       
     'easy_mcp_ai_oauth_max_clients',       
     'easy_mcp_ai_oauth_client_retention',  
+    'easy_mcp_ai_oauth_site_host',         
     'easy_mcp_ai_gsc_service_account_json', 
     'easy_mcp_ai_gsc_default_site_url',     
     'easy_mcp_ai_disabled_gsc_tools',       
@@ -67,7 +79,14 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_disabled_ahrefs_tools',    
     'easy_mcp_ai_ahrefs_enabled',           
     'easy_mcp_ai_ahrefs_api_key',           
+    'easy_mcp_ai_external_data_balances',   
     'easy_mcp_ai_change_log_db_version',    
+    'easy_mcp_ai_tasks_db_version',         
+    'easy_mcp_ai_tasks_tick_budget_seconds', 
+    'easy_mcp_ai_tasks_retention_days',     
+    'easy_mcp_ai_tasks_background',         
+    'easy_mcp_ai_tasks_max_per_credential', 
+    'easy_mcp_ai_tasks_max_concurrent_ticks', 
     'easy_mcp_ai_change_log_retention',     
     'easy_mcp_ai_change_log_enabled',       
     'easy_mcp_ai_change_log_option_mode',   
@@ -109,6 +128,8 @@ if ( is_multisite() ) {
         wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_oauth' );
         wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_new_token_meta' );
         wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_change_log' );
+        wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_tasks' );
+        wp_unschedule_hook( 'easy_mcp_ai_task_tick' );
         
         $easy_mcp_ai_admin_role = get_role( 'administrator' );
         if ( $easy_mcp_ai_admin_role ) {
@@ -122,6 +143,7 @@ if ( is_multisite() ) {
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_consents" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_device_codes" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_change_log" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
+        $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_tasks" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
         
         
         delete_transient( 'easy_mcp_ai_change_log_object_types' );
@@ -165,6 +187,7 @@ if ( is_multisite() ) {
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_consents" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_oauth_device_codes" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_change_log" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}easy_mcp_ai_tasks" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Intentional schema drop on uninstall.
 
     
 

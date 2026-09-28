@@ -14,7 +14,7 @@ class List_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WordPress media library items. Optional filters: `search`, `media_type` (filter by type: image/video/audio/application), `mime_type` (e.g. "image/jpeg", "image/png", "application/pdf"), `author` (uploader user ID), `author_exclude` (array of user IDs to exclude), `after` / `before` (ISO 8601 date-time range on upload date), `per_page` (max 100, default 10), `page`, `orderby` (date/id/title/modified — default date), `order` (asc/desc). Returns { media: [{ id, title, alt_text, mime_type, media_type, source_url, date }], total, total_pages, page, per_page }.';
+        return 'Lists WordPress media library items. Optional filters: `search`, `media_type` (filter by type: image/video/audio/application), `mime_type` (e.g. "image/jpeg", "image/png", "application/pdf"), `author` (uploader user ID), `author_exclude` (array of user IDs to exclude), `after` / `before` (ISO 8601 date-time range on upload date), `taxonomy_filters` (object: taxonomy slug → array of term IDs, e.g. {"mlo-category": [12]} to list a media folder; only taxonomies registered on attachments and exposed in the REST API are accepted — discover them with `wp_get_taxonomies`, their terms with `wp_list_terms`), `taxonomy_exclude` (same shape, excludes items in those terms), `taxonomy_relation` (AND/OR across taxonomies, default AND), `per_page` (max 100, default 10), `page`, `orderby` (date/id/title/modified — default date), `order` (asc/desc). Returns { media: [{ id, title, alt_text, mime_type, media_type, source_url, date, terms: { "<taxonomy slug>": [term IDs] } }], total, total_pages, page, per_page }. `terms` is empty when no attachment taxonomy is exposed in the REST API.';
     }
 
     public function get_category() {
@@ -80,6 +80,20 @@ class List_Media extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Only media uploaded on or before this ISO 8601 date-time (e.g. "2026-12-31T23:59:59").',
                 ),
+                'taxonomy_filters' => array(
+                    'type'        => 'object',
+                    'description' => 'Only items assigned to these terms: an object keyed by taxonomy slug whose values are arrays of term IDs, e.g. {"mlo-category": [12, 15]}. Only taxonomies registered on attachments and exposed in the REST API are accepted; a JSON string of the same object is also accepted.',
+                ),
+                'taxonomy_exclude' => array(
+                    'type'        => 'object',
+                    'description' => 'Exclude items assigned to these terms; same shape as taxonomy_filters.',
+                ),
+                'taxonomy_relation' => array(
+                    'type'        => 'string',
+                    'description' => 'How multiple taxonomies in taxonomy_filters combine.',
+                    'enum'        => array( 'AND', 'OR' ),
+                    'default'     => 'AND',
+                ),
                 'orderby'    => array(
                     'type'        => 'string',
                     'description' => 'Field to order results by.',
@@ -138,6 +152,32 @@ class List_Media extends Base_Tool {
             $params['order'] = $arguments['order'];
         }
 
+        
+        
+        
+        
+        $taxonomies = $this->rest_taxonomies_for( 'attachment' );
+
+        if ( ! empty( $arguments['taxonomy_filters'] ) ) {
+            foreach ( $this->parse_taxonomy_filter( $arguments['taxonomy_filters'], 'taxonomy_filters', $taxonomies ) as $rest_base => $ids ) {
+                $params[ $rest_base ] = $ids;
+            }
+        }
+
+        if ( ! empty( $arguments['taxonomy_exclude'] ) ) {
+            foreach ( $this->parse_taxonomy_filter( $arguments['taxonomy_exclude'], 'taxonomy_exclude', $taxonomies ) as $rest_base => $ids ) {
+                $params[ $rest_base . '_exclude' ] = $ids;
+            }
+        }
+
+        if ( ! empty( $arguments['taxonomy_relation'] ) ) {
+            $relation = strtoupper( (string) $arguments['taxonomy_relation'] );
+            if ( ! in_array( $relation, array( 'AND', 'OR' ), true ) ) {
+                throw new \InvalidArgumentException( 'taxonomy_relation must be AND or OR.' );
+            }
+            $params['tax_relation'] = $relation;
+        }
+
         $request = new \WP_REST_Request( 'GET', '/wp/v2/media' );
         foreach ( $params as $key => $value ) {
             $request->set_param( $key, $value );
@@ -169,6 +209,7 @@ class List_Media extends Base_Tool {
                 'alt_text'   => $item['alt_text'] ?? '',
                 'date'       => $item['date'],
                 'media_type' => $item['media_type'],
+                'terms'      => $this->item_taxonomy_terms( $item, $taxonomies ),
             );
         }
 

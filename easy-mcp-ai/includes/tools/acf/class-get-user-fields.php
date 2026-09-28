@@ -8,13 +8,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class Get_User_Fields extends Base_Tool {
+    use Acf_Rest_Tool;
 
     public function get_name() {
         return 'wp_acf_get_user_fields';
     }
 
     public function get_description() {
-        return 'Gets ACF (Advanced Custom Fields) field values attached to a WordPress user. Field groups must have "Show in REST API" enabled and location rules targeting Users.';
+        return 'Gets ACF (Advanced Custom Fields) field values attached to a WordPress user. Field groups need location rules targeting Users; groups with "Show in REST API" off are included when you can edit that user.';
     }
 
     public function get_category() {
@@ -40,14 +41,9 @@ class Get_User_Fields extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
-        if ( ! class_exists( 'ACF' ) ) {
-            throw new \RuntimeException( 'Advanced Custom Fields (ACF) is not active on this site. Note: Secure Custom Fields (SCF) uses the same ACF class name so this check covers both.' );
-        }
+        $this->require_acf();
         $user_id = $this->parse_required_id( $arguments['user_id'] ?? null, 'user_id' );
-        $data    = $this->rest_request( 'GET', '/wp/v2/users/' . $user_id );
-        return array(
-            'user_id'    => $user_id,
-            'acf_fields' => $data['acf'] ?? array(),
-        );
+        return array( 'user_id' => $user_id )
+            + $this->acf_read( 'user', $user_id, '/wp/v2/users/' . $user_id );
     }
 }

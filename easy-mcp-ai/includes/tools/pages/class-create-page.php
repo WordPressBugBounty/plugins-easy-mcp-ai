@@ -14,7 +14,7 @@ class Create_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed), `ping_status` (open/closed). If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Returns { id, title, status, link }.';
+        return 'Creates a new WordPress page. Required: `title`. Optional: `content` (HTML/Gutenberg blocks; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future — default draft; use "future" with `date` to schedule), `date` (ISO 8601), `excerpt`, `parent` (parent page ID — 0 = top-level; pages support hierarchical nesting), `template` (theme template file slug), `menu_order` (integer, for ordering), `slug`, `author` (user ID), `featured_media` (attachment ID), `comment_status` (open/closed), `ping_status` (open/closed). If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link }.';
     }
 
     public function get_category() {
@@ -94,6 +94,10 @@ class Create_Page extends Base_Tool {
                     'description' => 'Whether pingbacks/trackbacks are open or closed.',
                     'enum'        => array( 'open', 'closed' ),
                 ),
+                'meta'           => array(
+                    'type'        => 'object',
+                    'description' => 'Meta key-value pairs to set. Only keys registered for the REST API persist, including the SEO keys of enabled plugin integrations (Rank Math, Yoast, SEOPress, The SEO Framework — see wp_update_post_meta for the list on this site); dropped keys are reported back as meta_ignored.',
+                ),
             ),
             'required'   => array( 'title' ),
         );
@@ -162,6 +166,8 @@ class Create_Page extends Base_Tool {
             $params['ping_status'] = sanitize_text_field( $arguments['ping_status'] );
         }
 
+        $meta_sent = $this->apply_meta_argument( $arguments, $params );
+
         if ( isset( $params['status'] ) && 'future' === $params['status'] && empty( $params['date'] ) ) {
             throw new \InvalidArgumentException( 'The "date" field is required when status is "future".' );
         }
@@ -171,13 +177,18 @@ class Create_Page extends Base_Tool {
         
         
         
-        $data = $this->rest_request( 'POST', '/wp/v2/pages', $params, 'id,title,status,link' );
+        $data = $this->rest_request( 'POST', '/wp/v2/pages', $params, 'id,title,status,link' . ( $meta_sent ? ',meta' : '' ) );
 
-        return array(
+        $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
             'status' => $data['status'],
             'link'   => $data['link'],
         );
+        if ( $meta_sent ) {
+            $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], isset( $data['meta'] ) ? $data['meta'] : array() ) );
+        }
+
+        return $result;
     }
 }

@@ -26,6 +26,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 
+require_once __DIR__ . '/class-config.php';
+
 class Client_IP {
 
     
@@ -239,7 +241,7 @@ class Client_IP {
 
 
     public static function trusted_proxies(): array {
-        $raw     = defined( self::CONSTANT_TRUSTED_PROXIES ) ? constant( self::CONSTANT_TRUSTED_PROXIES ) : '';
+        $raw     = Config::get( 'trusted_proxies' );
         $entries = self::parse_trusted_proxies( $raw );
 
         
@@ -294,7 +296,7 @@ class Client_IP {
 
 
     public static function header_name(): string {
-        $raw  = defined( self::CONSTANT_HEADER ) ? constant( self::CONSTANT_HEADER ) : self::HEADER_DEFAULT;
+        $raw  = Config::get( 'client_ip_header' );
         $name = self::sanitize_header_name( $raw );
 
         

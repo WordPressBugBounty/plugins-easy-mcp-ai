@@ -39,7 +39,7 @@ class Get_Message_Thread extends Base_Tool {
             'type'       => 'object',
             'properties' => array(
                 'id' => array(
-                    'type' => 'integer',
+                    'description' => 'The message thread ID (from wp_bp_list_message_threads).', 'type' => 'integer',
                 ),
             ),
             'required'   => array( 'id' ),

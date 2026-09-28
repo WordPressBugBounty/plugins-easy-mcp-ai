@@ -13,7 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Transport {
     const NAMESPACE_V1     = 'easy-mcp-ai/v1';
     const ROUTE            = '/mcp';
-    const ROUTE_WITH_KEY   = '/mcp/(?P<api_key>wpmcp_[a-f0-9]{64})';
+    
+    const ROUTE_WITH_KEY   = '/mcp/(?P<api_key>wpmcp_(?:[a-f0-9]{6}_)?[a-f0-9]{64})';
     const MAX_BATCH_SIZE   = 20;
 
     private $server;
@@ -117,6 +118,13 @@ class Transport {
         
         
         \add_filter( 'rest_allowed_cors_headers', array( $this, 'filter_cors_allowed_headers' ), 10, 2 );
+
+        
+        
+        
+        
+        
+        \add_filter( 'rest_pre_serve_request', array( $this, 'serve_listen_stream' ), 10, 4 );
     }
 
     
@@ -347,6 +355,11 @@ class Transport {
                 $auth_source_for_request = 'oauth';
             }
         }
+        
+        
+        
+        
+        $oauth_verdict = $result;
         if ( null === $token_id ) {
             $auth   = new Token_Auth( $this->token_manager );
             $result = $auth->authenticate( $request );
@@ -378,6 +391,30 @@ class Transport {
             $ip        = class_exists( '\\Easy_MCP_AI\\Client_IP' )
                 ? (string) \Easy_MCP_AI\Client_IP::get()
                 : trim( explode( ',', isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' )[0] );
+
+            
+            
+            
+            
+            
+            
+            
+            
+            if ( $this->is_site_mismatch( $result ) ) {
+                $this->server->log_auth_failure( $ip, Token_Manager::ERROR_SITE_MISMATCH, $this->site_mismatch_identity( $result ) );
+                return $this->make_unauthorized_response( null, 401, 'invalid_token', self::SITE_MISMATCH_DESCRIPTION );
+            }
+            
+            
+            
+            
+            
+            
+            
+            if ( $this->is_invalid_audience( $oauth_verdict ) ) {
+                $this->server->log_auth_failure( $ip, OAuth_Token_Validator::ERROR_INVALID_AUDIENCE, $this->invalid_audience_identity( $oauth_verdict ) );
+                return $this->make_unauthorized_response( null, 401, 'invalid_token' );
+            }
             $cache_key = 'easy_mcp_ai_auth_fail_' . md5( $ip );
 
             
@@ -588,11 +625,76 @@ class Transport {
         } finally {
             $this->server->clear_request_identity();
         }
+        if ( 'subscriptions/listen' === $method && isset( $body['result'] ) ) {
+            return $this->listen_stream_response( $id, $body );
+        }
         $status = isset( $body['error']['code'] ) && Error_Codes::METHOD_NOT_FOUND === $body['error']['code'] ? 404 : 200;
         $response = new \WP_REST_Response( $body, $status );
         $response->header( 'Cache-Control', 'no-store, private' );
         $this->add_cors_headers( $response );
         return $response;
+    }
+
+    
+
+
+
+
+    private $listen_streams = array();
+
+    
+
+
+
+
+
+
+
+    private function listen_stream_response( $id, $body ) {
+        $response = new \WP_REST_Response( $body, 200 );
+        $response->header( 'Content-Type', 'text/event-stream; charset=utf-8' );
+        $response->header( 'Cache-Control', 'no-store, private' );
+        
+        
+        
+        $response->header( 'X-Accel-Buffering', 'no' );
+        $this->add_cors_headers( $response );
+        $this->listen_streams[ spl_object_id( $response ) ] = array(
+            'response' => $response,
+            'body'     => self::render_listen_stream( $id, $body ),
+        );
+        return $response;
+    }
+
+    
+
+
+
+
+    public static function render_listen_stream( $id, $body ) {
+        $events = '';
+        foreach ( array( Server::subscriptions_acknowledged( $id ), $body ) as $message ) {
+            $events .= "event: message\ndata: " . \wp_json_encode( $message ) . "\n\n";
+        }
+        return $events;
+    }
+
+    
+
+
+
+
+    public function serve_listen_stream( $served, $result, $request = null, $server = null ) {
+        if ( $served || ! is_object( $result ) || ! isset( $this->listen_streams[ spl_object_id( $result ) ] ) ) {
+            return $served;
+        }
+        $stream = $this->listen_streams[ spl_object_id( $result ) ];
+        if ( $stream['response'] !== $result ) {
+            return $served;
+        }
+        unset( $this->listen_streams[ spl_object_id( $result ) ] );
+        echo $stream['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SSE frames of wp_json_encode() output.
+        return true;
     }
 
     private function process_single_message( $message, $token_id, $wp_user_id, $request, $batch_revalidated = null, $allowed_tools = null, $auth_source = null, $oauth_client_id = null ) {
@@ -857,6 +959,12 @@ class Transport {
                 $token_id          = $legacy_result['token_id'];
                 $auth_source       = 'legacy';
                 $delete_wp_user_id = isset( $legacy_result['wp_user_id'] ) ? (int) $legacy_result['wp_user_id'] : 0;
+            } elseif ( $this->is_site_mismatch( $legacy_result ) ) {
+                
+                
+                $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? (string) \Easy_MCP_AI\Client_IP::get() : '';
+                $this->server->log_auth_failure( $ip, Token_Manager::ERROR_SITE_MISMATCH, $this->site_mismatch_identity( $legacy_result ) );
+                return $this->make_unauthorized_response( null, 401, 'invalid_token', self::SITE_MISMATCH_DESCRIPTION );
             }
         }
         if ( null === $token_id ) {
@@ -1285,7 +1393,7 @@ class Transport {
 
 
     private function is_oauth_available() {
-        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             return false;
         }
         $file = EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-validator.php';
@@ -1362,7 +1470,7 @@ class Transport {
     private function ip_refusal_log_budget_allows( $auth_source, $token_id ) {
         
         
-        $limit = (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', 60 );
         if ( $limit < 1 ) {
             $limit = 60;
         }
@@ -1386,7 +1494,44 @@ class Transport {
 
 
 
-    private function make_unauthorized_response( $data, $http_status = 401, $error_code = null ) {
+    
+
+
+
+    const SITE_MISMATCH_DESCRIPTION = 'The API key is bound to another site';
+
+    
+    private function is_site_mismatch( $result ) {
+        return \is_wp_error( $result ) && Token_Manager::ERROR_SITE_MISMATCH === $result->get_error_code();
+    }
+
+    
+    private function is_invalid_audience( $result ) {
+        return \is_wp_error( $result ) && OAuth_Token_Validator::ERROR_INVALID_AUDIENCE === $result->get_error_code();
+    }
+
+    
+    private function invalid_audience_identity( \WP_Error $result ) {
+        $data = (array) $result->get_error_data();
+        return array(
+            'auth_source'     => 'oauth',
+            'token_id'        => isset( $data['token_id'] ) ? (int) $data['token_id'] : 0,
+            'wp_user_id'      => isset( $data['wp_user_id'] ) ? (int) $data['wp_user_id'] : 0,
+            'oauth_client_id' => isset( $data['client_id'] ) ? (string) $data['client_id'] : null,
+        );
+    }
+
+    
+    private function site_mismatch_identity( \WP_Error $result ) {
+        $data = (array) $result->get_error_data();
+        return array(
+            'auth_source' => 'legacy',
+            'token_id'    => isset( $data['token_id'] ) ? (int) $data['token_id'] : 0,
+            'wp_user_id'  => isset( $data['wp_user_id'] ) ? (int) $data['wp_user_id'] : 0,
+        );
+    }
+
+    private function make_unauthorized_response( $data, $http_status = 401, $error_code = null, $error_description = 'The access token is invalid or expired' ) {
         $response = new \WP_REST_Response( $data, $http_status );
 
         
@@ -1398,7 +1543,7 @@ class Transport {
             
             
             $params[] = 'error="' . $error_code . '"';
-            $params[] = 'error_description="The access token is invalid or expired"';
+            $params[] = 'error_description="' . $error_description . '"';
         }
         if ( $this->is_oauth_available() ) {
             

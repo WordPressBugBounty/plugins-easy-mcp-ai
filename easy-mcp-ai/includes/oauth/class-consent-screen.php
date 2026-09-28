@@ -39,6 +39,7 @@ class Consent_Screen {
 
 
 
+
     public static function render( $client, $user, $scope, array $request_params, $script_nonce = '', array $options = array() ) {
 
         $client_name       = isset( $client->client_name ) ? $client->client_name : __( 'Unknown Application', 'easy-mcp-ai' );
@@ -62,6 +63,19 @@ class Consent_Screen {
         $nonce_action  = isset( $options['nonce_action'] ) ? (string) $options['nonce_action'] : 'easy_mcp_ai_oauth_consent_' . $client_id;
         $context_label = isset( $options['context_label'] ) ? (string) $options['context_label'] : __( 'Redirects to:', 'easy-mcp-ai' );
         $context_value = isset( $options['context_value'] ) ? (string) $options['context_value'] : (string) $redirect_host;
+        $notice        = isset( $options['notice'] ) ? (string) $options['notice'] : '';
+
+        
+        
+        
+        $ceiling      = ! empty( $scope_list ) ? $scope_list : array_values( array_filter( explode( ' ', $default_scope ) ) );
+        $ceiling_all  = in_array( 'mcp', $ceiling, true );
+        $level_scopes = array(
+            'read' => $ceiling_all ? Scope_Map::get_read_scopes() : array_values( array_intersect( Scope_Map::get_read_scopes(), $ceiling ) ),
+            'full' => $ceiling_all ? array( 'mcp' ) : array(),
+        );
+        $default_level  = $ceiling_all ? 'full' : 'custom';
+        $checked_scopes = $ceiling;
 
         
         $template_vars = array(
@@ -82,6 +96,12 @@ class Consent_Screen {
             'nonce_action'      => $nonce_action,
             'context_label'     => $context_label,
             'context_value'     => $context_value,
+            'notice'            => $notice,
+            'ceiling'           => $ceiling,
+            'ceiling_all'       => $ceiling_all,
+            'level_scopes'      => $level_scopes,
+            'default_level'     => $default_level,
+            'checked_scopes'    => $checked_scopes,
         );
 
         

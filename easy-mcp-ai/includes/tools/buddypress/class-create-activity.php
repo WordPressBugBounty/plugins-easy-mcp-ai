@@ -39,7 +39,7 @@ class Create_Activity extends Base_Tool {
             'type'       => 'object',
             'properties' => array(
                 'content'           => array(
-                    'type' => 'string',
+                    'description' => 'The activity text to post.', 'type' => 'string',
                 ),
                 'type'              => array(
                     'type'    => 'string',

@@ -14,7 +14,7 @@ class Get_Template extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single block template by ID with full content. Requires an active block theme (Full Site Editing).';
+        return 'Gets a single block template or template part by ID with full content. `type` selects `template` (default) or `template_part` (header, footer and other reusable areas); the ID format is `theme-slug//slug` for both. Returns { id, slug, title, content, description, type, area, status, has_theme_file }; `area` is `header`, `footer` or `uncategorized` for template parts and an empty string for templates. Requires an active block theme (Full Site Editing).';
     }
 
     public function get_category() {
@@ -40,7 +40,13 @@ class Get_Template extends Base_Tool {
             'properties' => array(
                 'template_id' => array(
                     'type'        => 'string',
-                    'description' => 'The template ID (e.g. theme-slug//template-slug).',
+                    'description' => 'The template or template part ID (e.g. theme-slug//template-slug).',
+                ),
+                'type'        => array(
+                    'type'        => 'string',
+                    'description' => 'Whether `template_id` names a `template` (default) or a `template_part`.',
+                    'enum'        => array( 'template', 'template_part' ),
+                    'default'     => 'template',
                 ),
             ),
             'required'   => array( 'template_id' ),
@@ -48,8 +54,11 @@ class Get_Template extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
+        $type  = Template_Type::resolve( $arguments );
+        $label = Template_Type::label( $type );
+
         if ( ! wp_is_block_theme() ) {
-            throw new \RuntimeException( 'Templates are not available. This requires an active block theme (Full Site Editing). The current theme is a classic theme.' );
+            throw new \RuntimeException( sprintf( '%s are not available. This requires an active block theme (Full Site Editing). The current theme is a classic theme.', $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $this->validate_required( $arguments, array( 'template_id' ) );
@@ -62,7 +71,7 @@ class Get_Template extends Base_Tool {
             throw new \InvalidArgumentException( 'Invalid template_id format. Expected: theme-slug//template-slug (letters, numbers, hyphens, underscores only in each segment).' );
         }
 
-        $request = new \WP_REST_Request( 'GET', '/wp/v2/templates/' . $template_id );
+        $request = new \WP_REST_Request( 'GET', '/wp/v2/' . Template_Type::rest_base( $type ) . '/' . $template_id );
         $request->set_param( 'context', 'edit' );
 
         $response = rest_do_request( $request );
@@ -72,7 +81,7 @@ class Get_Template extends Base_Tool {
             $block_theme_codes = array( 'rest_no_route', 'rest_cannot_manage_templates' );
             if ( in_array( $wp_error->get_error_code(), $block_theme_codes, true ) ) {
                 throw new \RuntimeException(
-                    'Templates endpoint is not available. This requires an active block theme (Full Site Editing). The current theme appears to be a classic theme.'
+                    sprintf( '%s endpoint is not available. This requires an active block theme (Full Site Editing). The current theme appears to be a classic theme.', $label ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 );
             }
             throw new \RuntimeException( $wp_error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -87,6 +96,7 @@ class Get_Template extends Base_Tool {
             'content'        => $data['content']['raw'] ?? $data['content']['rendered'] ?? '',
             'description'    => $data['description'] ?? '',
             'type'           => $data['type'] ?? '',
+            'area'           => Template_Type::area_of( $data ),
             'status'         => $data['status'],
             'has_theme_file' => $data['has_theme_file'] ?? false,
         );

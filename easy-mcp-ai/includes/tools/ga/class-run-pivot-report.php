@@ -13,7 +13,7 @@ class Run_Pivot_Report extends Base_Tool {
     public function get_name() { return 'wp_ga_run_pivot_report'; }
 
     public function get_description() {
-        return 'Runs a pivot-table Analytics report. Example: countries down the rows and devices across the columns, with sessions in each cell. Provide pivots in Google-native shape — array of {fieldNames[], orderBys[], offset, limit, metricAggregations[]}. Requires a Google service-account credential configured under Easy MCP AI → External Data.';
+        return 'Runs a pivot-table Analytics report. Example: countries down the rows and devices across the columns, with sessions in each cell. Provide pivots in Google-native shape — array of {fieldNames[], orderBys[], offset, limit, metricAggregations[]}. Requires a Google service-account credential configured under Easy MCP AI → Tools → External data.';
     }
 
     public function get_category() { return 'ga'; }
@@ -49,7 +49,7 @@ class Run_Pivot_Report extends Base_Tool {
                     ),
                 ),
                 'dimensions'            => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'All dimensions referenced in any pivot.' ),
-                'metrics'               => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+                'metrics'               => array( 'description' => 'GA4 metric API names to report (e.g. activeUsers, sessions).', 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
                 'pivots'                => array( 'type' => 'array', 'items' => array( 'type' => 'object' ), 'description' => 'One Google-native Pivot object per pivot axis: {fieldNames[], orderBys[], offset, limit, metricAggregations[]}.' ),
                 'dimension_filter'      => array( 'type' => 'object' ),
                 'metric_filter'         => array( 'type' => 'object' ),

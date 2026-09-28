@@ -14,7 +14,7 @@ class Update_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and is rejected by the WordPress REST API as an internal status; to move a page to trash use `wp_delete_page`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`. Returns { id, title, status, modified, link }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
+        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future — "trash" is NOT accepted here and is rejected by the WordPress REST API as an internal status; to move a page to trash use `wp_delete_page`), `date` (ISO 8601, use with status="future" to reschedule), `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`. Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, modified, link }. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it.';
     }
 
     public function get_category() {
@@ -97,6 +97,10 @@ class Update_Page extends Base_Tool {
                     'description' => 'Whether pingbacks/trackbacks are open or closed.',
                     'enum'        => array( 'open', 'closed' ),
                 ),
+                'meta'           => array(
+                    'type'        => 'object',
+                    'description' => 'Meta key-value pairs to set. Only keys registered for the REST API persist, including the SEO keys of enabled plugin integrations (Rank Math, Yoast, SEOPress, The SEO Framework — see wp_update_post_meta for the list on this site); dropped keys are reported back as meta_ignored.',
+                ),
             ),
             'required'   => array( 'page_id' ),
         );
@@ -175,18 +179,25 @@ class Update_Page extends Base_Tool {
             $params['ping_status'] = sanitize_text_field( $arguments['ping_status'] );
         }
 
-        
-        
-        
-        
-        $data = $this->rest_request( 'PUT', '/wp/v2/pages/' . $page_id, $params, 'id,title,status,modified,link' );
+        $meta_sent = $this->apply_meta_argument( $arguments, $params );
 
-        return array(
+        
+        
+        
+        
+        $data = $this->rest_request( 'PUT', '/wp/v2/pages/' . $page_id, $params, 'id,title,status,modified,link' . ( $meta_sent ? ',meta' : '' ) );
+
+        $result = array(
             'id'       => $data['id'],
             'title'    => $data['title']['raw'] ?? $data['title']['rendered'],
             'status'   => $data['status'],
             'modified' => $data['modified'],
             'link'     => $data['link'],
         );
+        if ( $meta_sent ) {
+            $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], isset( $data['meta'] ) ? $data['meta'] : array() ) );
+        }
+
+        return $result;
     }
 }

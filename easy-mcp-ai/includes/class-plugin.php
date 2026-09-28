@@ -6,6 +6,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config.php';
+require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config-admin.php';
 require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-activator.php';
 require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-deactivator.php';
 
@@ -52,6 +54,7 @@ class Plugin {
     }
 
     private function __construct() {
+        Config_Admin::register();
         
         
         
@@ -72,6 +75,8 @@ class Plugin {
         \add_action( 'easy_mcp_ai_cleanup_oauth', array( $this, 'cleanup_oauth_storage' ) );
         \add_action( 'easy_mcp_ai_cleanup_new_token_meta', array( $this, 'cleanup_new_token_meta' ) );
         \add_action( 'easy_mcp_ai_cleanup_change_log', array( __CLASS__, 'cleanup_change_log' ) );
+        \add_action( 'easy_mcp_ai_cleanup_tasks', array( $this, 'cleanup_tasks' ) );
+        \add_action( 'easy_mcp_ai_task_tick', array( $this, 'run_task_tick' ), 10, 1 );
         
         \add_action( 'plugins_loaded', array( 'Easy_MCP_AI\Activator', 'maybe_upgrade' ) );
         \add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_oauth' ) );
@@ -85,14 +90,9 @@ class Plugin {
             
             \add_filter( 'wpmu_drop_tables', array( $this, 'on_drop_subsite_tables' ), 10, 1 );
         }
-        if ( \is_admin() && ! \wp_doing_cron() ) {
-            if ( \wp_doing_ajax() ) {
-                
-                
-                \add_action( 'init', array( $this, 'init_admin_ajax' ) );
-            } else {
-                \add_action( 'init', array( $this, 'init_admin' ) );
-            }
+        
+        if ( \is_admin() && ! \wp_doing_cron() && ! \wp_doing_ajax() ) {
+            \add_action( 'init', array( $this, 'init_admin' ) );
         }
     }
 
@@ -101,6 +101,7 @@ class Plugin {
 
     private function load_mcp_includes() {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-error-codes.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-detailed-tool-error.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-json-rpc.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-session.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-gemini-safe-schema.php';
@@ -131,72 +132,15 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-context.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-log-repository.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-audit-log-repository.php';
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-text-redactor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-recorder.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-db-interceptor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-external-intent.php';
-    }
-
-    
-
-
-
-    public function init_admin_ajax() {
         
         
-        
-        
-        
-        
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only gate to decide whether to load AJAX handler files; the actual wp_ajax_* handler verifies its own nonce via check_ajax_referer().
-        $action = isset( $_REQUEST['action'] ) ? \sanitize_key( \wp_unslash( $_REQUEST['action'] ) ) : '';
-
-        
-        
-        
-        
-        static $external_data_actions = array(
-            'easy_mcp_ai_gsc_test',
-            'easy_mcp_ai_ga_test',
-            'easy_mcp_ai_dfs_test',
-            'easy_mcp_ai_dfs_refresh_balance',
-            'easy_mcp_ai_semrush_test',
-            'easy_mcp_ai_semrush_refresh_balance',
-            'easy_mcp_ai_seranking_test',
-            'easy_mcp_ai_seranking_refresh_balance',
-            'easy_mcp_ai_ahrefs_test',
-        );
-        if ( in_array( $action, $external_data_actions, true ) ) {
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/gsc/class-gsc-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ga/class-ga-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/dfs/class-dataforseo-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/semrush/class-semrush-validators.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/seranking/class-seranking-validators.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/ahrefs/class-ahrefs-client.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
-            new Admin\External_Data_Admin();
-            return;
-        }
-
-        
-        
-        
-        
-        
-        
-        
-        if ( 'easy_mcp_ai_get_changes_for_audit' === $action ) {
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-manager.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-base-tool.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-registry.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integration-registry.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integrations-page.php';
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-admin-page.php';
-            new Admin\Admin_Page( new Auth\Token_Manager(), new Tools\Tool_Registry() );
-            return;
-        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/meta/class-meta-field-provider.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/meta/class-meta-exposure.php';
     }
 
     public function init_admin() {
@@ -211,27 +155,18 @@ class Plugin {
         
         
         
-        
-        
-        
         if ( $this->is_plugin_admin_screen() ) {
             $this->register_tools();
         }
+        
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-admin-page.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-abilities-page.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-external-data-admin.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integration-registry.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-plugin-integrations-page.php';
-        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-history-settings-page.php';
-        new Admin\Admin_Page( $this->token_manager, $this->tool_registry );
-        new Admin\Abilities_Page();
-        new Admin\External_Data_Admin();
-        ( new Admin\History_Settings_Page() )->register();
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-app-page.php';
+        new Admin\App_Page();
+
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-self-service-keys.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-authorization-endpoint.php';
+        new Admin\Self_Service_Keys( $this->token_manager, $this->tool_registry );
         $this->register_diagnostics();
-        if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
-            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-oauth-admin.php';
-            new Admin\OAuth_Admin();
-        }
     }
 
     
@@ -261,18 +196,15 @@ class Plugin {
         
         
         
-        
         require_once $dir . 'class-diagnostic-result.php';
         require_once $dir . 'class-diagnostics.php';
         require_once $dir . 'class-check-notices.php';
-        require_once $dir . 'class-diagnostics-notices.php';
         require_once $dir . 'class-diagnostics-site-health.php';
 
         
         
         
         Diagnostics\Diagnostics::register_core_checks( $this->tool_registry );
-        Diagnostics\Diagnostics_Notices::register();
         Diagnostics\Diagnostics_Site_Health::register();
 
         
@@ -328,7 +260,7 @@ class Plugin {
             return;
         }
 
-        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             return;
         }
 
@@ -600,7 +532,7 @@ class Plugin {
         if ( 'authorize' !== $oauth_param && 'device' !== $oauth_param ) {
             return;
         }
-        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             return;
         }
         
@@ -712,7 +644,29 @@ class Plugin {
             }
             $code    = \esc_html( $response->get_error_code() );
             $message = \esc_html( $response->get_error_message() );
-            echo '<!DOCTYPE html><html><body><p>' . $code . ': ' . $message . '</p></body></html>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- already escaped above.
+            $title   = \esc_html__( 'Authorization Error', 'easy-mcp-ai' );
+
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-console-styles.php';
+            $site = \esc_html( Console_Styles::site_label() );
+
+            // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- every interpolated value is escaped above; the stylesheet is plugin-owned (Console_Styles::inline()).
+            echo '<!DOCTYPE html><html lang="' . \esc_attr( \get_locale() ) . '"><head>'
+                . '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+                . '<meta name="robots" content="noindex, nofollow">'
+                . '<title>' . $title . ' &mdash; ' . $site . '</title>'
+                . Console_Styles::inline()
+                . '</head><body class="emcp-page">'
+                . '<div class="emcp-shell emcp-shell--narrow">'
+                . '<div class="emcp-topbar">' . Console_Styles::logo()
+                . '<h1 class="emcp-topbar__title">' . $title . '</h1>'
+                . Console_Styles::site_name() . '</div>'
+                . '<div class="emcp-body"><div class="emcp-notice emcp-notice--error">'
+                . '<p class="emcp-notice__title"><code class="emcp-mono">' . $code . '</code></p>'
+                . '<p>' . $message . '</p>'
+                . '</div></div></div>'
+                . '<p class="emcp-pagenote"><span class="emcp-dot"></span>' . \esc_html__( 'Powered by Easy MCP AI', 'easy-mcp-ai' ) . '</p>'
+                . '</body></html>';
+            // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
             return;
         }
 
@@ -773,6 +727,10 @@ class Plugin {
         
         
         Activator::maybe_upgrade_core_tables();
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tasks/class-task-schema.php';
+        \Easy_MCP_AI\Tasks\Task_Schema::maybe_upgrade();
 
 
         $this->token_manager     = new Auth\Token_Manager();
@@ -786,7 +744,14 @@ class Plugin {
         
         
         
-        if ( \get_option( 'easy_mcp_ai_change_log_enabled', true ) ) {
+        
+        
+        
+
+        
+        
+        
+        if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true ) ) {
             $change_recorder = new \Easy_MCP_AI\History\Change_Recorder(
                 new \Easy_MCP_AI\History\Change_Log_Repository()
             );
@@ -799,7 +764,7 @@ class Plugin {
 
             
             
-            if ( \get_option( 'easy_mcp_ai_change_log_capture_db', false ) ) {
+            if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_capture_db', false ) ) {
                 $db_interceptor = new \Easy_MCP_AI\History\Change_DB_Interceptor(
                     new \Easy_MCP_AI\History\Change_Log_Repository()
                 );
@@ -809,7 +774,7 @@ class Plugin {
 
             
             
-            if ( \get_option( 'easy_mcp_ai_change_log_external_intent', true ) ) {
+            if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_external_intent', true ) ) {
                 ( new \Easy_MCP_AI\History\Change_External_Intent(
                     new \Easy_MCP_AI\History\Change_Log_Repository()
                 ) )->register();
@@ -827,7 +792,7 @@ class Plugin {
         MCP\Rest_Auth_Override::register();
 
         
-        if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+        if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
@@ -862,6 +827,13 @@ class Plugin {
             $oauth_routes = new OAuth\OAuth_Routes();
             $oauth_routes->register_routes();
         }
+
+        
+        
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/rest/class-admin-routes.php';
+        ( new Admin\Rest\Admin_Routes( $this->tool_registry ) )->register();
     }
 
     private function register_tools() {
@@ -869,7 +841,7 @@ class Plugin {
             'posts', 'pages', 'media', 'taxonomy', 'comments',
             'users', 'site', 'menus', 'plugins', 'themes',
             'revisions', 'meta', 'search', 'blocks', 'cpt', 'templates', 'styles',
-            'history', 'audit',
+            'appearance', 'widgets', 'history', 'audit', 'site-health',
         );
 
         
@@ -903,6 +875,12 @@ class Plugin {
         }
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/users/trait-user-meta-auth-guard.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/taxonomy/trait-term-meta-auth-guard.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/blocks/trait-block-tree.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/acf/trait-acf-rest-tool.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/comments/trait-comment-moderation.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/widgets/trait-widget-rest.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/plugins/trait-lifecycle-guard.php';
 
         foreach ( $tool_dirs as $dir ) {
             $tool_path = EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/' . $dir . '/';
@@ -1037,6 +1015,15 @@ class Plugin {
         $consents_table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
         $device_table   = $wpdb->prefix . 'easy_mcp_ai_oauth_device_codes';
 
+        
+        
+        
+        
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-site-move.php';
+        OAuth\OAuth_Site_Move::sweep();
+
         $i = 0;
         do {
             // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix.
@@ -1107,7 +1094,7 @@ class Plugin {
 
 
     public static function oauth_client_retention_days() {
-        $stored = \get_option( 'easy_mcp_ai_oauth_client_retention', self::DEFAULT_OAUTH_CLIENT_RETENTION );
+        $stored = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_client_retention', self::DEFAULT_OAUTH_CLIENT_RETENTION );
         if ( ! is_numeric( $stored ) ) {
             $days = self::DEFAULT_OAUTH_CLIENT_RETENTION;
         } else {
@@ -1211,6 +1198,18 @@ class Plugin {
             }
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
+
+        
+        
+        
+        
+        $tokens_table   = $wpdb->prefix . 'easy_mcp_ai_tokens';
+        $inactive_cutoff = gmdate( 'Y-m-d H:i:s', time() - 30 * DAY_IN_SECONDS );
+        $i              = 0;
+        do {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- plugin-owned table prefixed by $wpdb->prefix; batched daily sweep.
+            $deleted = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM `{$tokens_table}` WHERE is_active = 0 AND updated_at < %s LIMIT 500", $inactive_cutoff ) );
+        } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
     }
 
     
@@ -1238,9 +1237,8 @@ class Plugin {
 
 
 
-
     public static function change_log_retention_days() {
-        $stored = \get_option( 'easy_mcp_ai_change_log_retention', 30 );
+        $stored = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_retention', 30 );
         if ( ! is_numeric( $stored ) ) {
             return 30;
         }
@@ -1284,7 +1282,7 @@ class Plugin {
         
         
         
-        $stored_db_retention = \get_option( 'easy_mcp_ai_change_log_db_retention', 7 );
+        $stored_db_retention = \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_db_retention', 7 );
         $db_retention        = is_numeric( $stored_db_retention ) ? (int) $stored_db_retention : 7;
         if ( $db_retention < 0 ) {
             $db_retention = 7;
@@ -1320,7 +1318,7 @@ class Plugin {
             return;
         }
         global $wpdb;
-        $retention = max( 1, (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 ) );
+        $retention = max( 1, (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_retention', 30 ) );
         
         $i = 0;
         do {
@@ -1343,7 +1341,7 @@ class Plugin {
             Activator::activate( false, false );
             \delete_option( 'rewrite_rules' );
             
-            if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+            if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
                 require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
                 OAuth\OAuth_Schema::create_tables();
             }
@@ -1372,6 +1370,7 @@ class Plugin {
             'easy_mcp_ai_oauth_consents',
             'easy_mcp_ai_oauth_device_codes',
             'easy_mcp_ai_change_log',
+            'easy_mcp_ai_tasks',
         ) as $suffix ) {
             $tables[] = $wpdb->prefix . $suffix;
         }
@@ -1545,13 +1544,64 @@ class Plugin {
         if ( ! \is_admin() && ! ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
             return;
         }
-        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', true ) ) {
+        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             return;
         }
         $oauth_schema_file = EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-schema.php';
         if ( file_exists( $oauth_schema_file ) ) {
             require_once $oauth_schema_file;
             OAuth\OAuth_Schema::maybe_upgrade();
+        }
+    }
+
+    
+
+
+
+    private function server_for_background_work() {
+        if ( null === $this->server && function_exists( 'rest_get_server' ) ) {
+            \rest_get_server();
+        }
+        return $this->server;
+    }
+
+    
+
+
+
+
+
+
+
+
+    public function run_task_tick( $task_id = null ) {
+        $this->guarded_background_work( function ( $server ) use ( $task_id ) {
+            if ( is_string( $task_id ) && '' !== $task_id ) {
+                $server->get_task_manager()->run_background_tick( $task_id );
+            }
+        } );
+    }
+
+    
+    public function cleanup_tasks() {
+        $this->guarded_background_work( function ( $server ) {
+            $server->get_task_manager()->cleanup();
+        } );
+    }
+
+    private function guarded_background_work( callable $work ) {
+        if ( function_exists( 'wp_installing' ) && \wp_installing() ) {
+            return;
+        }
+        try {
+            $server = $this->server_for_background_work();
+            if ( $server ) {
+                $work( $server );
+            }
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'Easy MCP AI background task work failed: %s in %s:%d', $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
         }
     }
 

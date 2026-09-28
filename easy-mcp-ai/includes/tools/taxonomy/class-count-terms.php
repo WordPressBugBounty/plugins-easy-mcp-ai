@@ -14,7 +14,7 @@ class Count_Terms extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns the total number of terms in a taxonomy. Required: `taxonomy` (slug). Returns { taxonomy, total }. For built-in taxonomies use \'category\' or \'post_tag\'; for WooCommerce use \'product_cat\' or \'product_tag\'; check `wp_get_taxonomies` for available slugs.';
+        return 'Counts the terms in a taxonomy and returns the total. Required: `taxonomy` (slug). Returns { taxonomy, total }. For built-in taxonomies use \'category\' or \'post_tag\'; for WooCommerce use \'product_cat\' or \'product_tag\'; check `wp_get_taxonomies` for available slugs.';
     }
 
     public function get_category() {

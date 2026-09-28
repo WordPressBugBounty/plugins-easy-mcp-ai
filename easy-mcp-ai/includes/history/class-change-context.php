@@ -96,6 +96,78 @@ class Change_Context {
 
 
 
+    public static function expect_refresh_only( $type, $id ) {
+        if ( ! self::$active ) {
+            return;
+        }
+        self::$data['_refresh_only'][ (string) $type . ':' . (string) $id ] = true;
+    }
+
+    
+
+
+
+
+
+
+    public static function consume_refresh_only( $type, $id ) {
+        $key = (string) $type . ':' . (string) $id;
+        if ( empty( self::$data['_refresh_only'][ $key ] ) ) {
+            return false;
+        }
+        unset( self::$data['_refresh_only'][ $key ] );
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public static function expect_scoped_option( $name, array $path ) {
+        if ( ! self::$active ) {
+            return;
+        }
+        self::$data['_scoped_option'][ (string) $name ] = array_map( 'strval', array_values( $path ) );
+    }
+
+    
+
+
+
+
+
+    public static function consume_scoped_option( $name ) {
+        $name = (string) $name;
+        if ( empty( self::$data['_scoped_option'][ $name ] ) ) {
+            return null;
+        }
+        $path = self::$data['_scoped_option'][ $name ];
+        unset( self::$data['_scoped_option'][ $name ] );
+        return $path;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

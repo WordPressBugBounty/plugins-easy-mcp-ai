@@ -357,7 +357,10 @@ class OAuth_Routes {
             }
         }
 
-        $token_hash = hash( 'sha256', $token );
+        
+        
+        
+        $token_hash = OAuth_Token_Manager::hash_presented( $token );
         $manager    = new OAuth_Token_Manager();
 
         
@@ -368,13 +371,15 @@ class OAuth_Routes {
         
         
         
-        if ( 'refresh_token' === $hint || ! $looks_like_access ) {
-            if ( ! $manager->revoke_by_refresh_hash( $token_hash, $client_id ) ) {
-                $manager->revoke_token( $token_hash, $client_id );
-            }
-        } else {
-            if ( ! $manager->revoke_token( $token_hash, $client_id ) ) {
-                $manager->revoke_by_refresh_hash( $token_hash, $client_id );
+        if ( null !== $token_hash ) {
+            if ( 'refresh_token' === $hint || ! $looks_like_access ) {
+                if ( ! $manager->revoke_by_refresh_hash( $token_hash, $client_id ) ) {
+                    $manager->revoke_token( $token_hash, $client_id );
+                }
+            } else {
+                if ( ! $manager->revoke_token( $token_hash, $client_id ) ) {
+                    $manager->revoke_by_refresh_hash( $token_hash, $client_id );
+                }
             }
         }
 

@@ -50,7 +50,7 @@ class Check_Observability {
 
 
     public static function run() {
-        $audit_enabled = (bool) \get_option( 'easy_mcp_ai_audit_log_enabled', true );
+        $audit_enabled = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true );
 
         return array(
             self::evaluate_auth_failures( self::count_auth_failures(), $audit_enabled ),
@@ -60,8 +60,8 @@ class Check_Observability {
             
             self::evaluate_table_growth(
                 self::table_counts(),
-                (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 ),
-                (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 )
+                (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_retention', 30 ),
+                (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_retention', 30 )
             ),
         );
     }
@@ -113,7 +113,7 @@ class Check_Observability {
             $label,
             sprintf(
                 /* translators: 1: number of rejected requests, 2: number of hours in the window. */
-                __( '%1$d request(s) were refused in the last %2$d hours because the token was missing, expired or not recognised. This counts failed authentication only. Requests refused for insufficient permission are recorded separately, on the Audit Log screen, and are not counted here; requests refused for exceeding the rate limit are not recorded at all.', 'easy-mcp-ai' ),
+                __( '%1$d request(s) were refused in the last %2$d hours because the token was missing, expired or not recognised. This counts failed authentication only. Requests refused for insufficient permission are recorded separately, under Easy MCP AI → Activity → Audit log, and are not counted here; requests refused for exceeding the rate limit are not recorded at all.', 'easy-mcp-ai' ),
                 (int) $count,
                 self::FAILURE_WINDOW_HOURS
             ),
