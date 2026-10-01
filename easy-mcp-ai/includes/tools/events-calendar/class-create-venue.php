@@ -14,7 +14,7 @@ class Create_Venue extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new venue in The Events Calendar. Required: venue (venue name). Optional: address, city, country, state, zip, phone, url. Requires The Events Calendar plugin active.';
+        return 'Creates a new venue in The Events Calendar. Required: `venue` (venue name). Optional: `address`, `city`, `country`, `state`, `zip`, `phone`, `url`, `allow_duplicate`. Returns { id, venue (name), website }. If a venue with the same name already exists, nothing is written and the error names it: run `wp_tec_list_venues` with `search` first and reuse the existing ID, or set `allow_duplicate` to true when a second venue with that name is really wanted. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -70,6 +70,10 @@ class Create_Venue extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Website URL of the venue.',
                 ),
+                'allow_duplicate' => array(
+                    'type'        => 'boolean',
+                    'description' => 'Create the venue even when one with the same name already exists. Default false: the call is refused and the existing one is named.',
+                ),
             ),
             'required'   => array( 'venue' ),
         );
@@ -82,8 +86,17 @@ class Create_Venue extends Base_Tool {
 
         $this->validate_required( $arguments, array( 'venue' ) );
 
+        $name = sanitize_text_field( $arguments['venue'] );
+        if ( ! $this->allows_duplicate( $arguments ) ) {
+            $this->refuse_existing_title( 'tribe_venue', $name, array( '_VenueAddress', '_VenueCity' ), 'venue', 'Pass that ID as `venue` to `wp_tec_create_event` or `wp_tec_update_event` to use it.', 'wp_tec_list_venues' );
+        }
+
+        
+        
+        $this->require_compat_shim( 'tec-no-duplicate-reuse', $arguments );
+
         $params = array(
-            'venue' => sanitize_text_field( $arguments['venue'] ),
+            'venue' => $name,
         );
 
         if ( isset( $arguments['address'] ) ) {

@@ -11,6 +11,13 @@ abstract class Base_Tool {
 
 
 
+    const EXISTING_TITLE_LABEL_LENGTH = 60;
+
+
+    
+
+
+
 
 
 
@@ -19,6 +26,14 @@ abstract class Base_Tool {
 
 
     const EXTERNAL_DATA_CATEGORIES = array( 'ga', 'gsc', 'dfs', 'semrush', 'seranking' );
+
+    
+
+
+
+
+
+    const REST_ERROR_WITHOUT_MESSAGE = 1;
 
     
 
@@ -125,6 +140,103 @@ abstract class Base_Tool {
 
 
 
+
+
+
+    public function get_approval_policy( array $arguments ) {
+        return 'inherit';
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public function describe( array $arguments ) {
+        return self::generic_description( $this, $arguments );
+    }
+
+    
+
+
+
+
+    public static function generic_description( $tool, array $arguments ) {
+        $title = method_exists( $tool, 'get_title' ) ? (string) $tool->get_title() : (string) $tool->get_name();
+        $mask  = method_exists( $tool, 'get_redacted_arguments' ) ? (array) $tool->get_redacted_arguments() : array();
+        foreach ( $mask as $name ) {
+            if ( array_key_exists( $name, $arguments ) ) {
+                $arguments[ $name ] = '[redacted]';
+            }
+        }
+        if ( empty( $arguments ) ) {
+            return $title;
+        }
+        $pairs = array();
+        foreach ( $arguments as $key => $value ) {
+            if ( is_scalar( $value ) || null === $value ) {
+                $shown = is_bool( $value ) ? ( $value ? 'true' : 'false' ) : ( null === $value ? 'null' : (string) $value );
+            } else {
+                $shown = \wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+                $shown = is_string( $shown ) ? $shown : '…';
+            }
+            if ( strlen( $shown ) > 120 ) {
+                $shown = substr( $shown, 0, 117 ) . '…';
+            }
+            $pairs[] = $key . ': ' . $shown;
+        }
+        $text = sprintf( '%s (%s)', $title, implode( ', ', $pairs ) );
+        return strlen( $text ) > 600 ? substr( $text, 0, 597 ) . '…' : $text;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    protected function peek( $route, $fields, array $params = array() ) {
+        try {
+            
+            
+            
+            $data = $this->rest_request( 'GET', $route, $params, $fields );
+        } catch ( \Throwable $e ) {
+            return null;
+        }
+        return is_array( $data ) ? $data : null;
+    }
+
+    
+    protected static function rest_title( $data, $key = 'title' ) {
+        $value = isset( $data[ $key ] ) ? $data[ $key ] : '';
+        if ( is_array( $value ) ) {
+            $value = isset( $value['rendered'] ) ? $value['rendered'] : ( isset( $value['raw'] ) ? $value['raw'] : '' );
+        }
+        $value = trim( \wp_strip_all_tags( (string) $value ) );
+        return '' === $value ? __( '(no title)', 'easy-mcp-ai' ) : $value;
+    }
+
+    
+
+
+
+
+
+
+
+
     public function get_output_schema() {
         return null;
     }
@@ -143,7 +255,38 @@ abstract class Base_Tool {
         if ( ! empty( $annotations ) ) {
             $definition['annotations'] = $annotations;
         }
+        $ui = $this->get_ui_meta();
+        if ( ! empty( $ui ) ) {
+            $definition['_meta'] = array( 'ui' => $ui );
+            
+            
+            
+            
+            if ( isset( $ui['resourceUri'] ) ) {
+                $definition['_meta']['ui/resourceUri'] = $ui['resourceUri'];
+            }
+        }
         return $definition;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public function get_ui_meta() {
+        $annotations = $this->get_annotations();
+        if ( empty( $annotations['destructiveHint'] ) || ! \Easy_MCP_AI\Config::get( 'approval_required' ) ) {
+            return array();
+        }
+        return array( 'resourceUri' => 'ui://easy-mcp-ai/approval' );
     }
 
     
@@ -384,6 +527,50 @@ abstract class Base_Tool {
             }
         }
         return $params;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function refuse_non_rest_taxonomy( $taxonomy, $tax_obj ) {
+        if ( ! empty( $tax_obj->show_in_rest ) ) {
+            return;
+        }
+        $message = sprintf( 'Taxonomy %s is not exposed in the REST API (show_in_rest is false), so its terms cannot be changed here.', $taxonomy );
+        if ( 0 === strpos( (string) $taxonomy, 'pa_' ) ) {
+            $message .= ' Attribute values: Products > Attributes > Configure terms.';
+        }
+        throw new \InvalidArgumentException( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    protected function refuse_missing_post( $post_id ) {
+        if ( ! get_post( $post_id ) ) {
+            throw new \InvalidArgumentException( sprintf( 'Post %d not found.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
     }
 
     
@@ -985,6 +1172,126 @@ abstract class Base_Tool {
         );
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function require_compat_shim( string $id, array $arguments ): void {
+        $registry = '\\Easy_MCP_AI\\Compat\\Compat_Registry';
+        if ( class_exists( $registry ) && $registry::is_armed( $id, $this, $arguments ) ) {
+            return;
+        }
+        throw new \RuntimeException( 'This tool cannot run safely right now: its data-protection step did not start, so nothing was changed. Please report this to the site administrator.' );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function find_posts_by_title( string $post_type, string $title, int $limit = 5 ): array {
+        if ( '' === trim( $title ) ) {
+            return array();
+        }
+        $query = new \WP_Query(
+            array(
+                'post_type'              => $post_type,
+                'title'                  => $title,
+                'post_status'            => array_values( array_diff( get_post_stati(), array( 'trash', 'auto-draft', 'inherit' ) ) ),
+                'posts_per_page'         => max( 1, $limit ),
+                'orderby'                => 'ID',
+                'order'                  => 'ASC',
+                'fields'                 => 'ids',
+                'no_found_rows'          => true,
+                'ignore_sticky_posts'    => true,
+                'update_post_meta_cache' => false,
+                'update_post_term_cache' => false,
+            )
+        );
+        return array_values( array_filter( array_map( 'absint', (array) $query->posts ) ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function refuse_existing_title( string $post_type, string $name, array $meta_keys, string $noun, string $usage, string $list_tool ): void {
+        $existing = $this->find_posts_by_title( $post_type, $name, 1 );
+        if ( ! $existing ) {
+            return;
+        }
+        $id      = $existing[0];
+        $details = array();
+        if ( current_user_can( 'read_post', $id ) ) {
+            foreach ( $meta_keys as $meta_key ) {
+                $value = get_post_meta( $id, $meta_key, true );
+                if ( is_string( $value ) && '' !== $value ) {
+                    $details[] = $value;
+                }
+            }
+        }
+        $label = function_exists( 'mb_substr' ) ? mb_substr( $name, 0, self::EXISTING_TITLE_LABEL_LENGTH ) : substr( $name, 0, self::EXISTING_TITLE_LABEL_LENGTH );
+        throw new \Easy_MCP_AI\MCP\Detailed_Tool_Error( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            sprintf( '%1$s "%2$s" already exists (ID %3$d). Nothing was changed.', ucfirst( $noun ), $label, $id ),
+            sprintf(
+                'Existing %1$s %2$d%3$s. %4$s To create a second %1$s with the same name anyway, call this tool again with `allow_duplicate` set to true. Use `%5$s` with `search` to see every match.',
+                $noun,
+                $id,
+                $details ? ' (' . implode( ', ', $details ) . ')' : '',
+                $usage,
+                $list_tool
+            )
+        );
+    }
+
+    
+
+
+
+
+
+    protected function allows_duplicate( array $arguments ): bool {
+        return ! empty( $arguments['allow_duplicate'] ) && (bool) rest_sanitize_boolean( $arguments['allow_duplicate'] );
+    }
+
     protected function rest_request( $method, $route, $params = array(), $fields = null ) {
         $request = new \WP_REST_Request( $method, $route );
         if ( in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) && ! empty( $params ) ) {
@@ -1012,9 +1319,52 @@ abstract class Base_Tool {
         }
         $response = rest_do_request( $request );
         if ( $response->is_error() ) {
-            throw new \RuntimeException( self::rest_error_message( $response->as_error() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            $message = self::rest_error_message_or_empty( $response );
+            if ( '' === $message ) {
+                throw new \RuntimeException( self::rest_status_message( $method, $route, $response ), self::REST_ERROR_WITHOUT_MESSAGE ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+            throw new \RuntimeException( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $response->get_data();
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected static function rest_status_message( $method, $route, $response ) {
+        $status = (int) $response->get_status();
+        return sprintf( '%s %s answered HTTP %s with no error message.', $method, $route, trim( $status . ' ' . get_status_header_desc( $status ) ) );
+    }
+
+    
+
+
+
+
+
+
+
+    protected static function rest_error_message_or_empty( $response ) {
+        $data = $response->get_data();
+        if ( is_array( $data ) && ! isset( $data['code'] ) && ! isset( $data['message'] ) ) {
+            return '';
+        }
+        $error = $response->as_error();
+        return $error ? trim( (string) self::rest_error_message( $error ) ) : '';
     }
 
     

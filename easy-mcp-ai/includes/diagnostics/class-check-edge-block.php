@@ -66,12 +66,14 @@ class Check_Edge_Block {
 
 
 
+
     const LEG_MCP       = 'mcp';
     const LEG_HANDSHAKE = 'handshake';
+    const LEG_CRAWLER   = 'crawler';
 
     const CLIENT_AGENTS = array(
         'Claude-User'         => self::LEG_MCP,
-        'ClaudeBot/1.0'       => self::LEG_MCP,
+        'ClaudeBot/1.0'       => self::LEG_CRAWLER,
         'python-httpx/0.28.1' => self::LEG_HANDSHAKE,
     );
 
@@ -169,8 +171,9 @@ class Check_Edge_Block {
             );
         }
 
-        $blocked      = array();
-        $inconclusive = array();
+        $blocked         = array();
+        $crawler_blocked = array();
+        $inconclusive    = array();
         $evidence     = array( 'control_status' => $control['status'] );
 
         foreach ( $clients as $agent => $result ) {
@@ -188,7 +191,11 @@ class Check_Edge_Block {
                 . ( '' !== $result['server'] ? ' via ' . $result['server'] : '' );
 
             if ( ! self::is_our_challenge( $result ) ) {
-                $blocked[] = $agent;
+                if ( self::LEG_CRAWLER === ( self::CLIENT_AGENTS[ $agent ] ?? null ) ) {
+                    $crawler_blocked[] = $agent;
+                } else {
+                    $blocked[] = $agent;
+                }
             }
         }
 
@@ -210,6 +217,17 @@ class Check_Edge_Block {
                 $label,
                 __( 'A test request carrying the AI assistant\'s name got no reply, while the same request from this plugin was answered normally. That may be a passing network problem, or something in front of WordPress dropping the assistant\'s requests.', 'easy-mcp-ai' ),
                 __( 'Run the checks again. If it keeps happening, check your CDN or firewall for a bot-filtering rule naming Claude.', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
+
+        if ( ! empty( $crawler_blocked ) ) {
+            return Diagnostic_Result::warn(
+                'a9',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'Something in front of WordPress refuses Anthropic\'s crawler (ClaudeBot), while the assistant itself gets through. Connecting is not affected: the assistant never uses the crawler\'s name.', 'easy-mcp-ai' ),
+                __( 'No action is needed to connect. This is usually a "block AI bots" setting on a CDN or security plugin. If that rule is widened to the assistant itself, this check will fail.', 'easy-mcp-ai' ),
                 $evidence
             );
         }

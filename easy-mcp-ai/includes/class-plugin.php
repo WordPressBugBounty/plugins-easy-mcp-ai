@@ -59,6 +59,10 @@ class Plugin {
         
         
         \add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+        
+        
+        \add_action( 'rest_api_init', array( __CLASS__, 'maybe_seed_abilities' ), 1 );
+        \add_action( 'admin_init', array( __CLASS__, 'maybe_seed_abilities' ) );
         \add_action( 'init', array( $this, 'handle_well_known' ), 0 );
         
         
@@ -71,11 +75,16 @@ class Plugin {
         
         
         \add_action( 'init', array( $this, 'handle_oauth_authorize_request' ), PHP_INT_MAX );
+        
+        
+        
+        \add_action( 'init', array( $this, 'handle_approval_request' ), PHP_INT_MAX );
         \add_action( 'easy_mcp_ai_cleanup_audit_log', array( $this, 'cleanup_audit_log' ) );
         \add_action( 'easy_mcp_ai_cleanup_oauth', array( $this, 'cleanup_oauth_storage' ) );
         \add_action( 'easy_mcp_ai_cleanup_new_token_meta', array( $this, 'cleanup_new_token_meta' ) );
         \add_action( 'easy_mcp_ai_cleanup_change_log', array( __CLASS__, 'cleanup_change_log' ) );
         \add_action( 'easy_mcp_ai_cleanup_tasks', array( $this, 'cleanup_tasks' ) );
+        \add_action( 'easy_mcp_ai_cleanup_approvals', array( __CLASS__, 'cleanup_approvals' ) );
         \add_action( 'easy_mcp_ai_task_tick', array( $this, 'run_task_tick' ), 10, 1 );
         
         \add_action( 'plugins_loaded', array( 'Easy_MCP_AI\Activator', 'maybe_upgrade' ) );
@@ -141,6 +150,10 @@ class Plugin {
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/meta/class-meta-field-provider.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/meta/class-meta-exposure.php';
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-compat-shim.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-compat-registry.php';
     }
 
     public function init_admin() {
@@ -518,6 +531,88 @@ class Plugin {
 
 
 
+    public function handle_approval_request() {
+        
+        
+        
+        
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check; the page verifies its own nonce on POST.
+        if ( ! isset( $_GET['easy_mcp_ai_approve'] ) && ! isset( $_POST['easy_mcp_ai_approve'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            return;
+        }
+        ob_start();
+        self::load_approvals();
+        \Easy_MCP_AI\Approvals\Approval_Schema::maybe_upgrade();
+        Activator::maybe_upgrade_core_tables();
+        $method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
+        $gate   = new \Easy_MCP_AI\Approvals\Approval_Gate( new \Easy_MCP_AI\Approvals\Wpdb_Approval_Store() );
+        $page   = new \Easy_MCP_AI\Approvals\Approval_Page( $gate );
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.NonceVerification.Missing -- verified inside Approval_Page::handle() for the decision POST.
+        $out = $page->handle( $method, isset( $_GET ) ? \wp_unslash( $_GET ) : array(), isset( $_POST ) ? \wp_unslash( $_POST ) : array() );
+        while ( ob_get_level() > 0 ) {
+            if ( ! ob_end_clean() ) {
+                break;
+            }
+        }
+        if ( ! headers_sent() ) {
+            \nocache_headers();
+            \status_header( (int) $out['status'] );
+            if ( ! empty( $out['location'] ) ) {
+                header( 'Location: ' . $out['location'] );
+                exit;
+            }
+            header( 'Content-Type: text/html; charset=utf-8' );
+            header( 'X-Frame-Options: DENY' );
+            header( "Content-Security-Policy: frame-ancestors 'none'" );
+            header( 'X-Content-Type-Options: nosniff' );
+            header( 'Referrer-Policy: no-referrer' );
+        }
+        echo $out['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Approval_Page escapes every value it interpolates.
+        exit;
+    }
+
+    
+    public static function load_approvals() {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-error-codes.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-json-rpc.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-server.php';
+        MCP\Server::load_approval_classes();
+    }
+
+    
+
+
+
+    public static function cleanup_approvals() {
+        if ( function_exists( 'wp_installing' ) && \wp_installing() ) {
+            return;
+        }
+        try {
+            self::load_approvals();
+            $store = new \Easy_MCP_AI\Approvals\Wpdb_Approval_Store();
+            $now   = gmdate( 'Y-m-d H:i:s' );
+            $store->expire_pending( $now );
+            $cutoff = gmdate( 'Y-m-d H:i:s', time() - \Easy_MCP_AI\Approvals\Approval_Gate::RETENTION_DAYS * DAY_IN_SECONDS );
+            for ( $i = 0; $i < self::CLEANUP_MAX_ITERATIONS; $i++ ) {
+                if ( $store->delete_old( $cutoff, 500 ) < 500 ) {
+                    break;
+                }
+            }
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'Easy MCP AI approvals cleanup failed: %s', $e->getMessage() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
+        }
+    }
+
+    
+
+
+
+
+
+
 
 
 
@@ -731,6 +826,10 @@ class Plugin {
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tasks/class-task-schema.php';
         \Easy_MCP_AI\Tasks\Task_Schema::maybe_upgrade();
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/approvals/class-approval-schema.php';
+        \Easy_MCP_AI\Approvals\Approval_Schema::maybe_upgrade();
 
 
         $this->token_manager     = new Auth\Token_Manager();
@@ -841,7 +940,7 @@ class Plugin {
             'posts', 'pages', 'media', 'taxonomy', 'comments',
             'users', 'site', 'menus', 'plugins', 'themes',
             'revisions', 'meta', 'search', 'blocks', 'cpt', 'templates', 'styles',
-            'appearance', 'widgets', 'history', 'audit', 'site-health',
+            'appearance', 'widgets', 'history', 'audit', 'site-health', 'approvals',
         );
 
         
@@ -1332,6 +1431,24 @@ class Plugin {
         } while ( $deleted > 0 && ++$i < self::CLEANUP_MAX_ITERATIONS );
     }
 
+    
+
+
+
+
+
+
+
+
+
+    public static function maybe_seed_abilities(): void {
+        if ( ! \get_option( 'easy_mcp_ai_abilities_seed_pending' ) ) {
+            return;
+        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-ability-seed.php';
+        Ability_Seed::maybe_run();
+    }
+
     public function on_new_site( $site ) {
         \switch_to_blog( $site->id );
         try {
@@ -1371,6 +1488,7 @@ class Plugin {
             'easy_mcp_ai_oauth_device_codes',
             'easy_mcp_ai_change_log',
             'easy_mcp_ai_tasks',
+            'easy_mcp_ai_approvals',
         ) as $suffix ) {
             $tables[] = $wpdb->prefix . $suffix;
         }

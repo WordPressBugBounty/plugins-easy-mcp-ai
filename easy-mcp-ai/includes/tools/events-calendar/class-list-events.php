@@ -86,7 +86,7 @@ class List_Events extends Base_Tool {
                 ),
                 'status'     => array(
                     'type'        => 'string',
-                    'description' => 'Filter by post status (publish, draft, pending, etc.).',
+                    'description' => 'One status, or several joined by commas ("publish,draft"). Omit it, or pass "any", to get every status except trash.',
                 ),
             ),
             'required'   => array(),
@@ -114,7 +114,19 @@ class List_Events extends Base_Tool {
         if ( isset( $arguments['venue'] ) )      $params['venue']      = absint( $arguments['venue'] );
         if ( isset( $arguments['organizer'] ) )  $params['organizer']  = absint( $arguments['organizer'] );
         if ( isset( $arguments['featured'] ) )   $params['featured']   = (bool) $arguments['featured'];
-        if ( isset( $arguments['status'] ) )     $params['status']     = sanitize_key( $arguments['status'] );
+        if ( isset( $arguments['status'] ) ) {
+            
+            
+            
+            
+            
+            
+            
+            $statuses = array_values( array_filter( array_map( 'sanitize_key', explode( ',', (string) $arguments['status'] ) ) ) );
+            if ( ! empty( $statuses ) && ! in_array( 'any', $statuses, true ) ) {
+                $params['status'] = implode( ',', $statuses );
+            }
+        }
         if ( ! empty( $arguments['categories'] ) ) {
             $params['categories'] = array_values( array_filter( array_map( 'absint', $this->parse_json_param( $arguments['categories'], 'categories' ) ) ) );
         }

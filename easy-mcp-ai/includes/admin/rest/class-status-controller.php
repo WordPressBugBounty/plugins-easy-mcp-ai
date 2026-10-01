@@ -163,7 +163,8 @@ class Status_Controller extends Admin_Rest_Controller {
             Setup_State::is_complete(),
             \Easy_MCP_AI\Config::is_locked( 'paused' ) ? \Easy_MCP_AI\Config::constant_name( 'paused' ) : null,
             $actions,
-            \Easy_MCP_AI\Config_Admin::invalid_settings()
+            \Easy_MCP_AI\Config_Admin::invalid_settings(),
+            \Easy_MCP_AI\Config::source( 'paused' )
         );
     }
 
@@ -183,7 +184,8 @@ class Status_Controller extends Admin_Rest_Controller {
 
 
 
-    public static function build_payload( array $results, $site_kind, $version, $last_run_at = null, array $support = array(), $paused = false, $setup_complete = false, $paused_locked = null, array $actions = array(), array $invalid_settings = array() ) {
+
+    public static function build_payload( array $results, $site_kind, $version, $last_run_at = null, array $support = array(), $paused = false, $setup_complete = false, $paused_locked = null, array $actions = array(), array $invalid_settings = array(), $paused_locked_source = '' ) {
         $checks   = array();
         $problems = array();
         $blockers = array();
@@ -248,6 +250,7 @@ class Status_Controller extends Admin_Rest_Controller {
             'siteKind'        => $site_kind,
             'paused'          => (bool) $paused,
             'pausedLocked'    => is_string( $paused_locked ) && '' !== $paused_locked ? $paused_locked : null,
+            'pausedLockedSource' => is_string( $paused_locked ) && '' !== $paused_locked && in_array( $paused_locked_source, array( 'constant', 'environment' ), true ) ? $paused_locked_source : null,
             'setupComplete'   => (bool) $setup_complete,
             'version'         => (string) $version,
             'lastRun'         => null === $last_run_at || (int) $last_run_at <= 0 ? null : gmdate( 'Y-m-d\TH:i:s\Z', (int) $last_run_at ),

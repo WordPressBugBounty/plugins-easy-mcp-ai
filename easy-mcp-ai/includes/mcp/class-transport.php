@@ -289,6 +289,9 @@ class Transport {
     }
 
     public function handle_post( \WP_REST_Request $request ) {
+        
+        
+        $this->server->set_request_client_caps( null );
         $this->inject_url_token( $request );
         $this->inject_basic_api_key( $request );
 
@@ -718,7 +721,8 @@ class Transport {
             $response = new \WP_REST_Response( $response_data, 200 );
             if ( ! isset( $response_data['error'] ) ) {
                 $negotiated = $this->server->get_last_negotiated_version() ?? Server::LEGACY_PROTOCOL_VERSION;
-                $session_id = $this->server->get_session_manager()->create( $token_id, $wp_user_id, $negotiated, $auth_source );
+                $declared   = isset( $message['params']['capabilities'] ) && is_array( $message['params']['capabilities'] ) ? $message['params']['capabilities'] : array();
+                $session_id = $this->server->get_session_manager()->create( $token_id, $wp_user_id, $negotiated, $auth_source, $declared );
                 $response->header( 'Mcp-Session-Id', $session_id );
             }
             $this->add_cors_headers( $response );
@@ -1295,6 +1299,12 @@ class Transport {
         if ( ! $session_data ) {
             return false;
         }
+        
+        
+        $this->server->set_request_client_caps(
+            isset( $session_data['client_capabilities'] ) && is_array( $session_data['client_capabilities'] ) ? $session_data['client_capabilities'] : array(),
+            isset( $session_data['protocol_version'] ) ? (string) $session_data['protocol_version'] : null
+        );
 
         
         

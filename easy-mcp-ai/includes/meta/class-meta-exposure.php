@@ -12,6 +12,8 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/../class-class-map-loader.php';
+
 
 
 
@@ -112,23 +114,8 @@ final class Meta_Exposure {
 
 
     public static function all_providers() {
-        if ( null !== self::$providers ) {
-            return self::$providers;
-        }
-        self::$providers = array();
-        foreach ( self::PROVIDERS as $slug => $class ) {
-            if ( ! class_exists( $class ) ) {
-                $file = EASY_MCP_AI_PLUGIN_DIR . 'includes/meta/providers/class-' . str_replace( '_', '-', strtolower( substr( strrchr( $class, '\\' ), 1 ) ) ) . '.php';
-                if ( is_readable( $file ) ) {
-                    require_once $file;
-                }
-            }
-            if ( class_exists( $class ) ) {
-                $provider = new $class();
-                if ( $provider instanceof Meta_Field_Provider ) {
-                    self::$providers[ $slug ] = $provider;
-                }
-            }
+        if ( null === self::$providers ) {
+            self::$providers = \Easy_MCP_AI\Class_Map_Loader::load( self::PROVIDERS, 'includes/meta/providers', Meta_Field_Provider::class );
         }
         return self::$providers;
     }

@@ -12,7 +12,7 @@ class Session {
         $this->ttl_seconds = 15 * 60; 
     }
 
-    public function create( $token_id, $wp_user_id, $protocol_version = '2025-03-26', $auth_source = 'legacy' ) {
+    public function create( $token_id, $wp_user_id, $protocol_version = '2025-03-26', $auth_source = 'legacy', $client_capabilities = array() ) {
         $session_id = bin2hex( random_bytes( 32 ) );
         $session_data = array(
             'token_id'         => $token_id,
@@ -21,6 +21,10 @@ class Session {
             'created_at'       => time(),
             'protocol_version' => $protocol_version,
             'auth_source'      => 'oauth' === $auth_source ? 'oauth' : 'legacy',
+            
+            
+            
+            'client_capabilities' => is_array( $client_capabilities ) ? $client_capabilities : array(),
         );
         \set_transient( 'easy_mcp_ai_session_' . $session_id, $session_data, $this->ttl_seconds );
         return $session_id;

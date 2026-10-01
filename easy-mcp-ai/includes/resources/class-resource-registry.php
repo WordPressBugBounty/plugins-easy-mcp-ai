@@ -43,6 +43,8 @@ class Resource_Registry {
             'Easy_MCP_AI\\Resources\\Draft_Posts_Resource',
             'Easy_MCP_AI\\Resources\\Scheduled_Posts_Resource',
             'Easy_MCP_AI\\Resources\\Recent_Media_Resource',
+            
+            'Easy_MCP_AI\\Resources\\Approval_Card_Resource',
         );
         foreach ( $resource_classes as $class ) {
             if ( class_exists( $class ) ) {

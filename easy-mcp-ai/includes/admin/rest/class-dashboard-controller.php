@@ -478,17 +478,8 @@ class Dashboard_Controller extends Admin_Rest_Controller {
                 if ( '' === $name || in_array( $name, $disabled, true ) ) {
                     continue;
                 }
-                if ( ! empty( $patterns ) ) {
-                    $matched = false;
-                    foreach ( $patterns as $pattern ) {
-                        if ( is_string( $pattern ) && fnmatch( $pattern, $name ) ) {
-                            $matched = true;
-                            break;
-                        }
-                    }
-                    if ( ! $matched ) {
-                        continue;
-                    }
+                if ( ! \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $patterns ) ) {
+                    continue;
                 }
                 $total++;
             }

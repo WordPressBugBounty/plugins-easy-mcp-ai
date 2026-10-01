@@ -43,6 +43,12 @@ class Config {
         'tasks_background',
         'tasks_max_per_credential',
         'tasks_max_concurrent_ticks',
+        
+        
+        
+        'approval_required',
+        'approval_always',
+        'approval_never',
     );
 
     
@@ -97,6 +103,14 @@ class Config {
             
             'tasks_max_per_credential' => array( 5, 'integer', 1, 100 ),
             'tasks_max_concurrent_ticks' => array( 3, 'integer', 1, 50 ),
+            
+            
+            
+            
+            
+            'approval_required' => array( false, 'boolean' ),
+            'approval_always' => array( array(), 'array' ),
+            'approval_never' => array( array(), 'array' ),
             'hide_admin' => array( false, 'visibility' ),
             'hide_plugin_row' => array( false, 'boolean' ),
             'brand_name' => array( 'Easy MCP AI', 'brand' ),

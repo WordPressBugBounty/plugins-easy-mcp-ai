@@ -115,15 +115,7 @@ class Tool_Groups {
             if ( in_array( $name, $disabled_tools, true ) ) {
                 return false;
             }
-            if ( ! empty( $allowed_patterns ) ) {
-                foreach ( $allowed_patterns as $pattern ) {
-                    if ( fnmatch( $pattern, $name ) ) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-            return true;
+            return \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $allowed_patterns );
         };
 
         foreach ( $tools_by_category as $category => $tools ) {

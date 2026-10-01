@@ -21,10 +21,13 @@ class Task_Schema {
 
 
 
-    const DB_VERSION  = '1.1.0';
+
+
+
+    const DB_VERSION  = '1.2.0';
 
     
-    const REQUIRED_COLUMNS = array( 'signature' );
+    const REQUIRED_COLUMNS = array( 'signature', 'approval_id' );
     const OPTION_NAME = 'easy_mcp_ai_tasks_db_version';
     const TABLE       = 'easy_mcp_ai_tasks';
 
@@ -54,6 +57,7 @@ class Task_Schema {
             wp_user_id       bigint(20)   unsigned NOT NULL DEFAULT 0,
             tool_name        varchar(255) NOT NULL,
             arguments        longtext     DEFAULT NULL,
+            approval_id      varchar(36)  DEFAULT NULL,
             mode             varchar(16)  NOT NULL DEFAULT 'cursor',
             phase            varchar(16)  NOT NULL DEFAULT 'cursor',
             status           varchar(16)  NOT NULL DEFAULT 'working',

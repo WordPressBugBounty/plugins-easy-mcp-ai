@@ -16,6 +16,7 @@ class Deactivator {
         \wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_new_token_meta' );
         \wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_change_log' );
         \wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_tasks' );
+        \wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_approvals' );
         
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config.php';

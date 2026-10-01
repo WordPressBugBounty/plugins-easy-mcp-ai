@@ -102,7 +102,9 @@ class Create_Event extends Base_Tool {
         );
 
         if ( isset( $arguments['description'] ) ) {
-            $params['description'] = sanitize_textarea_field( $arguments['description'] );
+            
+            
+            $params['description'] = (string) $arguments['description'];
         }
         if ( isset( $arguments['url'] ) ) {
             $params['website'] = sanitize_url( $arguments['url'] );

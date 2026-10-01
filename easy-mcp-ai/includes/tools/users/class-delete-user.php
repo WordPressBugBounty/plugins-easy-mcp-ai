@@ -51,6 +51,22 @@ class Delete_User extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['user_id'] ) ? (int) $arguments['user_id'] : 0;
+        $user = $id > 0 ? $this->peek( '/wp/v2/users/' . $id, 'id,name,slug,username', array( 'context' => 'edit' ) ) : null;
+        if ( ! $user ) {
+            return '';
+        }
+        $login = isset( $user['username'] ) ? $user['username'] : ( isset( $user['slug'] ) ? $user['slug'] : '' );
+        $reassign = isset( $arguments['reassign'] ) ? (int) $arguments['reassign'] : 0;
+        return sprintf(
+            /* translators: 1: display name, 2: login, 3: user id, 4: id of the user who inherits the content */
+            __( "Permanently delete user '%1\$s' (%2\$s, ID %3\$d); their posts are reassigned to user #%4\$d.", 'easy-mcp-ai' ),
+            self::rest_title( $user, 'name' ), '' !== $login ? $login : '?', $id, $reassign
+        );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'user_id', 'reassign' ) );
 

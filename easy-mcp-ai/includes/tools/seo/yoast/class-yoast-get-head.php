@@ -18,7 +18,7 @@ class Yoast_Get_Head extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Gets the full rendered SEO head HTML and JSON-LD for a URL on this site via the Yoast SEO REST endpoint. Only URLs belonging to this site resolve. A foreign/off-site URL is refused by Yoast with a 404, which this tool surfaces as an error — and because Yoast returns that payload as an object rather than an array, the error message comes through EMPTY, so the failure looks unexplained. Always pass a URL on this site. Useful for auditing SEO or populating headless CMS metadata. Returns the rendered head HTML and parsed JSON-LD schema.';
+		return 'Gets the rendered Yoast SEO head HTML and JSON-LD for a URL on this site. Pass the exact permalink: the home page needs its trailing slash, and the query string is ignored (`?p=123` returns the home page). On a local or staging site use wp_yoast_get_post_seo with the post ID instead: Yoast builds no URL index there, so this tool usually fails. It also fails for other hosts and for pages Yoast has not indexed; the error says which. Returns { html, json, status }.';
 	}
 
 	public function get_category() {
@@ -60,6 +60,69 @@ class Yoast_Get_Head extends Base_Tool {
 
 		$params = array( 'url' => esc_url_raw( $arguments['url'] ) );
 
-		return $this->rest_request( 'GET', '/yoast/v1/get_head', $params );
+		try {
+			return $this->rest_request( 'GET', '/yoast/v1/get_head', $params );
+		} catch ( \RuntimeException $e ) {
+			
+			
+			if ( self::REST_ERROR_WITHOUT_MESSAGE !== $e->getCode() ) {
+				throw $e;
+			}
+			throw new \RuntimeException( $this->explain_not_found( $params['url'] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+	}
+
+	
+
+
+
+
+
+
+
+
+
+
+
+	private function explain_not_found( $url ) {
+		
+		
+		
+		
+		$url_parts = wp_parse_url( $url );
+		$site_host = (string) wp_parse_url( site_url(), PHP_URL_HOST );
+
+		if ( ! is_array( $url_parts ) || empty( $url_parts['host'] ) || $url_parts['host'] !== $site_host ) {
+			return sprintf( 'No Yoast SEO data: Yoast resolves only URLs on this site (host %s). For one post or page, use wp_yoast_get_post_seo with its ID.', $site_host );
+		}
+		if ( empty( $url_parts['path'] ) ) {
+			return sprintf( 'No Yoast SEO data: the URL has no path. For the home page pass %s (with the trailing slash).', home_url( '/' ) );
+		}
+		if ( ! $this->yoast_builds_index() ) {
+			$environment = wp_get_environment_type();
+			if ( 'production' === $environment ) {
+				return 'No Yoast SEO data: Yoast indexing is turned off on this site (Yoast\\WP\\SEO\\should_index_indexables filter). For one post or page, use wp_yoast_get_post_seo with its ID.';
+			}
+			return sprintf( 'No Yoast SEO data: this site\'s environment type is "%s" and Yoast indexes only production sites. For one post or page, use wp_yoast_get_post_seo with its ID.', $environment );
+		}
+		return 'No Yoast SEO data for this permalink: not published, a different permalink, or not indexed yet. For one post or page, use wp_yoast_get_post_seo with its ID.';
+	}
+
+	
+
+
+
+
+
+
+	private function yoast_builds_index() {
+		if ( function_exists( 'YoastSEO' ) ) {
+			try {
+				return (bool) YoastSEO()->helpers->indexable->should_index_indexables();
+			} catch ( \Throwable $e ) {
+				
+			}
+		}
+		return 'production' === wp_get_environment_type();
 	}
 }

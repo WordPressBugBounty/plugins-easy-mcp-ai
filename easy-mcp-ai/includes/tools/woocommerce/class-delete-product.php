@@ -47,6 +47,20 @@ class Delete_Product extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['id'] ) ? (int) $arguments['id'] : 0;
+        $product = $id > 0 ? $this->peek( '/wc/v3/products/' . $id, 'id,name,status,sku' ) : null;
+        if ( ! $product ) {
+            return '';
+        }
+        return sprintf(
+            /* translators: 1: product name, 2: product id, 3: status */
+            __( "Permanently delete product '%1\$s' (ID %2\$d, %3\$s), bypassing the trash.", 'easy-mcp-ai' ),
+            self::rest_title( $product, 'name' ), $id, isset( $product['status'] ) ? $product['status'] : 'unknown'
+        );
+    }
+
     public function execute( array $arguments ) {
         if ( ! class_exists( 'WooCommerce' ) ) {
             throw new \RuntimeException( 'WooCommerce is not active.' );

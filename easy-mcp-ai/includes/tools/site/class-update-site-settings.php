@@ -14,7 +14,7 @@ class Update_Site_Settings extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone` (e.g. "America/New_York" or "Europe/London"; `timezone_string` is accepted as an alias), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer). Requires `manage_options` (administrators only). Changes take effect immediately. Returns { updated: true, title, description }.';
+        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone` (e.g. "America/New_York" or "Europe/London"; `timezone_string` is accepted as an alias; a timezone WordPress does not know is refused and nothing is changed), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer). Requires `manage_options` (administrators only). Changes take effect immediately. Returns { updated: true, title, description }.';
     }
 
     public function get_category() {
@@ -104,6 +104,21 @@ class Update_Site_Settings extends Base_Tool {
 
         if ( empty( $params ) ) {
             throw new \InvalidArgumentException( 'At least one setting parameter must be provided.' );
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        $zone_group = version_compare( (string) get_bloginfo( 'version' ), '6.1', '>=' ) ? \DateTimeZone::ALL_WITH_BC : \DateTimeZone::ALL;
+        if ( isset( $params['timezone'] ) && '' !== $params['timezone']
+            && ! in_array( $params['timezone'], timezone_identifiers_list( $zone_group ), true ) ) {
+            throw new \InvalidArgumentException(
+                sprintf( 'timezone "%s" is not a timezone WordPress accepts; nothing was changed. Use an identifier such as "Europe/London" or "UTC" (offsets like "UTC+2" are not accepted).', $params['timezone'] ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            );
         }
 
         $data = $this->rest_request( 'POST', '/wp/v2/settings', $params );

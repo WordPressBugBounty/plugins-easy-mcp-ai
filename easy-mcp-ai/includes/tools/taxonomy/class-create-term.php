@@ -21,7 +21,7 @@ class Create_Term extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new term in any taxonomy. Required: `name`, `taxonomy` (e.g. category, post_tag, product_cat). Optional: `slug` (auto-derived from name if omitted), `description`, `parent` (for hierarchical taxonomies; 0 = top-level). Returns { id, name, slug, description, parent, count, taxonomy }. Capability resolved dynamically via the taxonomy\'s cap->edit_terms (e.g. manage_categories for category, manage_product_terms for product_cat).';
+        return 'Creates a new term in any taxonomy exposed in the REST API (show_in_rest); WooCommerce attribute taxonomies (pa_*) are not. Required: `name`, `taxonomy` (e.g. category, post_tag, product_cat). Optional: `slug` (auto-derived from name if omitted), `description`, `parent` (for hierarchical taxonomies; 0 = top-level). Returns { id, name, slug, description, parent, count, taxonomy }. Capability resolved dynamically via the taxonomy\'s cap->edit_terms (e.g. manage_categories for category, manage_product_terms for product_cat).';
     }
 
     public function get_category() {
@@ -85,6 +85,7 @@ class Create_Term extends Base_Tool {
                 sprintf( 'Unknown taxonomy: %s', $taxonomy ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
+        $this->refuse_non_rest_taxonomy( $taxonomy, $tax_obj );
 
         
         

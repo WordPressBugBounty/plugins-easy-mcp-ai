@@ -52,6 +52,22 @@ class Delete_Page extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['page_id'] ) ? (int) $arguments['page_id'] : 0;
+        $page = $id > 0 ? $this->peek( '/wp/v2/pages/' . $id, 'id,title,status' ) : null;
+        if ( ! $page ) {
+            return '';
+        }
+        $force = ! empty( $arguments['force'] ) && \rest_sanitize_boolean( $arguments['force'] );
+        return sprintf(
+            /* translators: 1: page title, 2: page id, 3: page status, 4: what happens */
+            __( "Delete page '%1\$s' (ID %2\$d, %3\$s) — %4\$s.", 'easy-mcp-ai' ),
+            self::rest_title( $page ), $id, isset( $page['status'] ) ? $page['status'] : 'unknown',
+            $force ? __( 'permanently, bypassing the trash', 'easy-mcp-ai' ) : __( 'moves it to the trash', 'easy-mcp-ai' )
+        );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'page_id' ) );
 

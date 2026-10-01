@@ -11,7 +11,7 @@ class Wpdb_Task_Store implements Task_Store {
 
     const FORMATS = array(
         'task_id' => '%s', 'auth_source' => '%s', 'token_id' => '%d', 'oauth_client_id' => '%s',
-        'wp_user_id' => '%d', 'tool_name' => '%s', 'arguments' => '%s', 'mode' => '%s', 'phase' => '%s',
+        'wp_user_id' => '%d', 'tool_name' => '%s', 'arguments' => '%s', 'approval_id' => '%s', 'mode' => '%s', 'phase' => '%s',
         'status' => '%s', 'status_message' => '%s', 'progress_current' => '%d', 'progress_total' => '%d',
         'task_cursor' => '%s', 'job_id' => '%s', 'result' => '%s', 'error' => '%s', 'signature' => '%s', 'ticks' => '%d',
         'lock_token' => '%s', 'locked_until' => '%s', 'created_at' => '%s', 'updated_at' => '%s',

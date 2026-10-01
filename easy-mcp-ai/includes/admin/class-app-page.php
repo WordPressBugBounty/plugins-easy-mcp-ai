@@ -340,6 +340,7 @@ class App_Page {
 
 
 
+
     public function maybe_redirect() {
         if ( \wp_doing_ajax() || ! \current_user_can( 'manage_options' ) ) {
             return;
@@ -357,10 +358,10 @@ class App_Page {
         }
         \delete_transient( Setup_State::REDIRECT_TRANSIENT );
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only guard against bulk activation.
-        if ( \is_network_admin() || isset( $_GET['activate-multi'] ) || Setup_State::is_complete() ) {
+        if ( \is_network_admin() || isset( $_GET['activate-multi'] ) ) {
             return;
         }
-        \wp_safe_redirect( self::url_for( 'setup' ) );
+        \wp_safe_redirect( self::url_for( Setup_State::is_complete() ? 'dashboard' : 'setup' ) );
         exit;
     }
 
@@ -496,10 +497,6 @@ class App_Page {
             'version'           => EASY_MCP_AI_VERSION,
             'userDisplayName'   => isset( $user->display_name ) ? (string) $user->display_name : '',
             'adminUrl'          => \admin_url( 'admin.php' ),
-            
-            
-            'coreRestUrl'       => \esc_url_raw( \rest_url( 'wp/v2/' ) ),
-            'canInstallPlugins' => \current_user_can( 'install_plugins' ) && \current_user_can( 'activate_plugins' ),
             
             
             'timezone'          => self::site_timezone(),

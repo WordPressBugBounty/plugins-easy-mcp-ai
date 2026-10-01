@@ -78,6 +78,20 @@ class Server {
     
     private $task_manager        = null;
     private $skip_rate_limit     = false;
+    
+    
+    
+    
+    private $approval_mode       = null;
+    
+    private $last_approval       = array( 'kind' => 'run', 'approval_id' => null );
+
+    
+    
+    
+    private $approval_gate       = null;
+    private $request_client_caps = null;
+    private $request_client_protocol = null;
 
     
 
@@ -103,6 +117,12 @@ class Server {
         
         
         register_shutdown_function( function () {
+            
+            
+            
+            if ( class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ) {
+                \Easy_MCP_AI\Compat\Compat_Registry::release( 0 );
+            }
             $err = error_get_last();
             if ( ! $err ) { return; }
             if ( ! in_array( $err['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR ), true ) ) {
@@ -166,14 +186,126 @@ class Server {
 
 
 
-    public function call_tool_internal( $id, $tool_name, array $arguments, $token_id, $allowed_tools, $count_rate_limit ) {
-        $previous              = $this->skip_rate_limit;
-        $this->skip_rate_limit = ! $count_rate_limit;
+    
+    public static function load_approval_classes() {
+        $dir = dirname( __DIR__ ) . '/';
+        require_once $dir . 'auth/class-token-keys.php';
+        require_once $dir . 'approvals/interface-approval-store.php';
+        require_once $dir . 'approvals/class-approval-schema.php';
+        require_once $dir . 'approvals/class-wpdb-approval-store.php';
+        require_once $dir . 'approvals/class-approval-gate.php';
+        require_once $dir . 'approvals/class-approval-page.php';
+    }
+
+    
+    public function get_approval_gate() {
+        if ( null === $this->approval_gate ) {
+            self::load_approval_classes();
+            $manager = $this->token_manager;
+            $this->approval_gate = new \Easy_MCP_AI\Approvals\Approval_Gate(
+                new \Easy_MCP_AI\Approvals\Wpdb_Approval_Store(),
+                static function ( $token_id ) use ( $manager ) {
+                    $row = $manager->get_token_by_id( (int) $token_id );
+                    return is_array( $row ) && ! empty( $row['unattended'] );
+                }
+            );
+        }
+        return $this->approval_gate;
+    }
+
+    public function set_approval_gate( $gate ) {
+        $this->approval_gate = $gate;
+    }
+
+    
+
+
+
+    public function set_request_client_caps( $caps, $protocol = null ) {
+        $this->request_client_caps     = is_array( $caps ) ? $caps : ( is_object( $caps ) ? (array) $caps : null );
+        $this->request_client_protocol = is_string( $protocol ) && '' !== $protocol ? $protocol : null;
+    }
+
+    
+    private function client_declared_apps() {
+        $caps = $this->request_client_caps;
+        if ( ! is_array( $caps ) || ! isset( $caps['extensions'] ) ) {
+            return false;
+        }
+        $extensions = is_object( $caps['extensions'] ) ? (array) $caps['extensions'] : $caps['extensions'];
+        return is_array( $extensions ) && array_key_exists( 'io.modelcontextprotocol/ui', $extensions );
+    }
+
+    
+    private static function is_app_only_definition( array $definition ) {
+        if ( ! isset( $definition['_meta']['ui']['visibility'] ) || ! is_array( $definition['_meta']['ui']['visibility'] ) ) {
+            return false;
+        }
+        return ! in_array( 'model', $definition['_meta']['ui']['visibility'], true );
+    }
+
+    
+
+
+
+
+
+    private static function is_app_only_tool( $tool ) {
+        if ( ! method_exists( $tool, 'get_ui_meta' ) ) {
+            return false;
+        }
         try {
-            return $this->handle_tools_call( $id, array( 'name' => $tool_name, 'arguments' => $arguments ), $token_id, $allowed_tools );
+            $ui = $tool->get_ui_meta();
+        } catch ( \Throwable $e ) {
+            return false;
+        }
+        return is_array( $ui ) && self::is_app_only_definition( array( '_meta' => array( 'ui' => $ui ) ) );
+    }
+
+    
+    private function request_identity( $token_id ) {
+        return array(
+            'auth_source'     => 'oauth' === $this->request_auth_source ? 'oauth' : 'legacy',
+            'token_id'        => (int) $token_id,
+            'oauth_client_id' => is_string( $this->request_client_id ) ? $this->request_client_id : null,
+            'wp_user_id'      => (int) $this->request_wp_user_id,
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    public function call_tool_internal( $id, $tool_name, array $arguments, $token_id, $allowed_tools, $count_rate_limit, $approval = null, array $answer = array() ) {
+        $previous              = $this->skip_rate_limit;
+        $previous_mode         = $this->approval_mode;
+        $this->skip_rate_limit = ! $count_rate_limit;
+        $this->approval_mode   = $approval;
+        $params                = array( 'name' => $tool_name, 'arguments' => $arguments );
+        foreach ( array( 'requestState', 'inputResponses' ) as $key ) {
+            if ( array_key_exists( $key, $answer ) ) {
+                $params[ $key ] = $answer[ $key ];
+            }
+        }
+        try {
+            return $this->handle_tools_call( $id, $params, $token_id, $allowed_tools );
         } finally {
             $this->skip_rate_limit = $previous;
+            $this->approval_mode   = $previous_mode;
         }
+    }
+
+    
+    public function get_last_approval() {
+        return $this->last_approval;
     }
 
     
@@ -230,6 +362,20 @@ class Server {
         if ( null === $token_id ) {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
         }
+        
+        
+        
+        $caps = isset( $message['params']['_meta']['io.modelcontextprotocol/clientCapabilities'] ) ? $message['params']['_meta']['io.modelcontextprotocol/clientCapabilities'] : null;
+        $this->set_request_client_caps( is_object( $caps ) ? (array) $caps : ( is_array( $caps ) ? $caps : array() ), self::PROTOCOL_VERSION );
+        try {
+            return $this->dispatch_modern_message( $message, $id, $token_id, $allowed_tools );
+        } finally {
+            $this->request_client_caps     = null;
+            $this->request_client_protocol = null;
+        }
+    }
+
+    private function dispatch_modern_message( $message, $id, $token_id, $allowed_tools ) {
         $method = $message['method'];
         if ( 'server/discover' === $method ) {
             if ( ! $this->check_rate_limit( $token_id ) ) {
@@ -498,6 +644,13 @@ class Server {
             } ) );
         }
         $all_tools = self::available_tools( $this->tool_registry, false, $all_tools );
+        
+        
+        if ( ! $this->client_declared_apps() ) {
+            $all_tools = array_values( array_filter( $all_tools, static function ( $tool ) {
+                return ! self::is_app_only_definition( $tool );
+            } ) );
+        }
         $all_tools = array_map( function ( $tool ) {
             $tool['inputSchema'] = Gemini_Safe_Schema::sanitize( $tool['inputSchema'] )['schema'];
             if ( isset( $tool['outputSchema'] ) ) {
@@ -598,6 +751,60 @@ class Server {
         
         
         
+        if ( self::is_app_only_tool( $tool ) && ! $this->client_declared_apps() ) {
+            $this->log_refusal( $token_id, $tool_name, $arguments );
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool is only callable from an approval card.' );
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        $approval_row        = null;
+        $approval_outcome    = null;
+        $this->last_approval = array( 'kind' => 'run', 'approval_id' => null );
+        if ( 'skip' === $this->approval_mode ) {
+            
+            
+            $approval = array( 'kind' => 'run' );
+        } else {
+            $subject  = is_array( $this->approval_mode ) ? $this->approval_mode : $arguments;
+            $approval = $this->evaluate_approval( $tool, $subject, $token_id, $params );
+        }
+        if ( 'redeem' === $approval['kind'] ) {
+            if ( $this->get_approval_gate()->claim( $approval['row'] ) ) {
+                $approval_row        = $approval['row'];
+                $this->last_approval = array( 'kind' => 'redeem', 'approval_id' => $approval_row['approval_id'] );
+            } else {
+                $approval = array( 'kind' => 'refused', 'reason' => 'consumed', 'message' => 'this approval was already used or has lapsed; call the tool again to request a fresh one.' );
+            }
+        }
+        if ( 'refused' === $approval['kind'] ) {
+            $this->last_approval = array( 'kind' => 'refused', 'approval_id' => null );
+            $this->log_tool_call( $token_id, $tool_name, $arguments, 'approval_refused' );
+            return JSON_RPC::success_response( $id, \Easy_MCP_AI\Approvals\Approval_Gate::refusal_result( $approval['reason'], $approval['message'] ) );
+        }
+        if ( 'replay' === $approval['kind'] ) {
+            $this->last_approval = array( 'kind' => 'replay', 'approval_id' => $approval['row']['approval_id'] );
+            $this->log_tool_call( $token_id, $tool_name, $arguments, 'approval_replayed' );
+            return JSON_RPC::success_response( $id, $approval['result'] );
+        }
+        if ( 'ask_form' === $approval['kind'] || 'ask' === $approval['kind'] ) {
+            $this->last_approval = array( 'kind' => 'paused', 'approval_id' => $approval['row']['approval_id'] );
+            $paused_audit_id = $this->log_tool_call( $token_id, $tool_name, $arguments, 'approval_required' );
+            $this->get_approval_gate()->note_audit_id( $approval['row'], $paused_audit_id );
+            if ( 'ask_form' === $approval['kind'] ) {
+                return $this->get_approval_gate()->build_input_required( $id, $approval['row'] );
+            }
+            return JSON_RPC::success_response( $id, $this->get_approval_gate()->build_approval_result( $approval['row'], $this->client_declared_apps() ) );
+        }
+
+        
+        
+        
         
         
         
@@ -611,6 +818,9 @@ class Server {
         
         $exec_started = null;
         $outer_call   = self::$active_call;
+        
+        
+        $compat_mark  = class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ? \Easy_MCP_AI\Compat\Compat_Registry::mark() : null;
 
         
         
@@ -639,6 +849,8 @@ class Server {
                 
                 
                 'tool_args'       => $arguments,
+                
+                'approval_id'     => $approval_row ? $approval_row['approval_id'] : null,
             ) );
             
             \do_action( 'easy_mcp_ai_change_context_armed' );
@@ -652,10 +864,22 @@ class Server {
             $arguments    = Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] );
             
             
+            if ( method_exists( $tool, 'set_request_identity' ) ) {
+                $tool->set_request_identity( $this->request_identity( $token_id ) );
+            }
+            
+            
             
             
             if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
                 \Easy_MCP_AI\Meta\Meta_Exposure::register_for_request();
+            }
+            
+            
+            
+            
+            if ( null !== $compat_mark ) {
+                \Easy_MCP_AI\Compat\Compat_Registry::arm_for( $tool, $arguments );
             }
             self::$active_call = array(
                 'server'        => $this,
@@ -721,6 +945,7 @@ class Server {
             if ( $has_structured ) {
                 $response['structuredContent'] = $structured_value;
             }
+            $approval_outcome = $response;
             return JSON_RPC::success_response( $id, $response );
         } catch ( \Exception $e ) {
             
@@ -737,10 +962,11 @@ class Server {
             if ( $e instanceof Detailed_Tool_Error && '' !== trim( $e->get_details() ) ) {
                 $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
             }
-            return JSON_RPC::success_response( $id, array(
+            $approval_outcome = array(
                 'content' => $content,
                 'isError' => true,
-            ) );
+            );
+            return JSON_RPC::success_response( $id, $approval_outcome );
         } catch ( \Error $e ) {
             
             
@@ -748,17 +974,33 @@ class Server {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( 'WP MCP Server tool error [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
-            return JSON_RPC::success_response( $id, array(
+            $approval_outcome = array(
                 'content' => array( array( 'type' => 'text', 'text' => 'Tool execution failed. Check server error logs for details.' ) ),
                 'isError' => true,
-            ) );
+            );
+            return JSON_RPC::success_response( $id, $approval_outcome );
         } finally {
+            
+            
+            if ( null !== $compat_mark ) {
+                \Easy_MCP_AI\Compat\Compat_Registry::release( $compat_mark );
+            }
             self::$active_call = $outer_call;
             
             
             
             $duration_ms = null === $exec_started ? null : (int) round( ( microtime( true ) - $exec_started ) * 1000 );
             $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status, $duration_ms );
+            if ( $approval_row ) {
+                
+                
+                
+                try {
+                    $this->get_approval_gate()->finish( $approval_row, $approval_outcome, null === $final_status ? 'error' : $final_status, $audit_id );
+                } catch ( \Throwable $ignored ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+                    
+                }
+            }
             if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
                 
                 
@@ -873,6 +1115,27 @@ class Server {
 
 
 
+    
+
+
+
+
+
+    private function evaluate_approval( $tool, array $arguments, $token_id, array $params ) {
+        self::load_approval_classes();
+        if ( ! \Easy_MCP_AI\Approvals\Approval_Gate::requires_approval( $tool, $arguments ) ) {
+            return array( 'kind' => 'run' );
+        }
+        try {
+            return $this->get_approval_gate()->evaluate( $tool, $arguments, $this->request_identity( $token_id ), $params, $this->request_client_caps, $this->request_client_protocol );
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'Easy MCP AI approval gate failed for %s: %s', $tool->get_name(), $e->getMessage() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
+            return array( 'kind' => 'refused', 'reason' => 'unavailable', 'message' => 'the approval system could not record this request, so the operation was not run. Try again shortly.' );
+        }
+    }
+
     public static function sanitize_error_message( $message, int $max_length = Detailed_Tool_Error::MAX_MESSAGE ) {
         if ( ! is_string( $message ) || '' === $message ) {
             return 'Tool execution failed.';
@@ -887,7 +1150,18 @@ class Server {
         $message = preg_replace( '/\s+in\s+\S+\.php(?:\(\d+\)|:\d+| on line \d+)/', '', $message );
 
         
-        $message = preg_replace( '#(?:/|[A-Z]:\\\\)[^\s\'"<>]*\.(?:php|inc|tpl|phtml)\b#', '[file]', $message );
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        $message = preg_replace( '#(?<![\w.\-/\\\\])(?:\\\\?/|[A-Z]:\\\\)(?:(?:[^\s\'"<>/\\\\]+(?: +[^\s\'"<>/\\\\]+)*)?[/\\\\])*[^\s\'"<>/\\\\]*\.(?:php|inc|tpl|phtml)\b#', '[file]', $message );
 
         
         $message = preg_replace_callback(
@@ -964,13 +1238,20 @@ class Server {
         }
         try {
             $content = $resource->read();
-            return JSON_RPC::success_response( $id, array(
-                'contents' => array( array(
-                    'uri'      => $uri,
-                    'mimeType' => $resource->get_mime_type(),
-                    'text'     => is_string( $content ) ? $content : wp_json_encode( $content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
-                ) ),
-            ) );
+            $entry   = array(
+                'uri'      => $uri,
+                'mimeType' => $resource->get_mime_type(),
+                'text'     => is_string( $content ) ? $content : wp_json_encode( $content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+            );
+            
+            
+            if ( method_exists( $resource, 'get_meta' ) ) {
+                $meta = $resource->get_meta();
+                if ( ! empty( $meta ) ) {
+                    $entry['_meta'] = $meta;
+                }
+            }
+            return JSON_RPC::success_response( $id, array( 'contents' => array( $entry ) ) );
         } catch ( \Throwable $e ) {
             return JSON_RPC::error_response( $id, Error_Codes::INTERNAL_ERROR, 'Failed to read resource' );
         }

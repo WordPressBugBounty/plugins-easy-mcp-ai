@@ -14,7 +14,7 @@ class Update_Post_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        $description = 'Updates REST-API-visible meta fields for a post. Only fields registered with show_in_rest can be updated. Pass a JSON object of key-value pairs. Nested arrays/objects are passed through as-is and are accepted only when the key is registered with an array or object show_in_rest schema; a value of the wrong type is refused with the key, its registered type and what was sent. Optional `post_type` (REST base, default `posts`) lets this tool also operate on pages or any custom post type, not just posts. SEO plugin keys (Rank Math, Yoast, SEOPress, The SEO Framework) are writable here when that plugin\'s integration is enabled under Easy MCP AI → Tools → Plugins.';
+        $description = 'Updates REST-API-visible meta fields for a post. Only fields registered with show_in_rest can be updated. Pass a JSON object of key-value pairs. Nested arrays/objects are passed through as-is and are accepted only when the key is registered with an array or object show_in_rest schema; a value of the wrong type is refused with the key, its registered type and what was sent. Optional `post_type` (REST base, default `posts`) lets this tool also operate on pages or any custom post type, not just posts. Returns { post_id, updated_meta } with only the requested keys that were saved. If none was saved the call is refused, naming the keys (its details list the keys this post type accepts); if only some were, `ignored_keys` and `notice` come first. SEO plugin keys (Rank Math, Yoast, SEOPress, The SEO Framework) are writable here when that plugin\'s integration is enabled under Easy MCP AI → Tools → Plugins.';
         
         
         if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
@@ -118,37 +118,96 @@ class Update_Post_Meta extends Base_Tool {
         ) );
 
         
+        
+        
         $persisted_meta = isset( $read_data['meta'] ) ? $read_data['meta'] : array();
-        $requested_keys = array_keys( $meta );
+        $saved          = array();
         $ignored_keys   = array();
-        foreach ( $requested_keys as $key ) {
-            if ( ! array_key_exists( $key, $persisted_meta ) ) {
+        foreach ( array_keys( $meta ) as $key ) {
+            if ( array_key_exists( $key, $persisted_meta ) ) {
+                $saved[ $key ] = $persisted_meta[ $key ];
+            } else {
                 $ignored_keys[] = $key;
             }
         }
 
-        $result = array(
-            'post_id'      => $post_id,
-            'updated_meta' => ! empty( $persisted_meta ) ? $persisted_meta : new \stdClass(),
-        );
-
-        if ( ! empty( $ignored_keys ) ) {
-            $result['ignored_keys'] = $ignored_keys;
-            $result['notice']       = sprintf(
-                'The following meta keys were sent but not persisted (they may not be registered with show_in_rest=true): %s. Meta fields must be registered by the theme or a plugin to be writable via the REST API.',
-                implode( ', ', $ignored_keys )
+        if ( empty( $ignored_keys ) ) {
+            return array(
+                'post_id'      => $post_id,
+                'updated_meta' => ! empty( $saved ) ? $saved : new \stdClass(),
             );
-            
-            
-            if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
-                $explained = \Easy_MCP_AI\Meta\Meta_Exposure::explain_ignored_keys( $ignored_keys );
-                if ( ! empty( $explained ) ) {
-                    $result['notice'] .= ' ' . implode( ' ', array_values( $explained ) );
-                }
-            }
         }
 
-        return $result;
+        $notice = $this->ignored_keys_notice( $ignored_keys );
+
+        
+        
+        
+        if ( empty( $saved ) ) {
+            $accepted = array_keys( $persisted_meta );
+            throw new \Easy_MCP_AI\MCP\Detailed_Tool_Error(
+                $this->none_saved_message( $ignored_keys ),
+                $this->acf_hint() . $notice . ' Meta keys this post type accepts: ' . ( empty( $accepted ) ? 'none' : implode( ', ', $accepted ) ) . '.'
+            );
+        }
+
+        
+        
+        return array(
+            'ignored_keys' => $ignored_keys,
+            'notice'       => $notice,
+            'post_id'      => $post_id,
+            'updated_meta' => $saved,
+        );
+    }
+
+    
+
+
+
+
+
+
+    private function ignored_keys_notice( array $ignored_keys ) {
+        $notice = sprintf(
+            'The following meta keys were sent but not persisted (they may not be registered with show_in_rest=true): %s. Meta fields must be registered by the theme or a plugin to be writable via the REST API.',
+            implode( ', ', $ignored_keys )
+        );
+        if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
+            $explained = \Easy_MCP_AI\Meta\Meta_Exposure::explain_ignored_keys( $ignored_keys );
+            if ( ! empty( $explained ) ) {
+                $notice .= ' ' . implode( ' ', array_values( $explained ) );
+            }
+        }
+        return $notice;
+    }
+
+    
+
+
+
+
+
+
+    private function none_saved_message( array $keys ) {
+        $head  = 'Nothing was saved. Not writable through the REST API for this post: ';
+        $tail  = '. Details: why, and the keys it accepts.';
+        $room  = \Easy_MCP_AI\MCP\Detailed_Tool_Error::MAX_MESSAGE - strlen( $head ) - strlen( $tail );
+        $total = count( $keys );
+        $shown = array();
+        foreach ( $keys as $key ) {
+            $candidate = array_merge( $shown, array( (string) $key ) );
+            $left      = $total - count( $candidate );
+            if ( strlen( implode( ', ', $candidate ) . ( $left > 0 ? sprintf( ' and %d more', $left ) : '' ) ) > $room ) {
+                break;
+            }
+            $shown = $candidate;
+        }
+        $left = $total - count( $shown );
+        $list = empty( $shown )
+            ? sprintf( '%d keys', $total )
+            : implode( ', ', $shown ) . ( $left > 0 ? sprintf( ' and %d more', $left ) : '' );
+        return $head . $list . $tail;
     }
 
     

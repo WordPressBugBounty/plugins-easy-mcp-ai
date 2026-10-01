@@ -52,6 +52,22 @@ class Delete_Post extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['post_id'] ) ? (int) $arguments['post_id'] : 0;
+        $post = $id > 0 ? $this->peek( '/wp/v2/posts/' . $id, 'id,title,status' ) : null;
+        if ( ! $post ) {
+            return '';
+        }
+        $force = ! empty( $arguments['force'] ) && \rest_sanitize_boolean( $arguments['force'] );
+        return sprintf(
+            /* translators: 1: post title, 2: post id, 3: post status, 4: what happens */
+            __( "Delete post '%1\$s' (ID %2\$d, %3\$s) — %4\$s.", 'easy-mcp-ai' ),
+            self::rest_title( $post ), $id, isset( $post['status'] ) ? $post['status'] : 'unknown',
+            $force ? __( 'permanently, bypassing the trash', 'easy-mcp-ai' ) : __( 'moves it to the trash', 'easy-mcp-ai' )
+        );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'post_id' ) );
 

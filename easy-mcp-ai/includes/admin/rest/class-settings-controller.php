@@ -41,6 +41,9 @@ class Settings_Controller extends Admin_Rest_Controller {
             'oauthMinCapability'  => 'oauth_min_capability',
             'forceDraftOnCreate'  => 'force_draft_on_create',
             'selfServiceKeys'     => 'self_service_keys',
+            'approvalRequired'    => 'approval_required',
+            'approvalAlways'      => 'approval_always',
+            'approvalNever'       => 'approval_never',
         ),
         'logging'  => array(
             'auditLogEnabled'    => 'audit_log_enabled',
@@ -166,6 +169,11 @@ class Settings_Controller extends Admin_Rest_Controller {
                 'oauthMinCapability'  => Admin_Page::sanitize_oauth_min_capability( Config::get( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' ) ),
                 'forceDraftOnCreate'  => (bool) Config::get( 'easy_mcp_ai_force_draft_on_create', false ),
                 'selfServiceKeys'     => true === Config::get( 'self_service_keys' ),
+                
+                
+                'approvalRequired'    => true === Config::get( 'approval_required' ),
+                'approvalAlways'      => array_values( (array) Config::get( 'approval_always' ) ),
+                'approvalNever'       => array_values( (array) Config::get( 'approval_never' ) ),
             ),
             'logging'  => array(
                 'auditLogEnabled'    => (bool) Config::get( 'easy_mcp_ai_audit_log_enabled', true ),
@@ -213,6 +221,10 @@ class Settings_Controller extends Admin_Rest_Controller {
                     array( 'value' => 'allowlist', 'label' => \__( 'Allowlist only (legacy)', 'easy-mcp-ai' ) ),
                 ),
                 'destructiveTools'         => $grid,
+                
+                
+                
+                'approvalDefaultTools'     => $this->approval_default_tools(),
             ),
             'tools'      => $this->tool_counts( $disabled, $patterns ),
             'controlled' => self::controlled(),
@@ -238,6 +250,23 @@ class Settings_Controller extends Admin_Rest_Controller {
             );
         }
         return $list;
+    }
+
+    
+
+
+
+
+    private function approval_default_tools() {
+        
+        if ( ! $this->tool_registry instanceof \Easy_MCP_AI\Tools\Tool_Registry ) {
+            return array();
+        }
+        \Easy_MCP_AI\Plugin::load_approvals();
+        return \Easy_MCP_AI\Approvals\Approval_Gate::default_pause_names(
+            $this->tool_registry,
+            \Easy_MCP_AI\MCP\Server::available_tools( $this->tool_registry )
+        );
     }
 
     
@@ -290,16 +319,7 @@ class Settings_Controller extends Admin_Rest_Controller {
 
     public static function matching_tools( array $names, array $patterns ) {
         return array_values( array_filter( $names, static function ( $name ) use ( $patterns ) {
-            foreach ( $patterns as $pattern ) {
-                $pattern = trim( (string) $pattern );
-                if ( false === strpos( $pattern, '*' ) && false === strpos( $pattern, '?' ) ) {
-                    $pattern = '*' . $pattern . '*';
-                }
-                if ( fnmatch( $pattern, $name ) ) {
-                    return true;
-                }
-            }
-            return false;
+            return \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $patterns );
         } ) );
     }
 
@@ -373,6 +393,7 @@ class Settings_Controller extends Admin_Rest_Controller {
         switch ( $field ) {
             case 'forceDraftOnCreate':
             case 'selfServiceKeys':
+            case 'approvalRequired':
             case 'auditLogEnabled':
             case 'changeLogEnabled':
             case 'shareUsageData':
@@ -433,6 +454,8 @@ class Settings_Controller extends Admin_Rest_Controller {
                 return array_values( array_unique( $raw ) );
 
             case 'allowedToolPatterns':
+            case 'approvalAlways':
+            case 'approvalNever':
                 if ( ! is_string( $raw ) && ! is_array( $raw ) ) {
                     return $this->invalid( $field, \__( 'Expected comma-separated glob patterns.', 'easy-mcp-ai' ) );
                 }
@@ -449,7 +472,9 @@ class Settings_Controller extends Admin_Rest_Controller {
                         );
                     }
                 }
-                return $patterns;
+                
+                
+                return 'allowedToolPatterns' === $field ? $patterns : array_values( array_unique( $patterns ) );
 
             case 'ipWhitelist':
                 if ( ! is_string( $raw ) ) {

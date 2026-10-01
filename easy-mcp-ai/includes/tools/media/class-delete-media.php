@@ -52,6 +52,21 @@ class Delete_Media extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['media_id'] ) ? (int) $arguments['media_id'] : 0;
+        $media = $id > 0 ? $this->peek( '/wp/v2/media/' . $id, 'id,title,source_url,mime_type' ) : null;
+        if ( ! $media ) {
+            return '';
+        }
+        $file = isset( $media['source_url'] ) ? basename( (string) $media['source_url'] ) : '';
+        return sprintf(
+            /* translators: 1: media title, 2: file name, 3: media id */
+            __( "Permanently delete media '%1\$s' (%2\$s, ID %3\$d) and its file.", 'easy-mcp-ai' ),
+            self::rest_title( $media ), '' !== $file ? $file : __( 'unknown file', 'easy-mcp-ai' ), $id
+        );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'media_id' ) );
 

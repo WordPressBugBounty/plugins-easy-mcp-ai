@@ -70,6 +70,7 @@ class Add_Post_Terms extends Base_Tool {
         $this->validate_required( $arguments, array( 'post_id', 'taxonomy', 'terms' ) );
 
         $post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+        $this->refuse_missing_post( $post_id );
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
             throw new \RuntimeException( 'You do not have permission to edit this post.' );
         }

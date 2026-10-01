@@ -438,6 +438,9 @@ class Tool_Registry {
 
             
             'Easy_MCP_AI\\Tools\\Audit\\Audit_List',
+            
+            'Easy_MCP_AI\\Tools\\Approvals\\Approve_Operation',
+            'Easy_MCP_AI\\Tools\\Approvals\\Deny_Operation',
 
             
             'Easy_MCP_AI\\Tools\\Site_Health\\Get_Site_Health',

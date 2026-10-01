@@ -14,7 +14,7 @@ class Search_Posts extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Searches WordPress posts by keyword using the WP REST search API. Required: `query`. Optional: `subtype` (post type slug to search within — omit to search all searchable post types, i.e. WP\'s "any" default; use "post" or "page" to restrict to one type), `per_page` (default 10), `page` (default 1), `snippet` (boolean — attach a plain-text `snippet` per result windowed around the first match; default false), `snippet_length` (max snippet characters, 20-1000, default 200). Returns { results: [{ id, title, url, type, subtype, snippet (only when snippet=true) }], total, total_pages, page, per_page, query }. Note: `url` is the permalink, not `link`. For cross-type search including terms use `wp_search` instead.';
+        return 'Searches published posts by keyword, in every public post type or the one named in `subtype`. Never returns drafts, pending, private or scheduled posts, or media, so an empty result does not mean the item is missing; for those use wp_list_posts / wp_list_pages with `search` and `status: "any"`, or wp_list_media with `search`. Returns { results: [{ id, title, url (the permalink), type, subtype, snippet (only with `snippet: true`) }], total, total_pages, page, per_page, query }. To include terms, use wp_search.';
     }
 
     public function get_category() {

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-28T13:17:55+00:00\n"
+"POT-Creation-Date: 2026-10-01T14:56:04+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: easy-mcp-ai\n"
@@ -28,7 +28,7 @@ msgstr ""
 #: dev-tools.php
 #: includes/admin/class-app-page.php:251
 #: includes/admin/class-app-page.php:252
-#: includes/admin/class-app-page.php:508
+#: includes/admin/class-app-page.php:505
 #: includes/diagnostics/class-diagnostics-site-health.php:182
 msgid "Easy MCP AI"
 msgstr ""
@@ -38,27 +38,23 @@ msgid "Getting Started"
 msgstr ""
 
 #: easy-mcp-ai.php:285
-msgid "Plugin"
-msgstr ""
-
-#: easy-mcp-ai.php:286
 #: assets/build/page-tools.js:1
 msgid "Abilities"
 msgstr ""
 
-#: easy-mcp-ai.php:287
+#: easy-mcp-ai.php:286
 msgid "External Data"
 msgstr ""
 
-#: easy-mcp-ai.php:290
+#: easy-mcp-ai.php:289
 #: includes/admin/class-app-page.php:195
-#: includes/oauth/class-scope-map.php:650
-#: assets/build/index.js:16
-#: assets/build/index.js:25
+#: includes/oauth/class-scope-map.php:668
+#: assets/build/index.js:17
+#: assets/build/index.js:27
 msgid "Settings"
 msgstr ""
 
-#: easy-mcp-ai.php:302
+#: easy-mcp-ai.php:301
 msgid "Rate Plugin"
 msgstr ""
 
@@ -93,28 +89,28 @@ msgid "The expiration date must be in the future."
 msgstr ""
 
 #: includes/admin/class-app-page.php:191
-#: assets/build/index.js:16
-#: assets/build/index.js:25
+#: assets/build/index.js:17
+#: assets/build/index.js:27
 msgid "Dashboard"
 msgstr ""
 
 #: includes/admin/class-app-page.php:192
-#: assets/build/index.js:16
-#: assets/build/index.js:25
+#: assets/build/index.js:17
+#: assets/build/index.js:27
 msgid "Connections"
 msgstr ""
 
 #: includes/admin/class-app-page.php:193
-#: assets/build/index.js:16
-#: assets/build/index.js:25
-#: assets/build/page-dashboard.js:24
+#: assets/build/index.js:17
+#: assets/build/index.js:27
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "Tools"
 msgstr ""
 
 #: includes/admin/class-app-page.php:194
-#: assets/build/index.js:16
+#: assets/build/index.js:17
 #: assets/build/page-activity.js:14
 msgid "Activity"
 msgstr ""
@@ -126,11 +122,11 @@ msgstr ""
 #: includes/admin/class-app-page.php:280
 #: includes/admin/class-app-page.php:281
 #: assets/build/page-activity.js:14
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Change history"
 msgstr ""
 
-#: includes/admin/class-app-page.php:399
+#: includes/admin/class-app-page.php:400
 msgid "Loading…"
 msgstr ""
 
@@ -144,7 +140,7 @@ msgstr ""
 
 #: includes/admin/class-external-data-service.php:423
 #: includes/admin/class-external-data-service.php:757
-#: includes/admin/class-tool-catalogue.php:580
+#: includes/admin/class-tool-catalogue.php:562
 #: includes/admin/rest/class-external-data-controller.php:145
 msgid "Unknown provider."
 msgstr ""
@@ -170,7 +166,7 @@ msgid "The service account JSON is missing one of the required fields (private_k
 msgstr ""
 
 #: includes/admin/class-external-data-service.php:528
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Save the login and the API password together."
 msgstr ""
 
@@ -186,7 +182,7 @@ msgstr ""
 
 #: includes/admin/class-external-data-service.php:684
 #: includes/admin/class-external-data-service.php:833
-#: includes/admin/class-tool-catalogue.php:586
+#: includes/admin/class-tool-catalogue.php:568
 msgid "Save credentials for this provider first."
 msgstr ""
 
@@ -453,67 +449,67 @@ msgid "- A token whose permissions, OAuth scope, or WordPress user role leave it
 msgstr ""
 
 #: includes/admin/class-support-text.php:177
-#: includes/admin/rest/class-tokens-controller.php:551
+#: includes/admin/rest/class-tokens-controller.php:612
 #: assets/build/page-activity.js:1
 msgid "Unknown"
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:377
-#: includes/admin/class-tool-catalogue.php:449
-#: includes/admin/class-tool-catalogue.php:466
+#: includes/admin/class-tool-catalogue.php:359
+#: includes/admin/class-tool-catalogue.php:431
+#: includes/admin/class-tool-catalogue.php:448
+#: includes/admin/class-tool-catalogue.php:501
 #: includes/admin/class-tool-catalogue.php:519
-#: includes/admin/class-tool-catalogue.php:537
-#: includes/admin/class-tool-catalogue.php:583
-#: includes/admin/class-tool-catalogue.php:604
+#: includes/admin/class-tool-catalogue.php:565
+#: includes/admin/class-tool-catalogue.php:586
 #: includes/admin/rest/class-external-data-controller.php:70
 #: includes/admin/rest/class-tools-controller.php:78
 msgid "Expected a JSON object."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:405
+#: includes/admin/class-tool-catalogue.php:387
 msgid "The disabled-tool list is set by a constant or environment variable on this site, so it cannot be changed here."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:446
+#: includes/admin/class-tool-catalogue.php:428
 msgid "Unknown plugin integration."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:452
+#: includes/admin/class-tool-catalogue.php:434
 msgid "This plugin is not installed or not active."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:457
-#: includes/admin/class-tool-catalogue.php:473
-#: includes/admin/class-tool-catalogue.php:529
-#: includes/admin/class-tool-catalogue.php:544
-#: includes/admin/class-tool-catalogue.php:596
-#: includes/admin/class-tool-catalogue.php:611
-#: includes/admin/rest/class-oauth-controller.php:147
-#: includes/admin/rest/class-settings-controller.php:125
+#: includes/admin/class-tool-catalogue.php:439
+#: includes/admin/class-tool-catalogue.php:455
+#: includes/admin/class-tool-catalogue.php:511
+#: includes/admin/class-tool-catalogue.php:526
+#: includes/admin/class-tool-catalogue.php:578
+#: includes/admin/class-tool-catalogue.php:593
+#: includes/admin/rest/class-oauth-controller.php:154
+#: includes/admin/rest/class-settings-controller.php:128
 msgid "Expected true or false."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:470
-#: includes/admin/class-tool-catalogue.php:541
-#: includes/admin/class-tool-catalogue.php:608
+#: includes/admin/class-tool-catalogue.php:452
+#: includes/admin/class-tool-catalogue.php:523
+#: includes/admin/class-tool-catalogue.php:590
 msgid "Unknown tool."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:503
+#: includes/admin/class-tool-catalogue.php:485
 msgid "WordPress Abilities need WordPress 6.9 or later."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:516
+#: includes/admin/class-tool-catalogue.php:498
 msgid "Unknown ability group."
 msgstr ""
 
-#: includes/admin/class-tool-catalogue.php:642
-#: includes/admin/rest/class-settings-controller.php:418
+#: includes/admin/class-tool-catalogue.php:624
+#: includes/admin/rest/class-settings-controller.php:439
 msgid "Expected a list of tool names."
 msgstr ""
 
 #. translators: %s: tool name
-#: includes/admin/class-tool-catalogue.php:652
+#: includes/admin/class-tool-catalogue.php:634
 #, php-format
 msgid "%s is not a core tool."
 msgstr ""
@@ -568,7 +564,7 @@ msgid "Changed %s"
 msgstr ""
 
 #: includes/admin/rest/class-dashboard-controller.php:409
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "post"
 msgid_plural "posts"
@@ -576,7 +572,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/admin/rest/class-dashboard-controller.php:411
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "term"
 msgid_plural "terms"
@@ -584,7 +580,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/admin/rest/class-dashboard-controller.php:413
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "user"
 msgid_plural "users"
@@ -592,7 +588,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/admin/rest/class-dashboard-controller.php:415
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "comment"
 msgid_plural "comments"
@@ -640,122 +636,122 @@ msgid "external service"
 msgstr ""
 
 #. translators: %d: minimum seconds
-#: includes/admin/rest/class-oauth-controller.php:133
+#: includes/admin/rest/class-oauth-controller.php:140
 #: assets/build/page-connections.js:20
 #, php-format,js-format
 msgid "Enter a whole number of seconds, at least %d."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:157
-#: includes/admin/rest/class-settings-controller.php:132
+#: includes/admin/rest/class-oauth-controller.php:164
+#: includes/admin/rest/class-settings-controller.php:135
 msgid "This setting is set in wp-config.php or the environment and cannot be changed here."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:295
-#: includes/admin/rest/class-oauth-controller.php:311
+#: includes/admin/rest/class-oauth-controller.php:305
+#: includes/admin/rest/class-oauth-controller.php:321
 msgid "Client not found."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:318
+#: includes/admin/rest/class-oauth-controller.php:328
 msgid "The client secret was not rotated: the client is not an active confidential client."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:420
+#: includes/admin/rest/class-oauth-controller.php:430
 msgid "scopes must be a list of scope names."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:437
+#: includes/admin/rest/class-oauth-controller.php:447
 #: assets/build/page-connections.js:29
 msgid "Pick at least one category, or revoke the grant instead."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:444
+#: includes/admin/rest/class-oauth-controller.php:454
 #: assets/build/page-connections.js:29
 msgid "A grant can only be narrowed here. To give this client more access, the user has to approve it again."
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:582
+#: includes/admin/rest/class-oauth-controller.php:592
 msgid "Grant not found."
 msgstr ""
 
 #. translators: %d: WordPress user id
-#: includes/admin/rest/class-oauth-controller.php:722
+#: includes/admin/rest/class-oauth-controller.php:732
 #, php-format
 msgid "Unknown user #%d"
 msgstr ""
 
-#: includes/admin/rest/class-oauth-controller.php:745
+#: includes/admin/rest/class-oauth-controller.php:755
 msgid "Nothing was acknowledged. Grants issued for the previous address are refused either way; try again to finish removing them."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:212
+#: includes/admin/rest/class-settings-controller.php:220
 msgid "All options except churn (recommended)"
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:213
+#: includes/admin/rest/class-settings-controller.php:221
 msgid "Allowlist only (legacy)"
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:319
+#: includes/admin/rest/class-settings-controller.php:339
 msgid "Unknown settings section."
 msgstr ""
 
 #. translators: %s: the wp-config constant name
-#: includes/admin/rest/class-settings-controller.php:336
+#: includes/admin/rest/class-settings-controller.php:356
 #, php-format
 msgid "This setting is set by %s in wp-config.php or the environment and cannot be changed here."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:383
+#: includes/admin/rest/class-settings-controller.php:404
 msgid "Must be on or off."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:389
+#: includes/admin/rest/class-settings-controller.php:410
 msgid "Pick one of the listed capabilities. The floor is Author."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:395
+#: includes/admin/rest/class-settings-controller.php:416
 msgid "Pick one of the listed capabilities."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:412
+#: includes/admin/rest/class-settings-controller.php:433
 msgid "Pick one of the recording modes."
 msgstr ""
 
 #. translators: %s: tool name
-#: includes/admin/rest/class-settings-controller.php:427
+#: includes/admin/rest/class-settings-controller.php:448
 #, php-format
 msgid "%s is not one of the tools this list can disable."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:437
+#: includes/admin/rest/class-settings-controller.php:460
 msgid "Expected comma-separated glob patterns."
 msgstr ""
 
 #. translators: %s: the rejected pattern
-#: includes/admin/rest/class-settings-controller.php:446
+#: includes/admin/rest/class-settings-controller.php:469
 #: assets/build/index.js:7
 #, php-format,js-format
 msgid "%s is not a tool-name pattern. Use letters, digits, _ and the wildcards * and ?."
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:456
+#: includes/admin/rest/class-settings-controller.php:481
 msgid "Expected one IP address or CIDR range per line."
 msgstr ""
 
 #. translators: %s: the rejected lines, comma-separated
-#: includes/admin/rest/class-settings-controller.php:464
+#: includes/admin/rest/class-settings-controller.php:489
 #: assets/build/index.js:8
 #, php-format,js-format
 msgid "Not an IP address or CIDR range: %s"
 msgstr ""
 
-#: includes/admin/rest/class-settings-controller.php:471
+#: includes/admin/rest/class-settings-controller.php:496
 msgid "Unknown field."
 msgstr ""
 
 #. translators: 1: minimum, 2: maximum
-#: includes/admin/rest/class-settings-controller.php:488
+#: includes/admin/rest/class-settings-controller.php:513
 #: assets/build/index.js:6
 #, php-format,js-format
 msgid "Enter a whole number from %1$d to %2$d."
@@ -765,42 +761,57 @@ msgstr ""
 msgid "Not permitted: on a network only a super administrator can change .htaccess."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:170
-#: includes/admin/rest/class-tokens-controller.php:218
+#: includes/admin/rest/class-tokens-controller.php:174
+#: includes/admin/rest/class-tokens-controller.php:231
 #: assets/build/page-connections.js:37
 msgid "Give the token a name."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:193
+#: includes/admin/rest/class-tokens-controller.php:202
 msgid "Couldn't create the token. Try again."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:294
+#: includes/admin/rest/class-tokens-controller.php:315
 msgid "The key could not be re-bound. Please try again."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:327
+#: includes/admin/rest/class-tokens-controller.php:348
 msgid "Token not found."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:347
+#: includes/admin/rest/class-tokens-controller.php:368
 msgid "Choose Editor or Author."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:352
+#: includes/admin/rest/class-tokens-controller.php:373
 msgid "This preset matches no tool on this site. Pick another preset or choose tools by hand."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:357
+#: includes/admin/rest/class-tokens-controller.php:378
 msgid "Choose an access level."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:375
+#: includes/admin/rest/class-tokens-controller.php:396
 #: assets/build/page-connections.js:37
 msgid "Nothing was saved: no tools were selected. Choose at least one tool, or pick a preset."
 msgstr ""
 
-#: includes/admin/rest/class-tokens-controller.php:410
+#: includes/admin/rest/class-tokens-controller.php:448
+msgid "Unattended must be on or off."
+msgstr ""
+
+#. translators: %s: the "Ask before destructive actions" setting label
+#: includes/admin/rest/class-tokens-controller.php:456
+#, php-format
+msgid "Unattended only applies while \"%s\" is on in Settings."
+msgstr ""
+
+#: includes/admin/rest/class-tokens-controller.php:457
+#: assets/build/page-settings.js:2
+msgid "Ask before destructive actions"
+msgstr ""
+
+#: includes/admin/rest/class-tokens-controller.php:469
 msgid "Tokens can only be assigned to users who can publish posts (Authors and above)."
 msgstr ""
 
@@ -833,7 +844,7 @@ msgstr ""
 #: assets/build/page-connections.js:24
 #: assets/build/page-connections.js:34
 #: assets/build/page-connections.js:38
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Status"
 msgstr ""
@@ -933,6 +944,7 @@ msgid "Revoked"
 msgstr ""
 
 #: includes/admin/views/self-service-keys.php:164
+#: includes/approvals/class-approval-page.php:212
 #: assets/build/page-connections.js:9
 msgid "Expired"
 msgstr ""
@@ -972,6 +984,157 @@ msgstr ""
 
 #: includes/admin/views/self-service-keys.php:203
 msgid "Next keys"
+msgstr ""
+
+#: includes/approvals/class-approval-gate.php:535
+msgid "Your AI client offered an in-chat prompt for this first; this page is the fallback."
+msgstr ""
+
+#: includes/approvals/class-approval-gate.php:537
+msgid "Your AI client does not support in-chat approval prompts yet, so this page is used instead."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:47
+#: includes/approvals/class-approval-page.php:58
+msgid "Approval not found"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:47
+#: includes/approvals/class-approval-page.php:58
+msgid "This approval does not exist. It may have been cleaned up, or the link was altered."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:61
+msgid "Not your approval"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:61
+msgid "This approval belongs to a different WordPress account. Log in as the user whose AI assistant made the request."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:67
+#: includes/approvals/class-approval-page.php:106
+msgid "Approval expired"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:67
+#: includes/approvals/class-approval-page.php:119
+msgid "This request has expired. Ask your assistant to run the operation again."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:78
+#: includes/oauth/class-authorization-endpoint.php:236
+#: includes/oauth/class-device-verification.php:137
+msgid "Security check failed. Please try again."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:82
+msgid "Choose Approve or Deny."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:87
+#: includes/approvals/class-approval-page.php:107
+msgid "Already decided"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:87
+msgid "This request was decided elsewhere."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:90
+msgid "Approved"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:90
+#: includes/approvals/class-approval-page.php:113
+msgid "Approved. Ask your assistant to run the operation again; it will now execute. This approval can be used once and expires with the request."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:92
+#: includes/resources/class-approval-card-resource.php:90
+msgid "Denied"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:92
+msgid "Denied. Nothing was changed. Your assistant will be told the operation was refused."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:115
+msgid "This request was denied. Nothing was changed."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:117
+msgid "This request was approved and has already been carried out."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:129
+msgid "Your AI assistant wants to run an operation that cannot be undone."
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:132
+#: assets/build/page-activity.js:3
+#: assets/build/page-activity.js:8
+#: assets/build/page-activity.js:13
+msgid "Tool"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:133
+msgid "Requested by"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:134
+#: assets/build/page-connections.js:34
+#: assets/build/page-connections.js:37
+#: assets/build/page-connections.js:38
+msgid "Expires"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:143
+#: includes/resources/class-approval-card-resource.php:85
+msgid "Approve"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:144
+#: includes/oauth/views/consent.php:235
+#: includes/resources/class-approval-card-resource.php:86
+msgid "Deny"
+msgstr ""
+
+#: includes/approvals/class-approval-page.php:146
+#: includes/resources/class-approval-card-resource.php:81
+msgid "Approve this operation?"
+msgstr ""
+
+#. translators: %s: OAuth client name
+#: includes/approvals/class-approval-page.php:158
+#, php-format
+msgid "%s (connected app)"
+msgstr ""
+
+#. translators: %s: OAuth client id
+#: includes/approvals/class-approval-page.php:159
+#, php-format
+msgid "a connected app (client %s)"
+msgstr ""
+
+#. translators: %s: API key name
+#: includes/approvals/class-approval-page.php:163
+#, php-format
+msgid "API key '%s'"
+msgstr ""
+
+#. translators: %d: API key id
+#. translators: %d: API key row id
+#: includes/approvals/class-approval-page.php:164
+#: includes/class-audit-log-repository.php:340
+#, php-format
+msgid "API key #%d"
+msgstr ""
+
+#. translators: %s: a human time span such as "12 mins"
+#: includes/approvals/class-approval-page.php:215
+#, php-format
+msgid "in %s"
 msgstr ""
 
 #: includes/auth/class-token-auth.php:22
@@ -1016,12 +1179,6 @@ msgstr ""
 msgid "self-service"
 msgstr ""
 
-#. translators: %d: API key row id
-#: includes/class-audit-log-repository.php:340
-#, php-format
-msgid "API key #%d"
-msgstr ""
-
 #. translators: %d: OAuth access-token row id
 #: includes/class-audit-log-repository.php:354
 #, php-format
@@ -1048,7 +1205,7 @@ msgstr ""
 
 #: includes/class-config-admin.php:127
 #: includes/diagnostics/class-check-config.php:129
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Deployment-controlled settings"
 msgstr ""
 
@@ -1058,12 +1215,12 @@ msgstr ""
 msgid "Easy MCP AI: Invalid deployment settings use safe fallback values: %s"
 msgstr ""
 
-#: includes/class-plugin.php:647
+#: includes/class-plugin.php:742
 #: includes/oauth/class-authorization-endpoint.php:810
 msgid "Authorization Error"
 msgstr ""
 
-#: includes/class-plugin.php:667
+#: includes/class-plugin.php:762
 #: includes/oauth/class-authorization-endpoint.php:836
 #: includes/oauth/views/consent.php:244
 #: includes/oauth/views/device.php:163
@@ -1165,7 +1322,7 @@ msgid "Something in front of WordPress rejects the request type AI clients use, 
 msgstr ""
 
 #: includes/diagnostics/class-blocker-copy.php:100
-#: includes/diagnostics/class-check-edge-block.php:367
+#: includes/diagnostics/class-check-edge-block.php:385
 msgid "Ask your host, CDN or security plugin to allow POST requests carrying JSON to /wp-json/easy-mcp-ai/. A rule that only permits GET, or that rejects JSON bodies, is the usual cause."
 msgstr ""
 
@@ -1440,7 +1597,7 @@ msgid "Raise the rate limit under Easy MCP AI → Settings → Access & safety �
 msgstr ""
 
 #: includes/diagnostics/class-check-config.php:293
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Force draft on create"
 msgstr ""
 
@@ -1777,7 +1934,7 @@ msgid "This site's own address redirects somewhere else, so nothing could be che
 msgstr ""
 
 #: includes/diagnostics/class-check-discovery.php:334
-#: includes/diagnostics/class-check-edge-block.php:167
+#: includes/diagnostics/class-check-edge-block.php:169
 msgid "The test request did not reach this site's own code, so the result would not mean anything. Some hosts stop a site from calling its own address; on its own that is not a fault."
 msgstr ""
 
@@ -1839,77 +1996,85 @@ msgstr ""
 msgid "AI clients can read this site's sign-in details"
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:96
-#: includes/diagnostics/class-check-edge-block.php:97
+#: includes/diagnostics/class-check-edge-block.php:98
+#: includes/diagnostics/class-check-edge-block.php:99
 msgid "The connection test could not run on this site."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:161
+#: includes/diagnostics/class-check-edge-block.php:163
 msgid "The test request could not leave this site, so there is nothing to compare. Some hosts stop a site from calling its own address; on its own that is not a fault."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:211
+#: includes/diagnostics/class-check-edge-block.php:218
 msgid "A test request carrying the AI assistant's name got no reply, while the same request from this plugin was answered normally. That may be a passing network problem, or something in front of WordPress dropping the assistant's requests."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:212
+#: includes/diagnostics/class-check-edge-block.php:219
 msgid "Run the checks again. If it keeps happening, check your CDN or firewall for a bot-filtering rule naming Claude."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:221
+#: includes/diagnostics/class-check-edge-block.php:229
+msgid "Something in front of WordPress refuses Anthropic's crawler (ClaudeBot), while the assistant itself gets through. Connecting is not affected: the assistant never uses the crawler's name."
+msgstr ""
+
+#: includes/diagnostics/class-check-edge-block.php:230
+msgid "No action is needed to connect. This is usually a \"block AI bots\" setting on a CDN or security plugin. If that rule is widened to the assistant itself, this check will fail."
+msgstr ""
+
+#: includes/diagnostics/class-check-edge-block.php:239
 msgid "Requests carrying the AI assistant's name reach WordPress normally."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:247
+#: includes/diagnostics/class-check-edge-block.php:265
 msgid "Something in front of WordPress is refusing the AI assistant. An identical request to this site's AI endpoint is answered normally for this plugin but rejected when it carries the assistant's name, so the request never reaches WordPress and nothing is recorded here to explain it."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:253
+#: includes/diagnostics/class-check-edge-block.php:271
 msgid "Both stages are affected: adding this site as a connector will fail straight away, and even if one were already set up it would stop working."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:257
+#: includes/diagnostics/class-check-edge-block.php:275
 msgid "The sign-in stage is the one being blocked, so adding this site as a connector fails immediately — the assistant cannot register with the site at all. Anyone already connected is unaffected."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:260
+#: includes/diagnostics/class-check-edge-block.php:278
 msgid "The sign-in stage still works, which is what makes this confusing: connecting appears to succeed, access is approved, and only then does the assistant report that it could not connect."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:292
+#: includes/diagnostics/class-check-edge-block.php:310
 msgid "This is a setting on your CDN, firewall or security plugin, not in WordPress."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:294
+#: includes/diagnostics/class-check-edge-block.php:312
 msgid "If you use Cloudflare, look for the AI bot or AI Scrapers and Crawlers blocking option and allow this site's AI endpoint through; on other providers look for a bot-filtering rule that blocks AI assistants. A robots.txt on this site that disallows ClaudeBot is a sign the same rule set is switched on."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:298
+#: includes/diagnostics/class-check-edge-block.php:316
 msgid "The agent being refused is an ordinary HTTP client library, not an AI name, so an \"AI bot\" setting is usually not the cause. Look instead for a rule that blocks user agents beginning \"python-\" — these are common in generic scraper and vulnerability-scanner rule sets, and appear in nginx and Apache configuration, ModSecurity rule sets and security plugins as often as in a CDN. Allow that agent through for this site's AI endpoint."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:304
+#: includes/diagnostics/class-check-edge-block.php:322
 msgid "Two different kinds of rule are involved, so check for both."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:340
-#: includes/diagnostics/class-check-edge-block.php:463
+#: includes/diagnostics/class-check-edge-block.php:358
+#: includes/diagnostics/class-check-edge-block.php:481
 msgid "This site accepts posted AI requests"
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:348
+#: includes/diagnostics/class-check-edge-block.php:366
 msgid "The test request did not reach this site's own code, so there is nothing to compare. Some hosts stop a site from calling its own address; on its own that is not a fault."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:357
+#: includes/diagnostics/class-check-edge-block.php:375
 msgid "Requests sent the way an AI assistant sends them reach WordPress normally."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:366
+#: includes/diagnostics/class-check-edge-block.php:384
 msgid "An ordinary request to this site's AI endpoint is answered correctly, but the same request sent the way an AI assistant actually sends it — as a POST carrying JSON — is not. Something in front of WordPress is refusing it on the request type alone, so no AI client can make a single call, however it signs in."
 msgstr ""
 
-#: includes/diagnostics/class-check-edge-block.php:448
+#: includes/diagnostics/class-check-edge-block.php:466
 msgid "AI assistant can reach this site"
 msgstr ""
 
@@ -2799,7 +2964,7 @@ msgid "Failed"
 msgstr ""
 
 #: includes/diagnostics/class-diagnostic-result.php:166
-#: assets/build/index.js:24
+#: assets/build/index.js:27
 msgid "Warning"
 msgstr ""
 
@@ -2878,11 +3043,6 @@ msgstr ""
 #: includes/oauth/class-authorization-endpoint.php:212
 #: includes/oauth/class-device-verification.php:104
 msgid "You must be logged in to authorize this request."
-msgstr ""
-
-#: includes/oauth/class-authorization-endpoint.php:236
-#: includes/oauth/class-device-verification.php:137
-msgid "Security check failed. Please try again."
 msgstr ""
 
 #: includes/oauth/class-authorization-endpoint.php:254
@@ -3117,154 +3277,153 @@ msgstr ""
 msgid "Token audience does not match this MCP server."
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:640
+#: includes/oauth/class-scope-map.php:658
 msgid "Posts & Pages"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:641
+#: includes/oauth/class-scope-map.php:659
 msgid "Custom Post Types"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:642
+#: includes/oauth/class-scope-map.php:660
 msgid "Media"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:643
+#: includes/oauth/class-scope-map.php:661
 msgid "Taxonomies"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:644
+#: includes/oauth/class-scope-map.php:662
 msgid "Comments"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:645
+#: includes/oauth/class-scope-map.php:663
 msgid "Users"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:646
+#: includes/oauth/class-scope-map.php:664
 msgid "Menus"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:647
+#: includes/oauth/class-scope-map.php:665
 msgid "Blocks & Themes"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:648
-#: assets/build/page-tools.js:1
+#: includes/oauth/class-scope-map.php:666
 msgid "Plugins"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:649
+#: includes/oauth/class-scope-map.php:667
 msgid "Themes"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:652
+#: includes/oauth/class-scope-map.php:670
 msgid "Advanced Custom Fields"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:654
+#: includes/oauth/class-scope-map.php:672
 msgid "The Events Calendar"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:655
+#: includes/oauth/class-scope-map.php:673
 msgid "Yoast SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:656
+#: includes/oauth/class-scope-map.php:674
 msgid "All in One SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:657
+#: includes/oauth/class-scope-map.php:675
 msgid "Rank Math SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:658
-#: assets/build/page-tools.js:6
+#: includes/oauth/class-scope-map.php:676
+#: assets/build/page-tools.js:8
 msgid "Google Search Console"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:659
+#: includes/oauth/class-scope-map.php:677
 msgid "Google Analytics"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:660
+#: includes/oauth/class-scope-map.php:678
 msgid "DataforSEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:661
-#: assets/build/page-tools.js:8
+#: includes/oauth/class-scope-map.php:679
+#: assets/build/page-tools.js:10
 msgid "Semrush"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:662
-#: assets/build/page-tools.js:12
+#: includes/oauth/class-scope-map.php:680
+#: assets/build/page-tools.js:14
 msgid "Ahrefs (DR)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:663
-#: assets/build/page-tools.js:10
+#: includes/oauth/class-scope-map.php:681
+#: assets/build/page-tools.js:12
 msgid "SE Ranking"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:664
+#: includes/oauth/class-scope-map.php:682
 msgid "SEOPress"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:665
+#: includes/oauth/class-scope-map.php:683
 msgid "Slim SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:666
+#: includes/oauth/class-scope-map.php:684
 msgid "The SEO Framework"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:667
+#: includes/oauth/class-scope-map.php:685
 msgid "Term Meta"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:668
+#: includes/oauth/class-scope-map.php:686
 msgid "User Meta"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:669
+#: includes/oauth/class-scope-map.php:687
 msgid "Site Appearance (templates, global styles, theme mods & CSS)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:670
+#: includes/oauth/class-scope-map.php:688
 msgid "Widgets & Sidebars"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:672
+#: includes/oauth/class-scope-map.php:690
 msgid "Users — Create"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:673
+#: includes/oauth/class-scope-map.php:691
 msgid "Users — Update"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:674
+#: includes/oauth/class-scope-map.php:692
 msgid "Users — Delete"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:675
+#: includes/oauth/class-scope-map.php:693
 msgid "Change History (audit log of MCP edits)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:676
+#: includes/oauth/class-scope-map.php:694
 msgid "Audit Log (every MCP call, all users — admin only)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:677
+#: includes/oauth/class-scope-map.php:695
 msgid "Site Health, Cron & Error Log"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:733
+#: includes/oauth/class-scope-map.php:751
 #: assets/build/page-tools.js:1
 msgid "Core"
 msgstr ""
 
 #. translators: %s: ability prefix (e.g. "Core", "Wpforms")
-#: includes/oauth/class-scope-map.php:745
+#: includes/oauth/class-scope-map.php:763
 #, php-format
 msgid "Abilities — %s"
 msgstr ""
@@ -3421,7 +3580,7 @@ msgstr ""
 #: includes/oauth/views/consent.php:125
 #: assets/build/page-connections.js:8
 #: assets/build/page-tools.js:3
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Read-only"
 msgstr ""
 
@@ -3478,7 +3637,7 @@ msgstr ""
 #: includes/oauth/views/consent.php:181
 #: assets/build/page-connections.js:31
 #: assets/build/page-tools.js:5
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Write"
 msgstr ""
 
@@ -3488,10 +3647,6 @@ msgstr ""
 
 #: includes/oauth/views/consent.php:228
 msgid "Approving lets this app act on your site within the access above. Check your AI client’s auto-run settings for each tool. Post and page edits can be undone via WordPress revisions."
-msgstr ""
-
-#: includes/oauth/views/consent.php:235
-msgid "Deny"
 msgstr ""
 
 #: includes/oauth/views/consent.php:238
@@ -3518,6 +3673,92 @@ msgstr ""
 #: includes/oauth/views/device.php:87
 #: assets/build/page-setup.js:20
 msgid "Continue"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:79
+msgid "Connecting to the chat host…"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:80
+msgid "Waiting for the tool result…"
+msgstr ""
+
+#. translators: 1: tool name, 2: expiry date and time (UTC)
+#: includes/resources/class-approval-card-resource.php:83
+#, php-format
+msgid "Tool: %1$s · expires %2$s UTC"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:84
+msgid "Working…"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:87
+msgid "This host did not receive a card secret; use the link in the chat to approve."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:88
+msgid "Not run"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:89
+msgid "The decision was refused."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:91
+msgid "Nothing was changed. Your assistant has been told the operation was refused."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:92
+msgid "The operation was approved but could not be carried out."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:93
+#: assets/build/index.js:4
+#: assets/build/page-activity.js:1
+#: assets/build/page-connections.js:24
+#: assets/build/page-connections.js:37
+#: assets/build/page-connections.js:46
+#: assets/build/page-dashboard.js:14
+msgid "Done"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:94
+msgid "Approved and carried out."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:95
+msgid "The host refused the call."
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:96
+msgid "Approval needed"
+msgstr ""
+
+#: includes/resources/class-approval-card-resource.php:97
+msgid "This chat host did not complete the card handshake. Use the approval link in the message above, then ask the assistant to run the operation again."
+msgstr ""
+
+#: includes/tools/class-base-tool.php:228
+msgid "(no title)"
+msgstr ""
+
+#. translators: 1: comment id, 2: author name, 3: post id, 4: what happens
+#: includes/tools/comments/class-delete-comment.php:65
+#, php-format
+msgid "Delete comment #%1$d by '%2$s' on post #%3$d — %4$s."
+msgstr ""
+
+#: includes/tools/comments/class-delete-comment.php:67
+#: includes/tools/pages/class-delete-page.php:67
+#: includes/tools/posts/class-delete-post.php:67
+msgid "permanently, bypassing the trash"
+msgstr ""
+
+#: includes/tools/comments/class-delete-comment.php:67
+#: includes/tools/pages/class-delete-page.php:67
+#: includes/tools/posts/class-delete-post.php:67
+msgid "moves it to the trash"
 msgstr ""
 
 #: includes/tools/history/class-history-diff.php:102
@@ -3548,6 +3789,46 @@ msgstr ""
 msgid "unavailable — the linked revision no longer exists; it was pruned by the revision limit, or removed with its parent post"
 msgstr ""
 
+#. translators: 1: media title, 2: file name, 3: media id
+#: includes/tools/media/class-delete-media.php:65
+#, php-format
+msgid "Permanently delete media '%1$s' (%2$s, ID %3$d) and its file."
+msgstr ""
+
+#: includes/tools/media/class-delete-media.php:66
+msgid "unknown file"
+msgstr ""
+
+#. translators: 1: page title, 2: page id, 3: page status, 4: what happens
+#: includes/tools/pages/class-delete-page.php:65
+#, php-format
+msgid "Delete page '%1$s' (ID %2$d, %3$s) — %4$s."
+msgstr ""
+
+#. translators: 1: post title, 2: post id, 3: post status, 4: what happens
+#: includes/tools/posts/class-delete-post.php:65
+#, php-format
+msgid "Delete post '%1$s' (ID %2$d, %3$s) — %4$s."
+msgstr ""
+
+#. translators: 1: term name, 2: taxonomy, 3: term id, 4: number of posts
+#: includes/tools/taxonomy/class-delete-term.php:81
+#, php-format
+msgid "Permanently delete the %2$s '%1$s' (ID %3$d), currently on %4$d post(s); this cannot be undone."
+msgstr ""
+
+#. translators: 1: display name, 2: login, 3: user id, 4: id of the user who inherits the content
+#: includes/tools/users/class-delete-user.php:65
+#, php-format
+msgid "Permanently delete user '%1$s' (%2$s, ID %3$d); their posts are reassigned to user #%4$d."
+msgstr ""
+
+#. translators: 1: product name, 2: product id, 3: status
+#: includes/tools/woocommerce/class-delete-product.php:59
+#, php-format
+msgid "Permanently delete product '%1$s' (ID %2$d, %3$s), bypassing the trash."
+msgstr ""
+
 #: assets/build/index.js:1
 #: assets/build/page-connections.js:22
 msgid "Copied"
@@ -3556,9 +3837,9 @@ msgstr ""
 #: assets/build/index.js:1
 #: assets/build/page-connections.js:1
 #: assets/build/page-connections.js:22
-#: assets/build/page-connections.js:42
+#: assets/build/page-connections.js:43
 #: assets/build/page-dashboard.js:1
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-dashboard.js:11
 #: assets/build/page-setup.js:1
 #: assets/build/page-setup.js:20
 msgid "Copy"
@@ -3578,7 +3859,7 @@ msgstr ""
 
 #. translators: %s: plugin version
 #: assets/build/index.js:2
-#: assets/build/index.js:18
+#: assets/build/index.js:19
 #, js-format
 msgid "v%s"
 msgstr ""
@@ -3620,15 +3901,6 @@ msgstr ""
 msgid "Feedback sent"
 msgstr ""
 
-#: assets/build/index.js:4
-#: assets/build/page-activity.js:1
-#: assets/build/page-connections.js:24
-#: assets/build/page-connections.js:37
-#: assets/build/page-connections.js:45
-#: assets/build/page-dashboard.js:13
-msgid "Done"
-msgstr ""
-
 #. translators: %s: the plugin's name
 #: assets/build/index.js:5
 #, js-format
@@ -3643,12 +3915,11 @@ msgstr ""
 #: assets/build/page-connections.js:32
 #: assets/build/page-connections.js:37
 #: assets/build/page-connections.js:38
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
+#: assets/build/page-dashboard.js:19
 #: assets/build/page-setup.js:21
-#: assets/build/page-tools.js:16
-#: assets/build/page-tools.js:20
+#: assets/build/page-tools.js:18
 msgid "Cancel"
 msgstr ""
 
@@ -3694,44 +3965,50 @@ msgstr ""
 msgid "%d tools will be available."
 msgstr ""
 
-#. translators: %s: the wp-config constant name
+#. translators: %s: the environment variable name
 #: assets/build/index.js:12
+#, js-format
+msgid "Set by the %s environment variable."
+msgstr ""
+
+#. translators: %s: the wp-config constant name
+#: assets/build/index.js:13
 #, js-format
 msgid "Set by %s in wp-config.php."
 msgstr ""
 
-#: assets/build/index.js:12
+#: assets/build/index.js:13
 msgid "AI access is paused."
 msgstr ""
 
-#: assets/build/index.js:12
+#: assets/build/index.js:13
 msgid "Connected clients stay signed in, but every tool call is refused until you resume."
 msgstr ""
 
-#: assets/build/index.js:12
+#: assets/build/index.js:13
 msgid "Resume AI access"
 msgstr ""
 
-#: assets/build/index.js:12
+#: assets/build/index.js:13
 msgid "Couldn't reach the admin API. If a security plugin blocks the REST API, allow the easy-mcp-ai-admin namespace."
 msgstr ""
 
 #. translators: %d: HTTP status code
-#: assets/build/index.js:13
+#: assets/build/index.js:14
 #, js-format
 msgid "Request failed with status %d."
 msgstr ""
 
-#: assets/build/index.js:13
+#: assets/build/index.js:14
 msgid "The admin API returned an unexpected response."
 msgstr ""
 
-#: assets/build/index.js:13
+#: assets/build/index.js:14
 msgid "just now"
 msgstr ""
 
 #. translators: %d: number of minutes
-#: assets/build/index.js:14
+#: assets/build/index.js:15
 #, js-format
 msgid "%d min ago"
 msgid_plural "%d min ago"
@@ -3739,64 +4016,64 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of hours
-#: assets/build/index.js:15
+#: assets/build/index.js:16
 #, js-format
 msgid "%d hour ago"
 msgid_plural "%d hours ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/index.js:15
+#: assets/build/index.js:16
 msgid "yesterday"
 msgstr ""
 
 #. translators: %d: number of days
-#: assets/build/index.js:16
+#: assets/build/index.js:17
 #, js-format
 msgid "%d day ago"
 msgid_plural "%d days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/index.js:16
+#: assets/build/index.js:17
 msgid "Status unavailable"
 msgstr ""
 
-#: assets/build/index.js:16
+#: assets/build/index.js:17
 msgid "Paused"
 msgstr ""
 
-#: assets/build/index.js:16
-#: assets/build/page-tools.js:13
+#: assets/build/index.js:17
+#: assets/build/page-tools.js:15
 msgid "Connected"
 msgstr ""
 
 #. translators: %d: number of AI clients that called this week
-#: assets/build/index.js:17
+#: assets/build/index.js:18
 #, js-format
 msgid "%d client connected"
 msgid_plural "%d clients connected"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/index.js:17
+#: assets/build/index.js:18
 msgid "Not reachable"
 msgstr ""
 
-#: assets/build/index.js:18
+#: assets/build/index.js:19
 msgid "Sections"
 msgstr ""
 
-#: assets/build/index.js:18
+#: assets/build/index.js:19
 msgid "Open navigation"
 msgstr ""
 
-#: assets/build/index.js:18
+#: assets/build/index.js:19
 msgid "this week"
 msgstr ""
 
 #. translators: %d: number of changes awaiting review
-#: assets/build/index.js:19
+#: assets/build/index.js:20
 #, js-format
 msgid "%d change awaiting review"
 msgid_plural "%d changes awaiting review"
@@ -3804,24 +4081,24 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: a relative time such as "yesterday"
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 #, js-format
 msgid "Drafts created by AI clients since %s."
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 msgid "Review changes"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 msgid "Help"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 msgid "MCP URL"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 #: assets/build/page-connections.js:1
 #: assets/build/page-dashboard.js:1
 #: assets/build/page-setup.js:1
@@ -3829,94 +4106,102 @@ msgstr ""
 msgid "Copy URL"
 msgstr ""
 
-#: assets/build/index.js:20
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/index.js:21
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "URL copied"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 msgid "Recent activity"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 msgid "View all activity"
 msgstr ""
 
-#: assets/build/index.js:20
+#: assets/build/index.js:21
 #: assets/build/page-activity.js:7
 msgid "No calls yet."
 msgstr ""
 
 #. translators: %s: the one problem, e.g. "Permalinks are set to Plain".
-#: assets/build/index.js:21
+#: assets/build/index.js:22
 #, js-format
 msgid "%s."
 msgstr ""
 
 #. translators: 1: first problem, 2: second problem.
-#: assets/build/index.js:22
+#: assets/build/index.js:23
 #, js-format
 msgid "%1$s, and %2$s."
 msgstr ""
 
 #. translators: 1: first problem, 2: second problem, 3: number of further problems.
-#: assets/build/index.js:23
+#: assets/build/index.js:24
 #, js-format
 msgid "%1$s, %2$s, and %3$d more."
 msgid_plural "%1$s, %2$s, and %3$d more."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/index.js:23
-#: assets/build/page-connections.js:43
-#: assets/build/page-dashboard.js:11
+#: assets/build/index.js:24
+#: assets/build/page-connections.js:44
+#: assets/build/page-dashboard.js:12
 msgid "Hide"
 msgstr ""
 
-#: assets/build/index.js:23
+#: assets/build/index.js:24
 msgid "Show details"
 msgstr ""
 
-#: assets/build/index.js:23
+#: assets/build/index.js:24
 #, js-format
 msgid "Show all %d"
 msgstr ""
 
-#: assets/build/index.js:24
-msgid "Fix:"
-msgstr ""
-
-#: assets/build/index.js:24
-#: assets/build/page-activity.js:1
-msgid "Blocked"
-msgstr ""
-
-#: assets/build/index.js:24
-msgid "AI clients can’t connect."
-msgstr ""
-
-#: assets/build/index.js:24
-#: assets/build/page-dashboard.js:25
-#: assets/build/page-setup.js:13
-msgid "Diagnostics"
-msgstr ""
-
 #. translators: %s: a deployment constant's name. Keep the <name> and <file> tags.
-#: assets/build/index.js:25
+#: assets/build/index.js:26
 #, js-format
 msgid "<name>%s</name> is invalid, so the safe default is used. Fix it in <file>wp-config.php</file> or the server environment."
 msgstr ""
 
-#: assets/build/index.js:25
+#. translators: 1: number of invalid settings, 2: their constant names, comma-separated. Keep the <name> and <file> tags.
+#: assets/build/index.js:27
+#, js-format
+msgid "%1$d deployment setting is invalid, so its safe default is used: <name>%2$s</name>. Fix it in <file>wp-config.php</file> or the server environment."
+msgid_plural "%1$d deployment settings are invalid, so their safe defaults are used: <name>%2$s</name>. Fix them in <file>wp-config.php</file> or the server environment."
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/build/index.js:27
+msgid "Fix:"
+msgstr ""
+
+#: assets/build/index.js:27
+#: assets/build/page-activity.js:1
+msgid "Blocked"
+msgstr ""
+
+#: assets/build/index.js:27
+msgid "AI clients can’t connect."
+msgstr ""
+
+#: assets/build/index.js:27
+#: assets/build/page-dashboard.js:27
+#: assets/build/page-setup.js:13
+msgid "Diagnostics"
+msgstr ""
+
+#: assets/build/index.js:27
 msgid "View settings"
 msgstr ""
 
-#: assets/build/index.js:25
+#: assets/build/index.js:27
 msgid "Breadcrumb"
 msgstr ""
 
-#: assets/build/index.js:25
+#: assets/build/index.js:27
 msgid "Change history capture"
 msgstr ""
 
@@ -3941,7 +4226,7 @@ msgid "Pending"
 msgstr ""
 
 #: assets/build/page-activity.js:1
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "API key"
 msgstr ""
 
@@ -4025,13 +4310,7 @@ msgid "Filter"
 msgstr ""
 
 #: assets/build/page-activity.js:3
-#: assets/build/page-activity.js:8
-#: assets/build/page-activity.js:13
-msgid "Tool"
-msgstr ""
-
-#: assets/build/page-activity.js:3
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Search tools"
 msgstr ""
 
@@ -4168,12 +4447,11 @@ msgstr ""
 #: assets/build/page-connections.js:23
 #: assets/build/page-connections.js:35
 #: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:20
-#: assets/build/page-dashboard.js:24
-#: assets/build/page-settings.js:5
+#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:26
+#: assets/build/page-settings.js:8
 #: assets/build/page-setup.js:12
-#: assets/build/page-tools.js:18
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Retry"
 msgstr ""
 
@@ -4207,7 +4485,7 @@ msgid "Call"
 msgstr ""
 
 #: assets/build/page-activity.js:7
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Search"
 msgstr ""
 
@@ -4380,7 +4658,7 @@ msgid "Object type"
 msgstr ""
 
 #: assets/build/page-activity.js:12
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Show"
 msgstr ""
 
@@ -4405,7 +4683,7 @@ msgid "Before/after snapshots of every write performed through the MCP server. D
 msgstr ""
 
 #: assets/build/page-activity.js:12
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Capture settings"
 msgstr ""
 
@@ -4447,7 +4725,7 @@ msgid "Originating call"
 msgstr ""
 
 #: assets/build/page-activity.js:14
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Audit log"
 msgstr ""
 
@@ -4482,9 +4760,9 @@ msgid "Click Save then Connect — OAuth is handled automatically, no token need
 msgstr ""
 
 #: assets/build/page-connections.js:1
-#: assets/build/page-connections.js:42
+#: assets/build/page-connections.js:43
 #: assets/build/page-dashboard.js:1
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-dashboard.js:11
 #: assets/build/page-setup.js:1
 msgid "Visit website"
 msgstr ""
@@ -4866,17 +5144,17 @@ msgid "For clients that support OAuth 2.1 (e.g. Claude Desktop, Claude.ai, Curso
 msgstr ""
 
 #: assets/build/page-connections.js:1
-#: assets/build/page-connections.js:42
+#: assets/build/page-connections.js:43
 #: assets/build/page-dashboard.js:1
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-dashboard.js:11
 #: assets/build/page-setup.js:1
 msgid "Bearer Token (Authorization Header)"
 msgstr ""
 
 #: assets/build/page-connections.js:1
-#: assets/build/page-connections.js:42
+#: assets/build/page-connections.js:43
 #: assets/build/page-dashboard.js:1
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-dashboard.js:11
 #: assets/build/page-setup.js:1
 msgid "Token in URL (Last Resort)"
 msgstr ""
@@ -4933,9 +5211,9 @@ msgid "Copy config"
 msgstr ""
 
 #: assets/build/page-connections.js:1
-#: assets/build/page-connections.js:42
+#: assets/build/page-connections.js:43
 #: assets/build/page-dashboard.js:1
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-dashboard.js:11
 #: assets/build/page-setup.js:1
 msgid "MCP Endpoint URL"
 msgstr ""
@@ -5151,8 +5429,8 @@ msgid "Issued for a previous address"
 msgstr ""
 
 #: assets/build/page-connections.js:23
-#: assets/build/page-connections.js:48
-#: assets/build/page-dashboard.js:16
+#: assets/build/page-connections.js:49
+#: assets/build/page-dashboard.js:17
 msgid "Connect an AI client"
 msgstr ""
 
@@ -5427,8 +5705,8 @@ msgid "Couldn't load the active grants."
 msgstr ""
 
 #: assets/build/page-connections.js:34
-#: assets/build/page-settings.js:5
-#: assets/build/page-tools.js:16
+#: assets/build/page-settings.js:8
+#: assets/build/page-tools.js:18
 msgid "Settings saved."
 msgstr ""
 
@@ -5477,12 +5755,6 @@ msgid "Started"
 msgstr ""
 
 #: assets/build/page-connections.js:34
-#: assets/build/page-connections.js:37
-#: assets/build/page-connections.js:38
-msgid "Expires"
-msgstr ""
-
-#: assets/build/page-connections.js:34
 msgid "Nobody yet"
 msgstr ""
 
@@ -5509,7 +5781,7 @@ msgid "Show tools"
 msgstr ""
 
 #: assets/build/page-connections.js:35
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Couldn't load the tool list."
 msgstr ""
 
@@ -5586,8 +5858,8 @@ msgid "Expiration date"
 msgstr ""
 
 #: assets/build/page-connections.js:37
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Security note"
 msgstr ""
 
@@ -5623,6 +5895,15 @@ msgid "Save changes"
 msgstr ""
 
 #: assets/build/page-connections.js:37
+#: assets/build/page-settings.js:3
+msgid "Unattended"
+msgstr ""
+
+#: assets/build/page-connections.js:37
+msgid "Automation key: never pauses for approval before a destructive action. For scripts and scheduled jobs with no one to answer an approval prompt — it still has only its allowed tools and its user’s capabilities, and every call is audited. Leave off for keys a person uses in a chat client."
+msgstr ""
+
+#: assets/build/page-connections.js:37
 msgid "The token can be used to sign in."
 msgstr ""
 
@@ -5636,6 +5917,10 @@ msgstr ""
 
 #: assets/build/page-connections.js:37
 msgid "Self-service"
+msgstr ""
+
+#: assets/build/page-connections.js:37
+msgid "Automation key: destructive tool calls run without approval."
 msgstr ""
 
 #: assets/build/page-connections.js:37
@@ -5745,290 +6030,357 @@ msgstr ""
 msgid "Couldn't load the MCP URL."
 msgstr ""
 
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
+#. translators: 1: the plugin's name, 2: the site's host, e.g. example.com
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
+#, js-format
+msgid "Use %1$s to read my WordPress site at %2$s with the wp_get_site_settings tool, and tell me its name and address. If that tool isn’t available, use wp_list_posts and tell me how many posts it returns. If it fails, show me the error. Don’t change anything."
+msgstr ""
+
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
 msgid "Choose a client"
 msgstr ""
 
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
 msgid "Add this site"
 msgstr ""
 
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
 msgid "Confirm it works"
 msgstr ""
 
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
 msgid "Which app do you want to connect?"
 msgstr ""
 
-#: assets/build/page-connections.js:40
-#: assets/build/page-dashboard.js:8
+#: assets/build/page-connections.js:41
+#: assets/build/page-dashboard.js:9
 msgid "Find a client"
 msgstr ""
 
 #. translators: %s: what was typed into the search box
-#: assets/build/page-connections.js:41
-#: assets/build/page-dashboard.js:9
+#: assets/build/page-connections.js:42
+#: assets/build/page-dashboard.js:10
 #, js-format
 msgid "No client called “%s”. Pick <generic>Any MCP client</generic> — every MCP app accepts the same URL."
 msgstr ""
 
-#: assets/build/page-connections.js:41
-#: assets/build/page-dashboard.js:9
+#: assets/build/page-connections.js:42
+#: assets/build/page-dashboard.js:10
 msgid "Show fewer"
 msgstr ""
 
 #. translators: %d: how many clients there are
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 #, js-format
 msgid "Show all %d clients"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Get an API token"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Create a token"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "or use one you already have."
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Replace YOUR_API_TOKEN with a token from the <tokens>Connections</tokens> page."
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "One-click: opens the app with this server pre-filled — just confirm to add and connect (OAuth, no token needed)."
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Connection failing?"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Disable any other MCP plugins on this site — AI clients may get confused when multiple OAuth endpoints are detected."
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Alternative: Manual Token"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "For any MCP-compatible client, use the following settings:"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "OAuth 2.1 — Recommended"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Transport"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Auth method"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "OAuth 2.1 (auto-discovered)"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "For clients that do not support OAuth, generate a token on the <tokens>Connections</tokens> page and pass it as a header."
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Endpoint URL"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Authentication"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "For clients that cannot set headers:"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Server URL"
 msgstr ""
 
-#: assets/build/page-connections.js:42
-#: assets/build/page-dashboard.js:10
+#: assets/build/page-connections.js:43
+#: assets/build/page-dashboard.js:11
 msgid "Full configuration reference"
-msgstr ""
-
-#. translators: %s: the client's name
-#: assets/build/page-connections.js:43
-#: assets/build/page-dashboard.js:11
-#, js-format
-msgid "Add this site to %s"
-msgstr ""
-
-#: assets/build/page-connections.js:43
-#: assets/build/page-dashboard.js:11
-msgid "Recommended: OAuth"
-msgstr ""
-
-#: assets/build/page-connections.js:43
-#: assets/build/page-dashboard.js:11
-msgid "Use an API token instead"
-msgstr ""
-
-#: assets/build/page-connections.js:43
-#: assets/build/page-connections.js:48
-#: assets/build/page-dashboard.js:11
-#: assets/build/page-dashboard.js:16
-#: assets/build/page-setup.js:20
-msgid "Back"
-msgstr ""
-
-#: assets/build/page-connections.js:43
-#: assets/build/page-dashboard.js:11
-msgid "I've done this — check the connection"
 msgstr ""
 
 #. translators: %s: the client's name
 #: assets/build/page-connections.js:44
 #: assets/build/page-dashboard.js:12
 #, js-format
+msgid "Add this site to %s"
+msgstr ""
+
+#: assets/build/page-connections.js:44
+#: assets/build/page-dashboard.js:12
+msgid "Recommended: OAuth"
+msgstr ""
+
+#: assets/build/page-connections.js:44
+#: assets/build/page-dashboard.js:12
+msgid "Use an API token instead"
+msgstr ""
+
+#: assets/build/page-connections.js:44
+#: assets/build/page-connections.js:49
+#: assets/build/page-dashboard.js:12
+#: assets/build/page-dashboard.js:17
+#: assets/build/page-setup.js:20
+msgid "Back"
+msgstr ""
+
+#: assets/build/page-connections.js:44
+#: assets/build/page-dashboard.js:12
+msgid "I've done this — check the connection"
+msgstr ""
+
+#. translators: %s: the client's name
+#: assets/build/page-connections.js:45
+#: assets/build/page-dashboard.js:13
+#, js-format
 msgid "%s is connected."
 msgstr ""
 
 #. translators: 1: the tool that was called, 2: how long ago
-#: assets/build/page-connections.js:45
-#: assets/build/page-dashboard.js:13
+#: assets/build/page-connections.js:46
+#: assets/build/page-dashboard.js:14
 #, js-format
 msgid "First call: <tool>%1$s</tool> · %2$s. It now appears under Connections and in Recent activity."
 msgstr ""
 
-#: assets/build/page-connections.js:45
-#: assets/build/page-connections.js:48
-#: assets/build/page-dashboard.js:13
-#: assets/build/page-dashboard.js:16
-msgid "Connect another client"
-msgstr ""
-
-#. translators: %s: the client's name
 #: assets/build/page-connections.js:46
+#: assets/build/page-connections.js:49
 #: assets/build/page-dashboard.js:14
-#, js-format
-msgid "Waiting for the first call from %s…"
+#: assets/build/page-dashboard.js:17
+msgid "Connect another client"
 msgstr ""
 
 #. translators: %s: the client's name
 #: assets/build/page-connections.js:47
 #: assets/build/page-dashboard.js:15
 #, js-format
-msgid "Ask it something simple, like “List my latest posts”. This card updates on its own the moment the site hears from %s."
+msgid "Waiting for the first call from %s…"
 msgstr ""
 
 #. translators: %s: the client's name
 #: assets/build/page-connections.js:48
 #: assets/build/page-dashboard.js:16
 #, js-format
-msgid "Nothing after a minute? <diagnostics>Run diagnostics</diagnostics>, or remove the connector in %s, add it again and start a fresh chat."
+msgid "Paste this prompt into %s to check it reaches your site. This card updates on its own the moment the site hears from it."
 msgstr ""
 
 #: assets/build/page-connections.js:48
 #: assets/build/page-dashboard.js:16
+#: assets/build/page-setup.js:20
+msgid "Copy prompt"
+msgstr ""
+
+#: assets/build/page-connections.js:48
+#: assets/build/page-dashboard.js:16
+#: assets/build/page-setup.js:20
+msgid "Prompt copied"
+msgstr ""
+
+#. translators: %s: the client's name
+#: assets/build/page-connections.js:49
+#: assets/build/page-dashboard.js:17
+#, js-format
+msgid "Nothing after a minute? <diagnostics>Run diagnostics</diagnostics>, or remove the connector in %s, add it again and start a fresh chat."
+msgstr ""
+
+#: assets/build/page-connections.js:49
+#: assets/build/page-dashboard.js:17
 msgid "Connect your AI client"
 msgstr ""
 
-#: assets/build/page-dashboard.js:16
+#: assets/build/page-dashboard.js:17
 msgid "Why a client may see fewer"
 msgstr ""
 
-#: assets/build/page-dashboard.js:16
+#: assets/build/page-dashboard.js:17
+msgid "Token permissions"
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "The preset or custom list chosen when the token was created."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "OAuth scope"
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "What you approved when the client first connected."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "User capabilities"
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "The WordPress role of the user assigned to the token."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "A tool is hidden when any of the three rules it out. Review access in <link>Connections</link>."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
 msgid "Tools not yet exposed"
 msgstr ""
 
-#. translators: %d: number of tools
 #: assets/build/page-dashboard.js:17
+msgid "Some tools are hidden by your global filters in <link>Settings</link>."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "Some installed tools are turned off — re-enable them in <link>Tools</link>."
+msgstr ""
+
+#: assets/build/page-dashboard.js:17
+msgid "<strong>Ahrefs Domain Rating</strong> is off by default — add a free Ahrefs APIv3 key and enable it in <link>External data</link> to expose it to your AI."
+msgstr ""
+
+#. translators: %s: comma-separated provider names
+#: assets/build/page-dashboard.js:18
+#, js-format
+msgid "<strong>%s</strong> is not connected — add credentials in <link>External data</link> to expose its tools."
+msgid_plural "<strong>%s</strong> are not connected — add credentials in <link>External data</link> to expose their tools."
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: %d: number of tools
+#: assets/build/page-dashboard.js:19
 #, js-format
 msgid "%d tool available · <link>Browse under Tools</link>"
 msgid_plural "%d tools available · <link>Browse under Tools</link>"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Tools information"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Browse what the AI can call on this site. Plugin, ability and data tools live under Tools."
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Pause AI access"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Pause AI access?"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Off"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Turn on in Settings"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Tool calls · 24h"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Success rate · 24h"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Registered tools"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Change history is off."
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "Review every change →"
 msgstr ""
 
-#: assets/build/page-dashboard.js:17
+#: assets/build/page-dashboard.js:19
 msgid "The AI has not changed anything this week."
 msgstr ""
 
 #. translators: %d: number of active API tokens
-#: assets/build/page-dashboard.js:18
+#: assets/build/page-dashboard.js:20
 #, js-format
 msgid "%d API token"
 msgid_plural "%d API tokens"
@@ -6036,7 +6388,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of OAuth grants
-#: assets/build/page-dashboard.js:19
+#: assets/build/page-dashboard.js:21
 #, js-format
 msgid "%d OAuth grant"
 msgid_plural "%d OAuth grants"
@@ -6044,285 +6396,285 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %s: e.g. "2 API tokens and 1 OAuth grant"
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 #, js-format
 msgid "Connected: %s"
 msgstr ""
 
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 #: assets/build/page-tools.js:5
 msgid "and"
 msgstr ""
 
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 msgid "Manage or revoke access on the Connections page."
 msgstr ""
 
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 msgid "Manage connections"
 msgstr ""
 
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 msgid "Couldn't load the dashboard."
 msgstr ""
 
-#: assets/build/page-dashboard.js:20
+#: assets/build/page-dashboard.js:22
 #: assets/build/page-setup.js:8
 msgid "Add the rewrite rule to .htaccess"
 msgstr ""
 
 #. translators: %s: filesystem path of the .htaccess file.
-#: assets/build/page-dashboard.js:21
+#: assets/build/page-dashboard.js:23
 #: assets/build/page-setup.js:9
 #, js-format
 msgid "Writes the standard Authorization passthrough rule under its own marker in %s, above the WordPress block, and re-runs the checks. Nothing else in the file is touched."
 msgstr ""
 
 #. translators: %s: filesystem path of the .htaccess file.
-#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:24
 #: assets/build/page-setup.js:10
 #, js-format
 msgid "%s is missing or not writable by PHP, so the rule cannot be added from here. Paste this block into it, above the WordPress block:"
 msgstr ""
 
-#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:24
 #: assets/build/page-setup.js:10
 msgid "Copy the rule"
 msgstr ""
 
-#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:24
 #: assets/build/page-setup.js:10
 msgid "Rule copied"
 msgstr ""
 
-#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:24
 #: assets/build/page-setup.js:10
 msgid "The .htaccess rewrite rule that passes the header is already present, so adding it again would change nothing. On this server the header is delivered by CGIPassAuth On in the web server configuration, which only your host can set."
 msgstr ""
 
-#: assets/build/page-dashboard.js:22
+#: assets/build/page-dashboard.js:24
 #: assets/build/page-setup.js:10
 msgid "This server does not read .htaccess (nginx, Caddy and IIS do not), so there is no rewrite rule to add. On nginx the header is passed with a fastcgi_param directive; ask your host to forward the Authorization header to PHP."
 msgstr ""
 
 #. translators: %s: the discovery document's filename.
-#: assets/build/page-dashboard.js:23
+#: assets/build/page-dashboard.js:25
 #: assets/build/page-setup.js:11
 #, js-format
 msgid "%s copied"
 msgstr ""
 
-#: assets/build/page-dashboard.js:23
+#: assets/build/page-dashboard.js:25
 #: assets/build/page-setup.js:11
 msgid "Could not copy"
 msgstr ""
 
 #. translators: %s: the discovery document's filename, e.g. oauth-protected-resource.
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 #, js-format
 msgid "Copy %s"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Save each one into your site's .well-known folder, using exactly that name and no file extension."
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Server"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Database"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
-#: assets/build/page-settings.js:1
+#: assets/build/page-dashboard.js:26
+#: assets/build/page-settings.js:4
 #: assets/build/page-setup.js:12
 msgid "Access & safety"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Other plugins"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Reachability"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Logging"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Network"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Other"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Pass"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Warn"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Fail"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Skipped"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Check"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "System info copied"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "AI prompt copied"
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "Couldn't check the site's diagnostics."
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "The rewrite rule could not be written: .htaccess is missing or not writable by PHP. Add the block shown under the check by hand, above the WordPress block."
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "The rewrite rule was added to .htaccess and the checks were re-run: an Authorization header now reaches WordPress."
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "The rewrite rule was added to .htaccess, but the re-run check still reports the Authorization header lost. On this server the rule is not what delivers the header: PHP running as FastCGI needs CGIPassAuth On in the web server configuration, which only your host can set — quote the check when asking them."
 msgstr ""
 
-#: assets/build/page-dashboard.js:24
+#: assets/build/page-dashboard.js:26
 #: assets/build/page-setup.js:12
 msgid "The rewrite rule was added to .htaccess. The re-run check could not measure whether the header now arrives; press Re-run to try again."
 msgstr ""
 
 #. translators: %s: relative time such as "2 hours ago"
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 #, js-format
 msgid "Last run %s"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Couldn't re-run the checks."
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Copy system info"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Opens easymcpai.com, which tries to reach this site from the public internet"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Test from the internet"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Need help with a connection issue?"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Copies a ready-made diagnostic prompt. Paste it into any AI assistant, fill in the placeholders, and add your diagnostics."
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Copy AI prompt"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 #: assets/build/page-setup.js:21
 msgid "Opens your email app with a blank template. Your site data is NOT included — paste it in yourself so you can see what you are sending."
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Email support"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "These checks look inside WordPress only. If everything here passes and your AI client still cannot connect, the client may be holding an old sign-in — remove the connector, add it again, and start a fresh chat."
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "No checks have run yet."
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Re-run"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "Re-run checks"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "page"
 msgid_plural "pages"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "meta"
 msgstr ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "setting"
 msgid_plural "settings"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-dashboard.js:25
+#: assets/build/page-dashboard.js:27
 #: assets/build/page-setup.js:13
 msgid "media item"
 msgid_plural "media items"
@@ -6330,7 +6682,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: total changed items (wrapped in <count></count>), 2: breakdown such as "9 meta, 3 posts"
-#: assets/build/page-dashboard.js:26
+#: assets/build/page-dashboard.js:28
 #: assets/build/page-setup.js:14
 #, js-format
 msgid "This week the AI changed <count>%1$d</count> item — %2$s."
@@ -6339,7 +6691,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: checks to review, 2: total checks
-#: assets/build/page-dashboard.js:27
+#: assets/build/page-dashboard.js:29
 #: assets/build/page-setup.js:15
 #, js-format
 msgid "%1$d thing to review across %2$d checks — nothing failed. Worth reading only if something is not working."
@@ -6348,7 +6700,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: checks passed
-#: assets/build/page-dashboard.js:28
+#: assets/build/page-dashboard.js:30
 #: assets/build/page-setup.js:16
 #, js-format
 msgid "The %d check passed."
@@ -6357,7 +6709,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: checks passed, 2: total checks
-#: assets/build/page-dashboard.js:29
+#: assets/build/page-dashboard.js:31
 #: assets/build/page-setup.js:17
 #, js-format
 msgid "%1$d of %2$d check passed, none failed."
@@ -6366,72 +6718,13 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: 1: checks passed, 2: total checks, 3: checks failed
-#: assets/build/page-dashboard.js:30
+#: assets/build/page-dashboard.js:32
 #: assets/build/page-setup.js:18
 #, js-format
 msgid "%1$d of %2$d check passed, %3$d failed."
 msgid_plural "%1$d of %2$d checks passed, %3$d failed."
 msgstr[0] ""
 msgstr[1] ""
-
-#: assets/build/page-dashboard.js:30
-#: assets/build/page-tools.js:21
-msgid "Some tools are hidden by your global filters in <link>Settings</link>."
-msgstr ""
-
-#: assets/build/page-dashboard.js:30
-#: assets/build/page-tools.js:21
-msgid "Some installed tools are turned off — re-enable them in <link>Tools</link>."
-msgstr ""
-
-#: assets/build/page-dashboard.js:30
-#: assets/build/page-tools.js:21
-msgid "<strong>Ahrefs Domain Rating</strong> is off by default — add a free Ahrefs APIv3 key and enable it in <link>External data</link> to expose it to your AI."
-msgstr ""
-
-#. translators: %s: comma-separated provider names
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-#, js-format
-msgid "<strong>%s</strong> is not connected — add credentials in <link>External data</link> to expose its tools."
-msgid_plural "<strong>%s</strong> are not connected — add credentials in <link>External data</link> to expose their tools."
-msgstr[0] ""
-msgstr[1] ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "Token permissions"
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "The preset or custom list chosen when the token was created."
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "OAuth scope"
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "What you approved when the client first connected."
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "User capabilities"
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "The WordPress role of the user assigned to the token."
-msgstr ""
-
-#: assets/build/page-dashboard.js:31
-#: assets/build/page-tools.js:22
-msgid "A tool is hidden when any of the three rules it out. Review access in <link>Connections</link>."
-msgstr ""
 
 #: assets/build/page-settings.js:1
 #: assets/build/page-tools.js:1
@@ -6448,348 +6741,385 @@ msgstr ""
 msgid "Discard"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#. translators: %d: number of enabled tools that pause by default
+#: assets/build/page-settings.js:2
+#, js-format
+msgid "Pauses by default: %d enabled tool"
+msgid_plural "Pauses by default: %d enabled tools"
+msgstr[0] ""
+msgstr[1] ""
+
+#: assets/build/page-settings.js:2
+msgid "Pause tool calls that cannot be undone until the user approves them."
+msgstr ""
+
+#. translators: %s: the "Unattended" API key switch label
+#: assets/build/page-settings.js:3
+#, js-format
+msgid "Deletes and other destructive changes wait for approval — in the chat when the client supports it, otherwise on a page this site serves. Keys marked %s never pause."
+msgstr ""
+
+#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:4
+msgid "Always ask for"
+msgstr ""
+
+#: assets/build/page-settings.js:3
+msgid "Comma-separated tool names or globs (wp_wc_*, wp_ability_*) that always pause, on top of the defaults. A bare name matches exactly."
+msgstr ""
+
+#: assets/build/page-settings.js:3
+msgid "Never ask for"
+msgstr ""
+
+#. translators: %s: the "Always ask for" field label
+#: assets/build/page-settings.js:4
+#, js-format
+msgid "Tool names or globs that run without approval. When a tool matches both lists, %s wins."
+msgstr ""
+
+#: assets/build/page-settings.js:4
 msgid "Rate limit"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "per minute"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Most tool calls one token may make per minute."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Minimum capability to authorize"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Only users with this capability can approve a new AI connection through the OAuth screen. The floor is Author — you can only raise it. Any custom role granting the capability also qualifies; creating tokens from this dashboard stays admin-only."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Nothing the AI creates goes live until you publish it."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "New posts and pages are always saved as drafts, whatever status the tool asked for."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Self-service API keys"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Let eligible users create and revoke API keys on their own profile."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Uses the minimum capability to authorize above. Turning this off does not revoke existing keys."
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "What is shared"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Environment info: WordPress and plugin versions, theme, active plugins, locale"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "When the plugin was installed"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Which kinds of AI client are connected"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "How often each tool is used"
 msgstr ""
 
-#: assets/build/page-settings.js:1
+#: assets/build/page-settings.js:4
 msgid "Share anonymous usage data"
 msgstr ""
 
 #. translators: %s: the plugin's name
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 #: assets/build/page-setup.js:21
 #, js-format
 msgid "Contribute anonymous telemetry data to help %s grow with more abilities and features. No personal data or site content is collected."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Advanced"
 msgstr ""
 
-#: assets/build/page-settings.js:2
-msgid "Tool filtering, IP restrictions, credential hashing and usage sharing — most sites never need to change these."
+#: assets/build/page-settings.js:5
+msgid "Tool filtering, IP restrictions and usage sharing — most sites never need to change these."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Minimum capability for External Data tools"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "The lowest WordPress capability that can call the Google Analytics, Search Console, DataForSEO, Semrush and SE Ranking tools. They default to administrators only; lower this to let editors or authors use them. Tools a user cannot call are also hidden from the client’s tool list. Ahrefs is unaffected and stays available to any authorized user."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Max title length"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "characters"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "The longest title a tool may set on a post or page. 0 turns the limit off; a longer title makes the tool return an error."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Disabled tools"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Checked tools are disabled for every client and return an error when called, whatever the token allows."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "The full tree, category by category, is under <link>Tools › Core</link>."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Whitelist tools"
 msgstr ""
 
-#: assets/build/page-settings.js:2
-msgid "Comma-separated glob patterns matched against tool names. A tool is available if its name matches any pattern; * is a wildcard."
+#: assets/build/page-settings.js:5
+msgid "Comma-separated glob patterns matched against tool names. A tool is available if its name matches any pattern; * is a wildcard. A pattern without a wildcard matches any tool whose name contains it, so post matches wp_get_post."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Be careful"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "When set, only tools whose names match one of these patterns are available — for every token. This can break existing workflows. Leave empty to allow all tools."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "IP whitelist"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "One IP address or CIDR range per line, e.g. 203.0.113.10 or 192.168.1.0/24. Leave empty to allow all addresses."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Applies to every request on the MCP endpoint, with an API key or an OAuth grant alike. A request from an address that is not listed is refused with 403 and recorded in the audit log. Cloud clients such as claude.ai and ChatGPT connect from the vendor’s servers, not from the user’s machine — for those users either list the vendor’s IP ranges or leave this empty."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Behind a reverse proxy, load balancer or CDN such as Cloudflare, WordPress sees the proxy’s address for every visitor, so this list, the rate limits and the audit log cannot tell visitors apart. Declare the proxy with the <code>EASY_MCP_AI_TRUSTED_PROXIES</code> constant in wp-config.php — see <a>Trusted proxies</a>."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Not recorded at all"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Anything you or your team change yourselves — edits in WordPress admin, WP-CLI, other plugins. This log covers AI assistant activity only."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Changes sent to an outside service, such as a push-notification or email-marketing provider. We record that it happened and which service was contacted, but not what changed over there."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Files written to disk — backups, generated images, code-snippet files."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Work that finishes after the assistant's request ends, such as queued or scheduled jobs. The same action can be fully recorded on a small site and missed on a busy one, because size is what pushes a plugin into queuing."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "A few plugins switch off WordPress's change notifications before saving. Unless \"Capture raw database writes\" is turned on, we can only note that this happened."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Recorded, but not in full"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "One database command that updates thousands of rows appears as a single entry showing one example row. The number of rows affected is not shown."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "The body text of posts and pages is not stored here — use the linked revision to see it. Some content types, including WooCommerce products, keep no revisions, and revisions can also be switched off site-wide. Where that is the case the entry says so plainly, and the previous body text cannot be recovered from this log or anywhere else."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Very large values are shortened, and the entry is marked as truncated."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Complicated database updates are stored as the command that ran, without before and after values."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "If a plugin changes a setting or custom field the normal way and, in the same request, also alters that same row directly in the database — for example switching whether the setting loads on every page — only the value change is recorded. This applies when \"Capture raw database writes\" is on."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "If one request makes more than 200 direct database writes, recording stops there and a single summary entry is added."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "If a plugin cancels a batch of changes part-way through, a few entries may describe changes that were undone. The reverse can also happen: genuine changes made earlier in the same request, before the cancelled part even began, can be lost from the log along with the cancelled ones."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "When a BuddyPress activity item is deleted, we record that it happened but not what it said. Deleted users, comments, settings and WooCommerce products do keep a record of what they were. The one exception is a network-wide setting on a multisite network: WordPress removes it before it tells us, so that entry says the previous value was not captured rather than implying it was empty."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "When a custom field is deleted, we normally capture its value first so the entry shows what was removed. If another plugin interferes with that step, the entry honestly shows that a value was removed without being able to say what it was, rather than guessing it was empty."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "On a single site (not part of a network), a change to a network-wide setting is labelled as an ordinary setting change rather than as network-wide. The change itself is still recorded in full — only the label is affected."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Depends on your settings"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "\"Capture raw database writes\" is off until you turn it on, so changes plugins make directly to the database are not recorded by default."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Choosing to record only a small fixed list of options means plugin settings changes are not recorded anywhere."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Turning off extra field capture drops custom fields on categories, users and comments, and network-wide settings."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Routine background values are never recorded — scheduled-task bookkeeping and temporary cached data."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Hidden on purpose, to keep secrets safe"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Passwords, API keys and access tokens show as [REDACTED]. You can see that a secret changed, but not what it changed to."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Login and password tables are never read directly. User changes are recorded separately, with sensitive fields hidden."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "On a WooCommerce order, the customer's name, company, street address, postcode, email address and phone number are hidden. Town, county or state, and country are kept, so you can still see a delivery or tax area change. This log is separate from WooCommerce's own tools for handling a customer's personal-data requests."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "How long entries are kept"
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Normal entries are kept for 30 days and direct-database entries for 7 days. Both are adjustable, but this is not a permanent archive."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "Only standard WordPress content can be restored from history. Entries for a plugin's own database tables are a record, not an undo."
 msgstr ""
 
-#: assets/build/page-settings.js:2
+#: assets/build/page-settings.js:5
 msgid "What is not recorded here"
 msgstr ""
 
 #. translators: %d: number of documented capture limits.
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 #, js-format
 msgid "%d known gap in what the change history captures. Read it before relying on the log."
 msgid_plural "%d known gaps in what the change history captures. Read them before relying on the log."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Controls what the change history captures. Turning capture on or off entirely, and how long rows are kept, stay on the main Settings page."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Save capture settings"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Option recording mode"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Which wp_options (and network option) writes get a change-history row. The recommended mode records every option except known churn (transients, cron, scheduler noise); the legacy mode records only a small fixed allowlist of core settings."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Extended meta capture"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Capture term, user and comment meta changes, and network (site) options."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Post meta is always captured. Session tokens and transient-like user meta are never recorded."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Capture raw database writes"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Record custom-table and raw SQL writes made during MCP tool calls (Layer 3 interceptor)."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Opt-in. Catches plugin writes that bypass WordPress hooks (custom tables, direct SQL). Sensitive tables (users, credentials) are never captured; sensitive columns are redacted. Only writes made through MCP tool calls are ever recorded."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Recommended if you run plugins that remove WordPress hooks before writing (SureCart does this). Their hooks are re-armed automatically and a \"hooks reasserted\" entry is logged, but the re-arm happens after the call, so with this setting off those writes leave no before/after record at all — only the notice that it happened."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Raw-write retention"
 msgstr ""
 
-#: assets/build/page-settings.js:3
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:6
+#: assets/build/page-settings.js:8
 msgid "days"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Raw database rows are high-volume, so they are pruned on their own shorter schedule (default 7 days; 0 disables pruning). Semantic rows keep the main change history retention."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Record external write intent"
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "When a write-shaped tool call produces no local database change but did contact a remote service, record a marker row."
 msgstr ""
 
-#: assets/build/page-settings.js:3
+#: assets/build/page-settings.js:6
 msgid "Covers plugins that store their data in an external SaaS. The marker shows \"Remote change — local before/after not available\" with the contacted hosts and redacted call arguments."
 msgstr ""
 
 #. translators: %d: number of deployed settings whose value is invalid.
-#: assets/build/page-settings.js:4
+#: assets/build/page-settings.js:7
 #, js-format
 msgid "%d invalid"
 msgid_plural "%d invalid"
@@ -6797,62 +7127,66 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of settings set by a constant or environment variable.
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 #, js-format
 msgid "%d setting is set outside WordPress and cannot be changed here."
 msgid_plural "%d settings are set outside WordPress and cannot be changed here."
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-settings.js:5
-msgid "An invalid value is ignored and the setting runs on its safe default until the constant is fixed."
+#: assets/build/page-settings.js:8
+msgid "An invalid value is ignored and the setting runs on its safe default until the value is fixed."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Invalid"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
+msgid "Environment variable"
+msgstr ""
+
+#: assets/build/page-settings.js:8
 msgid "Logging & history"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Record every tool call with its client, user and result. When off, no log entries are written."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Audit log retention"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Older entries are pruned daily."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Keep before/after snapshots of every write the AI makes, so you can review it. When off, no change-history entries are written."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Change history retention"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Advanced capture settings →"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Some settings couldn't be saved."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Check the fields marked below."
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Capture settings saved"
 msgstr ""
 
-#: assets/build/page-settings.js:5
+#: assets/build/page-settings.js:8
 msgid "Couldn't load the settings."
 msgstr ""
 
@@ -6997,10 +7331,6 @@ msgid "Using a different agent or client? Paste this into its chat:"
 msgstr ""
 
 #: assets/build/page-setup.js:20
-msgid "Copy prompt"
-msgstr ""
-
-#: assets/build/page-setup.js:20
 msgid "Not listed? <all>See all supported clients in the dashboard</all>"
 msgstr ""
 
@@ -7045,7 +7375,7 @@ msgid "We can't check the connection right now — the status request is failing
 msgstr ""
 
 #: assets/build/page-setup.js:20
-#: assets/build/page-tools.js:14
+#: assets/build/page-tools.js:16
 msgid "Connected."
 msgstr ""
 
@@ -7087,10 +7417,6 @@ msgstr ""
 
 #: assets/build/page-setup.js:20
 msgid "What changed on my site this week? Check the change history."
-msgstr ""
-
-#: assets/build/page-setup.js:20
-msgid "Prompt copied"
 msgstr ""
 
 #: assets/build/page-setup.js:21
@@ -7165,6 +7491,10 @@ msgstr ""
 msgid "Stable"
 msgstr ""
 
+#: assets/build/page-tools.js:3
+msgid "The disabled-tool list is set by a constant or environment variable on this site, so plugin and core tools cannot be changed here."
+msgstr ""
+
 #. translators: %s: the search text
 #: assets/build/page-tools.js:4
 #, js-format
@@ -7236,477 +7566,425 @@ msgid "Tool settings saved."
 msgstr ""
 
 #: assets/build/page-tools.js:5
+msgid "A whitelist pattern in <link>Settings</link> also narrows what clients see."
+msgstr ""
+
+#: assets/build/page-tools.js:5
 msgid "Browse plugins with abilities"
 msgstr ""
 
 #: assets/build/page-tools.js:5
+msgid "Registered, not active"
+msgstr ""
+
+#. translators: %s: the plugin's name
+#: assets/build/page-tools.js:6
+#, js-format
+msgid "Built by %s"
+msgstr ""
+
+#: assets/build/page-tools.js:6
+msgid "Paid plugin"
+msgstr ""
+
+#: assets/build/page-tools.js:6
+msgid "Requires:"
+msgstr ""
+
+#. translators: %s: "Built by …" badge text
+#: assets/build/page-tools.js:7
+#, js-format
+msgid "Each ability you enable becomes its own tool the AI can use. Groups marked “%s” are our tools for plugins active on this site."
+msgstr ""
+
+#: assets/build/page-tools.js:7
 msgid "WordPress 6.9 or later required"
 msgstr ""
 
 #. translators: %s: current WordPress version
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 #, js-format
 msgid "The WordPress Abilities API needs WordPress 6.9 or later. This site runs %s."
 msgstr ""
 
-#: assets/build/page-tools.js:6
-msgid "Registered, not active"
-msgstr ""
-
-#: assets/build/page-tools.js:6
-msgid "Each ability you enable becomes its own tool the AI can use."
-msgstr ""
-
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "No abilities registered yet"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "When a plugin registers WordPress Abilities, they show up here and each one can be enabled as a tool."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
+msgid "WordPress abilities"
+msgstr ""
+
+#: assets/build/page-tools.js:8
 msgid "The WordPress tools every site gets. The destructive ones can be disabled for every client under <link>Settings › Advanced</link>; a disabled tool returns an error when called."
 msgstr ""
 
-#: assets/build/page-tools.js:6
-msgid "A whitelist pattern in <link>Settings</link> also narrows what clients see."
-msgstr ""
-
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "No core tools are registered."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Enter your API key"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Service account key"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Paste the full JSON key file from Google Cloud Console."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Google Analytics 4"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "GA4 reports, properties and metadata through a service account. All tools are read-only, so Viewer access is enough."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Enable both required APIs in Google Cloud Console: the Google Analytics Data API and the Google Analytics Admin API."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "On either API page, open Manage API, then Credentials → Manage service accounts."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Create a service account with any name, then choose Create and Done. No roles are needed."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Open the service account email → Keys → Add key → Create new key → JSON, and save the file."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Open the JSON file in a text editor and paste its whole contents into the field below."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "In Google Analytics 4, go to Admin → Property access management and add the service account email with Viewer access or higher."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Default property ID"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "The numeric GA4 property ID from GA4 Admin → Property details. Used when a call omits property_id."
 msgstr ""
 
-#: assets/build/page-tools.js:6
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:8
 #: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Remove key"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Remove the saved Google Analytics service account key? AI clients lose access to the Analytics tools until a new key is saved."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Search performance, sitemaps and URL inspection through a service account."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Enable the Search Console API in Google Cloud Console."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Open Manage API, then Credentials → Manage service accounts."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "In Search Console, go to Settings → Users and permissions and add the service account email as a user (Restricted or Full)."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Default property URL"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Used when a call omits site_url. Required unless the AI assistant supplies one each time."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "Remove the saved Search Console service account key? AI clients lose access to the Search Console tools until a new key is saved."
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "DataForSEO"
 msgstr ""
 
-#: assets/build/page-tools.js:6
+#: assets/build/page-tools.js:8
 msgid "SERPs, keyword volumes, backlinks and on-page data."
 msgstr ""
 
 #. translators: 1: app.dataforseo.com link, 2: API access link
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 #, js-format
 msgid "Sign up at %1$s and generate an API password at %2$s. The API password is different from your account password."
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Claim your $1 trial credit"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "No account yet? Start with $1 and explore the full DataForSEO API — no commitment."
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Spending is capped only by your balance"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Each call deducts from your prepaid DataForSEO balance at a rate that varies by endpoint, and an AI client can make many in a row. Set a cost limit in your DataForSEO account if you want a hard ceiling."
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Set a cost limit"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Pricing"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Usage by endpoint"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Login (email)"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "API password"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Enter your API password"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Generated under API access; different from your account login password."
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Remove credentials"
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Remove the saved DataForSEO credentials? AI clients lose access to the DataForSEO tools."
 msgstr ""
 
-#: assets/build/page-tools.js:8
+#: assets/build/page-tools.js:10
 msgid "Domain and keyword analytics, backlinks and API unit balance."
 msgstr ""
 
 #. translators: %1$s: semrush.com link
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:12
 #, js-format
 msgid "Sign up at %1$s — the Semrush One plan is recommended. Copy the Version 3 key from My Profile → API Keys."
 msgstr ""
 
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:12
 msgid "Start your free 7-day trial"
 msgstr ""
 
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:12
 msgid "No API key yet? Try Semrush free for 7 days — no commitment."
 msgstr ""
 
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:12
 msgid "Remove the saved Semrush API key? AI clients lose access to the Semrush tools."
 msgstr ""
 
-#: assets/build/page-tools.js:10
+#: assets/build/page-tools.js:12
 msgid "Domain, keyword and backlink data from the SE Ranking Data API."
 msgstr ""
 
 #. translators: %1$s: seranking.com link
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 #, js-format
 msgid "Sign up at %1$s — retrieve the key in your account under API."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Start your free 14-day trial"
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "No API key yet? Try SE Ranking free for 14 days — 100,000 API credits included, no commitment."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Remove the saved SE Ranking API key? AI clients lose access to the SE Ranking tools."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Domain Rating lookups: the backlink-profile strength (0–100) of any domain or URL. When you display the value, credit \"Domain Rating by Ahrefs\" per the Ahrefs Domain Rating License."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Account settings → API keys"
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Off by default. The APIv3 key is free and consumes no API units — create it in your Ahrefs account under Account settings → API keys. Saving a key switches the tool on."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Remove the saved Ahrefs API key? AI clients lose access to the Domain Rating tool."
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Replace credentials"
 msgstr ""
 
-#: assets/build/page-tools.js:12
+#: assets/build/page-tools.js:14
 msgid "Replace key"
 msgstr ""
 
 #. translators: %s: provider name
-#: assets/build/page-tools.js:13
+#: assets/build/page-tools.js:15
 #, js-format
 msgid "Save %s settings"
 msgstr ""
 
-#: assets/build/page-tools.js:13
+#: assets/build/page-tools.js:15
 msgid "Connected, tools off"
 msgstr ""
 
-#: assets/build/page-tools.js:13
+#: assets/build/page-tools.js:15
 msgid "Not connected"
 msgstr ""
 
 #. translators: %s: amount with two decimals
-#: assets/build/page-tools.js:14
+#: assets/build/page-tools.js:16
 #, js-format
 msgid "$%s USD"
 msgstr ""
 
-#: assets/build/page-tools.js:14
+#: assets/build/page-tools.js:16
 msgid "The request failed."
 msgstr ""
 
 #. translators: %s: provider name
-#: assets/build/page-tools.js:15
+#: assets/build/page-tools.js:17
 #, js-format
 msgid "Click to fetch what is left to spend from %s. The figure is cached for 60 seconds."
 msgstr ""
 
-#: assets/build/page-tools.js:15
+#: assets/build/page-tools.js:17
 msgid "Balance refreshed."
 msgstr ""
 
 #. translators: 1: provider name, 2: formatted balance
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 #, js-format
 msgid "%1$s has %2$s left to spend."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Balance"
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Test connection"
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Drops the cached responses and the access token so the next call fetches fresh data from Google. Credentials and settings stay."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Cache cleared."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "The next tool call fetches fresh data from Google."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Clear cache"
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Remove"
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Credentials removed."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Enter a new value to replace the stored one."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "Save a key above to fill this in"
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "AI clients see the change on their next call."
 msgstr ""
 
-#: assets/build/page-tools.js:16
+#: assets/build/page-tools.js:18
 msgid "How to set it up"
 msgstr ""
 
 #. translators: 1: connection state, 2: enabled tools, 3: total tools
-#: assets/build/page-tools.js:17
+#: assets/build/page-tools.js:19
 #, js-format
 msgid "%1$s · %2$d / %3$d tools enabled"
 msgstr ""
 
 #. translators: 1: connection state, 2: number of tools
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 #, js-format
 msgid "%1$s · %2$d tool available"
 msgid_plural "%1$s · %2$d tools available"
 msgstr[0] ""
 msgstr[1] ""
 
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "Save credentials above to enable or disable individual tools. They are listed here for reference."
 msgstr ""
 
-#: assets/build/page-tools.js:18
-msgid "The disabled-tool list is set by a constant or environment variable on this site, so plugin and core tools cannot be changed here."
-msgstr ""
-
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "These tools stay off until this provider is connected. Clear the search to open its card and add credentials."
 msgstr ""
 
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "Couldn't load the providers."
 msgstr ""
 
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "Credentials cannot be saved: the WordPress security salts are missing or still placeholders."
 msgstr ""
 
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "Every provider here encrypts its credentials with SECURE_AUTH_KEY and SECURE_AUTH_SALT. Run \"wp config shuffle-salts\", or copy fresh values from api.wordpress.org/secret-key/1.1/salt/ into wp-config.php. Rotating salts signs out every session."
 msgstr ""
 
-#: assets/build/page-tools.js:18
+#: assets/build/page-tools.js:20
 msgid "An AI client that is already connected may not see newly connected or enabled tools until it reconnects. Restart the client, or remove and add the connection again."
 msgstr ""
 
-#. translators: %s: plugin name
-#: assets/build/page-tools.js:19
-#, js-format
-msgid "%s installed"
-msgstr ""
-
-#: assets/build/page-tools.js:19
-msgid "The plugin is active and its tools are enabled for AI clients."
-msgstr ""
-
-#. translators: %s: plugin name
 #: assets/build/page-tools.js:20
-#, js-format
-msgid "Install %s?"
-msgstr ""
-
-#: assets/build/page-tools.js:20
-msgid "Enable tools"
-msgstr ""
-
-#: assets/build/page-tools.js:20
-msgid "Install and enable"
-msgstr ""
-
-#. translators: 1: plugin name, 2: number of tools
-#: assets/build/page-tools.js:21
-#, js-format
-msgid "%1$s is downloaded from WordPress.org, activated, and its %2$d tool is turned on for AI clients."
-msgid_plural "%1$s is downloaded from WordPress.org, activated, and its %2$d tools are turned on for AI clients."
-msgstr[0] ""
-msgstr[1] ""
-
-#: assets/build/page-tools.js:21
-msgid "The plugin was installed and activated. Only turning its tools on failed."
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Install from the Plugins screen instead"
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Paid plugin"
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Not installed"
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Install"
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Requires:"
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "This plugin is not installed or not active. Install and activate it to enable these tools."
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Enable tool groups for third-party plugins. Only plugins that are installed and active can be enabled. Disabled tools return an error when called by an AI client."
-msgstr ""
-
-#: assets/build/page-tools.js:21
-msgid "Need a plugin that isn't here? Its author may expose it directly through <link>WordPress Abilities</link> — the future of how WordPress plugins connect to AI."
-msgstr ""
-
-#: assets/build/page-tools.js:21
 msgid "Section"
 msgstr ""
 
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "All"
 msgstr ""
 
-#: assets/build/page-tools.js:21
+#: assets/build/page-tools.js:20
 msgid "Descriptions"
 msgstr ""

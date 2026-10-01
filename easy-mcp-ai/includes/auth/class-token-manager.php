@@ -338,6 +338,8 @@ class Token_Manager {
         if ( isset( $data['allowed_tools'] ) ) { $update['allowed_tools'] = wp_json_encode( $data['allowed_tools'] ); $formats[] = '%s'; }
         if ( isset( $data['wp_user_id'] ) ) { $update['wp_user_id'] = absint( $data['wp_user_id'] ); $formats[] = '%d'; }
         if ( isset( $data['is_active'] ) ) { $update['is_active'] = absint( $data['is_active'] ); $formats[] = '%d'; }
+        
+        if ( isset( $data['unattended'] ) ) { $update['unattended'] = $data['unattended'] ? 1 : 0; $formats[] = '%d'; }
         if ( array_key_exists( 'expires_at', $data ) ) { $update['expires_at'] = $data['expires_at'] ? $this->normalize_expires_at( sanitize_text_field( $data['expires_at'] ) ) : null; $formats[] = '%s'; }
         
         

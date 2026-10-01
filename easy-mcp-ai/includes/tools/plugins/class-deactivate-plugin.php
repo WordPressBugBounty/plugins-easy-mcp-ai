@@ -21,7 +21,7 @@ class Deactivate_Plugin extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deactivates an active plugin, exactly as the Deactivate link on Plugins → Installed Plugins does (deactivation hooks run; nothing is deleted). Required: `plugin` (e.g. "hello-dolly/hello.php" — the `plugin` field from wp_list_plugins). Optional: `network_wide` (boolean, default false; multisite only, deactivates a network-active plugin for every site and requires a super admin with manage_network_plugins). Returns { plugin, name, status ("inactive"), changed (false when it was already inactive), network_wide }. Refused when your WordPress user may not deactivate that plugin, when a network-active plugin is deactivated for a single site (a super admin must use network_wide: true), and always for Easy MCP AI itself — deactivating it would cut off this connection. Use wp_activate_plugin to reverse it.';
+        return 'Deactivates an active plugin, exactly as the Deactivate link on Plugins → Installed Plugins does (deactivation hooks run; nothing is deleted). Required: `plugin` (e.g. "hello-dolly/hello.php" — the `plugin` field from wp_list_plugins). Optional: `network_wide` (boolean, default false; multisite only, deactivates a network-active plugin for every site and requires a super admin with manage_network_plugins). Returns { plugin, name, status ("inactive"), changed (false when it was already inactive), network_wide }. Refused when the plugin is not installed, when your WordPress user may not deactivate that plugin, when a network-active plugin is deactivated for a single site (a super admin must use network_wide: true), and always for Easy MCP AI itself — deactivating it would cut off this connection. Use wp_activate_plugin to reverse it.';
     }
 
     public function get_category() {
@@ -85,6 +85,16 @@ class Deactivate_Plugin extends Base_Tool {
         }
 
         if ( ! $this->is_active_in_scope( $plugin, $network_wide ) ) {
+            
+            
+            
+            
+            
+            if ( ! isset( get_plugins()[ $plugin ] ) ) {
+                throw new \RuntimeException(
+                    sprintf( 'Plugin "%s" is not installed. Use wp_list_plugins to see installed plugins.', $plugin ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                );
+            }
             return $this->result( $plugin, $network_wide, false );
         }
 

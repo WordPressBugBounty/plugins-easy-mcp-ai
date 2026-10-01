@@ -23,7 +23,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'WooCommerce plugin must be active.',
                 'detector'    => 'class:WooCommerce',
-                'wporg_slug'  => 'woocommerce',
                 'tools'       => array(
                     array( 'name' => 'wp_wc_list_products',           'description' => 'List products with filtering by status, category, price range, and stock level.',           'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_wc_get_product',             'description' => 'Get a single product with all fields including variations and attributes.',                   'type' => 'read',  'api' => 'plugin_rest' ),
@@ -81,7 +80,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'ACF or Secure Custom Fields must be active. Field groups must have "Show in REST API" enabled.',
                 'detector'    => 'class:ACF',
-                'wporg_slug'  => 'advanced-custom-fields',
                 'tools'       => array(
                     array( 'name' => 'wp_acf_get_fields',         'description' => 'Get all ACF field values for a post or page. Returns data under the acf key.',           'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_update_fields',      'description' => 'Update one or more ACF field values on a post or page.',                                  'type' => 'write', 'api' => 'wp_rest' ),
@@ -98,7 +96,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'The Events Calendar (free) must be active.',
                 'detector'    => 'class:Tribe__Events__Main',
-                'wporg_slug'  => 'the-events-calendar',
                 'tools'       => array(
                     array( 'name' => 'wp_tec_list_events',      'description' => 'List events with filtering by date range, venue, organizer, category, and search.',  'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_tec_get_event',        'description' => 'Get a single event with full details including venue and organizer info.',            'type' => 'read',  'api' => 'plugin_rest' ),
@@ -119,7 +116,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'BuddyPress (free) must be active. Activity, Groups, and Messages components must be enabled in BuddyPress settings for their respective tools.',
                 'detector'    => 'class:BuddyPress',
-                'wporg_slug'  => 'buddypress',
                 'tools'       => array(
                     array( 'name' => 'wp_bp_list_members',         'description' => 'List BuddyPress members with filtering by type and search.',                                            'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_bp_get_member',           'description' => 'Get a member\'s BuddyPress profile including extended profile (xprofile) fields.',                    'type' => 'read',  'api' => 'plugin_rest' ),
@@ -140,7 +136,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'Yoast SEO (free or premium) must be active.',
                 'detector'    => 'class:WPSEO_Options',
-                'wporg_slug'  => 'wordpress-seo',
                 'tools'       => array(
                     array( 'name' => 'wp_yoast_get_head',        'description' => 'Get the full rendered SEO head (title, meta, OG, Twitter, schema JSON-LD) for any URL. Useful for auditing or headless CMS rendering.',                               'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_yoast_get_post_seo',    'description' => 'Get structured Yoast SEO metadata for a post or page: title, description, robots, canonical, OG, Twitter, and schema data.',                                          'type' => 'read',  'api' => 'wp_rest' ),
@@ -156,7 +151,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'Rank Math SEO (free or pro) must be active. For wp_rm_get_head, enable Headless CMS Support in Rank Math → General Settings → Others.',
                 'detector'    => 'function:rank_math',
-                'wporg_slug'  => 'seo-by-rank-math',
                 'tools'       => array(
                     array( 'name' => 'wp_rm_get_head',        'description' => 'Get rendered SEO head HTML for any URL. Requires Headless CMS Support enabled in Rank Math → General Settings → Others → Headless CMS Support.',        'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_rm_get_post_seo',    'description' => 'Get all Rank Math SEO meta fields for a post: title, description, focus keyword, robots, canonical, OG fields, Twitter fields.',                        'type' => 'read',  'api' => 'php' ),
@@ -170,7 +164,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'AIOSEO 4.9.8+ — REST API is free in core; pre-4.9.8 free needs the legacy REST addon.',
                 'detector'    => 'function:aioseo',
-                'wporg_slug'  => 'all-in-one-seo-pack',
                 'tools'       => array(
                     array( 'name' => 'wp_aioseo_get_post_seo',    'description' => 'Get AIOSEO SEO data for a post: title, description, OG fields, Twitter fields, no_index, canonical_url.',                                                        'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_aioseo_update_post_seo', 'description' => 'Update AIOSEO SEO metadata on a post.',                                                                                                                            'type' => 'write', 'api' => 'wp_rest' ),
@@ -184,7 +177,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'SEOPress (free or PRO) must be active.',
                 'detector'    => 'function:seopress_get_service',
-                'wporg_slug'  => 'wp-seopress',
                 'tools'       => array(
                     array( 'name' => 'wp_seopress_get_post_seo',           'description' => 'Get SEOPress SEO meta for a post: title, description, robots, canonical, OG/Twitter fields, and target keywords.',         'type' => 'read',  'api' => 'plugin_rest' ),
                     array( 'name' => 'wp_seopress_update_post_title_desc', 'description' => 'Update the SEOPress meta title and meta description on a post.',                                                          'type' => 'write', 'api' => 'plugin_rest' ),
@@ -202,7 +194,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'Slim SEO must be active.',
                 'detector'    => 'class:SlimSEO\\Container',
-                'wporg_slug'  => 'slim-seo',
                 'tools'       => array(
                     array( 'name' => 'wp_slimseo_get_post_seo',    'description' => 'Get Slim SEO meta for a post: title, description, OG/Twitter fields, and robots settings.', 'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_slimseo_update_post_seo', 'description' => 'Update Slim SEO meta on a post: title, description, OG/Twitter fields, and robots settings.', 'type' => 'write', 'api' => 'wp_rest' ),
@@ -215,7 +206,6 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'The SEO Framework must be active.',
                 'detector'    => 'function:tsf',
-                'wporg_slug'  => 'autodescription',
                 'tools'       => array(
                     array( 'name' => 'wp_tsf_get_post_seo',    'description' => 'Get The SEO Framework meta for a post: title, description, robots, OG/Twitter fields.', 'type' => 'read',  'api' => 'php' ),
                     array( 'name' => 'wp_tsf_update_post_seo', 'description' => 'Update The SEO Framework meta on a post: title, description, robots, OG/Twitter fields.', 'type' => 'write', 'api' => 'php' ),

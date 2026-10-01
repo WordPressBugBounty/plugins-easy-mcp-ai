@@ -86,8 +86,19 @@ class Task_Manager {
         }
 
         $started  = $this->now();
-        $response = $this->server->call_tool_internal( $id, $tool_name, $this->with_budget( $arguments, $contract ), $token_id, $allowed_tools, true );
-        $outcome  = self::read_response( $response );
+        
+        
+        
+        
+        
+        
+        
+        $response = $this->server->call_tool_internal( $id, $tool_name, $this->with_budget( $arguments, $contract ), $token_id, $allowed_tools, true, $arguments, is_array( $params ) ? $params : array() );
+        $approval = $this->server->get_last_approval();
+        if ( in_array( $approval['kind'], array( 'paused', 'refused', 'replay' ), true ) ) {
+            return $response;
+        }
+        $outcome = self::read_response( $response );
         if ( $outcome['failed'] || ! is_array( $outcome['data'] ) ) {
             return $response;
         }
@@ -101,6 +112,7 @@ class Task_Manager {
             'tool_name'       => $tool_name,
             'arguments'       => \wp_json_encode( $arguments ),
             'mode'            => $contract['mode'],
+            'approval_id'     => $approval['approval_id'],
         );
 
         
@@ -213,7 +225,7 @@ class Task_Manager {
                 
                 $cancel_tool = Dynamic_Tool_Registrar::build_tool_name( $contract['cancel_ability'] );
                 if ( $this->registry->get_tool( $cancel_tool ) ) {
-                    $this->server->call_tool_internal( 0, $cancel_tool, array( 'job_id' => (string) $row['job_id'] ), $token_id, $allowed_tools, false );
+                    $this->server->call_tool_internal( 0, $cancel_tool, array( 'job_id' => (string) $row['job_id'] ), $token_id, $allowed_tools, false, 'skip' );
                 }
             }
             $this->finish( $row, 'cancelled', 'Cancelled by the client.', null, null );
@@ -326,7 +338,8 @@ class Task_Manager {
             return false;
         }
         $arguments['cursor'] = (string) $row['task_cursor'];
-        $response = $this->server->call_tool_internal( 0, $row['tool_name'], $this->with_budget( $arguments, $contract, $remaining ), $token_id, $allowed_tools, false );
+        
+        $response = $this->server->call_tool_internal( 0, $row['tool_name'], $this->with_budget( $arguments, $contract, $remaining ), $token_id, $allowed_tools, false, 'skip' );
         $outcome  = self::read_response( $response );
         if ( $outcome['failed'] ) {
             $this->finish( $row, 'failed', $outcome['message'], null, $outcome['code'], array(), $lock );
@@ -395,7 +408,7 @@ class Task_Manager {
         if ( ! $this->registry->get_tool( $status_tool ) ) {
             return null;
         }
-        $outcome = self::read_response( $this->server->call_tool_internal( 0, $status_tool, array( 'job_id' => $job_id ), $token_id, $allowed_tools, false ) );
+        $outcome = self::read_response( $this->server->call_tool_internal( 0, $status_tool, array( 'job_id' => $job_id ), $token_id, $allowed_tools, false, 'skip' ) );
         if ( $outcome['failed'] ) {
             return null;
         }

@@ -52,6 +52,13 @@ class OAuth_Controller extends Admin_Rest_Controller {
     const FULL_SCOPE = 'mcp';
 
     
+    const SETTINGS_FIELDS = array(
+        'accessTokenTtl'  => 'oauth_access_token_ttl',
+        'refreshTokenTtl' => 'oauth_refresh_token_ttl',
+        'dcrEnabled'      => 'oauth_dcr_enabled',
+    );
+
+    
     private $wpdb;
 
     
@@ -185,29 +192,32 @@ class OAuth_Controller extends Admin_Rest_Controller {
                 'refreshTokenTtl' => 2592000,
             ),
             'minTtl'          => self::TTL_MIN,
-            'locked'          => array(
-                'accessTokenTtl'  => Config::is_locked( 'oauth_access_token_ttl' ),
-                'refreshTokenTtl' => Config::is_locked( 'oauth_refresh_token_ttl' ),
-                'dcrEnabled'      => Config::is_locked( 'oauth_dcr_enabled' ),
-            ),
+            'locked'          => array_map( array( Config::class, 'is_locked' ), self::SETTINGS_FIELDS ),
             'lockedBy'        => self::locked_by(),
+            'lockSources'     => self::lock_sources(),
         );
     }
 
     
     private static function locked_by() {
-        $names  = array();
-        $fields = array(
-            'accessTokenTtl'  => 'oauth_access_token_ttl',
-            'refreshTokenTtl' => 'oauth_refresh_token_ttl',
-            'dcrEnabled'      => 'oauth_dcr_enabled',
-        );
-        foreach ( $fields as $field => $suffix ) {
+        $names = array();
+        foreach ( self::SETTINGS_FIELDS as $field => $suffix ) {
             if ( Config::is_locked( $suffix ) ) {
                 $names[ $field ] = Config::constant_name( $suffix );
             }
         }
         return $names;
+    }
+
+    
+    private static function lock_sources(): array {
+        $sources = array();
+        foreach ( self::SETTINGS_FIELDS as $suffix ) {
+            if ( Config::is_locked( $suffix ) ) {
+                $sources[ Config::constant_name( $suffix ) ] = Config::source( $suffix );
+            }
+        }
+        return $sources;
     }
 
     

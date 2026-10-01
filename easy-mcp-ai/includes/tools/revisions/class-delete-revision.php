@@ -14,7 +14,7 @@ class Delete_Revision extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a specific post revision. Required: `post_id` (the parent post ID) AND `revision_id` (the specific revision ID — get both from `wp_list_revisions`). Revisions do not support trashing — deletion is immediate and irreversible. Returns { deleted, revision_id, post_id }. Deleting a revision does not affect the live post.';
+        return 'Permanently deletes one post revision, but only where the site\'s own code allows it: WordPress core refuses to delete single revisions for every user, administrators included, to protect post history, so on a standard site this always fails and no role or Easy MCP setting changes that. To go back to an older version use wp_restore_revision; to limit how many revisions are kept, set WP_POST_REVISIONS in wp-config.php; a database-cleanup plugin or WP-CLI can purge old ones. Required: `post_id` and `revision_id` (both from `wp_list_revisions`). Returns { deleted, revision_id, post_id }.';
     }
 
     public function get_category() {
@@ -57,6 +57,20 @@ class Delete_Revision extends Base_Tool {
         $post_id     = $this->parse_required_id( $arguments['post_id'], 'post_id' );
         $rest_base   = $this->resolve_post_rest_base( $post_id );
         $revision_id = $this->parse_required_id( $arguments['revision_id'], 'revision_id' );
+
+        
+        
+        
+        
+        
+        
+        
+        
+        $revision = get_post( $revision_id );
+        if ( $revision && 'revision' === $revision->post_type && (int) $revision->post_parent === $post_id
+            && current_user_can( 'delete_post', $post_id ) && ! current_user_can( 'delete_post', $revision_id ) ) {
+            throw new \RuntimeException( 'WordPress core blocks deleting single revisions for every user, admins included; no role or setting change helps. Cap revisions with WP_POST_REVISIONS; to go back, use wp_restore_revision.' );
+        }
 
         $data = $this->rest_request(
             'DELETE',

@@ -154,6 +154,14 @@ class Scope_Map {
 
 
 
+    const CROSS_CATEGORY_WRITE_TOOLS = array( 'wp_approve_operation', 'wp_deny_operation' );
+
+    
+
+
+
+
+
     const LEGACY_SCOPE_UPGRADES = array(
         'mcp:users:write' => array( 'mcp:user_create:write', 'mcp:user_update:write', 'mcp:user_delete:write' ),
     );
@@ -470,8 +478,9 @@ class Scope_Map {
     public static function resolve_allowed_tools( string $scope ): array {
         $scope_parts    = array_filter( array_map( 'trim', explode( ' ', $scope ) ) );
         $scope_parts    = self::apply_legacy_scope_upgrades( array_values( $scope_parts ) );
-        $tools          = array();
-        $has_read_scope = false;
+        $tools           = array();
+        $has_read_scope  = false;
+        $has_write_scope = false;
 
         foreach ( $scope_parts as $part ) {
             if ( 'mcp' === $part ) {
@@ -506,6 +515,9 @@ class Scope_Map {
                 if ( substr( $part, -5 ) === ':read' ) {
                     $has_read_scope = true;
                 }
+                if ( substr( $part, -6 ) === ':write' ) {
+                    $has_write_scope = true;
+                }
                 continue;
             }
 
@@ -516,11 +528,17 @@ class Scope_Map {
                     if ( substr( $leaf_scope, -5 ) === ':read' ) {
                         $has_read_scope = true;
                     }
+                    if ( substr( $leaf_scope, -6 ) === ':write' ) {
+                        $has_write_scope = true;
+                    }
                 }
             }
             
         }
 
+        if ( $has_write_scope ) {
+            $tools = array_merge( $tools, self::CROSS_CATEGORY_WRITE_TOOLS );
+        }
         if ( $has_read_scope ) {
             $tools = array_merge( $tools, self::CROSS_CATEGORY_READ_TOOLS );
         }

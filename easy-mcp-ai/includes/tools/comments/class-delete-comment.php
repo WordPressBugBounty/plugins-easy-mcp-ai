@@ -52,6 +52,22 @@ class Delete_Comment extends Base_Tool {
         );
     }
 
+    
+    public function describe( array $arguments ) {
+        $id = isset( $arguments['comment_id'] ) ? (int) $arguments['comment_id'] : 0;
+        $comment = $id > 0 ? $this->peek( '/wp/v2/comments/' . $id, 'id,author_name,post,status' ) : null;
+        if ( ! $comment ) {
+            return '';
+        }
+        $force = ! empty( $arguments['force'] ) && \rest_sanitize_boolean( $arguments['force'] );
+        return sprintf(
+            /* translators: 1: comment id, 2: author name, 3: post id, 4: what happens */
+            __( "Delete comment #%1\$d by '%2\$s' on post #%3\$d — %4\$s.", 'easy-mcp-ai' ),
+            $id, isset( $comment['author_name'] ) ? \wp_strip_all_tags( (string) $comment['author_name'] ) : '?', isset( $comment['post'] ) ? (int) $comment['post'] : 0,
+            $force ? __( 'permanently, bypassing the trash', 'easy-mcp-ai' ) : __( 'moves it to the trash', 'easy-mcp-ai' )
+        );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'comment_id' ) );
 

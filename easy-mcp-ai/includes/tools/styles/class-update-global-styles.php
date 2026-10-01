@@ -14,7 +14,7 @@ class Update_Global_Styles extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates the global styles (theme.json) settings and/or styles. Either pass `styles` (object — CSS custom properties, element styles) and/or `settings` (object — color palette, typography, spacing), or pass `variation_slug` to apply one of the theme\'s style variations (list them with wp_get_global_styles `include_variations: true`); `variation_slug` cannot be combined with `styles`/`settings`. `variation_mode` (default `merge`) controls how a variation is applied: `merge` deep-merges the variation over the current user styles and settings, so keys the variation does not mention survive (lists such as a color palette are replaced whole, never spliced by index); `replace` writes the variation\'s settings and styles as the whole user configuration, discarding every existing override. Returns { id, settings, styles, title } plus `applied_variation: { slug, title, scope, mode }` when a variation was applied (`scope` is `full`, `color` or `typography` — a colour-only partial of a full variation is addressed as `<slug>-color`, and a slug that would otherwise repeat carries `-2`, `-3`, …; the slugs wp_get_global_styles lists are unique, use them exactly as listed). Changes are user-level overrides — they persist across theme updates but can be reset by clearing the Global Styles post. Requires an active block theme (Full Site Editing).';
+        return 'Updates the site\'s global styles (theme.json user overrides; block themes only). To change some values, pass `merge: true` with only those values. Without `merge`, `styles` and `settings` each REPLACE the whole stored object: every key you leave out is deleted, including `styles.css` (Additional CSS); an object you do not send is kept. To delete a key on purpose, send the full object without it and no `merge`. If a write deleted stored keys, the reply starts with `removed_keys` (path: previous value). They stay deleted until you call again with `merge: true` and those previous values put back in `styles`/`settings`. To apply a theme style variation instead, pass `variation_slug` exactly as wp_get_global_styles lists it with `include_variations: true`; `variation_mode` `merge` (default) keeps your other overrides, `replace` discards them. A variation cannot be combined with `styles`, `settings` or `merge`. Returns { id, settings, styles, title }, plus `applied_variation: { slug, title, scope, mode }` for a variation.';
     }
 
     public function get_category() {
@@ -40,19 +40,24 @@ class Update_Global_Styles extends Base_Tool {
             'properties' => array(
                 'styles'         => array(
                     'type'        => 'object',
-                    'description' => 'Styles object following theme.json structure (color, typography, spacing, etc.).',
+                    'description' => 'theme.json styles object (color, typography, spacing, elements, blocks, css). Replaces the whole stored styles object unless `merge` is true: omitted keys are deleted, including `css` (Additional CSS).',
                 ),
                 'settings'       => array(
                     'type'        => 'object',
-                    'description' => 'Settings object following theme.json structure.',
+                    'description' => 'theme.json settings object. Replaces the whole stored settings object unless `merge` is true: omitted keys are deleted.',
+                ),
+                'merge'          => array(
+                    'type'        => 'boolean',
+                    'description' => 'true: deep-merge `styles`/`settings` into the stored objects, so omitted keys are kept. Lists such as a color palette are still replaced whole, and no key can be deleted. Default false: replace. Not for variations.',
+                    'default'     => false,
                 ),
                 'variation_slug' => array(
                     'type'        => 'string',
-                    'description' => 'Slug of a theme style variation to apply (from wp_get_global_styles with include_variations). Cannot be combined with styles or settings.',
+                    'description' => 'Slug of a theme style variation to apply (from wp_get_global_styles with include_variations). Cannot be combined with styles, settings or merge.',
                 ),
                 'variation_mode' => array(
                     'type'        => 'string',
-                    'description' => 'How to apply the variation: `merge` (default — deep-merge over the current user styles/settings) or `replace` (the variation becomes the whole user configuration).',
+                    'description' => 'How to apply the variation (variation_slug only; for styles/settings see `merge`): `merge` (default — deep-merge over the current user styles/settings) or `replace` (the variation becomes the whole user configuration).',
                     'enum'        => array( 'merge', 'replace' ),
                     'default'     => 'merge',
                 ),
@@ -64,26 +69,15 @@ class Update_Global_Styles extends Base_Tool {
         $has_styles    = isset( $arguments['styles'] );
         $has_settings  = isset( $arguments['settings'] );
         $has_variation = isset( $arguments['variation_slug'] ) && '' !== $arguments['variation_slug'];
+        $merge_raw     = isset( $arguments['merge'] ) && rest_sanitize_boolean( $arguments['merge'] );
 
-        if ( $has_variation && ( $has_styles || $has_settings ) ) {
-            throw new \InvalidArgumentException( '"variation_slug" cannot be combined with "styles" or "settings". Apply the variation first, then send the overrides in a second call.' );
-        }
-        if ( ! $has_styles && ! $has_settings && ! $has_variation ) {
-            throw new \InvalidArgumentException( 'At least one of "styles" or "settings" must be provided, or a "variation_slug" to apply.' );
-        }
-
-        $mode = 'merge';
-        if ( isset( $arguments['variation_mode'] ) && '' !== $arguments['variation_mode'] ) {
-            $mode = is_string( $arguments['variation_mode'] ) ? strtolower( trim( $arguments['variation_mode'] ) ) : '';
-            if ( ! in_array( $mode, array( 'merge', 'replace' ), true ) ) {
-                throw new \InvalidArgumentException( 'Invalid variation_mode. Use "merge" or "replace".' );
-            }
-        }
+        $this->validate_arguments( $has_styles, $has_settings, $has_variation, $merge_raw );
+        $mode = $this->variation_mode( $arguments );
 
         $global_styles_id = $this->discover_global_styles_id();
 
-        $body    = array();
         $applied = null;
+        $before  = null;
 
         if ( $has_variation ) {
             $variation = $this->resolve_variation( $arguments['variation_slug'] );
@@ -93,28 +87,149 @@ class Update_Global_Styles extends Base_Tool {
                 'scope' => $variation['scope'],
                 'mode'  => $mode,
             );
-
-            if ( 'replace' === $mode ) {
-                
-                
-                
-                
-                $body['settings'] = empty( $variation['settings'] ) ? new \stdClass() : $variation['settings'];
-                $body['styles']   = empty( $variation['styles'] ) ? new \stdClass() : $variation['styles'];
-            } else {
-                $current          = $this->read_current( $global_styles_id );
-                $body['settings'] = $this->merge_theme_json( $current['settings'], $variation['settings'] );
-                $body['styles']   = $this->merge_theme_json( $current['styles'], $variation['styles'] );
-            }
+            $body      = $this->variation_body( $variation, $mode, $global_styles_id );
         } else {
-            if ( $has_styles ) {
-                $body['styles'] = $this->parse_json_param( $arguments['styles'], 'styles' );
-            }
-            if ( $has_settings ) {
-                $body['settings'] = $this->parse_json_param( $arguments['settings'], 'settings' );
+            $built  = $this->sent_body( $arguments, $merge_raw, $global_styles_id );
+            $body   = $built['body'];
+            $before = $built['before'];
+        }
+
+        $data = $this->post_global_styles( $global_styles_id, $body );
+
+        $result = array(
+            'id'       => $data['id'],
+            'settings' => $data['settings'] ?? new \stdClass(),
+            'styles'   => $data['styles'] ?? new \stdClass(),
+            'title'    => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
+        );
+        if ( null !== $applied ) {
+            $result['applied_variation'] = $applied;
+        }
+        if ( null !== $before ) {
+            $result = $this->prepend_removed_keys( $result, $before, $body, $data );
+        }
+
+        return $result;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function validate_arguments( $has_styles, $has_settings, $has_variation, $merge_raw ) {
+        if ( $has_variation && ( $has_styles || $has_settings ) ) {
+            throw new \InvalidArgumentException( '"variation_slug" cannot be combined with "styles" or "settings". Apply the variation first, then send the overrides in a second call.' );
+        }
+        if ( $has_variation && $merge_raw ) {
+            throw new \InvalidArgumentException( '"merge" applies to "styles" and "settings" only. For a variation use "variation_mode" ("merge" or "replace").' );
+        }
+        if ( ! $has_styles && ! $has_settings && ! $has_variation ) {
+            throw new \InvalidArgumentException( 'At least one of "styles" or "settings" must be provided, or a "variation_slug" to apply.' );
+        }
+    }
+
+    
+
+
+
+
+
+
+    private function variation_mode( array $arguments ) {
+        if ( ! isset( $arguments['variation_mode'] ) || '' === $arguments['variation_mode'] ) {
+            return 'merge';
+        }
+        $mode = is_string( $arguments['variation_mode'] ) ? strtolower( trim( $arguments['variation_mode'] ) ) : '';
+        if ( 'merge' !== $mode && 'replace' !== $mode ) {
+            throw new \InvalidArgumentException( 'Invalid variation_mode. Use "merge" or "replace".' );
+        }
+        return $mode;
+    }
+
+    
+
+
+
+
+
+
+
+    private function variation_body( array $variation, $mode, $global_styles_id ) {
+        if ( 'replace' === $mode ) {
+            
+            
+            
+            
+            return array(
+                'settings' => empty( $variation['settings'] ) ? new \stdClass() : $variation['settings'],
+                'styles'   => empty( $variation['styles'] ) ? new \stdClass() : $variation['styles'],
+            );
+        }
+        $current = $this->read_current( $global_styles_id );
+        return array(
+            'settings' => $this->merge_theme_json( $current['settings'], $variation['settings'] ),
+            'styles'   => $this->merge_theme_json( $current['styles'], $variation['styles'] ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function sent_body( array $arguments, $merge_raw, $global_styles_id ) {
+        $sent = array();
+        foreach ( array( 'styles', 'settings' ) as $section ) {
+            if ( isset( $arguments[ $section ] ) ) {
+                $sent[ $section ] = $this->parse_json_param( $arguments[ $section ], $section );
             }
         }
 
+        $before = null;
+        try {
+            $before = $this->read_current( $global_styles_id );
+        } catch ( \RuntimeException $e ) {
+            if ( $merge_raw ) {
+                throw $e;
+            }
+        }
+
+        $body = array();
+        foreach ( $sent as $section => $value ) {
+            $body[ $section ] = $merge_raw ? $this->merge_theme_json( $before[ $section ], $value ) : $value;
+        }
+
+        return array(
+            'body'   => $body,
+            'before' => $before,
+        );
+    }
+
+    
+
+
+
+
+
+
+
+    private function post_global_styles( $global_styles_id, array $body ) {
         $request = new \WP_REST_Request( 'POST', '/wp/v2/global-styles/' . $global_styles_id );
 
         if ( ! empty( $body ) ) {
@@ -134,19 +249,60 @@ class Update_Global_Styles extends Base_Tool {
             throw new \RuntimeException( $wp_error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
-        $data = $response->get_data();
+        return $response->get_data();
+    }
 
-        $result = array(
-            'id'       => $data['id'],
-            'settings' => $data['settings'] ?? new \stdClass(),
-            'styles'   => $data['styles'] ?? new \stdClass(),
-            'title'    => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
-        );
-        if ( null !== $applied ) {
-            $result['applied_variation'] = $applied;
+    
+
+
+
+
+
+
+
+
+
+    private function prepend_removed_keys( array $result, array $before, array $body, array $data ) {
+        $removed = array();
+        foreach ( array_keys( $body ) as $section ) {
+            $after = json_decode( (string) wp_json_encode( $data[ $section ] ?? array() ), true );
+            $this->collect_removed_keys( $before[ $section ], is_array( $after ) ? $after : array(), $section, $removed );
         }
+        if ( empty( $removed ) ) {
+            return $result;
+        }
+        return array_merge(
+            array(
+                'removed_keys' => $removed,
+                'notice'       => 'These stored keys were deleted, because a sent styles/settings object replaces the stored one. They stay deleted until you call again with merge: true and these previous values put back in styles/settings; re-sending your change does not restore them.',
+            ),
+            $result
+        );
+    }
 
-        return $result;
+    
+
+
+
+
+
+
+
+
+
+
+    private function collect_removed_keys( array $before, array $after, $prefix, array &$removed ) {
+        if ( $this->is_list( $before ) ) {
+            return;
+        }
+        foreach ( $before as $key => $value ) {
+            $path = $prefix . '.' . $key;
+            if ( ! array_key_exists( $key, $after ) ) {
+                $removed[ $path ] = $value;
+            } elseif ( is_array( $value ) && is_array( $after[ $key ] ) ) {
+                $this->collect_removed_keys( $value, $after[ $key ], $path, $removed );
+            }
+        }
     }
 
     
@@ -204,6 +360,7 @@ class Update_Global_Styles extends Base_Tool {
     }
 
     
+
 
 
 

@@ -62,6 +62,7 @@ class Delete_Post_Meta extends Base_Tool {
         if ( '' === $key ) {
             throw new \InvalidArgumentException( 'Key cannot be empty.' );
         }
+        $this->refuse_missing_post( $post_id );
         if ( ! current_user_can( 'edit_post', $post_id ) ) {
             throw new \RuntimeException( 'You do not have permission to edit this post.' );
         }

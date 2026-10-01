@@ -105,15 +105,7 @@ class Tool_Catalogue {
         if ( in_array( $name, $disabled, true ) ) {
             return false;
         }
-        if ( empty( $patterns ) ) {
-            return true;
-        }
-        foreach ( $patterns as $pattern ) {
-            if ( fnmatch( $pattern, $name ) ) {
-                return true;
-            }
-        }
-        return false;
+        return \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $patterns );
     }
 
     
@@ -255,14 +247,6 @@ class Tool_Catalogue {
             } else {
                 $status = 'active';
             }
-            $install_url = null;
-            $wporg_slug  = null;
-            if ( ! $installed && empty( $group['paid'] ) && ! empty( $group['wporg_slug'] ) ) {
-                $wporg_slug = (string) $group['wporg_slug'];
-                
-                
-                $install_url = \admin_url( 'plugin-install.php?s=' . rawurlencode( $group['wporg_slug'] ) . '&tab=search&type=term' );
-            }
             $rows[] = array(
                 'key'         => (string) $group['slug'],
                 'label'       => (string) $group['name'],
@@ -272,8 +256,6 @@ class Tool_Catalogue {
                 'paid'        => ! empty( $group['paid'] ),
                 'installed'   => $installed,
                 'enabled'     => $enabled,
-                'installUrl'  => $install_url,
-                'wporgSlug'   => $wporg_slug,
                 'status'      => $status,
                 'counts'      => self::counts( $items ),
                 'tools'       => $tools,

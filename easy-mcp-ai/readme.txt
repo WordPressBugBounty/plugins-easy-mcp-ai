@@ -4,11 +4,11 @@ Tags: mcp, claude, chatgpt, wordpress-mcp, connector
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Secure WordPress MCP server with no cloud relay: your AI talks to your site directly, nothing for us to read. MCP for Claude, ChatGPT & AI agents.
+Secure WordPress MCP server: we never see your data. Connect Claude, ChatGPT & AI agents to WordPress. 280+ tools for WooCommerce, SEO & GA4. Free.
 
 == Description ==
 
@@ -19,7 +19,7 @@ Your WordPress AI assistant can write and publish posts, update WooCommerce prod
 = Why Easy MCP AI =
 
 * **Secure by design**: OAuth 2.1, WordPress capability checks, per-token permissions, rate limits, an Audit Log and Change History
-* **283 MCP tools**: 134 for core WordPress, 95 for plugin integrations (WooCommerce, ACF, The Events Calendar, BuddyPress and the supported SEO plugins) and 54 for SEO and analytics
+* **280+ MCP tools**: 130+ for core WordPress, 90+ for plugin integrations (WooCommerce, ACF, The Events Calendar, BuddyPress and the supported SEO plugins) and 50+ for SEO and analytics
 * **One AI connector**: works with Claude, ChatGPT, Cursor, OpenAI Codex, GitHub Copilot, Google Antigravity, Manus, n8n and more
 * **SEO data in chat**: tools for Google Analytics, Search Console, Semrush, SE Ranking, DataForSEO and Ahrefs
 * **No relay, no vendor account**: the MCP server is PHP on your own site, AI clients connect to your site directly, with no hosted relay, account or usage fee
@@ -158,7 +158,7 @@ All of the following connect through MCP: Claude (web, desktop, Cowork and Claud
 
 = Is this a WordPress MCP server, an MCP plugin for WordPress or an MCP adapter for the Abilities API? =
 
-All three. Easy MCP AI is a WordPress MCP plugin that works with Claude and other MCP clients. It runs a complete MCP server inside WordPress at `/wp-json/easy-mcp-ai/v1/mcp`. Once you approve access, Claude can use that endpoint as your WordPress MCP server. It supports MCP 2026-07-28 and stays compatible with 2025-11-25, 2025-06-18 and 2025-03-26 clients. It also works as an MCP adapter for the WordPress Abilities API, and adds 243 ready-made tools, OAuth and permission controls.
+All three. Easy MCP AI is a WordPress MCP plugin that works with Claude and other MCP clients. It runs a complete MCP server inside WordPress at `/wp-json/easy-mcp-ai/v1/mcp`. Once you approve access, Claude can use that endpoint as your WordPress MCP server. It supports MCP 2026-07-28 and stays compatible with 2025-11-25, 2025-06-18 and 2025-03-26 clients. It also works as an MCP adapter for the WordPress Abilities API, and adds 280+ ready-made tools, OAuth and permission controls.
 
 = What is the Model Context Protocol (MCP)? =
 
@@ -170,11 +170,11 @@ Most WordPress AI plugins embed one AI provider inside wp-admin and bill you for
 
 = Are my AI requests private, and do they pass through your servers? =
 
-No. Requests and tool results travel between your AI client and your own site, with no hosted relay or third-party server. If you are comparing with a hosted MCP service such as WPVibe, the difference is where the server runs: a hosted service proxies every request through the vendor's servers, while Easy MCP AI runs inside your own WordPress install. The connection depends only on your site and your AI client, so it keeps working even if our service is down. The plugin is free, all 283 tools are included, and there is no vendor quota, only rate limits you set yourself, 60 requests per minute per token by default. The plugin sends nothing to us. The optional outside reachability check is a link that opens easymcpai.com in your browser, and it uses only your site address.
+No. Requests and tool results travel between your AI client and your own site, with no hosted relay or third-party server. If you are comparing with a hosted MCP service such as WPVibe, the difference is where the server runs: a hosted service proxies every request through the vendor's servers, while Easy MCP AI runs inside your own WordPress install. The connection depends only on your site and your AI client, so it keeps working even if our service is down. The plugin is free, all 280+ tools are included, and there is no vendor quota, only rate limits you set yourself, 60 requests per minute per token by default. The plugin sends nothing to us. The optional outside reachability check is a link that opens easymcpai.com in your browser, and it uses only your site address.
 
 = Is Easy MCP AI free? =
 
-Yes. Easy MCP AI is a free WordPress MCP server plugin and includes all 283 tools. Semrush, SE Ranking, DataForSEO, Ahrefs and Google APIs use your own accounts, so any API charges come from those providers. A provider such as Semrush, SE Ranking, DataForSEO, Ahrefs or Google is contacted only in three cases: when you save or test its credentials, when the External data tab loads account details, or when an AI client runs one of its tools.
+Yes. Easy MCP AI is a free WordPress MCP server plugin and includes all 280+ tools. Semrush, SE Ranking, DataForSEO, Ahrefs and Google APIs use your own accounts, so any API charges come from those providers. A provider such as Semrush, SE Ranking, DataForSEO, Ahrefs or Google is contacted only in three cases: when you save or test its credentials, when the External data tab loads account details, or when an AI client runs one of its tools.
 
 = Does it send my content to OpenAI, Anthropic or Google? =
 
@@ -213,14 +213,29 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 
 == Screenshots ==
 
-1. Dashboard: your MCP server URL and connect options for Claude Desktop, ChatGPT, Cursor and other AI clients
-2. API Token & OAuth: create and manage API tokens and OAuth connections
-3. Abilities: select WordPress 6.9+ abilities and save them as MCP tools
-4. Settings: rate limits, IP allowlist, Force Draft on Create, retention and disabled tools
-5. Plugin integrations: MCP tools for WooCommerce, ACF, The Events Calendar, BuddyPress, Yoast, Rank Math and more
-6. External Data: connect Google Analytics 4, Search Console, Semrush and DataForSEO with encrypted credentials
+1. Guided setup: choose your AI client (Claude, ChatGPT, Cursor and more) and connect in three steps
+2. Dashboard: see what your AI clients are doing on your site at a glance
+3. Connections: approve AI clients over OAuth or create API tokens
+4. Audit log: every tool call an AI makes, with the user, client, tool, arguments, result and duration
+5. Change history: every edit an AI makes, with a before-and-after view of each field and a link to the WordPress revision
+6. Plugin integrations: ready-made tools for WooCommerce, ACF, The Events Calendar, Yoast, Rank Math and more
+7. Abilities: plugins that register WordPress 6.9+ Abilities appear here, and each ability you enable becomes its own AI tool
+8. External data: connect Google Analytics 4, Search Console, Semrush, Ahrefs, and more
+9. Access and safety: a per-minute rate limit, Force Draft on Create, and self-service API keys for your users
 
 == Changelog ==
+
+= 2.0.1 =
+- Added approval prompts for destructive tool calls, with chat controls or a secure approval page.
+- Fixed admin links, labels, tool counts, and deployment lock messages.
+- Added non-destructive plugin abilities as enabled tools on fresh installs.
+- Fixed BuddyPress message tools rejecting users who take part in private message threads.
+- Improved enabled/total tool counts, moved WordPress abilities to Core, and moved plugin tools to Abilities.
+- Fixed the firewall check to warn when only ClaudeBot is blocked.
+- Improved setup by moving AI client connections from the wizard to the dashboard.
+- Fixed event updates dropping unchanged details and venue or organizer creation overwriting existing records.
+- Improved search and Yoast tool results and clarified global style updates.
+- Improved tool replies when WordPress cannot complete a requested change.
 
 = 2.0.0 =
 - New admin experience: a three-step setup (connect a client, verify, try a prompt), a dashboard showing what the AI changed this week, and five clear sections: Dashboard, Connections, Tools, Activity and Settings.

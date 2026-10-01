@@ -90,8 +90,6 @@ class Setup_State {
 
 
     public static function arm_activation_redirect() {
-        if ( ! self::is_complete() ) {
-            \set_transient( self::REDIRECT_TRANSIENT, 1, 60 );
-        }
+        \set_transient( self::REDIRECT_TRANSIENT, 1, 60 );
     }
 }

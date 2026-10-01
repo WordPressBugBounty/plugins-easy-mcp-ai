@@ -18,6 +18,7 @@
 
 
 
+
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\Admin\Access_Presets;
@@ -92,6 +93,9 @@ class Tokens_Controller extends Admin_Rest_Controller {
             
             
             'siteHost'  => \Easy_MCP_AI\Site_Host::current(),
+            
+            
+            'approvalRequired' => self::approval_required(),
         ) );
     }
 
@@ -188,9 +192,18 @@ class Tokens_Controller extends Admin_Rest_Controller {
             return $expires_at;
         }
 
+        $unattended = $this->resolve_unattended( $request );
+        if ( \is_wp_error( $unattended ) ) {
+            return $unattended;
+        }
+
         $result = $this->token_manager->create_token( $name, $user_id, $allowed, $expires_at );
         if ( \is_wp_error( $result ) || empty( $result['id'] ) ) {
             return $this->fail( 'easy_mcp_ai_token_create_failed', \__( "Couldn't create the token. Try again.", 'easy-mcp-ai' ), 500 );
+        }
+        if ( $unattended ) {
+            
+            $this->token_manager->update_token( (int) $result['id'], array( 'unattended' => 1 ) );
         }
 
         $row = $this->token_manager->get_token_by_id( (int) $result['id'] );
@@ -247,6 +260,14 @@ class Tokens_Controller extends Admin_Rest_Controller {
 
         if ( null !== $request->get_param( 'isActive' ) ) {
             $data['is_active'] = \rest_sanitize_boolean( $request->get_param( 'isActive' ) ) ? 1 : 0;
+        }
+
+        if ( null !== $request->get_param( 'unattended' ) ) {
+            $unattended = $this->resolve_unattended( $request );
+            if ( \is_wp_error( $unattended ) ) {
+                return $unattended;
+            }
+            $data['unattended'] = $unattended;
         }
 
         if ( ! empty( $data ) ) {
@@ -404,6 +425,44 @@ class Tokens_Controller extends Admin_Rest_Controller {
         return $result;
     }
 
+    
+    public static function approval_required() {
+        return true === \Easy_MCP_AI\Config::get( 'approval_required' );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function resolve_unattended( $request ) {
+        $raw = $request->get_param( 'unattended' );
+        if ( null === $raw ) {
+            return 0;
+        }
+        if ( ! is_bool( $raw ) && ! in_array( $raw, array( 0, 1, '0', '1', 'true', 'false' ), true ) ) {
+            return $this->fail( 'easy_mcp_ai_invalid_param', \__( 'Unattended must be on or off.', 'easy-mcp-ai' ), 400, array( 'field' => 'unattended' ) );
+        }
+        $on = \rest_sanitize_boolean( $raw );
+        if ( $on && ! self::approval_required() ) {
+            return $this->fail(
+                'easy_mcp_ai_approvals_off',
+                \sprintf(
+                    /* translators: %s: the "Ask before destructive actions" setting label */
+                    \__( 'Unattended only applies while "%s" is on in Settings.', 'easy-mcp-ai' ),
+                    \__( 'Ask before destructive actions', 'easy-mcp-ai' )
+                ),
+                400,
+                array( 'field' => 'unattended' )
+            );
+        }
+        return $on ? 1 : 0;
+    }
+
     private function invalid_user() {
         return $this->fail(
             'easy_mcp_ai_invalid_user',
@@ -465,6 +524,8 @@ class Tokens_Controller extends Admin_Rest_Controller {
             'lastUsedAt'   => Dashboard_Controller::iso8601( $row['last_used_at'] ?? null ),
             'expiresAt'    => Dashboard_Controller::iso8601( $row['expires_at'] ?? null ),
             'isActive'     => ! empty( $row['is_active'] ),
+            
+            'unattended'   => ! empty( $row['unattended'] ),
             'status'       => self::status( $row ),
             
             

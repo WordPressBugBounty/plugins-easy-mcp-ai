@@ -14,7 +14,7 @@ class Create_Organizer extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new organizer in The Events Calendar. Required: `organizer` (the organizer name). Optional: `email`, `url` (website URL — stored as the website field internally), `phone`. Returns { id, organizer (name), website }. Use the returned `id` when creating or updating events via the `organizer` parameter. Requires The Events Calendar plugin active.';
+        return 'Creates a new organizer in The Events Calendar. Required: `organizer` (the organizer name). Optional: `email`, `url` (website URL — stored as the website field internally), `phone`, `allow_duplicate`. Returns { id, organizer (name), website }. Use the returned `id` when creating or updating events via the `organizer` parameter. If an organizer with the same name already exists, nothing is written and the error names it: run `wp_tec_list_organizers` with `search` first and reuse the existing ID, or set `allow_duplicate` to true when a second organizer with that name is really wanted. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -54,6 +54,10 @@ class Create_Organizer extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Phone number of the organizer.',
                 ),
+                'allow_duplicate' => array(
+                    'type'        => 'boolean',
+                    'description' => 'Create the organizer even when one with the same name already exists. Default false: the call is refused and the existing one is named.',
+                ),
             ),
             'required'   => array( 'organizer' ),
         );
@@ -66,8 +70,17 @@ class Create_Organizer extends Base_Tool {
 
         $this->validate_required( $arguments, array( 'organizer' ) );
 
+        $name = sanitize_text_field( $arguments['organizer'] );
+        if ( ! $this->allows_duplicate( $arguments ) ) {
+            $this->refuse_existing_title( 'tribe_organizer', $name, array( '_OrganizerEmail' ), 'organizer', 'Pass that ID in the `organizer` array of `wp_tec_create_event` or `wp_tec_update_event` to use it.', 'wp_tec_list_organizers' );
+        }
+
+        
+        
+        $this->require_compat_shim( 'tec-no-duplicate-reuse', $arguments );
+
         $params = array(
-            'organizer' => sanitize_text_field( $arguments['organizer'] ),
+            'organizer' => $name,
         );
 
         if ( isset( $arguments['email'] ) ) {
