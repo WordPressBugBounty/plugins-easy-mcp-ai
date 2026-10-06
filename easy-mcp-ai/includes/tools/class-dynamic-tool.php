@@ -69,6 +69,33 @@ class Dynamic_Tool extends Base_Tool {
         return parent::get_annotations();
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function get_definition() {
+        $definition = parent::get_definition();
+        unset( $definition['outputSchema'] );
+        return $definition;
+    }
+
     public function execute( array $arguments ) {
         return call_user_func( $this->executor, $arguments );
     }

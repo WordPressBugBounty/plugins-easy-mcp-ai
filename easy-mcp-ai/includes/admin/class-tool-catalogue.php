@@ -49,6 +49,9 @@ class Tool_Catalogue {
         if ( ! class_exists( '\\Easy_MCP_AI\\Admin\\External_Data_Service' ) ) {
             require_once __DIR__ . '/class-external-data-service.php';
         }
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+        }
     }
 
     
@@ -91,8 +94,33 @@ class Tool_Catalogue {
     }
 
     
+    private $off_names;
+
+    
     private function disabled_tools() {
-        return (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
+        if ( null === $this->off_names ) {
+            $this->off_names = \Easy_MCP_AI\Tools\Tool_State::off_names( $this->tool_registry );
+        }
+        return $this->off_names;
+    }
+
+    
+    private static function override_of( $name ) {
+        return \Easy_MCP_AI\Tools\Tool_State::override_of( $name );
+    }
+
+    
+
+
+
+
+
+
+
+    private static function not_overridden( array $names ) {
+        return array_values( array_filter( $names, static function ( $name ) {
+            return null === self::override_of( $name );
+        } ) );
     }
 
     
@@ -145,6 +173,7 @@ class Tool_Catalogue {
             'provenance'         => $provenance,
             'enabled'            => (bool) $enabled,
             'pluginRestApi'      => false,
+            'override'           => self::override_of( $name ),
         );
     }
 
@@ -226,15 +255,19 @@ class Tool_Catalogue {
             $enabled   = $installed && in_array( $group['slug'], $enabled_groups, true );
             $items     = array();
             foreach ( $group['tools'] as $tool ) {
-                $items[] = array(
+                $override = self::override_of( (string) $tool['name'] );
+                $items[]  = array(
                     'name'               => (string) $tool['name'],
                     'description'        => (string) $tool['description'],
                     'access'             => 'read' === $tool['type'] ? 'read' : 'write',
                     'requiredCapability' => $this->capability_of( $tool['name'] ),
                     'provenance'         => 'plugin',
-                    'enabled'            => $enabled && ! in_array( $tool['name'], $disabled_plugin, true ),
+                    
+                    
+                    'enabled'            => $enabled && ( null !== $override ? $override : ! in_array( $tool['name'], $disabled_plugin, true ) ),
                     'pluginRestApi'      => in_array( $tool['api'], self::PLUGIN_REST_APIS, true ),
                     'api'                => (string) $tool['api'],
+                    'override'           => $override,
                 );
             }
             
@@ -242,6 +275,10 @@ class Tool_Catalogue {
             $tools = array_values( array_intersect( self::active_names( $items, $disabled, $patterns ), $registered ) );
             if ( ! $installed ) {
                 $status = 'not_installed';
+            } elseif ( empty( $group['tools'] ) ) {
+                
+                
+                $status = $enabled ? 'active' : 'no_tools';
             } elseif ( empty( $tools ) ) {
                 $status = 'no_tools';
             } else {
@@ -312,6 +349,7 @@ class Tool_Catalogue {
             $prefix      = count( $parts ) > 1 ? $parts[0] : 'core';
             $annotations = Abilities_Page::ability_annotations( $ability );
             $name        = \Easy_MCP_AI\Tools\Dynamic_Tool_Registrar::build_tool_name( $slug );
+            $override    = self::override_of( $name );
             $grouped[ $prefix ][] = array(
                 'name'               => $name,
                 'slug'               => $slug,
@@ -320,8 +358,11 @@ class Tool_Catalogue {
                 'access'             => ! empty( $annotations['readonly'] ) ? 'read' : 'write',
                 'requiredCapability' => $this->capability_of( $name ),
                 'provenance'         => 'ability',
-                'enabled'            => in_array( $slug, $enabled, true ),
+                
+                
+                'enabled'            => in_array( $slug, $enabled, true ) && false !== $override,
                 'pluginRestApi'      => false,
+                'override'           => $override,
             );
         }
         $rows = array();
@@ -439,7 +480,7 @@ class Tool_Catalogue {
                     return self::invalid( $field . '.enabled', \__( 'Expected true or false.', 'easy-mcp-ai' ) );
                 }
                 $group_on[ $slug ] = $changes['enabled'];
-                foreach ( $names as $name ) {
+                foreach ( self::not_overridden( $names ) as $name ) {
                     $checked[ $name ] = $changes['enabled'];
                 }
             }
@@ -453,6 +494,9 @@ class Tool_Catalogue {
                     }
                     if ( ! is_bool( $on ) ) {
                         return self::invalid( $field . '.tools.' . $name, \__( 'Expected true or false.', 'easy-mcp-ai' ) );
+                    }
+                    if ( null !== self::override_of( $name ) ) {
+                        continue;
                     }
                     $checked[ $name ] = $on;
                     if ( $on ) {
@@ -504,14 +548,16 @@ class Tool_Catalogue {
             foreach ( $groups[ $key ] as $item ) {
                 $slug_by_name[ $item['name'] ] = $item['slug'];
                 $rendered[]                    = $item['slug'];
-                $checked[ $item['slug'] ]      = $item['enabled'];
+                
+                
+                $checked[ $item['slug'] ]      = in_array( $item['slug'], $current, true );
             }
             if ( array_key_exists( 'enabled', $changes ) ) {
                 if ( ! is_bool( $changes['enabled'] ) ) {
                     return self::invalid( $field . '.enabled', \__( 'Expected true or false.', 'easy-mcp-ai' ) );
                 }
-                foreach ( $slug_by_name as $slug ) {
-                    $checked[ $slug ] = $changes['enabled'];
+                foreach ( self::not_overridden( array_keys( $slug_by_name ) ) as $name ) {
+                    $checked[ $slug_by_name[ $name ] ] = $changes['enabled'];
                 }
             }
             if ( array_key_exists( 'tools', $changes ) ) {
@@ -525,7 +571,9 @@ class Tool_Catalogue {
                     if ( ! is_bool( $on ) ) {
                         return self::invalid( $field . '.tools.' . $name, \__( 'Expected true or false.', 'easy-mcp-ai' ) );
                     }
-                    $checked[ $slug_by_name[ $name ] ] = $on;
+                    if ( null === self::override_of( $name ) ) {
+                        $checked[ $slug_by_name[ $name ] ] = $on;
+                    }
                 }
             }
         }
@@ -577,7 +625,7 @@ class Tool_Catalogue {
                 if ( ! is_bool( $changes['enabled'] ) ) {
                     return self::invalid( $field . '.enabled', \__( 'Expected true or false.', 'easy-mcp-ai' ) );
                 }
-                foreach ( $names as $name ) {
+                foreach ( self::not_overridden( $names ) as $name ) {
                     $checked[ $name ] = $changes['enabled'];
                 }
             }
@@ -592,7 +640,9 @@ class Tool_Catalogue {
                     if ( ! is_bool( $on ) ) {
                         return self::invalid( $field . '.tools.' . $name, \__( 'Expected true or false.', 'easy-mcp-ai' ) );
                     }
-                    $checked[ $name ] = $on;
+                    if ( null === self::override_of( $name ) ) {
+                        $checked[ $name ] = $on;
+                    }
                 }
             }
             $plans[ $key ] = array_keys( array_filter( $checked ) );
@@ -605,6 +655,9 @@ class Tool_Catalogue {
     }
 
     
+
+
+
 
 
 
@@ -638,13 +691,55 @@ class Tool_Catalogue {
             }
             $disabled[] = $name;
         }
-        return static function () use ( $core_names, $disabled ) {
-            $global    = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
-            $non_core  = array_values( array_diff( $global, $core_names ) );
-            \Easy_MCP_AI\Config::update(
-                'easy_mcp_ai_disabled_tools',
-                External_Data_Admin::merge_disabled_tool_buckets( array_merge( $non_core, $disabled ) )
-            );
+        $defaults = self::defaults_of( $this->tool_registry, $core_names );
+        return static function () use ( $core_names, $disabled, $defaults ) {
+            self::store_choices( $core_names, $disabled, $defaults );
         };
+    }
+
+    
+
+
+
+
+
+
+    public static function defaults_of( $registry, array $names ) {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Base_Tool' ) ) {
+            return array_fill_keys( $names, false );
+        }
+        $defaults = array();
+        foreach ( $names as $name ) {
+            $tool              = is_object( $registry ) && method_exists( $registry, 'get_tool' ) ? $registry->get_tool( $name ) : null;
+            $defaults[ $name ] = $tool instanceof \Easy_MCP_AI\Tools\Base_Tool && $tool->is_disabled_by_default();
+        }
+        return $defaults;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function store_choices( array $names, array $off, array $defaults ) {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Admin\\External_Data_Admin' ) ) {
+            require_once __DIR__ . '/class-external-data-admin.php';
+        }
+        $global  = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
+        $current = \Easy_MCP_AI\Tools\Tool_State::stored_enabled_list();
+        list( $disabled, $enabled ) = \Easy_MCP_AI\Tools\Tool_State::apply_choices( $names, $off, $defaults, $global, $current );
+        \Easy_MCP_AI\Config::update(
+            'easy_mcp_ai_disabled_tools',
+            External_Data_Admin::merge_disabled_tool_buckets( $disabled )
+        );
+        if ( $enabled !== $current ) {
+            \update_option( \Easy_MCP_AI\Tools\Tool_State::ENABLED_OPTION, $enabled, false );
+        }
     }
 }

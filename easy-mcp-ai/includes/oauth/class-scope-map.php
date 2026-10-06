@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\OAuth;
 
 use Easy_MCP_AI\Tools\Dynamic_Tool_Registrar;
+use Easy_MCP_AI\Privileged\Privileged_Groups;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -12,7 +13,7 @@ class Scope_Map {
     const SCOPE_MAP = array(
         
         
-        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full', 'wp_get_post_blocks' ),
+        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full', 'wp_get_post_blocks', 'wp_create_preview_link' ),
         'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post', 'wp_update_post_blocks' ),
         'mcp:cpt:read'           => array( 'wp_list_cpt_items', 'wp_get_cpt_item' ),
         'mcp:cpt:write'          => array( 'wp_create_cpt_item', 'wp_update_cpt_item', 'wp_delete_cpt_item' ),
@@ -98,7 +99,18 @@ class Scope_Map {
             'wp_dfs_on_page_instant_pages',
             'wp_dfs_account_balance',
         ),
+        
+        
+        
+        
+        
+        'mcp:rest:read'          => array( 'wp_rest_routes', 'wp_rest_read' ),
+        'mcp:rest:write'         => array( 'wp_rest_write' ),
+        'mcp:rest_delete:write'  => array( 'wp_rest_delete' ),
         'mcp:history:read'       => array( 'wp_history_list', 'wp_history_get', 'wp_history_diff' ),
+        
+        
+        'mcp:history:write'      => array( 'wp_history_apply' ),
         'mcp:audit:read'         => array( 'wp_audit_list' ),
         
         
@@ -333,8 +345,29 @@ class Scope_Map {
 
         $scopes = array_merge( $scopes, self::get_dynamic_ability_scopes() );
 
+        
+        
+        
+        
+        
+        
+        self::load_privileged();
+        $scopes = array_merge( $scopes, Privileged_Groups::enabled_scopes() );
+
         return array_values( array_unique( $scopes ) );
     }
+
+    
+
+
+
+
+    private static function load_privileged() {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            require_once dirname( __DIR__ ) . '/privileged/class-privileged-groups.php';
+        }
+    }
+
 
     
 
@@ -365,6 +398,11 @@ class Scope_Map {
         if ( ! empty( self::get_cached_abilities() ) ) {
             $scopes[] = 'mcp:abilities';
         }
+
+        
+        
+        
+        
 
         return array_values( array_unique( $scopes ) );
     }
@@ -481,10 +519,19 @@ class Scope_Map {
         $tools           = array();
         $has_read_scope  = false;
         $has_write_scope = false;
+        
+        
+        
+        
+        self::load_privileged();
+        $privileged_tools = Privileged_Groups::tools_for_scopes( $scope_parts );
 
         foreach ( $scope_parts as $part ) {
+            if ( Privileged_Groups::is_privileged_scope( $part ) ) {
+                continue;
+            }
             if ( 'mcp' === $part ) {
-                return array( '*' );
+                return array_values( array_unique( array_merge( array( '*' ), $privileged_tools ) ) );
             }
 
             
@@ -542,6 +589,7 @@ class Scope_Map {
         if ( $has_read_scope ) {
             $tools = array_merge( $tools, self::CROSS_CATEGORY_READ_TOOLS );
         }
+        $tools = array_merge( $tools, $privileged_tools );
 
         return array_values( array_unique( $tools ) );
     }
@@ -584,6 +632,10 @@ class Scope_Map {
         }
 
         
+        
+        $scopes[] = 'mcp:rest:read';
+
+        
         foreach ( array_keys( self::PLUGIN_CATEGORIES ) as $cat ) {
             if ( ! isset( self::SCOPE_MAP[ "mcp:{$cat}:read" ] ) ) {
                 continue;
@@ -603,6 +655,13 @@ class Scope_Map {
 
     public static function scope_permits_tool( string $scope, string $tool_name ): bool {
         $allowed = self::resolve_allowed_tools( $scope );
+
+        
+        
+        
+        if ( Privileged_Groups::is_privileged_tool( $tool_name ) ) {
+            return in_array( '*', $allowed, true ) || in_array( $tool_name, $allowed, true );
+        }
 
         if ( in_array( '*', $allowed, true ) ) {
             return true;
@@ -693,6 +752,8 @@ class Scope_Map {
                 'history'     => __( 'Change History (audit log of MCP edits)', 'easy-mcp-ai' ),
                 'audit'       => __( 'Audit Log (every MCP call, all users — admin only)', 'easy-mcp-ai' ),
                 'site_health' => __( 'Site Health, Cron & Error Log', 'easy-mcp-ai' ),
+                'rest'        => __( 'REST routes of plugins and core (the route checks your permissions)', 'easy-mcp-ai' ),
+                'rest_delete' => __( 'REST routes — Delete', 'easy-mcp-ai' ),
             );
 
             $is_core        = in_array( $slug, self::CORE_CATEGORIES, true );
@@ -700,7 +761,7 @@ class Scope_Map {
             $plugin_required = $is_plugin ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
             
-            if ( 'settings' === $slug || 'plugins' === $slug || 'themes' === $slug || 'appearance' === $slug || 'widgets' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug || 'audit' === $slug || 'site_health' === $slug ) {
+            if ( 'settings' === $slug || 'plugins' === $slug || 'themes' === $slug || 'appearance' === $slug || 'widgets' === $slug || 'wc_webhooks' === $slug || 'user_create' === $slug || 'user_update' === $slug || 'user_delete' === $slug || 'history' === $slug || 'audit' === $slug || 'site_health' === $slug || 'rest_delete' === $slug ) {
                 $default_read  = false;
                 $default_write = false;
             } elseif ( 'users' === $slug ) {

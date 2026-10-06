@@ -54,7 +54,7 @@ class Get_Custom_Css extends Base_Tool {
                 throw new \InvalidArgumentException( '"stylesheet" must be a theme folder name.' );
             }
             $stylesheet = trim( $arguments['stylesheet'] );
-            if ( ! wp_get_theme( $stylesheet )->exists() ) {
+            if ( ! $this->is_installed_theme( $stylesheet ) ) {
                 throw new \InvalidArgumentException( sprintf( 'Theme "%s" is not installed. Use wp_list_themes to see installed themes.', $stylesheet ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
         }
@@ -67,5 +67,21 @@ class Get_Custom_Css extends Base_Tool {
             'css'        => (string) wp_get_custom_css( $stylesheet ),
             'post_id'    => $post ? (int) $post->ID : null,
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private function is_installed_theme( string $stylesheet ): bool {
+        return array_key_exists( $stylesheet, wp_get_themes( array( 'errors' => null ) ) );
     }
 }

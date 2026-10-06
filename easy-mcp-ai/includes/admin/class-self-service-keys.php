@@ -59,7 +59,7 @@ class Self_Service_Keys {
             return new \WP_Error( 'expiry', $expires_at->get_error_message() );
         }
         $selected = $data['key_tools'] ?? array();
-        $available = array_column( Server::available_tools( $this->registry, true ), 'name' );
+        $available = array_column( $this->offered_tools(), 'name' );
         if ( ! is_array( $selected ) || ! $selected ) { return new \WP_Error( 'tools', __( 'Select at least one available tool.', 'easy-mcp-ai' ) ); }
         foreach ( $selected as $tool ) {
             if ( ! is_string( $tool ) || ! in_array( $tool, $available, true ) ) {
@@ -68,6 +68,23 @@ class Self_Service_Keys {
         }
         
         return $this->manager->create_self_service_token( $name, \get_current_user_id(), array_values( array_unique( $selected ) ), $expires_at, self::limit( 'self_service_max_keys' ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function offered_tools() {
+        require_once dirname( __DIR__ ) . '/auth/class-permission-guard.php';
+        return array_values( array_filter( Server::available_tools( $this->registry, true ), static function ( $definition ) {
+            return ! isset( $definition['_meta'][ \Easy_MCP_AI\Tools\Privileged_Tool::META_KEY ] )
+                && ! in_array( $definition['name'], \Easy_MCP_AI\Auth\Permission_Guard::EVERY_CREDENTIAL, true );
+        } ) );
     }
 
     public function revoke( $id ) {
@@ -118,7 +135,7 @@ class Self_Service_Keys {
         $tokens = $this->manager->get_user_tokens( $user->ID, $page );
         $more = count( $tokens ) > 20;
         $tokens = array_slice( $tokens, 0, 20 );
-        $tools = Server::available_tools( $this->registry, true );
+        $tools = $this->offered_tools();
         $id = isset( $_GET['easy_mcp_key'] ) && is_scalar( $_GET['easy_mcp_key'] ) ? \absint( $_GET['easy_mcp_key'] ) : 0;
         $raw_token = $id ? Token_Manager::take_new_token( $id ) : false;
         $this->forms = array( 'easy-mcp-self-create' => array( 'action' => 'easy_mcp_ai_self_create_key', 'nonce' => 'easy_mcp_ai_self_create_key' ) );

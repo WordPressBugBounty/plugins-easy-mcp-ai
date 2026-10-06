@@ -66,6 +66,12 @@ class Tool_Registry {
 
 
 
+
+
+
+
+
+
     public function register( Base_Tool $tool ) {
         $name = $tool->get_name();
         if ( isset( $this->tools[ $name ] ) && $this->tools[ $name ] !== $tool ) {
@@ -76,7 +82,22 @@ class Tool_Registry {
             ) );
             return;
         }
+        if ( $tool instanceof Privileged_Tool && ! self::admit_privileged( $tool ) ) {
+            return;
+        }
         $this->tools[ $name ] = $tool;
+    }
+
+    
+
+
+
+
+    private static function admit_privileged( Privileged_Tool $tool ) {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            require_once dirname( __DIR__ ) . '/privileged/class-privileged-groups.php';
+        }
+        return \Easy_MCP_AI\Privileged\Privileged_Groups::admit_tool( $tool->get_name(), $tool->get_privileged_group() );
     }
 
     public function get_tool( $name ) {
@@ -427,6 +448,8 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Taxonomy\\Update_Term',
             'Easy_MCP_AI\\Tools\\Taxonomy\\Delete_Term',
             'Easy_MCP_AI\\Tools\\Posts\\Replace_In_Post',
+            
+            'Easy_MCP_AI\\Tools\\Posts\\Create_Preview_Link',
 
             
             'Easy_MCP_AI\\Tools\\Taxonomy\\List_Terms',
@@ -435,12 +458,17 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\History\\History_List',
             'Easy_MCP_AI\\Tools\\History\\History_Get',
             'Easy_MCP_AI\\Tools\\History\\History_Diff',
+            
+            'Easy_MCP_AI\\Tools\\History\\History_Apply',
 
             
             'Easy_MCP_AI\\Tools\\Audit\\Audit_List',
             
             'Easy_MCP_AI\\Tools\\Approvals\\Approve_Operation',
             'Easy_MCP_AI\\Tools\\Approvals\\Deny_Operation',
+            
+            
+            'Easy_MCP_AI\\Tools\\Feedback\\Send_Feedback',
 
             
             'Easy_MCP_AI\\Tools\\Site_Health\\Get_Site_Health',
@@ -448,6 +476,12 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Site_Health\\Run_Cron_Event',
             'Easy_MCP_AI\\Tools\\Site_Health\\Get_Error_Log',
             'Easy_MCP_AI\\Tools\\Site_Health\\Get_Easy_Mcp_Diagnostics',
+
+            
+            'Easy_MCP_AI\\Tools\\Rest\\Rest_Routes',
+            'Easy_MCP_AI\\Tools\\Rest\\Rest_Read',
+            'Easy_MCP_AI\\Tools\\Rest\\Rest_Write',
+            'Easy_MCP_AI\\Tools\\Rest\\Rest_Delete',
 
             
             'Easy_MCP_AI\\Tools\\Semrush\\Domain_Overview',
@@ -500,6 +534,13 @@ class Tool_Registry {
         );
 
         foreach ( $tool_classes as $class ) {
+            
+            
+            
+            
+            if ( 'Easy_MCP_AI\\Tools\\Feedback\\Send_Feedback' === $class && class_exists( '\\Easy_MCP_AI\\Config' ) && \Easy_MCP_AI\Config::is_white_labelled() ) {
+                continue;
+            }
             if ( ! class_exists( $class ) ) {
                 $is_plugin_class = false;
                 foreach ( $plugin_namespaces as $ns ) {
@@ -515,6 +556,18 @@ class Tool_Registry {
                 continue;
             }
             $this->lazy_classes[] = $class;
+        }
+
+        
+        
+        
+        
+        if ( class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            foreach ( \Easy_MCP_AI\Privileged\Privileged_Groups::TOOL_CLASSES as $class ) {
+                if ( class_exists( $class ) ) {
+                    $this->register( new $class() );
+                }
+            }
         }
     }
 }

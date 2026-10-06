@@ -55,7 +55,13 @@ class Text_Redactor {
 
 
 
-    public static function redact( $text ) {
+
+
+
+
+
+
+    public static function redact( $text, bool $heuristic = true ) {
         if ( ! is_string( $text ) || '' === $text ) {
             return is_string( $text ) ? $text : '';
         }
@@ -95,6 +101,10 @@ class Text_Redactor {
             '$1' . self::MASK,
             $text
         );
+
+        if ( ! $heuristic ) {
+            return $text;
+        }
 
         
         

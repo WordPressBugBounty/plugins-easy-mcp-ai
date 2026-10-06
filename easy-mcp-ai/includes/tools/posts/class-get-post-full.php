@@ -89,10 +89,9 @@ class Get_Post_Full extends Base_Tool {
             ? $this->validate_rest_route_segment( $arguments['post_type'], 'post_type' )
             : 'posts';
 
-        $context = isset( $arguments['context'] ) ? (string) $arguments['context'] : 'view';
-        if ( ! in_array( $context, array( 'view', 'edit' ), true ) ) {
-            $context = 'view';
-        }
+        
+        $context = isset( $arguments['context'] ) && '' !== $arguments['context'] ? $arguments['context'] : 'view';
+        $this->refuse_unless_one_of( 'context', $context, array( 'view', 'edit' ), $context, 'view or edit' );
 
         if ( 'edit' === $context && ! current_user_can( 'edit_post', $post_id ) ) {
             throw new \RuntimeException( 'You do not have permission to view this post in edit context.' );

@@ -116,7 +116,11 @@ class Activator {
 
 
 
-    const AUDIT_REQUIRED_COLUMNS = array( 'auth_source', 'wp_user_id', 'oauth_client_id', 'duration_ms' );
+
+
+
+
+    const AUDIT_REQUIRED_COLUMNS = array( 'auth_source', 'wp_user_id', 'oauth_client_id', 'duration_ms', 'approval_id', 'approved_by', 'approved_via', 'approved_at' );
 
     
 
@@ -250,6 +254,10 @@ class Activator {
             wp_user_id bigint(20) unsigned DEFAULT NULL,
             oauth_client_id varchar(191) DEFAULT NULL,
             duration_ms int unsigned DEFAULT NULL,
+            approval_id varchar(36) DEFAULT NULL,
+            approved_by bigint(20) unsigned DEFAULT NULL,
+            approved_via varchar(16) DEFAULT NULL,
+            approved_at datetime DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY token_id (token_id),

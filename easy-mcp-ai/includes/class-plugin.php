@@ -79,6 +79,15 @@ class Plugin {
         
         
         \add_action( 'init', array( $this, 'handle_approval_request' ), PHP_INT_MAX );
+        
+        
+        \add_action( 'init', array( __CLASS__, 'maybe_register_preview_link' ) );
+        
+        
+        
+        \add_action( 'parse_request', array( $this, 'handle_root_fallback' ), 1 );
+        
+        \add_action( 'update_option_permalink_structure', array( $this, 'remove_plain_routes_after_permalink_change' ), 10, 2 );
         \add_action( 'easy_mcp_ai_cleanup_audit_log', array( $this, 'cleanup_audit_log' ) );
         \add_action( 'easy_mcp_ai_cleanup_oauth', array( $this, 'cleanup_oauth_storage' ) );
         \add_action( 'easy_mcp_ai_cleanup_new_token_meta', array( $this, 'cleanup_new_token_meta' ) );
@@ -87,11 +96,36 @@ class Plugin {
         \add_action( 'easy_mcp_ai_cleanup_approvals', array( __CLASS__, 'cleanup_approvals' ) );
         \add_action( 'easy_mcp_ai_task_tick', array( $this, 'run_task_tick' ), 10, 1 );
         
+        \add_action( 'easy_mcp_ai_search_replace_tick', array( __CLASS__, 'run_search_replace_tick' ), 10, 1 );
+        
         \add_action( 'plugins_loaded', array( 'Easy_MCP_AI\Activator', 'maybe_upgrade' ) );
         \add_action( 'plugins_loaded', array( $this, 'maybe_upgrade_oauth' ) );
         
         
         \add_filter( 'application_password_is_api_request', array( __CLASS__, 'exempt_oauth_client_credentials_from_application_passwords' ) );
+        
+        
+        
+        
+        
+        \add_filter( 'map_meta_cap', array( __CLASS__, 'map_privileged_meta_cap' ), 10, 3 );
+        
+        
+        
+        
+        \add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'register_learnpress_category' ), 1000 );
+        \add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_learnpress_abilities' ), 1000 );
+        
+        
+        \add_action( 'update_option_easy_mcp_ai_enabled_plugin_groups', array( __CLASS__, 'learnpress_group_updated' ), 10, 2 );
+        \add_action( 'add_option_easy_mcp_ai_enabled_plugin_groups', array( __CLASS__, 'learnpress_group_added' ), 10, 2 );
+        
+        
+        if ( defined( 'WP_CLI' ) && WP_CLI ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-admin.php';
+            Privileged\Privileged_Admin::register_cli();
+        }
         
         if ( \is_multisite() ) {
             \add_action( 'wp_initialize_site', array( $this, 'on_new_site' ), 10, 1 );
@@ -116,13 +150,21 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-gemini-safe-schema.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-transport.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-rest-auth-override.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-option-guard.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-server.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-manager.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-auth-header.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-token-auth.php';
+        
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-permission-guard.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-base-tool.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-privileged-tool.php';
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-rest-route-tool.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-registry.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-dynamic-tool.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-dynamic-tool-registrar.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-abstract-google-client.php';
@@ -144,6 +186,9 @@ class Plugin {
         
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-text-redactor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-recorder.php';
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-live-state.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-rebuild-planner.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-db-interceptor.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/history/class-change-external-intent.php';
         
@@ -286,24 +331,8 @@ class Plugin {
             $request_uri = preg_replace( '#^/' . preg_quote( $home_path, '#' ) . '#', '', $request_uri );
         }
 
-        $is_protected_resource = ( '/.well-known/oauth-protected-resource' === $request_uri );
-        $is_auth_server        = ( '/.well-known/oauth-authorization-server' === $request_uri
-                                || '/.well-known/openid-configuration' === $request_uri );
-
-        
-        
-        
-        if ( ! $is_protected_resource && ! $is_auth_server ) {
-            $is_protected_resource = $this->is_path_inserted_resource_metadata( $request_uri_raw, $home_path );
-        }
-
-        
-        
-        if ( ! $is_protected_resource && ! $is_auth_server ) {
-            $is_auth_server = $this->is_path_inserted_auth_server_metadata( $request_uri_raw, $home_path );
-        }
-
-        if ( ! $is_protected_resource && ! $is_auth_server ) {
+        $document = $this->well_known_document( $request_uri_raw, (string) $request_uri, (string) $home_path );
+        if ( null === $document ) {
             return;
         }
 
@@ -340,9 +369,11 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-discovery.php';
         $discovery = new OAuth\Discovery();
         $rest_req  = new \WP_REST_Request( 'GET' );
-        $response  = $is_protected_resource
-            ? $discovery->get_protected_resource_metadata( $rest_req )
-            : $discovery->get_authorization_server_metadata( $rest_req );
+        if ( 'protected-resource' === $document['document'] ) {
+            $response = $discovery->get_protected_resource_metadata( $rest_req );
+        } else {
+            $response = $discovery->authorization_server_response( $document['issuer'], $document['openid'] );
+        }
 
         
         
@@ -531,6 +562,126 @@ class Plugin {
 
 
 
+
+
+
+
+
+
+
+
+
+    private function well_known_document( string $request_uri_raw, string $request_uri, string $home_path ): ?array {
+        if ( '/.well-known/oauth-protected-resource' === $request_uri ) {
+            return self::discovery_document( 'protected-resource', 'site', false );
+        }
+        if ( '/.well-known/oauth-authorization-server' === $request_uri || '/.well-known/openid-configuration' === $request_uri ) {
+            return self::discovery_document( 'authorization-server', 'site', '/.well-known/openid-configuration' === $request_uri );
+        }
+        $is_protected_resource = $this->is_path_inserted_resource_metadata( $request_uri_raw, $home_path );
+        if ( $is_protected_resource ) {
+            return self::discovery_document( 'protected-resource', 'site', false );
+        }
+        $is_auth_server = $this->is_path_inserted_auth_server_metadata( $request_uri_raw, $home_path );
+        if ( $is_auth_server ) {
+            return self::discovery_document( 'authorization-server', 'site', false !== strpos( $request_uri, '/.well-known/openid-configuration/' ) );
+        }
+        $resource_issuer_doc = self::resource_issuer_document( $request_uri_raw );
+        if ( null === $resource_issuer_doc ) {
+            return null;
+        }
+        return self::discovery_document( 'authorization-server', 'resource', 'openid-configuration' === $resource_issuer_doc );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function discovery_document( string $document, string $issuer, bool $openid ): array {
+        return array(
+            'document' => $document,
+            'issuer'   => $issuer,
+            'openid'   => $openid,
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public static function resource_issuer_document( $request_uri_raw ): ?string {
+        $path = \wp_parse_url( (string) $request_uri_raw, PHP_URL_PATH );
+        if ( ! is_string( $path ) || '' === $path ) {
+            return null;
+        }
+        $path          = rtrim( $path, '/' );
+        $resource_path = \wp_parse_url( \rest_url( 'easy-mcp-ai/v1/mcp' ), PHP_URL_PATH );
+        
+        if ( ! is_string( $resource_path ) || '' === $resource_path || false !== strpos( \rest_url( 'easy-mcp-ai/v1/mcp' ), '?' ) ) {
+            return null;
+        }
+        $resource_path = '/' . trim( $resource_path, '/' );
+        foreach ( array( 'oauth-authorization-server', 'openid-configuration' ) as $doc ) {
+            if ( $path === '/.well-known/' . $doc . $resource_path ) {
+                return $doc;
+            }
+        }
+        return null;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function authorize_path_mode( $request_uri_raw, string $home_path = '' ): ?string {
+        $path = \wp_parse_url( (string) $request_uri_raw, PHP_URL_PATH );
+        if ( ! is_string( $path ) || false === strpos( $path, '/easy-mcp-ai/authorize' ) ) {
+            return null;
+        }
+        $path = self::strip_home_path( $path, $home_path );
+        if ( 0 === strpos( $path, '/index.php/' ) ) {
+            $path = substr( $path, strlen( '/index.php' ) );
+        }
+        if ( '/easy-mcp-ai/authorize' === $path ) {
+            return 'site';
+        }
+        if ( '/easy-mcp-ai/authorize/resource' === $path ) {
+            return 'resource';
+        }
+        return null;
+    }
+
+    
+
+
+
+
+
+
     public function handle_approval_request() {
         
         
@@ -569,6 +720,20 @@ class Plugin {
         }
         echo $out['html']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Approval_Page escapes every value it interpolates.
         exit;
+    }
+
+    
+
+
+
+
+    public static function maybe_register_preview_link(): void {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Public routing check; the link's signature is verified when the post is served.
+        if ( ! isset( $_GET['easy_mcp_ai_preview'] ) || \is_admin() ) {
+            return;
+        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/preview/class-preview-link.php';
+        Preview\Preview_Link::register_front_end();
     }
 
     
@@ -623,6 +788,21 @@ class Plugin {
         
         
         
+        $iss_mode  = 'site';
+        $path_mode = self::authorize_path_mode(
+            isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '',
+            self::home_path()
+        );
+        if ( null !== $path_mode ) {
+            $oauth_param = 'authorize';
+            $iss_mode    = $path_mode;
+        } elseif ( 'authorize' === $oauth_param && isset( $_GET['easy_mcp_ai_iss'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- bound into the consent nonce on POST; 'none' is honoured only while the root fallback is armed.
+            $iss_mode = self::requested_iss_mode( sanitize_key( wp_unslash( $_GET['easy_mcp_ai_iss'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        }
+        
+        
+        
+        
         
         if ( 'authorize' !== $oauth_param && 'device' !== $oauth_param ) {
             return;
@@ -634,7 +814,7 @@ class Plugin {
         
         
         Activator::maybe_upgrade_core_tables();
-        $this->handle_oauth_authorize( $oauth_param );
+        $this->handle_oauth_authorize( $oauth_param, $iss_mode );
     }
 
     
@@ -649,7 +829,107 @@ class Plugin {
 
 
 
-    private function handle_oauth_authorize( $flow = 'authorize' ) {
+
+
+
+    public static function requested_iss_mode( string $requested ): string {
+        if ( 'resource' === $requested ) {
+            return 'resource';
+        }
+        if ( 'none' === $requested ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-root-fallback.php';
+            return OAuth\Root_Fallback::is_armed() ? 'none' : 'site';
+        }
+        return 'site';
+    }
+
+    
+
+
+
+
+
+    public static function home_path(): string {
+        return trim( (string) \wp_parse_url( \home_url(), PHP_URL_PATH ), '/' );
+    }
+
+    
+
+
+
+
+
+
+
+    public static function strip_home_path( string $path, string $home_path ): string {
+        $path      = '/' . trim( $path, '/' );
+        $home_path = trim( $home_path, '/' );
+        if ( '' !== $home_path && 0 === strpos( $path, '/' . $home_path . '/' ) ) {
+            return substr( $path, strlen( $home_path ) + 1 );
+        }
+        return $path;
+    }
+
+    
+
+
+
+
+
+    public function serve_oauth_authorize( string $iss_mode ): void {
+        Activator::maybe_upgrade_core_tables();
+        $this->handle_oauth_authorize( 'authorize', $iss_mode );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    public function remove_plain_routes_after_permalink_change( $old_value, $value ): void {
+        if ( '' === (string) $value || ( function_exists( 'is_multisite' ) && \is_multisite() && ! \is_main_site() ) ) {
+            return;
+        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-htaccess-plain-routes.php';
+        Diagnostics\Htaccess_Plain_Routes::remove( Diagnostics\Htaccess_Auth_Rule::htaccess_path() );
+    }
+
+    
+
+
+
+
+
+
+    public function handle_root_fallback( \WP $wp ): void {
+        $uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) \wp_unslash( $_SERVER['REQUEST_URI'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared, never output.
+        if ( ! preg_match( '#/(authorize|register|token)/?(?:\?|$)#', $uri ) ) {
+            return;
+        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-root-fallback.php';
+        OAuth\Root_Fallback::dispatch( $wp );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    private function handle_oauth_authorize( string $flow = 'authorize', string $iss_mode = 'site' ) {
         
         
         
@@ -692,7 +972,7 @@ class Plugin {
             $request->set_query_params( isset( $_GET ) ? \wp_unslash( $_GET ) : array() );
         }
 
-        $endpoint = ( 'device' === $flow ) ? new OAuth\Device_Verification() : new OAuth\Authorization_Endpoint();
+        $endpoint = ( 'device' === $flow ) ? new OAuth\Device_Verification() : new OAuth\Authorization_Endpoint( $iss_mode );
         $response = 'POST' === $method ? $endpoint->handle_post( $request ) : $endpoint->handle_get( $request );
 
         
@@ -863,13 +1143,9 @@ class Plugin {
 
             
             
-            if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_capture_db', false ) ) {
-                $db_interceptor = new \Easy_MCP_AI\History\Change_DB_Interceptor(
-                    new \Easy_MCP_AI\History\Change_Log_Repository()
-                );
-                \add_action( 'easy_mcp_ai_change_context_armed', array( $db_interceptor, 'arm' ) );
-                \add_action( 'easy_mcp_ai_change_context_disarming', array( $db_interceptor, 'disarm' ), 20 );
-            }
+            
+            
+            self::wire_db_interceptor( (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_capture_db', false ) );
 
             
             
@@ -941,7 +1217,14 @@ class Plugin {
             'users', 'site', 'menus', 'plugins', 'themes',
             'revisions', 'meta', 'search', 'blocks', 'cpt', 'templates', 'styles',
             'appearance', 'widgets', 'history', 'audit', 'site-health', 'approvals',
+            'feedback',
+            
+            'rest',
+            
+            'privileged',
         );
+        
+        self::load_search_replace();
 
         
         
@@ -978,6 +1261,7 @@ class Plugin {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/blocks/trait-block-tree.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/acf/trait-acf-rest-tool.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/comments/trait-comment-moderation.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/menus/trait-menu-slug.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/widgets/trait-widget-rest.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/plugins/trait-lifecycle-guard.php';
 
@@ -1500,6 +1784,100 @@ class Plugin {
 
 
 
+    public static function register_learnpress_category(): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-learnpress-abilities.php';
+        Compat\Learnpress_Abilities::register_category();
+    }
+
+    
+
+
+
+    public static function register_learnpress_abilities(): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-learnpress-abilities.php';
+        Compat\Learnpress_Abilities::register_abilities();
+        Compat\Learnpress_Abilities::enable_pending();
+    }
+
+    
+
+
+
+
+
+    public static function learnpress_group_updated( $old_value, $value ): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-learnpress-abilities.php';
+        Compat\Learnpress_Abilities::group_changed( $old_value, $value );
+    }
+
+    
+
+
+
+
+
+    public static function learnpress_group_added( $option, $value ): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/compat/class-learnpress-abilities.php';
+        Compat\Learnpress_Abilities::group_changed( array(), $value );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function map_privileged_meta_cap( $caps, $cap, $user_id ) {
+        if ( ! is_string( $cap ) || 0 !== strpos( $cap, 'easy_mcp_ai_' ) ) {
+            return $caps;
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
+        }
+        return \Easy_MCP_AI\Privileged\Privileged_Groups::map_meta_cap( $caps, $cap, (int) $user_id );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function wire_db_interceptor( $capture_db ) {
+        $db_interceptor = new \Easy_MCP_AI\History\Change_DB_Interceptor(
+            new \Easy_MCP_AI\History\Change_Log_Repository()
+        );
+        $armed = false;
+        \add_action( 'easy_mcp_ai_change_context_armed', static function () use ( $db_interceptor, $capture_db, &$armed ) {
+            
+            if ( \Easy_MCP_AI\History\Change_Context::get( 'own_history', false ) ) {
+                return;
+            }
+            if ( $capture_db || '' !== (string) \Easy_MCP_AI\History\Change_Context::get( 'privileged', '' ) ) {
+                $armed = true;
+                $db_interceptor->arm();
+            }
+        } );
+        \add_action( 'easy_mcp_ai_change_context_disarming', static function () use ( $db_interceptor, &$armed ) {
+            if ( $armed ) {
+                $armed = false;
+                $db_interceptor->disarm();
+            }
+        }, 20 );
+    }
+
+    
+
+
+
+
 
 
 
@@ -1648,6 +2026,11 @@ class Plugin {
                         return true;
                     }
                 }
+                
+                
+                if ( rtrim( $path, '/' ) === $p && ( '/token' === $p || '/' . self::home_path() . '/token' === $p ) ) {
+                    return true;
+                }
             }
         }
         return false;
@@ -1705,6 +2088,46 @@ class Plugin {
         $this->guarded_background_work( function ( $server ) {
             $server->get_task_manager()->cleanup();
         } );
+        
+        
+        self::guarded_search_replace( static function () {
+            \Easy_MCP_AI\Privileged\Search_Replace\Jobs::cleanup();
+        } );
+    }
+
+    
+    public static function load_search_replace(): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/search-replace/class-jobs.php';
+        \Easy_MCP_AI\Privileged\Search_Replace\Jobs::load();
+    }
+
+    
+
+
+
+    public static function run_search_replace_tick( $job_id = null ): void {
+        self::guarded_search_replace( static function () use ( $job_id ) {
+            \Easy_MCP_AI\Privileged\Search_Replace\Jobs::tick( $job_id );
+        } );
+    }
+
+    
+
+
+    private static function guarded_search_replace( callable $work ): void {
+        if ( function_exists( 'wp_installing' ) && \wp_installing() ) {
+            return;
+        }
+        try {
+            self::load_search_replace();
+            $work();
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( sprintf( 'Easy MCP AI search-replace background work failed: %s in %s:%d', $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
+            }
+        }
     }
 
     private function guarded_background_work( callable $work ) {

@@ -187,6 +187,12 @@ class Access_Presets {
             if ( ! $tool ) {
                 continue;
             }
+            
+            
+            
+            if ( $tool instanceof \Easy_MCP_AI\Tools\Privileged_Tool ) {
+                continue;
+            }
             $cap = (string) $tool->get_required_capability();
             if ( class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) ) {
                 $cap = (string) \Easy_MCP_AI\MCP\Server::effective_required_capability( $tool->get_category(), $cap );

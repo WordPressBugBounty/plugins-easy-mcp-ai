@@ -224,7 +224,7 @@ class Check_Header_Probe {
             Diagnostic_Result::TIER_WARNING,
             $label,
             __( 'A username-and-password sign-in sent to this site never reaches WordPress. Bridges and connectors that only offer username and password fields cannot sign in with an API key here; clients that send a Bearer token are unaffected.', 'easy-mcp-ai' ),
-            __( 'On Apache with mod_php, re-save Settings → Permalinks to restore the rewrite. On FastCGI or PHP-FPM the web server needs CGIPassAuth On, or the nginx equivalent, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
+            __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
             $evidence
         );
     }
@@ -459,7 +459,7 @@ class Check_Header_Probe {
             Diagnostic_Result::TIER_WARNING,
             $label,
             __( 'An Authorization header sent to this site never reaches WordPress. This is the usual reason an AI client that worked yesterday suddenly reports an invalid token: the credential is fine, the web server is removing it before WordPress sees it.', 'easy-mcp-ai' ),
-            __( 'On Apache with mod_php, re-save Settings → Permalinks to restore the rewrite. On FastCGI or PHP-FPM the web server needs CGIPassAuth On, or the nginx equivalent, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
+            __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
             $evidence
         );
     }

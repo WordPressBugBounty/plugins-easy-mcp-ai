@@ -51,7 +51,7 @@ class Tools_Controller extends Admin_Rest_Controller {
 
     public function register_routes() {
         $this->register_route( '/tools', \WP_REST_Server::READABLE, array( $this, 'get_tools' ) );
-        $this->register_route( '/tools/enabled', 'PATCH', array( $this, 'patch_enabled' ) );
+        $this->register_route( '/tools/enabled', self::UPDATABLE, array( $this, 'patch_enabled' ) );
     }
 
     

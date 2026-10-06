@@ -16,10 +16,11 @@
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\Admin\Admin_Page;
-use Easy_MCP_AI\Admin\External_Data_Admin;
 use Easy_MCP_AI\Admin\History_Settings_Page;
 use Easy_MCP_AI\Admin\Settings_Validator;
+use Easy_MCP_AI\Admin\Tool_Catalogue;
 use Easy_MCP_AI\Config;
+use Easy_MCP_AI\Tools\Tool_State;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -90,7 +91,7 @@ class Settings_Controller extends Admin_Rest_Controller {
     public function register_routes() {
         $this->register_route(
             '/settings/paused',
-            'PATCH',
+            self::UPDATABLE,
             array( $this, 'patch_paused' ),
             array(
                 'paused' => array(
@@ -102,7 +103,7 @@ class Settings_Controller extends Admin_Rest_Controller {
         $this->register_route( '/settings', \WP_REST_Server::READABLE, array( $this, 'get_settings' ) );
         $this->register_route(
             '/settings/(?P<section>' . implode( '|', self::SECTIONS ) . ')',
-            'PATCH',
+            self::UPDATABLE,
             array( $this, 'patch_section' ),
             array(
                 'section' => array(
@@ -160,9 +161,10 @@ class Settings_Controller extends Admin_Rest_Controller {
 
 
     public function payload() {
-        $disabled = (array) Config::get( 'easy_mcp_ai_disabled_tools', array() );
+        self::load_tool_state();
         $patterns = (array) Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() );
-        $grid     = Settings_Validator::destructive_tools();
+        $grid     = $this->grid();
+        $defaults = Tool_Catalogue::defaults_of( $this->tool_registry, $grid );
 
         $sections = array(
             'access'   => array(
@@ -188,7 +190,12 @@ class Settings_Controller extends Admin_Rest_Controller {
                 'rateLimitPerMinute'        => self::rate_limit(),
                 'externalDataMinCapability' => Admin_Page::sanitize_external_data_min_capability( Config::get( 'easy_mcp_ai_external_data_min_capability', 'manage_options' ) ),
                 'maxTitleLength'            => max( 0, (int) Config::get( 'easy_mcp_ai_max_title_length', 0 ) ),
-                'disabledTools'             => array_values( array_intersect( $grid, $disabled ) ),
+                
+                
+                
+                'disabledTools'             => array_values( array_filter( $grid, static function ( $name ) use ( $defaults ) {
+                    return Tool_State::stored_off( $name, $defaults[ $name ] );
+                } ) ),
                 'allowedToolPatterns'       => array_values( array_filter( $patterns, 'is_string' ) ),
                 'ipWhitelist'               => (string) Config::get( 'easy_mcp_ai_ip_whitelist', '' ),
             ),
@@ -220,13 +227,21 @@ class Settings_Controller extends Admin_Rest_Controller {
                     array( 'value' => 'all_except_denylist', 'label' => \__( 'All options except churn (recommended)', 'easy-mcp-ai' ) ),
                     array( 'value' => 'allowlist', 'label' => \__( 'Allowlist only (legacy)', 'easy-mcp-ai' ) ),
                 ),
+                
+                
                 'destructiveTools'         => $grid,
+                
+                
+                
+                'toolOverrides'            => (object) array_intersect_key( Tool_State::overrides(), array_flip( $grid ) ),
+                'toolOverridesSource'      => Tool_State::override_source(),
+                'toolOverridesStrict'      => Tool_State::is_strict(),
                 
                 
                 
                 'approvalDefaultTools'     => $this->approval_default_tools(),
             ),
-            'tools'      => $this->tool_counts( $disabled, $patterns ),
+            'tools'      => $this->tool_counts( $patterns ),
             'controlled' => self::controlled(),
         );
     }
@@ -298,11 +313,10 @@ class Settings_Controller extends Admin_Rest_Controller {
 
 
 
-
-    private function tool_counts( array $disabled, array $patterns ) {
+    private function tool_counts( array $patterns ) {
         $names = array();
         if ( $this->tool_registry && method_exists( $this->tool_registry, 'get_all_tool_names' ) ) {
-            $names = array_values( array_diff( (array) $this->tool_registry->get_all_tool_names(), $disabled ) );
+            $names = array_values( array_diff( (array) $this->tool_registry->get_all_tool_names(), Tool_State::off_names( $this->tool_registry ) ) );
         }
         return array(
             'total'    => count( $names ),
@@ -371,6 +385,7 @@ class Settings_Controller extends Admin_Rest_Controller {
             if ( 'logger_flag' === $suffix ) {
                 \update_option( self::LOGGER_FLAG_OPTION, $value ? 'yes' : 'no' );
             } elseif ( 'disabled_tools' === $suffix ) {
+                self::load_tool_state();
                 $this->write_disabled_tools( $value );
             } else {
                 Config::update( 'easy_mcp_ai_' . $suffix, $value );
@@ -438,7 +453,7 @@ class Settings_Controller extends Admin_Rest_Controller {
                 if ( ! is_array( $raw ) ) {
                     return $this->invalid( $field, \__( 'Expected a list of tool names.', 'easy-mcp-ai' ) );
                 }
-                $grid = Settings_Validator::destructive_tools();
+                $grid = $this->grid();
                 foreach ( $raw as $name ) {
                     if ( ! is_string( $name ) || ! in_array( $name, $grid, true ) ) {
                         return $this->invalid(
@@ -461,12 +476,23 @@ class Settings_Controller extends Admin_Rest_Controller {
                 }
                 $patterns = Settings_Validator::parse_patterns( $raw );
                 foreach ( $patterns as $pattern ) {
-                    if ( ! Settings_Validator::is_valid_pattern( $pattern ) ) {
+                    if ( 'allowedToolPatterns' === $field && ! Settings_Validator::is_valid_pattern( $pattern ) ) {
                         return $this->invalid(
                             $field,
                             sprintf(
                                 /* translators: %s: the rejected pattern */
                                 \__( '%s is not a tool-name pattern. Use letters, digits, _ and the wildcards * and ?.', 'easy-mcp-ai' ),
+                                $pattern
+                            )
+                        );
+                    }
+                    
+                    if ( 'allowedToolPatterns' !== $field && ! Settings_Validator::is_valid_approval_entry( $pattern ) ) {
+                        return $this->invalid(
+                            $field,
+                            sprintf(
+                                /* translators: %s: the rejected entry */
+                                \__( '%s is not a tool-name pattern, or one followed by a REST route such as "wp_rest_write /redirection/v1/*". Use letters, digits, _ and the wildcards * and ?.', 'easy-mcp-ai' ),
                                 $pattern
                             )
                         );
@@ -530,13 +556,43 @@ class Settings_Controller extends Admin_Rest_Controller {
 
 
 
+
+
     private function write_disabled_tools( array $submitted ) {
-        $grid   = Settings_Validator::destructive_tools();
-        $global = (array) Config::get( 'easy_mcp_ai_disabled_tools', array() );
-        $kept   = array_values( array_diff( $global, $grid ) );
-        Config::update(
-            'easy_mcp_ai_disabled_tools',
-            External_Data_Admin::merge_disabled_tool_buckets( array_merge( $kept, $submitted ) )
-        );
+        $grid = $this->grid();
+        Tool_Catalogue::store_choices( $grid, $submitted, Tool_Catalogue::defaults_of( $this->tool_registry, $grid ) );
+    }
+
+    
+
+
+
+
+
+
+
+    private function grid() {
+        $grid = Settings_Validator::destructive_tools();
+        if ( ! $this->tool_registry || ! method_exists( $this->tool_registry, 'get_all_tool_names' ) || ! method_exists( $this->tool_registry, 'get_tool' ) ) {
+            return $grid;
+        }
+        $privileged = array();
+        foreach ( (array) $this->tool_registry->get_all_tool_names() as $name ) {
+            if ( $this->tool_registry->get_tool( $name ) instanceof \Easy_MCP_AI\Tools\Privileged_Tool ) {
+                $privileged[] = (string) $name;
+            }
+        }
+        sort( $privileged );
+        return array_values( array_unique( array_merge( $grid, $privileged ) ) );
+    }
+
+    
+    private static function load_tool_state() {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\Admin\\Tool_Catalogue' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-tool-catalogue.php';
+        }
     }
 }

@@ -73,9 +73,20 @@ class Ability_Seed {
             return;
         }
         $seed = self::select( self::annotations_by_name( \wp_get_abilities() ) );
-        if ( ! empty( $seed ) ) {
-            \update_option( 'easy_mcp_ai_enabled_abilities', $seed );
+        if ( empty( $seed ) ) {
+            return;
         }
+        $write = static function () use ( $seed ) {
+            \update_option( 'easy_mcp_ai_enabled_abilities', $seed );
+        };
+        
+        
+        
+        if ( \class_exists( '\\Easy_MCP_AI\\MCP\\Option_Guard' ) ) {
+            \Easy_MCP_AI\MCP\Option_Guard::while_suspended( $write );
+            return;
+        }
+        $write();
     }
 
     

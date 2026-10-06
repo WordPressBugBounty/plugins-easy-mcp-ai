@@ -49,6 +49,8 @@ class Config {
         'approval_required',
         'approval_always',
         'approval_never',
+        
+        'oauth_root_fallback',
     );
 
     
@@ -87,6 +89,11 @@ class Config {
             'oauth_client_retention' => array( 7, 'integer', 0, 3650 ),
             'oauth_enabled' => array( true, 'boolean' ),
             'oauth_allow_http' => array( false, 'boolean' ),
+            
+            
+            
+            
+            'oauth_root_fallback' => array( 'auto', 'fallback_mode' ),
             'change_log_enabled' => array( true, 'boolean' ),
             'change_log_retention' => array( 30, 'integer', 0, PHP_INT_MAX ),
             'change_log_option_mode' => array( 'all_except_denylist', 'mode' ),
@@ -259,6 +266,11 @@ class Config {
                 break;
             case 'mode':
                 if ( in_array( $raw, array( 'all_except_denylist', 'allowlist' ), true ) ) {
+                    return $raw;
+                }
+                break;
+            case 'fallback_mode':
+                if ( in_array( $raw, array( 'auto', 'on', 'off' ), true ) ) {
                     return $raw;
                 }
                 break;

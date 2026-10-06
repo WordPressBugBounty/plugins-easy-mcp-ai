@@ -19,6 +19,7 @@ wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_change_log' );
 wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_tasks' );
 wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_approvals' );
 wp_unschedule_hook( 'easy_mcp_ai_task_tick' ); 
+wp_unschedule_hook( 'easy_mcp_ai_search_replace_tick' ); 
 if ( function_exists( 'as_unschedule_all_actions' ) && class_exists( 'ActionScheduler', false ) && ActionScheduler::is_initialized() ) {
     as_unschedule_all_actions( 'easy_mcp_ai_task_tick' ); 
 }
@@ -28,6 +29,9 @@ if ( function_exists( 'as_unschedule_all_actions' ) && class_exists( 'ActionSche
 
 require_once __DIR__ . '/includes/diagnostics/class-htaccess-auth-rule.php';
 Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::remove( Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::htaccess_path() );
+
+require_once __DIR__ . '/includes/diagnostics/class-htaccess-plain-routes.php';
+Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::remove( Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::htaccess_path() );
 
 
 $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound
@@ -45,6 +49,8 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_enabled_categories',
     'easy_mcp_ai_ip_whitelist',
     'easy_mcp_ai_disabled_tools',
+    'easy_mcp_ai_enabled_tools',            
+    'easy_mcp_ai_rest_disabled_namespaces', 
     'easy_mcp_ai_force_draft_on_create',
     'easy_mcp_ai_max_title_length',
     'easy_mcp_ai_audit_log_enabled',
@@ -55,6 +61,7 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_allowed_plugins',          
     'easy_mcp_ai_admin_language',
     'easy_mcp_ai_enabled_plugin_groups',    
+    'easy_mcp_ai_learnpress_enable_pending', 
     'easy_mcp_ai_disabled_plugin_tools',   
     'easy_mcp_ai_oauth_db_version',        
     'easy_mcp_ai_oauth_access_token_ttl',  
@@ -82,6 +89,7 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_ahrefs_enabled',           
     'easy_mcp_ai_ahrefs_api_key',           
     'easy_mcp_ai_external_data_balances',   
+    'easy_mcp_ai_last_tool_call',           
     'easy_mcp_ai_change_log_db_version',    
     'easy_mcp_ai_tasks_db_version',         
     'easy_mcp_ai_tasks_tick_budget_seconds', 
@@ -103,6 +111,8 @@ $options = array( // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.N
     'easy_mcp_ai_oauth_min_capability',     
     'easy_mcp_ai_external_data_min_capability', 
     'easy_mcp_ai_diagnostics_last_run',      
+    'easy_mcp_ai_oauth_root_discovery',      
+    'easy_mcp_ai_oauth_root_fallback',       
     'easy_mcp_ai_header_probe_secret',       
     'easy_mcp_ai_rest_auth_observed',        
     
@@ -137,6 +147,7 @@ if ( is_multisite() ) {
         wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_tasks' );
         wp_clear_scheduled_hook( 'easy_mcp_ai_cleanup_approvals' );
         wp_unschedule_hook( 'easy_mcp_ai_task_tick' );
+        wp_unschedule_hook( 'easy_mcp_ai_search_replace_tick' ); 
         
         $easy_mcp_ai_admin_role = get_role( 'administrator' );
         if ( $easy_mcp_ai_admin_role ) {
@@ -163,6 +174,7 @@ if ( is_multisite() ) {
         }
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_session_%', '_transient_timeout_easy_mcp_ai_session_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_rate_%', '_transient_timeout_easy_mcp_ai_rate_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_priv_rate_%', '_transient_timeout_easy_mcp_ai_priv_rate_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_reflog_%', '_transient_timeout_easy_mcp_ai_reflog_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_ipreflog_%', '_transient_timeout_easy_mcp_ai_ipreflog_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_new_token_%', '_transient_timeout_easy_mcp_ai_new_token_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
@@ -174,6 +186,8 @@ if ( is_multisite() ) {
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_oat_lu_%', '_transient_timeout_easy_mcp_ai_oat_lu_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_oat_srv_%', '_transient_timeout_easy_mcp_ai_oat_srv_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
         $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_auth_fail_%', '_transient_timeout_easy_mcp_ai_auth_fail_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
+        
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'easy_mcp_ai_sr_' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for option cleanup on uninstall.
         
         
         
@@ -218,6 +232,7 @@ if ( is_multisite() ) {
     
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_session_%', '_transient_timeout_easy_mcp_ai_session_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_rate_%', '_transient_timeout_easy_mcp_ai_rate_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_priv_rate_%', '_transient_timeout_easy_mcp_ai_priv_rate_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_reflog_%', '_transient_timeout_easy_mcp_ai_reflog_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_ipreflog_%', '_transient_timeout_easy_mcp_ai_ipreflog_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_new_token_%', '_transient_timeout_easy_mcp_ai_new_token_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
@@ -229,6 +244,8 @@ if ( is_multisite() ) {
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_oat_lu_%', '_transient_timeout_easy_mcp_ai_oat_lu_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_oat_srv_%', '_transient_timeout_easy_mcp_ai_oat_srv_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s", '_transient_easy_mcp_ai_auth_fail_%', '_transient_timeout_easy_mcp_ai_auth_fail_%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for transient cleanup on uninstall.
+    
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like( 'easy_mcp_ai_sr_' ) . '%' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Intentional direct DB call for option cleanup on uninstall.
     
     
     

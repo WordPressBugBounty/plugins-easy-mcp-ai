@@ -31,6 +31,12 @@
 
 
 
+
+
+
+
+
+
 namespace Easy_MCP_AI\Diagnostics;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -43,10 +49,20 @@ class Diagnostics {
 
 
 
+
+
     const CACHE_OPTION = 'easy_mcp_ai_diagnostics_last_run';
 
     
     const STALE_AFTER = DAY_IN_SECONDS;
+
+    
+
+
+
+
+
+    const CONNECTION_GROUPS = array( 'a1', 'a9', 'a10' );
 
     
     private static $checks = array();
@@ -202,7 +218,16 @@ class Diagnostics {
 
 
 
-    public static function run( $deep = false ) {
+
+
+
+
+
+
+
+
+
+    public static function run( $deep = false, $groups = null ) {
         
         
         
@@ -214,24 +239,22 @@ class Diagnostics {
         
         self::load_check_classes();
 
-        $results = array();
+        $results  = array();
+        $previous = self::stored_report();
+        $now      = time();
 
         foreach ( self::$checks as $check ) {
+            $deep_only = ! empty( $check['deep_only'] );
+            $group     = '' !== $check['id'] ? $check['id'] : 'unknown';
+
             
             
             
-            if ( ! empty( $check['deep_only'] ) && ! $deep ) {
-                $results[] = Diagnostic_Result::unknown(
-                    '' !== $check['id'] ? $check['id'] : 'unknown',
-                    Diagnostic_Result::TIER_INFO,
-                    __( 'Detailed check', 'easy-mcp-ai' ),
-                    __( 'Not run — press Re-run checks to include the slower checks.', 'easy-mcp-ai' ),
-                    
-                    
-                    
-                    
-                    array( 'deferred' => true )
-                );
+            
+            if ( self::is_kept( $deep_only, $group, $deep, $groups ) ) {
+                foreach ( self::kept_or_placeholder( $group, $previous ) as $kept ) {
+                    $results[] = $kept;
+                }
                 continue;
             }
 
@@ -240,12 +263,13 @@ class Diagnostics {
             } catch ( \Throwable $e ) {
                 
                 
-                $results[] = Diagnostic_Result::unknown(
-                    '' !== $check['id'] ? $check['id'] : 'unknown',
+                $failed = Diagnostic_Result::unknown(
+                    $group,
                     Diagnostic_Result::TIER_INFO,
                     __( 'Check could not run', 'easy-mcp-ai' ),
                     self::redact_message( $e->getMessage() )
                 );
+                $results[] = self::stamp( $failed, $deep_only, $group, $now );
                 continue;
             }
 
@@ -255,13 +279,13 @@ class Diagnostics {
 
             foreach ( $produced as $result ) {
                 if ( $result instanceof Diagnostic_Result ) {
-                    $results[] = $result;
+                    $results[] = self::stamp( $result, $deep_only, $group, $now );
                 }
             }
         }
 
         self::$results = $results;
-        self::persist( $results );
+        self::persist( $results, self::invalidated_at( $previous ) );
 
         
         
@@ -273,6 +297,161 @@ class Diagnostics {
         
         
         return self::redact_cross_tenant( $results );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function is_kept( $deep_only, $group, $deep, $groups ) {
+        if ( ! $deep_only ) {
+            return false;
+        }
+        return ! $deep || ( null !== $groups && ! in_array( $group, (array) $groups, true ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function stamp( Diagnostic_Result $result, $deep_only, $group, $now ) {
+        return $deep_only ? $result->with_measurement( $group, $now ) : $result;
+    }
+
+    
+
+
+
+
+
+    private static function invalidated_at( array $report ) {
+        return isset( $report['invalidated_at'] ) ? (int) $report['invalidated_at'] : 0;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private static function deferred_placeholder( $group, $detail, array $evidence, $measured_at ) {
+        return Diagnostic_Result::unknown(
+            $group,
+            Diagnostic_Result::TIER_INFO,
+            __( 'Detailed check', 'easy-mcp-ai' ),
+            $detail,
+            array( 'deferred' => true ) + $evidence
+        )->with_measurement( $group, $measured_at );
+    }
+
+    
+
+
+
+
+    private static function stored_report() {
+        $cache = \get_option( self::CACHE_OPTION, array() );
+        return is_array( $cache ) ? $cache : array();
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function kept_or_placeholder( $group, array $previous ) {
+        $kept = array();
+        if ( ! empty( $previous['results'] ) && is_array( $previous['results'] ) ) {
+            foreach ( $previous['results'] as $row ) {
+                if ( ! is_array( $row ) || ! isset( $row['group'] ) || $group !== $row['group'] || empty( $row['measured_at'] ) ) {
+                    continue;
+                }
+                $kept[] = Diagnostic_Result::from_array( $row );
+            }
+        }
+
+        if ( empty( $kept ) ) {
+            return array(
+                self::deferred_placeholder(
+                    $group,
+                    __( 'Not run — press Re-run checks to include the slower checks.', 'easy-mcp-ai' ),
+                    array(),
+                    null
+                ),
+            );
+        }
+
+        $invalidated_at = self::invalidated_at( $previous );
+        $measured_at    = (int) $kept[0]->measured_at();
+        
+        
+        
+        if ( $invalidated_at > 0 && $measured_at <= $invalidated_at ) {
+            
+            
+            return array(
+                self::deferred_placeholder(
+                    $group,
+                    __( 'Out of date — the site address or permalinks changed after this was last checked. Press Re-run checks to check it again.', 'easy-mcp-ai' ),
+                    array( 'expired' => true ),
+                    $measured_at
+                ),
+            );
+        }
+
+        return $kept;
+    }
+
+    
+
+
+
+
+
+
+
+    public static function connection_checks_due() {
+        $report         = self::stored_report();
+        $invalidated_at = self::invalidated_at( $report );
+        $oldest         = array();
+        if ( ! empty( $report['results'] ) && is_array( $report['results'] ) ) {
+            foreach ( $report['results'] as $row ) {
+                if ( ! is_array( $row ) || ! isset( $row['group'] ) || ! in_array( $row['group'], self::CONNECTION_GROUPS, true ) ) {
+                    continue;
+                }
+                $at = empty( $row['measured_at'] ) ? 0 : (int) $row['measured_at'];
+                $oldest[ $row['group'] ] = isset( $oldest[ $row['group'] ] ) ? min( $oldest[ $row['group'] ], $at ) : $at;
+            }
+        }
+        foreach ( self::CONNECTION_GROUPS as $group ) {
+            $at = isset( $oldest[ $group ] ) ? $oldest[ $group ] : 0;
+            if ( 0 === $at || ( time() - $at ) >= self::STALE_AFTER || $at <= $invalidated_at ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     
@@ -518,6 +697,9 @@ class Diagnostics {
         }
 
         $cache['generated_at'] = 0;
+        
+        
+        $cache['invalidated_at'] = time();
         \update_option( self::CACHE_OPTION, $cache, false );
     }
 
@@ -602,11 +784,23 @@ class Diagnostics {
 
 
 
-    private static function persist( array $results ) {
-        $payload = array(
-            'generated_at' => time(),
+    private static function persist( array $results, $invalidated_at = 0 ) {
+        
+        
+        
+        
+        
+        
+        $saved_since   = self::invalidated_at( self::stored_report() );
+        $changed_since = $saved_since > (int) $invalidated_at;
+        $payload       = array(
+            'generated_at' => $changed_since ? 0 : time(),
             'results'      => array_map( function ( $r ) { return $r->to_array(); }, $results ),
         );
+        $invalidated_at = max( (int) $invalidated_at, $saved_since );
+        if ( $invalidated_at > 0 ) {
+            $payload['invalidated_at'] = $invalidated_at;
+        }
 
         
         

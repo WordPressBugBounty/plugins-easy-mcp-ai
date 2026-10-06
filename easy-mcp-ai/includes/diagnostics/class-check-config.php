@@ -59,6 +59,38 @@ class Check_Config {
             ),
             self::evaluate_oauth_enabled( (bool) \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ),
             self::evaluate_token_keys( self::token_key_state() ),
+            self::evaluate_privileged( self::privileged_state() ),
+        );
+    }
+
+    
+
+
+
+    private static function privileged_state() {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
+        return array( 'enabled' => \Easy_MCP_AI\Privileged\Privileged_Groups::enabled_groups() );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function evaluate_privileged( array $state ) {
+        $label = __( 'Privileged tools enabled on this site', 'easy-mcp-ai' );
+        if ( empty( $state['enabled'] ) ) {
+            return Diagnostic_Result::pass( 'f13', Diagnostic_Result::TIER_INFO, $label, __( 'None', 'easy-mcp-ai' ), $state );
+        }
+        return Diagnostic_Result::pass(
+            'f13', Diagnostic_Result::TIER_INFO, $label,
+            /* translators: %s: comma-separated privileged group keys */
+            sprintf( __( 'Enabled: %s.', 'easy-mcp-ai' ), implode( ', ', $state['enabled'] ) ),
+            $state
         );
     }
 

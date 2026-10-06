@@ -78,6 +78,21 @@ class Consent_Screen {
         $checked_scopes = $ceiling;
 
         
+        
+        
+        
+        if ( ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            require_once dirname( __DIR__ ) . '/privileged/class-privileged-groups.php';
+        }
+        $privileged_rows = array();
+        foreach ( \Easy_MCP_AI\Privileged\Privileged_Groups::enabled_groups() as $group ) {
+            $privileged_rows[] = array(
+                'scope' => \Easy_MCP_AI\Privileged\Privileged_Groups::scope_for_group( $group ),
+                'label' => \Easy_MCP_AI\Privileged\Privileged_Groups::group_label( $group ),
+            );
+        }
+
+        
         $template_vars = array(
             'client_name'       => $client_name,
             'client_id'         => $client_id,
@@ -102,6 +117,7 @@ class Consent_Screen {
             'level_scopes'      => $level_scopes,
             'default_level'     => $default_level,
             'checked_scopes'    => $checked_scopes,
+            'privileged_rows'   => $privileged_rows,
         );
 
         

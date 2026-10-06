@@ -59,6 +59,13 @@ class Htaccess_Auth_Rule {
 
 
 
+    const PLAIN_ROUTES_MARKER = 'Easy MCP AI Plain Permalinks';
+
+    
+
+
+
+
     const RULE_MARKER = 'HTTP_AUTHORIZATION';
 
     
@@ -207,8 +214,42 @@ class Htaccess_Auth_Rule {
     }
 
     
+
+
+
     public static function has_block( $contents ) {
-        return false !== strpos( (string) $contents, '# BEGIN ' . self::MARKER );
+        return self::has_marker_block( $contents, self::MARKER );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function has_marker_block( ?string $contents, string $marker ): bool {
+        return 1 === preg_match( '/^[ \t]*# BEGIN ' . preg_quote( $marker, '/' ) . '[ \t]*\r?$/m', (string) $contents );
+    }
+
+    
+
+
+
+
+
+
+
+    public static function strip_marker_block( ?string $contents, string $marker ): string {
+        $contents = (string) $contents;
+        if ( ! self::has_marker_block( $contents, $marker ) ) {
+            return $contents;
+        }
+        $pattern = '/^[ \t]*# BEGIN ' . preg_quote( $marker, '/' ) . '[ \t]*\R.*?^[ \t]*# END ' . preg_quote( $marker, '/' ) . '[ \t]*(?:\R|$)/ms';
+        $updated = preg_replace( $pattern, '', $contents );
+        return null === $updated ? $contents : $updated;
     }
 
     
@@ -283,15 +324,17 @@ class Htaccess_Auth_Rule {
 
 
 
+
     public static function place( $contents ) {
         $contents = self::strip( (string) $contents );
         $eol      = ( false !== strpos( $contents, "\r\n" ) ) ? "\r\n" : "\n";
         $block    = str_replace( "\n", $eol, self::block_text() ) . $eol;
 
-        $wp_marker = '# BEGIN ' . self::WORDPRESS_MARKER;
-        if ( preg_match( '/^[ \t]*' . preg_quote( $wp_marker, '/' ) . '[ \t]*(?:\R|$)/m', $contents, $m, PREG_OFFSET_CAPTURE ) ) {
-            $at = (int) $m[0][1];
-            return substr( $contents, 0, $at ) . $block . substr( $contents, $at );
+        foreach ( array( self::PLAIN_ROUTES_MARKER, self::WORDPRESS_MARKER ) as $marker ) {
+            if ( preg_match( '/^[ \t]*' . preg_quote( '# BEGIN ' . $marker, '/' ) . '[ \t]*(?:\R|$)/m', $contents, $m, PREG_OFFSET_CAPTURE ) ) {
+                $at = (int) $m[0][1];
+                return substr( $contents, 0, $at ) . $block . substr( $contents, $at );
+            }
         }
 
         return $block . $contents;
@@ -408,13 +451,7 @@ class Htaccess_Auth_Rule {
 
 
     public static function strip( $contents ) {
-        $contents = (string) $contents;
-        if ( ! self::has_block( $contents ) ) {
-            return $contents;
-        }
-        $pattern = '/^[ \t]*# BEGIN ' . preg_quote( self::MARKER, '/' ) . '[ \t]*\R.*?^[ \t]*# END ' . preg_quote( self::MARKER, '/' ) . '[ \t]*(?:\R|$)/ms';
-        $updated = preg_replace( $pattern, '', $contents );
-        return null === $updated ? $contents : $updated;
+        return self::strip_marker_block( $contents, self::MARKER );
     }
 
     
@@ -433,8 +470,13 @@ class Htaccess_Auth_Rule {
 
 
 
-    private static function mutate( $path, $transform ) {
-        $fp = @fopen( $path, 'r+' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Our own block in .htaccess under flock(); WP_Filesystem is not initialised on uninstall.
+
+
+
+
+
+    public static function mutate( $path, $transform, $create = false ) {
+        $fp = @fopen( $path, $create ? 'c+' : 'r+' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Our own block in .htaccess under flock(); WP_Filesystem is not initialised on uninstall.
         if ( ! $fp ) {
             return false;
         }

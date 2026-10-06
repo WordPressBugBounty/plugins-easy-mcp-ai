@@ -19,6 +19,10 @@ class Transport {
 
     private $server;
     private $token_manager;
+    
+    private $oauth_scope = null;
+    
+    private $last_scope_challenge = null;
 
     public function __construct( Server $server, Token_Manager $token_manager ) {
         $this->server        = $server;
@@ -292,6 +296,8 @@ class Transport {
         
         
         $this->server->set_request_client_caps( null );
+        $this->oauth_scope          = null;
+        $this->last_scope_challenge = null;
         $this->inject_url_token( $request );
         $this->inject_basic_api_key( $request );
 
@@ -307,6 +313,16 @@ class Transport {
         $origin_error = $this->validate_origin( $request, (bool) $request->get_header( 'authorization' ) );
         if ( $origin_error ) {
             return $origin_error;
+        }
+
+        
+        
+        
+        
+        
+        
+        if ( ! $request->get_header( 'authorization' ) ) {
+            return $this->make_unauthorized_response( null );
         }
 
         $content_type = $request->get_content_type();
@@ -355,6 +371,7 @@ class Transport {
                 $wp_user_id    = $result['wp_user_id'];
                 $allowed_tools = isset( $result['allowed_tools'] ) ? $result['allowed_tools'] : null;
                 $oauth_client_id = isset( $result['client_id'] ) ? $result['client_id'] : null;
+                $this->oauth_scope = isset( $result['scope'] ) ? (string) $result['scope'] : null;
                 $auth_source_for_request = 'oauth';
             }
         }
@@ -513,14 +530,45 @@ class Transport {
 
 
     private function call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id, $omit_allowed_tools = false ) {
-        $this->server->set_request_identity( $auth_source, $wp_user_id, $oauth_client_id );
+        $this->server->set_request_identity( $auth_source, $wp_user_id, $oauth_client_id, 'oauth' === $auth_source ? $this->oauth_scope : null );
         try {
             return $omit_allowed_tools
                 ? $this->server->handle_message( $message, $token_id )
                 : $this->server->handle_message( $message, $token_id, $allowed_tools );
         } finally {
+            
+            
+            $this->last_scope_challenge = $this->server->take_scope_challenge();
             $this->server->clear_request_identity();
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private function scope_challenge_response( $body ) {
+        $scope                      = $this->last_scope_challenge;
+        $this->last_scope_challenge = null;
+        if ( null === $scope || '' === $scope ) {
+            return null;
+        }
+        $response = new \WP_REST_Response( $body, 403 );
+        $response->header( 'Cache-Control', 'no-store, private' );
+        $response->header(
+            'WWW-Authenticate',
+            'Bearer error="insufficient_scope", scope="' . $scope . '", resource_metadata="' . \home_url( '/.well-known/oauth-protected-resource' ) . '", error_description="This tool needs an additional scope; ask the user to authorize it"'
+        );
+        $this->add_cors_headers( $response );
+        return $response;
     }
 
     
@@ -622,14 +670,19 @@ class Transport {
         
         
         $message = json_decode( $request->get_body(), true );
-        $this->server->set_request_identity( $auth_source, $wp_user_id, $client_id );
+        $this->server->set_request_identity( $auth_source, $wp_user_id, $client_id, 'oauth' === $auth_source ? $this->oauth_scope : null );
         try {
             $body = $this->server->handle_modern_message( $message, $token_id, $allowed_tools );
         } finally {
+            $this->last_scope_challenge = $this->server->take_scope_challenge();
             $this->server->clear_request_identity();
         }
         if ( 'subscriptions/listen' === $method && isset( $body['result'] ) ) {
             return $this->listen_stream_response( $id, $body );
+        }
+        $challenged = $this->scope_challenge_response( $body );
+        if ( $challenged ) {
+            return $challenged;
         }
         $status = isset( $body['error']['code'] ) && Error_Codes::METHOD_NOT_FOUND === $body['error']['code'] ? 404 : 200;
         $response = new \WP_REST_Response( $body, $status );
@@ -829,6 +882,12 @@ class Transport {
 
         $this->token_manager->update_last_used( $token_id );
         $response_data = $this->call_handle_message_with_identity( $message, $token_id, $allowed_tools, $auth_source, $wp_user_id, $oauth_client_id );
+        
+        
+        $challenged    = $this->scope_challenge_response( $response_data );
+        if ( $challenged ) {
+            return $challenged;
+        }
         $response = new \WP_REST_Response( $response_data, 200 );
         $this->add_cors_headers( $response );
         return $response;
@@ -1541,6 +1600,39 @@ class Transport {
         );
     }
 
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function resource_metadata_url(): string {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-root-fallback.php';
+        if ( \Easy_MCP_AI\OAuth\Root_Fallback::is_armed() ) {
+            if ( \Easy_MCP_AI\OAuth\Root_Fallback::mcp_path_discovery_reachable() ) {
+                return \rest_url( self::NAMESPACE_V1 . '/mcp/.well-known/oauth-protected-resource' );
+            }
+            return \rest_url( self::NAMESPACE_V1 . '/discovery/oauth-protected-resource' );
+        }
+        return \home_url( '/.well-known/oauth-protected-resource' );
+    }
+
     private function make_unauthorized_response( $data, $http_status = 401, $error_code = null, $error_description = 'The access token is invalid or expired' ) {
         $response = new \WP_REST_Response( $data, $http_status );
 
@@ -1557,7 +1649,7 @@ class Transport {
         }
         if ( $this->is_oauth_available() ) {
             
-            $params[] = 'resource_metadata="' . \home_url( '/.well-known/oauth-protected-resource' ) . '"';
+            $params[] = 'resource_metadata="' . self::resource_metadata_url() . '"';
         }
         $challenge = 'Bearer' . ( $params ? ' ' . implode( ', ', $params ) : '' );
         $response->header( 'WWW-Authenticate', $challenge );

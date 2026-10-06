@@ -61,6 +61,21 @@ class Diagnostic_Result {
     
     private $evidence;
 
+    
+
+
+
+
+    private $measured_at = null;
+
+    
+
+
+
+
+
+    private $group = '';
+
     private function __construct( $id, $status, $tier, $label, $detail = '', $fix = '', array $evidence = array() ) {
         $this->id       = (string) $id;
         $this->status   = $status;
@@ -102,6 +117,22 @@ class Diagnostic_Result {
     public function detail() { return $this->detail; }
     public function fix() { return $this->fix; }
     public function evidence() { return $this->evidence; }
+    public function measured_at(): ?int { return $this->measured_at; }
+    public function group(): string { return $this->group; }
+
+    
+
+
+
+
+
+
+    public function with_measurement( $group, $measured_at ) {
+        $copy              = clone $this;
+        $copy->group       = (string) $group;
+        $copy->measured_at = null === $measured_at ? null : (int) $measured_at;
+        return $copy;
+    }
 
     
 
@@ -185,7 +216,10 @@ class Diagnostic_Result {
             'detail'   => $this->detail,
             'fix'      => $this->fix,
             'evidence' => $this->evidence,
-        );
+        ) + ( '' !== $this->group ? array(
+            'group'       => $this->group,
+            'measured_at' => $this->measured_at,
+        ) : array() );
     }
 
     
@@ -208,7 +242,7 @@ class Diagnostic_Result {
             $tier = self::TIER_INFO;
         }
 
-        return new self(
+        $result = new self(
             isset( $row['id'] ) ? $row['id'] : '',
             $status,
             $tier,
@@ -217,5 +251,13 @@ class Diagnostic_Result {
             isset( $row['fix'] ) ? $row['fix'] : '',
             ( isset( $row['evidence'] ) && is_array( $row['evidence'] ) ) ? $row['evidence'] : array()
         );
+        
+        if ( isset( $row['group'] ) && is_string( $row['group'] ) && '' !== $row['group'] ) {
+            $result = $result->with_measurement(
+                $row['group'],
+                isset( $row['measured_at'] ) && is_numeric( $row['measured_at'] ) && (int) $row['measured_at'] > 0 ? (int) $row['measured_at'] : null
+            );
+        }
+        return $result;
     }
 }

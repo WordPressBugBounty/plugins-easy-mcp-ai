@@ -34,6 +34,7 @@ class Diagnostics_Notices {
 
 
 
+
     const LIVE_CHECK_IDS = array( 'a7', 'a8' );
 
     

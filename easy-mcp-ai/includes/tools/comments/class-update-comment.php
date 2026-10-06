@@ -12,6 +12,7 @@ class Update_Comment extends Base_Tool {
     
     
     
+    
     use Comment_Moderation;
 
     public function get_name() {
@@ -19,7 +20,7 @@ class Update_Comment extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress comment (PATCH semantics). Required: `comment_id`. Optional: `content`, `status` (approve/hold/spam/trash — use "approve" to approve a pending comment, "hold" to return it to moderation, "spam" to mark as spam, "trash" to soft-delete). Returns { id, status }. Use `wp_get_comment` to retrieve the full updated comment. To permanently delete use `wp_delete_comment` with force=true. For moderation alone there are dedicated tools: `wp_approve_comment`, `wp_unapprove_comment`, `wp_spam_comment`, `wp_unspam_comment`, `wp_trash_comment`, `wp_untrash_comment`, `wp_bulk_moderate_comments`, and `wp_reply_to_comment` to reply.';
+        return 'Updates an existing WordPress comment (PATCH semantics). Required: `comment_id`, plus at least one of `content`, `status` (approve/hold/spam/trash — use "approve" to approve a pending comment, "hold" to return it to moderation, "spam" to mark as spam, "trash" to soft-delete). Returns { id, status }. Use `wp_get_comment` to retrieve the full updated comment. To permanently delete use `wp_delete_comment` with force=true. For moderation alone there are dedicated tools: `wp_approve_comment`, `wp_unapprove_comment`, `wp_spam_comment`, `wp_unspam_comment`, `wp_trash_comment`, `wp_untrash_comment`, `wp_bulk_moderate_comments`, and `wp_reply_to_comment` to reply.';
     }
 
     public function get_category() {
@@ -66,18 +67,21 @@ class Update_Comment extends Base_Tool {
 
         $comment_id = $this->parse_required_id( $arguments['comment_id'], 'comment_id' );
 
-        if ( ! isset( $arguments['content'] ) && ! empty( $arguments['status'] ) ) {
-            return $this->update_status_only( $comment_id, (string) $arguments['status'] );
+        
+        $action = self::status_sent( $arguments ) ? $this->comment_status_to_action( (string) $arguments['status'] ) : null;
+
+        if ( ! isset( $arguments['content'] ) ) {
+            if ( null === $action ) {
+                
+                throw new \InvalidArgumentException( 'Nothing to update: pass content or status.' );
+            }
+            return $this->update_status_only( $comment_id, $action );
         }
 
-        $params = array();
+        $params = array( 'content' => wp_kses_post( $arguments['content'] ) );
 
-        if ( isset( $arguments['content'] ) ) {
-            $params['content'] = wp_kses_post( $arguments['content'] );
-        }
-
-        if ( ! empty( $arguments['status'] ) ) {
-            $params['status'] = sanitize_text_field( $arguments['status'] );
+        if ( null !== $action ) {
+            $params['status'] = sanitize_key( $arguments['status'] );
         }
 
         
@@ -118,8 +122,7 @@ class Update_Comment extends Base_Tool {
 
 
 
-    private function update_status_only( $comment_id, $status ) {
-        $action  = $this->status_to_action( $status );
+    private function update_status_only( int $comment_id, string $action ): array {
         $comment = get_comment( $comment_id );
         if ( ! $comment ) {
             throw new \RuntimeException( 'Invalid comment ID.' );
@@ -148,32 +151,5 @@ class Update_Comment extends Base_Tool {
             'id'     => $data['id'],
             'status' => $data['status'],
         );
-    }
-
-    
-
-
-
-
-
-
-
-    private function status_to_action( $status ) {
-        $map = array(
-            'approved' => 'approve',
-            'approve'  => 'approve',
-            '1'        => 'approve',
-            'hold'     => 'unapprove',
-            '0'        => 'unapprove',
-            'spam'     => 'spam',
-            'unspam'   => 'unspam',
-            'trash'    => 'trash',
-            'untrash'  => 'untrash',
-        );
-        $key = sanitize_key( $status );
-        if ( ! isset( $map[ $key ] ) ) {
-            throw new \InvalidArgumentException( sprintf( 'Invalid status: %s. Use approve, hold, spam or trash.', $key ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-        }
-        return $map[ $key ];
     }
 }

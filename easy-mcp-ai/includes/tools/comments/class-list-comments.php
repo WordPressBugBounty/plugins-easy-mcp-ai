@@ -96,7 +96,7 @@ class List_Comments extends Base_Tool {
         }
 
         if ( ! empty( $arguments['status'] ) ) {
-            $params['status'] = $arguments['status'];
+            $params['status'] = $this->list_status( $arguments['status'] );
         }
 
         $params['per_page'] = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
@@ -161,5 +161,23 @@ class List_Comments extends Base_Tool {
             array( 'comments' => $result ),
             $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $comments ) )
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    private function list_status( $status ): string {
+        $key = is_scalar( $status ) ? sanitize_key( (string) $status ) : '';
+        $this->refuse_unless_one_of( 'status', $key, array( 'approve', 'hold', 'spam', 'trash', 'all' ), $status, 'approve, hold, spam, trash or all' );
+        return $key;
     }
 }

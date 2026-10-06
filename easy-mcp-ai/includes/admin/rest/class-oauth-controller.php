@@ -28,6 +28,9 @@
 
 
 
+
+
+
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\Admin\Access_Presets;
@@ -36,6 +39,7 @@ use Easy_MCP_AI\Config;
 use Easy_MCP_AI\OAuth\Client_Registry;
 use Easy_MCP_AI\OAuth\OAuth_Site_Move;
 use Easy_MCP_AI\OAuth\Scope_Map;
+use Easy_MCP_AI\Privileged\Privileged_Groups;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -78,11 +82,10 @@ class OAuth_Controller extends Admin_Rest_Controller {
 
     public function register_routes() {
         $this->register_route( '/oauth/settings', \WP_REST_Server::READABLE, array( $this, 'get_settings' ) );
-        $this->register_route( '/oauth/settings', 'PATCH', array( $this, 'patch_settings' ) );
+        $this->register_route( '/oauth/settings', self::UPDATABLE, array( $this, 'patch_settings' ) );
         $this->register_route( '/oauth/clients', \WP_REST_Server::READABLE, array( $this, 'get_clients' ) );
-        $this->register_route(
+        $this->register_delete_route(
             '/oauth/clients/(?P<id>[A-Za-z0-9_\-]+)',
-            \WP_REST_Server::DELETABLE,
             array( $this, 'delete_client' ),
             array( 'id' => array( 'type' => 'string', 'required' => true ) )
         );
@@ -93,8 +96,8 @@ class OAuth_Controller extends Admin_Rest_Controller {
             array( 'id' => array( 'type' => 'string', 'required' => true ) )
         );
         $this->register_route( '/oauth/grants', \WP_REST_Server::READABLE, array( $this, 'get_grants' ) );
-        $this->register_route( '/oauth/grants/(?P<id>\d+)', \WP_REST_Server::DELETABLE, array( $this, 'delete_grant' ), self::id_args() );
-        $this->register_route( '/oauth/grants/(?P<id>\d+)/scope', 'PATCH', array( $this, 'patch_grant_scope' ), self::id_args() );
+        $this->register_delete_route( '/oauth/grants/(?P<id>\d+)', array( $this, 'delete_grant' ), self::id_args() );
+        $this->register_route( '/oauth/grants/(?P<id>\d+)/scope', self::UPDATABLE, array( $this, 'patch_grant_scope' ), self::id_args() );
         $this->register_route( '/oauth/device', \WP_REST_Server::READABLE, array( $this, 'get_device' ) );
         $this->register_route( '/oauth/site-move/revoke', 'POST', array( $this, 'revoke_site_move' ) );
         $this->register_route( '/oauth/site-move/dismiss', 'POST', array( $this, 'dismiss_site_move' ) );
@@ -448,6 +451,7 @@ class OAuth_Controller extends Admin_Rest_Controller {
         }
 
         $current = self::scope_parts( (string) $row['scope'] );
+        $scopes  = self::with_privileged_scopes( $scopes, $current, $request->get_param( 'privilegedScopes' ), $valid );
         if ( ! self::is_narrower_or_equal( $current, $scopes ) ) {
             return $this->fail(
                 'easy_mcp_ai_scope_widening',
@@ -474,10 +478,40 @@ class OAuth_Controller extends Admin_Rest_Controller {
 
 
 
+
+
+
+
+    public static function with_privileged_scopes( array $scopes, array $current, $keep, array $valid ) {
+        if ( null === $keep ) {
+            $keep = Privileged_Groups::split_scopes( $current )[0];
+        }
+        foreach ( (array) $keep as $scope ) {
+            $scope = is_string( $scope ) ? \sanitize_text_field( $scope ) : '';
+            if ( Privileged_Groups::is_privileged_scope( $scope ) && in_array( $scope, $valid, true ) && ! in_array( $scope, $scopes, true ) ) {
+                $scopes[] = $scope;
+            }
+        }
+        return $scopes;
+    }
+
+    
+
+
+
+
+
+
+
+
+
     public static function is_narrower_or_equal( array $current, array $requested ) {
         self::load_scope_map();
         $current   = Scope_Map::apply_legacy_scope_upgrades( array_values( $current ) );
         $requested = Scope_Map::apply_legacy_scope_upgrades( array_values( $requested ) );
+        
+        
+        
         if ( in_array( self::FULL_SCOPE, $current, true ) ) {
             return true;
         }
@@ -511,7 +545,11 @@ class OAuth_Controller extends Admin_Rest_Controller {
         self::load_scope_map();
         $scope   = (string) ( $row['scope'] ?? '' );
         $parts   = self::scope_parts( $scope );
-        $tools   = Scope_Map::resolve_allowed_tools( $scope );
+        
+        
+        
+        list( $privileged, $ordinary ) = Privileged_Groups::split_scopes( $parts );
+        $tools   = Scope_Map::resolve_allowed_tools( implode( ' ', $ordinary ) );
         $full    = in_array( '*', $tools, true );
         $user_id = (int) ( $row['wp_user_id'] ?? 0 );
 
@@ -527,7 +565,9 @@ class OAuth_Controller extends Admin_Rest_Controller {
             ),
             'scope'        => $scope,
             'scopes'       => $parts,
-            'preset'       => empty( $parts ) ? Access_Presets::CUSTOM : $this->presets->from_allowed_tools( $tools ),
+            
+            'privilegedScopes' => $privileged,
+            'preset'       => empty( $ordinary ) ? Access_Presets::CUSTOM : $this->presets->from_allowed_tools( $tools ),
             'fullAccess'   => $full,
             'toolCount'    => $full ? null : count( $tools ),
             'grantedAt'    => Dashboard_Controller::iso8601( $row['granted_at'] ?? null ),
@@ -833,6 +873,11 @@ class OAuth_Controller extends Admin_Rest_Controller {
     private static function load_scope_map() {
         if ( ! class_exists( '\\Easy_MCP_AI\\OAuth\\Scope_Map' ) ) {
             require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-scope-map.php';
+        }
+        
+        
+        if ( ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/privileged/class-privileged-groups.php';
         }
     }
 

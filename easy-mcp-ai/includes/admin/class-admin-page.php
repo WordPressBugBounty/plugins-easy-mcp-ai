@@ -110,14 +110,7 @@ class Admin_Page {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-diagnostic-result.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-htaccess-auth-rule.php';
 
-        $is_multisite = function_exists( 'is_multisite' ) && \is_multisite();
-        $may_write    = \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::may_write(
-            \current_user_can( 'manage_options' ),
-            $is_multisite,
-            $is_multisite && \is_super_admin(),
-            $is_multisite && \current_user_can( 'manage_network_options' )
-        );
-        if ( ! $may_write ) {
+        if ( ! self::may_write_htaccess() ) {
             return 'auth_rule_refused';
         }
 
@@ -135,6 +128,75 @@ class Admin_Page {
         }
 
         return 'auth_rule_written';
+    }
+
+    
+
+
+
+
+
+    private static function may_write_htaccess(): bool {
+        $is_multisite = function_exists( 'is_multisite' ) && \is_multisite();
+        return \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::may_write(
+            \current_user_can( 'manage_options' ),
+            $is_multisite,
+            $is_multisite && \is_super_admin(),
+            $is_multisite && \current_user_can( 'manage_network_options' )
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function write_plain_routes(): string {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-diagnostic-result.php';
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/diagnostics/class-htaccess-plain-routes.php';
+
+        if ( ! self::may_write_htaccess() ) {
+            return 'plain_routes_refused';
+        }
+        if ( ! self::permalinks_are_plain() || ( function_exists( 'is_multisite' ) && \is_multisite() && ! \is_main_site() ) ) {
+            return 'plain_routes_not_applicable';
+        }
+
+        $path    = \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::htaccess_path();
+        $before  = \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::front_page_status();
+        $written = \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::write(
+            $path,
+            \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::home_root()
+        );
+        if ( ! $written ) {
+            return 'plain_routes_failed';
+        }
+        if ( \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::breaks_site( $before, \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::front_page_status() ) ) {
+            \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::remove( $path );
+            return 'plain_routes_reverted';
+        }
+
+        
+        
+        if ( class_exists( '\Easy_MCP_AI\Diagnostics\Diagnostics' ) ) {
+            \Easy_MCP_AI\Diagnostics\Diagnostics::run( true, \Easy_MCP_AI\Diagnostics\Diagnostics::CONNECTION_GROUPS );
+        }
+
+        return 'plain_routes_written';
     }
 
     

@@ -66,7 +66,194 @@ class Check_Discovery {
             return array( self::unknown( __( 'The discovery test could not run on this site.', 'easy-mcp-ai' ) ) );
         }
 
-        return array( self::evaluate( $mirrors, $roots ) );
+        $result   = self::evaluate( $mirrors, $roots );
+        $mcp_path = null;
+        if ( true === self::root_blocked_verdict( $result ) ) {
+            try {
+                $probes = array();
+                foreach ( self::mcp_path_urls() as $name => $url ) {
+                    $probes[ $name ] = self::probe( $url );
+                }
+                $mcp_path = self::mcp_path_verdict( $probes, \rest_url( 'easy-mcp-ai/v1/mcp' ) );
+            } catch ( \Throwable $e ) {
+                $mcp_path = null;
+            }
+        }
+        self::record( $result, $mcp_path );
+        if ( defined( 'EASY_MCP_AI_PLUGIN_DIR' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-root-fallback.php';
+            $result = self::with_workaround(
+                $result,
+                \Easy_MCP_AI\OAuth\Root_Fallback::mode(),
+                \Easy_MCP_AI\OAuth\Root_Fallback::is_armed(),
+                $mcp_path,
+                '' === (string) \get_option( 'permalink_structure' )
+            );
+        }
+        return array( $result );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function with_workaround( Diagnostic_Result $result, $mode, $armed, $mcp_path, $plain ) {
+        $evidence = (array) $result->evidence();
+        if ( Diagnostic_Result::STATUS_FAIL !== $result->status() || ! isset( $evidence['reason'] ) || 'blocked' !== $evidence['reason'] ) {
+            return $result;
+        }
+
+        if ( 'off' === $mode ) {
+            $evidence['workaround'] = 'off';
+            return Diagnostic_Result::fail(
+                'a10',
+                Diagnostic_Result::TIER_BLOCKER,
+                $result->label(),
+                $result->detail() . ' ' . __( 'This plugin\'s workaround for blocked hosts is switched off on this site (EASY_MCP_AI_OAUTH_ROOT_FALLBACK).', 'easy-mcp-ai' ),
+                $result->fix(),
+                $evidence
+            );
+        }
+
+        if ( ! $armed || $plain || ! is_bool( $mcp_path ) ) {
+            return $result;
+        }
+
+        if ( $mcp_path ) {
+            $evidence['workaround'] = 'mcp_path';
+            return Diagnostic_Result::warn(
+                'a10',
+                Diagnostic_Result::TIER_WARNING,
+                $result->label(),
+                __( 'Your host intercepts /.well-known/, and this plugin is working around it. The sign-in documents at your domain root never reach WordPress, so this plugin points AI clients at copies served under this site\'s AI connection address instead; ChatGPT and Claude connect through them. A client that only looks at the domain root can still fail.', 'easy-mcp-ai' ),
+                __( 'Nothing is needed for ChatGPT or Claude. To make every client work, ask your host to let /.well-known/ reach WordPress, or at least the two addresses starting /.well-known/oauth-. Full instructions: https://easymcpai.com/well-known', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
+
+        $evidence['workaround'] = 'root';
+        return Diagnostic_Result::warn(
+            'a10',
+            Diagnostic_Result::TIER_WARNING,
+            $result->label(),
+            __( 'Your host blocks /.well-known/, and ChatGPT and Codex can\'t connect. The host refuses that path at your domain root and under this site\'s AI connection address, so the sign-in documents never reach WordPress. Claude and most other clients should still connect through this plugin\'s workaround at the site root; ChatGPT and Codex look for the documents only at addresses your host refuses.', 'easy-mcp-ai' ),
+            __( 'Ask your host to let /.well-known/ reach WordPress. A rule that refuses every path containing /. (common in nginx configurations) blocks it too. Full instructions: https://easymcpai.com/well-known', 'easy-mcp-ai' ),
+            $evidence
+        );
+    }
+
+    
+
+
+
+
+
+    public static function mcp_path_urls() {
+        return array(
+            'oauth-protected-resource'   => \rest_url( 'easy-mcp-ai/v1/mcp/.well-known/oauth-protected-resource' ),
+            'oauth-authorization-server' => \rest_url( 'easy-mcp-ai/v1/mcp/.well-known/oauth-authorization-server' ),
+            'openid-configuration'       => \rest_url( 'easy-mcp-ai/v1/mcp/.well-known/openid-configuration' ),
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function mcp_path_verdict( array $probes, $mcp_url ) {
+        foreach ( array_keys( self::mcp_path_urls() ) as $name ) {
+            $probe = isset( $probes[ $name ] ) ? $probes[ $name ] : null;
+            if ( ! is_array( $probe ) || 200 !== (int) $probe['status'] ) {
+                return false;
+            }
+            $data = json_decode( (string) $probe['body'], true );
+            if ( ! is_array( $data ) ) {
+                return false;
+            }
+            $named = 'oauth-protected-resource' === $name
+                ? ( isset( $data['authorization_servers'] ) ? $data['authorization_servers'] : null )
+                : ( isset( $data['issuer'] ) ? array( $data['issuer'] ) : null );
+            if ( array( (string) $mcp_url ) !== $named ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function root_blocked_verdict( Diagnostic_Result $result ): ?bool {
+        $evidence = (array) $result->evidence();
+        $reason   = isset( $evidence['reason'] ) ? $evidence['reason'] : '';
+        if ( 'blocked' === $reason && Diagnostic_Result::STATUS_UNKNOWN !== $result->status() ) {
+            return true;
+        }
+        if ( Diagnostic_Result::STATUS_PASS === $result->status() || 'stale' === $reason || Diagnostic_Result::STATUS_WARN === $result->status() ) {
+            return false;
+        }
+        return null;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function record( Diagnostic_Result $result, $mcp_path = null ): void {
+        $blocked = self::root_blocked_verdict( $result );
+        if ( null === $blocked || ! defined( 'EASY_MCP_AI_PLUGIN_DIR' ) ) {
+            return;
+        }
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-root-fallback.php';
+        \Easy_MCP_AI\OAuth\Root_Fallback::record_root_discovery( $blocked, $mcp_path );
     }
 
     

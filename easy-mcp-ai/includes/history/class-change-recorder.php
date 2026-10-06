@@ -37,10 +37,10 @@ class Change_Recorder {
     private $post_before = array();
 
     
-    private $meta_before = array();
 
-    
-    private $typed_meta_before = array();
+
+
+    private $meta_update = array();
 
     
     private $meta_delete_before = array();
@@ -99,12 +99,54 @@ class Change_Recorder {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+    private $post_content_source_before = array();
+
+    
+
+
+
+
+
+
+
+
+
+    private $inserting_new_post = null;
+
+    
+
+
+
+
+
+
+    private $created_posts = array();
+
+    
+    const TERM_OBJECT_IDS_CAP = 5000;
+
+    
+
+
+
+
     private static $option_allowlist = array(
         'blogname', 'blogdescription', 'admin_email', 'siteurl', 'home',
         'default_category', 'default_comment_status', 'default_ping_status',
         'posts_per_page', 'date_format', 'time_format', 'start_of_week',
         'timezone_string', 'permalink_structure', 'show_on_front', 'page_on_front', 'page_for_posts',
-        'easy_mcp_ai_force_draft_on_create', 'easy_mcp_ai_disabled_tools', 'easy_mcp_ai_allowed_tool_patterns',
+        'easy_mcp_ai_force_draft_on_create', 'easy_mcp_ai_disabled_tools', 'easy_mcp_ai_enabled_tools', 'easy_mcp_ai_allowed_tool_patterns',
     );
 
     
@@ -115,9 +157,12 @@ class Change_Recorder {
 
 
 
+
+
     private static $option_churn_denylist = array(
         '_transient_', '_site_transient_', 'cron', '_wp_session_',
         'action_scheduler_', 'easy_mcp_ai_change_log_', 'easy_mcp_ai_audit_',
+        'easy_mcp_ai_sr_', 'easy_mcp_ai_last_tool_call',
     );
 
     
@@ -266,8 +311,28 @@ class Change_Recorder {
         
         
         $this->track( 'wp_after_insert_post', 'on_wp_after_insert_post', 10, 4 );
-        $this->track( 'before_delete_post', 'on_before_delete_post', 10, 1 );
+        
+        
+        
+        
+        $this->track( 'before_delete_post', 'on_before_delete_post', 1, 1 );
         $this->track( 'deleted_post', 'on_deleted_post', 10, 1 );
+        
+        
+        $this->track( 'wp_insert_post_data', 'on_insert_post_data', 10, 4, true );
+
+        
+        
+        
+        
+        $this->track( 'attachment_updated', 'on_attachment_updated', 10, 3 );
+        $this->track( 'delete_attachment', 'on_delete_attachment', 10, 1 );
+
+        
+        
+        
+        
+        $this->track( 'set_object_terms', 'on_set_object_terms', 10, 6 );
 
         
         $this->track( 'update_post_meta', 'on_update_post_meta', 10, 4 );
@@ -308,7 +373,9 @@ class Change_Recorder {
         $this->track( 'edit_terms', 'on_edit_terms', 10, 2 );
         $this->track( 'edited_term', 'on_edited_term', 10, 3 );
         $this->track( 'pre_delete_term', 'on_pre_delete_term', 10, 2 );
-        $this->track( 'delete_term', 'on_delete_term', 10, 4 );
+        
+        
+        $this->track( 'delete_term', 'on_delete_term', 10, 5 );
 
         
         $this->track( 'user_register', 'on_user_register', 10, 1 );
@@ -516,22 +583,90 @@ class Change_Recorder {
             return;
         }
         $existing = \get_post( $post_id );
+        unset( $this->post_content_source_before[ $post_id ] );
         if ( $existing ) {
             $this->post_before[ $post_id ]              = $this->snapshot_post( $existing );
             $this->post_content_hash_before[ $post_id ] = md5( (string) $existing->post_content );
+            $this->remember_content_before( (int) $post_id, $existing, $data );
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function remember_content_before( $post_id, $existing, $data ) {
+        if ( ! is_array( $data ) || ! array_key_exists( 'post_content', $data ) ) {
+            return;
+        }
+        $old = (string) ( $existing->post_content ?? '' );
+        if ( (string) $data['post_content'] === $old ) {
+            return;
+        }
+        
+        
+        if ( ! $this->revisions_available( $existing ) ) {
+            return;
+        }
+        $revision = $this->latest_saved_revision( $post_id );
+        if ( $revision && isset( $revision->post_content ) && (string) $revision->post_content === $old ) {
+            $this->post_content_source_before[ $post_id ] = array( 'content_revision_id' => (int) $revision->ID );
+            return;
+        }
+        $this->post_content_source_before[ $post_id ] = array( 'post_content' => $old );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function latest_saved_revision( $post_id ) {
+        if ( ! \function_exists( '\wp_get_post_revisions' ) ) {
+            return null;
+        }
+        $revisions = \wp_get_post_revisions( $post_id, array( 'numberposts' => 10 ) );
+        if ( ! is_array( $revisions ) ) {
+            return null;
+        }
+        foreach ( $revisions as $revision ) {
+            if ( \function_exists( '\wp_is_post_autosave' ) && \wp_is_post_autosave( $revision ) ) {
+                continue;
+            }
+            return $revision;
+        }
+        return null;
     }
 
     public function on_save_post( $post_id, $post, $update ) {
         if ( ! Change_Context::is_active() ) {
             return;
         }
+        
+        $this->inserting_new_post = null;
         if ( (int) $post_id <= 0 ) {
             return;
         }
         if ( isset( $post->post_type ) && 'revision' === $post->post_type ) {
             return;
         }
+        $content_source = $this->post_content_source_before[ $post_id ] ?? null;
+        unset( $this->post_content_source_before[ $post_id ] );
         
         
         
@@ -549,6 +684,9 @@ class Change_Recorder {
         $before = isset( $this->post_before[ $post_id ] ) ? $this->post_before[ $post_id ] : null;
         $action = ( $update && $before ) ? 'update' : 'create';
         $changed = $before ? $this->diff_keys( $before, $after ) : array_keys( $after );
+        if ( 'create' === $action ) {
+            $this->created_posts[ $this->call_key() ][ (int) $post_id ] = (string) ( $post->post_type ?? '' );
+        }
 
         
         
@@ -591,6 +729,15 @@ class Change_Recorder {
         
         
         
+
+        
+        
+        
+        if ( 'update' === $action && is_array( $content_source ) && is_array( $before )
+            && in_array( 'post_content', $changed, true )
+        ) {
+            $before = array_merge( $before, $content_source );
+        }
 
         $row_id = $this->write_row( array(
             'action'         => $action,
@@ -664,9 +811,302 @@ class Change_Recorder {
         }
         $existing = \get_post( $post_id );
         if ( $existing ) {
-            $this->post_before[ $post_id ] = $this->snapshot_post( $existing );
+            $snapshot = $this->snapshot_post( $existing );
+            
+            
+            if ( 'revision' !== ( $existing->post_type ?? '' ) ) {
+                $snapshot = array_merge( $snapshot, $this->post_delete_extras( $existing ) );
+            }
+            $this->post_before[ $post_id ] = $snapshot;
         }
     }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private function post_delete_extras( $post ) {
+        $post_id = (int) ( $post->ID ?? 0 );
+        $extras  = array(
+            'post_content'  => (string) ( $post->post_content ?? '' ),
+            'post_date'     => $post->post_date ?? null,
+            'post_date_gmt' => $post->post_date_gmt ?? null,
+            'terms'         => $this->object_term_ids_by_taxonomy( $post ),
+        );
+        if ( 'post' === ( $post->post_type ?? '' ) && \function_exists( '\is_sticky' ) ) {
+            $extras['sticky'] = (bool) \is_sticky( $post_id );
+        }
+        
+        
+        if ( 'trash' === ( $post->post_status ?? '' ) && \function_exists( '\get_post_meta' ) ) {
+            $status = \get_post_meta( $post_id, '_wp_trash_meta_status', true );
+            if ( is_string( $status ) && '' !== $status ) {
+                $extras['status_before_trash'] = $status;
+            }
+        }
+        return $extras;
+    }
+
+    
+
+
+
+
+
+    private function object_term_ids_by_taxonomy( $post ) {
+        if ( ! \function_exists( '\get_object_taxonomies' ) || ! \function_exists( '\wp_get_object_terms' ) ) {
+            return array();
+        }
+        $out = array();
+        foreach ( (array) \get_object_taxonomies( (string) ( $post->post_type ?? '' ) ) as $taxonomy ) {
+            $ids = \wp_get_object_terms( (int) ( $post->ID ?? 0 ), (string) $taxonomy, array( 'fields' => 'ids' ) );
+            
+            if ( is_array( $ids ) && $ids ) {
+                $out[ (string) $taxonomy ] = $this->int_list( $ids );
+            }
+        }
+        return $out;
+    }
+
+    
+    private function int_list( $values ) {
+        $ints = array_values( array_unique( array_map( 'intval', (array) $values ) ) );
+        sort( $ints );
+        return $ints;
+    }
+
+    
+
+
+
+
+    private function call_key() {
+        return (string) Change_Context::get( 'audit_id', '' );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public function on_insert_post_data( $data, $postarr = array(), $unsanitized_postarr = array(), $update = null ) {
+        if ( Change_Context::is_active() ) {
+            $is_update = null === $update ? ! empty( $postarr['ID'] ) : (bool) $update;
+            if ( ! $is_update ) {
+                $this->inserting_new_post = $this->call_key();
+            }
+        }
+        return $data;
+    }
+
+    
+
+
+
+
+
+
+
+
+    public function on_attachment_updated( $post_id, $post_after, $post_before ) {
+        if ( ! Change_Context::is_active() ) {
+            return;
+        }
+        unset(
+            $this->post_before[ $post_id ],
+            $this->post_content_hash_before[ $post_id ],
+            $this->post_content_source_before[ $post_id ]
+        );
+        $before = $this->snapshot_attachment( $post_before );
+        $after  = $this->snapshot_attachment( $post_after );
+        if ( ! $before || ! $after ) {
+            return;
+        }
+        $changed = $this->diff_keys( $before, $after );
+        if ( ! $changed ) {
+            return;
+        }
+        $this->write_row( array(
+            'action'         => 'update',
+            'object_type'    => 'post',
+            'object_id'      => (string) $post_id,
+            'object_subtype' => 'attachment',
+            'before_value'   => $before,
+            'after_value'    => $after,
+            'changed_fields' => $changed,
+        ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public function on_delete_attachment( $post_id ) {
+        if ( ! Change_Context::is_active() ) {
+            return;
+        }
+        $post = \get_post( $post_id );
+        if ( ! $post ) {
+            return;
+        }
+        $snapshot = $this->snapshot_attachment( $post );
+        $snapshot['post_mime_type'] = $post->post_mime_type ?? null;
+        $snapshot['post_date']      = $post->post_date ?? null;
+        $snapshot['post_date_gmt']  = $post->post_date_gmt ?? null;
+        $snapshot['url']            = \function_exists( '\wp_get_attachment_url' ) ? \wp_get_attachment_url( (int) $post_id ) : null;
+        $this->post_before[ $post_id ] = $snapshot;
+    }
+
+    
+
+
+
+
+
+
+
+    private function snapshot_attachment( $post ) {
+        if ( ! is_object( $post ) ) {
+            return null;
+        }
+        return array_merge( $this->snapshot_post( $post ), array( 'post_content' => (string) ( $post->post_content ?? '' ) ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function on_set_object_terms( $object_id, $terms, $tt_ids, $taxonomy, $append = false, $old_tt_ids = array() ) {
+        if ( ! Change_Context::is_active() ) {
+            return;
+        }
+        $object_id = (int) $object_id;
+        $taxonomy  = (string) $taxonomy;
+        $old       = $this->int_list( $old_tt_ids );
+        $new       = $append ? $this->int_list( array_merge( $old, (array) $tt_ids ) ) : $this->int_list( $tt_ids );
+        if ( $old === $new ) {
+            return;
+        }
+        if ( $this->is_new_post_in_this_call( $object_id, $taxonomy, $old ) ) {
+            return;
+        }
+        $this->write_row( array(
+            'action'         => 'update',
+            'object_type'    => 'object_terms',
+            'object_id'      => $object_id . ':' . $taxonomy,
+            'object_subtype' => $taxonomy,
+            'before_value'   => $this->term_set_payload( $old ),
+            'after_value'    => $this->term_set_payload( $new ),
+            'changed_fields' => array( 'term_ids' ),
+        ) );
+    }
+
+    
+
+
+
+
+
+
+
+    private function term_set_payload( array $tt_ids ) {
+        $map        = $this->term_ids_for_tt_ids( $tt_ids );
+        $term_ids   = array();
+        $unresolved = array();
+        foreach ( $tt_ids as $tt_id ) {
+            if ( isset( $map[ $tt_id ] ) ) {
+                $term_ids[] = $map[ $tt_id ];
+            } else {
+                $unresolved[] = $tt_id;
+            }
+        }
+        $payload = array( 'term_ids' => $this->int_list( $term_ids ) );
+        if ( $unresolved ) {
+            $payload['unresolved_term_taxonomy_ids'] = $this->int_list( $unresolved );
+        }
+        return $payload;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private function term_ids_for_tt_ids( array $tt_ids ) {
+        global $wpdb;
+        if ( ! $tt_ids || ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_results' ) || ! method_exists( $wpdb, 'prepare' ) ) {
+            return array();
+        }
+        $placeholders = implode( ',', array_fill( 0, count( $tt_ids ), '%d' ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare -- one %d placeholder per id, generated above; see the docblock for why this is not get_terms().
+        $rows = $wpdb->get_results( $wpdb->prepare( "SELECT term_taxonomy_id, term_id FROM {$wpdb->term_taxonomy} WHERE term_taxonomy_id IN ($placeholders)", $tt_ids ), ARRAY_A );
+        $map  = array();
+        foreach ( (array) $rows as $row ) {
+            if ( isset( $row['term_taxonomy_id'], $row['term_id'] ) ) {
+                $map[ (int) $row['term_taxonomy_id'] ] = (int) $row['term_id'];
+            }
+        }
+        return $map;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function is_new_post_in_this_call( $object_id, $taxonomy, array $old_tt_ids ) {
+        if ( $this->call_key() === $this->inserting_new_post && ! $old_tt_ids && ! isset( $this->post_before[ $object_id ] ) ) {
+            return true;
+        }
+        $post_type = $this->created_posts[ $this->call_key() ][ $object_id ] ?? null;
+        if ( null === $post_type ) {
+            return false;
+        }
+        
+        if ( '' !== $post_type && \function_exists( '\is_object_in_taxonomy' ) ) {
+            return (bool) \is_object_in_taxonomy( $post_type, $taxonomy );
+        }
+        return true;
+    }
+
 
     public function on_deleted_post( $post_id ) {
         if ( ! Change_Context::is_active() ) {
@@ -695,22 +1135,23 @@ class Change_Recorder {
         if ( ! Change_Context::is_active() ) {
             return;
         }
-        $this->meta_before[ $post_id . ':' . $key ] = \get_post_meta( $post_id, $key, true );
+        $this->meta_update_capture( 'post', $post_id, $key, $meta_id );
     }
 
     public function on_updated_post_meta( $meta_id, $post_id, $key, $value ) {
         if ( ! Change_Context::is_active() ) {
             return;
         }
-        $cache_key = $post_id . ':' . $key;
-        $before    = $this->meta_before[ $cache_key ] ?? null;
-        unset( $this->meta_before[ $cache_key ] );
+        $before = $this->meta_update_resolve( 'post', $post_id, $key, $meta_id );
+        if ( null === $before ) {
+            return;
+        }
         $this->write_row( array(
             'action'         => 'update',
             'object_type'    => 'meta',
             'object_id'      => $post_id . ':' . $key,
             'object_subtype' => 'post',
-            'before_value'   => array( 'value' => $before ),
+            'before_value'   => $before,
             'after_value'    => array( 'value' => $value ),
             'changed_fields' => array( 'value' ),
         ) );
@@ -823,13 +1264,13 @@ class Change_Recorder {
     
 
     public function on_update_term_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_before_capture( 'term', $object_id, $key );
+        $this->typed_meta_before_capture( 'term', $object_id, $key, $meta_id );
     }
     public function on_added_term_meta( $meta_id, $object_id, $key, $value ) {
         $this->typed_meta_added( 'term', $object_id, $key, $value );
     }
     public function on_updated_term_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_updated( 'term', $object_id, $key, $value );
+        $this->typed_meta_updated( 'term', $object_id, $key, $value, $meta_id );
     }
     public function on_delete_term_meta( $meta_ids, $object_id, $key, $value ) {
         $this->meta_delete_capture( 'term', $object_id, $key, $value );
@@ -840,13 +1281,13 @@ class Change_Recorder {
     }
 
     public function on_update_user_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_before_capture( 'user', $object_id, $key );
+        $this->typed_meta_before_capture( 'user', $object_id, $key, $meta_id );
     }
     public function on_added_user_meta( $meta_id, $object_id, $key, $value ) {
         $this->typed_meta_added( 'user', $object_id, $key, $value );
     }
     public function on_updated_user_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_updated( 'user', $object_id, $key, $value );
+        $this->typed_meta_updated( 'user', $object_id, $key, $value, $meta_id );
     }
     public function on_delete_user_meta( $meta_ids, $object_id, $key, $value ) {
         $this->meta_delete_capture( 'user', $object_id, $key, $value );
@@ -857,13 +1298,13 @@ class Change_Recorder {
     }
 
     public function on_update_comment_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_before_capture( 'comment', $object_id, $key );
+        $this->typed_meta_before_capture( 'comment', $object_id, $key, $meta_id );
     }
     public function on_added_comment_meta( $meta_id, $object_id, $key, $value ) {
         $this->typed_meta_added( 'comment', $object_id, $key, $value );
     }
     public function on_updated_comment_meta( $meta_id, $object_id, $key, $value ) {
-        $this->typed_meta_updated( 'comment', $object_id, $key, $value );
+        $this->typed_meta_updated( 'comment', $object_id, $key, $value, $meta_id );
     }
     public function on_delete_comment_meta( $meta_ids, $object_id, $key, $value ) {
         $this->meta_delete_capture( 'comment', $object_id, $key, $value );
@@ -889,20 +1330,74 @@ class Change_Recorder {
         return false;
     }
 
-    private function typed_meta_get_current( $kind, $object_id, $key ) {
-        $fn = '\\get_' . $kind . '_meta';
-        if ( ! \function_exists( $fn ) ) {
-            return null;
-        }
-        return $fn( $object_id, $key, true );
-    }
-
     
-    private function typed_meta_before_capture( $kind, $object_id, $key ) {
+    private function typed_meta_before_capture( $kind, $object_id, $key, $meta_id ) {
         if ( ! Change_Context::is_active() || $this->typed_meta_blocked( $kind, $key ) ) {
             return;
         }
-        $this->typed_meta_before[ $kind . ':' . $object_id . ':' . $key ] = $this->typed_meta_get_current( $kind, $object_id, $key );
+        $this->meta_update_capture( $kind, $object_id, $key, $meta_id );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function meta_update_capture( $kind, $object_id, $key, $meta_id ) {
+        $cache_key = $kind . ':' . $object_id . ':' . $key;
+        if ( isset( $this->meta_update[ $cache_key ] ) && ! $this->meta_update[ $cache_key ]['written'] ) {
+            $this->meta_update[ $cache_key ]['ids'][] = (int) $meta_id;
+            return;
+        }
+        $fn  = '\\get_' . $kind . '_meta';
+        $all = \function_exists( $fn ) ? $fn( $object_id, $key, false ) : array();
+        $all = is_array( $all ) ? array_values( $all ) : array();
+        $this->meta_update[ $cache_key ] = array(
+            'before'  => count( $all ) > 1 ? array( 'value' => $all, 'multiple' => true ) : array( 'value' => $all ? $all[0] : null ),
+            'ids'     => array( (int) $meta_id ),
+            'written' => false,
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private function meta_update_resolve( $kind, $object_id, $key, $meta_id ) {
+        $cache_key = $kind . ':' . $object_id . ':' . $key;
+        if ( ! isset( $this->meta_update[ $cache_key ] ) ) {
+            return array( 'value' => null, 'value_unavailable' => 'not captured before the update' );
+        }
+        $first  = ! $this->meta_update[ $cache_key ]['written'];
+        $before = $this->meta_update[ $cache_key ]['before'];
+        $ids    = array_values( array_diff( $this->meta_update[ $cache_key ]['ids'], array( (int) $meta_id ) ) );
+        if ( $ids ) {
+            $this->meta_update[ $cache_key ]['ids']     = $ids;
+            $this->meta_update[ $cache_key ]['written'] = true;
+        } else {
+            unset( $this->meta_update[ $cache_key ] );
+        }
+        return $first ? $before : null;
     }
 
     private function typed_meta_added( $kind, $object_id, $key, $value ) {
@@ -919,19 +1414,20 @@ class Change_Recorder {
         ) );
     }
 
-    private function typed_meta_updated( $kind, $object_id, $key, $value ) {
+    private function typed_meta_updated( $kind, $object_id, $key, $value, $meta_id ) {
         if ( ! Change_Context::is_active() || $this->typed_meta_blocked( $kind, $key ) ) {
             return;
         }
-        $cache_key = $kind . ':' . $object_id . ':' . $key;
-        $before    = $this->typed_meta_before[ $cache_key ] ?? null;
-        unset( $this->typed_meta_before[ $cache_key ] );
+        $before = $this->meta_update_resolve( $kind, $object_id, $key, $meta_id );
+        if ( null === $before ) {
+            return;
+        }
         $this->write_row( array(
             'action'         => 'update',
             'object_type'    => $kind . '_meta',
             'object_id'      => $object_id . ':' . $key,
             'object_subtype' => $kind,
-            'before_value'   => array( 'value' => $before ),
+            'before_value'   => $before,
             'after_value'    => array( 'value' => $value ),
             'changed_fields' => array( 'value' ),
         ) );
@@ -1023,12 +1519,22 @@ class Change_Recorder {
         }
     }
 
-    public function on_delete_term( $term_id, $tt_id, $taxonomy, $deleted_term ) {
+    public function on_delete_term( $term_id, $tt_id, $taxonomy, $deleted_term, $object_ids = array() ) {
         if ( ! Change_Context::is_active() ) {
             return;
         }
         $before = $this->term_before[ $term_id ] ?? ( is_object( $deleted_term ) ? get_object_vars( $deleted_term ) : null );
         unset( $this->term_before[ $term_id ] );
+        
+        
+        if ( is_array( $before ) ) {
+            $ids                  = $this->int_list( $object_ids );
+            $before['object_ids'] = array_slice( $ids, 0, self::TERM_OBJECT_IDS_CAP );
+            if ( count( $ids ) > self::TERM_OBJECT_IDS_CAP ) {
+                $before['object_ids_truncated'] = true;
+                $before['object_ids_total']     = count( $ids );
+            }
+        }
         $this->write_row( array(
             'action'         => 'delete',
             'object_type'    => 'term',
@@ -1195,14 +1701,22 @@ class Change_Recorder {
         if ( ! Change_Context::is_active() ) {
             return;
         }
+        
+        
+        
+        $before = $this->delete_before( $this->snapshot_user_object( $user ) );
+        
+        
+        
+        
+        
+        
+        $before['reassign'] = ( null === $reassign || '' === $reassign ) ? null : (int) $reassign;
         $this->write_row( array(
             'action'       => 'delete',
             'object_type'  => 'user',
             'object_id'    => (string) $user_id,
-            
-            
-            
-            'before_value' => $this->delete_before( $this->snapshot_user_object( $user ) ),
+            'before_value' => $before,
         ) );
     }
 
@@ -1552,12 +2066,19 @@ class Change_Recorder {
         if ( ! is_object( $comment ) ) {
             return null;
         }
+        
+        
+        
+        
         return array(
             'comment_ID'       => $comment->comment_ID       ?? null,
             'comment_post_ID'  => $comment->comment_post_ID  ?? null,
             'comment_author'   => $comment->comment_author   ?? null,
             'comment_content'  => $comment->comment_content  ?? null,
             'comment_approved' => $comment->comment_approved ?? null,
+            'comment_parent'   => $comment->comment_parent   ?? null,
+            'comment_date_gmt' => $comment->comment_date_gmt ?? null,
+            'user_id'          => $comment->user_id          ?? null,
         );
     }
 

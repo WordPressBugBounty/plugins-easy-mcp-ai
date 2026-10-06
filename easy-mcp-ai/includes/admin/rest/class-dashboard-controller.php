@@ -12,6 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+
+
+
 class Dashboard_Controller extends Admin_Rest_Controller {
 
     const WINDOW_DAYS   = 7;
@@ -24,6 +27,9 @@ class Dashboard_Controller extends Admin_Rest_Controller {
 
     
     const RECENT_LIMIT = 3;
+
+    
+    const LAST_CALL_OPTION = 'easy_mcp_ai_last_tool_call';
 
     
     private $db;
@@ -63,15 +69,19 @@ class Dashboard_Controller extends Admin_Rest_Controller {
         $bounds = self::window_bounds( $now );
         $calls  = self::window_bounds( $now, self::CALLS_WINDOW_DAYS );
 
-        $audit_enabled  = (bool) \get_option( 'easy_mcp_ai_audit_log_enabled', true );
-        $change_enabled = (bool) \get_option( 'easy_mcp_ai_change_log_enabled', true );
+        $audit_enabled  = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true );
+        $change_enabled = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true );
 
         $audit_rows  = $audit_enabled ? $this->grouped_audit_rows( $calls ) : array();
         $change_rows = $change_enabled ? $this->grouped_change_rows( $bounds ) : array();
         $tools       = $this->count_enabled_tools();
         $stats       = self::bucket_stats( $audit_rows, $change_rows, $audit_enabled, $change_enabled );
         $stats['registeredTools'] = $tools;
-        $recent      = $audit_enabled ? self::build_recent( $this->recent_audit_rows() ) : array();
+        $recent      = $audit_enabled ? self::build_recent( $this->attach_labels( $this->recent_audit_rows() ) ) : array();
+        $last_call   = self::read_last_call( \get_option( self::LAST_CALL_OPTION, null ) );
+        if ( null !== $last_call ) {
+            $last_call = self::build_last_call( $this->attach_labels( array( $last_call ) )[0] );
+        }
 
         $clients = self::merge_clients( $this->legacy_client_rows( $bounds ), $this->oauth_client_rows( $bounds ) );
 
@@ -95,12 +105,13 @@ class Dashboard_Controller extends Admin_Rest_Controller {
             ),
             'stats'         => $stats,
             'recent'        => $recent,
+            'lastCall'      => $last_call,
             'clients'       => $clients,
             'changes'       => $changes,
             'changesByType' => self::changes_by_type( $change_rows ),
             'attention'     => $attention,
             'access'        => array(
-                'draftMode'    => (bool) \get_option( 'easy_mcp_ai_force_draft_on_create', false ),
+                'draftMode'    => (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ),
                 'tokens'       => (int) $this->token_manager->count_tokens(),
                 'grants'       => $this->count_grants(),
                 'toolsEnabled' => $tools,
@@ -263,7 +274,8 @@ class Dashboard_Controller extends Admin_Rest_Controller {
 
 
 
-    public static function build_recent( array $rows ) {
+
+    public static function build_recent( array $rows ): array {
         $out = array();
         foreach ( $rows as $row ) {
             if ( ! self::is_tool_call( $row['tool_name'] ?? '' ) ) {
@@ -274,12 +286,80 @@ class Dashboard_Controller extends Admin_Rest_Controller {
                 'toolName'  => (string) $row['tool_name'],
                 'status'    => (string) ( $row['result_status'] ?? 'success' ),
                 'createdAt' => self::iso8601( $row['created_at'] ?? null ),
+                'client'    => self::caller( $row ),
             );
             if ( count( $out ) >= self::RECENT_LIMIT ) {
                 break;
             }
         }
         return $out;
+    }
+
+    
+
+
+
+
+
+
+    public static function read_last_call( $stored ): ?array {
+        if ( ! is_array( $stored ) || ! isset( $stored['id'], $stored['at'], $stored['auth_source'] ) ) {
+            return null;
+        }
+        if ( ! is_string( $stored['id'] ) || '' === $stored['id'] || ! is_string( $stored['at'] ) || null === self::iso8601( $stored['at'] ) ) {
+            return null;
+        }
+        if ( ! in_array( $stored['auth_source'], array( 'legacy', 'oauth' ), true ) ) {
+            return null;
+        }
+        
+        $token_id = (int) ( $stored['token_id'] ?? 0 );
+        if ( $token_id < 1 ) {
+            return null;
+        }
+        $client_id = $stored['oauth_client_id'] ?? null;
+        return array(
+            'id'              => $stored['id'],
+            'created_at'      => $stored['at'],
+            'auth_source'     => $stored['auth_source'],
+            'token_id'        => $token_id,
+            'oauth_client_id' => is_string( $client_id ) && '' !== $client_id ? $client_id : null,
+        );
+    }
+
+    
+
+
+
+    public static function build_last_call( array $row ): ?array {
+        $client = self::caller( $row );
+        if ( null === $client ) {
+            return null;
+        }
+        return array(
+            'id'     => (string) $row['id'],
+            'at'     => (string) self::iso8601( $row['created_at'] ),
+            'client' => $client,
+        );
+    }
+
+    
+
+
+
+
+
+
+    public static function caller( array $row ): ?array {
+        
+        $source = $row['auth_source'] ?? null;
+        if ( ! in_array( $source, array( 'legacy', 'oauth' ), true ) || (int) ( $row['token_id'] ?? 0 ) < 1 ) {
+            return null;
+        }
+        return array(
+            'kind' => 'oauth' === $source ? 'oauth' : 'token',
+            'name' => (string) \Easy_MCP_AI\Audit_Log_Repository::credential_label( $row )['label'],
+        );
     }
 
     
@@ -513,10 +593,13 @@ class Dashboard_Controller extends Admin_Rest_Controller {
         if ( ! $this->tool_registry || ! method_exists( $this->tool_registry, 'get_tools_by_category' ) ) {
             return 0;
         }
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+        }
         return self::count_active_tools(
             (array) $this->tool_registry->get_tools_by_category(),
-            (array) \get_option( 'easy_mcp_ai_disabled_tools', array() ),
-            (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() )
+            \Easy_MCP_AI\Tools\Tool_State::off_names( $this->tool_registry ),
+            (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() )
         );
     }
 
@@ -568,13 +651,21 @@ class Dashboard_Controller extends Admin_Rest_Controller {
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin-owned table.
         $rows = $this->db->get_results(
             $this->db->prepare(
-                "SELECT id, tool_name, result_status, created_at FROM `{$table}` WHERE tool_name NOT LIKE %s ORDER BY created_at DESC, id DESC LIMIT %d",
+                "SELECT id, tool_name, result_status, created_at, auth_source, token_id, oauth_client_id FROM `{$table}` WHERE tool_name NOT LIKE %s ORDER BY created_at DESC, id DESC LIMIT %d",
                 '\\_%',
                 self::RECENT_LIMIT * 4
             ),
             ARRAY_A
         );
         return is_array( $rows ) ? $rows : array();
+    }
+
+    
+
+
+
+    private function attach_labels( array $rows ): array {
+        return ( new \Easy_MCP_AI\Audit_Log_Repository() )->attach_labels( $rows );
     }
 
     private function legacy_client_rows( array $b ) {

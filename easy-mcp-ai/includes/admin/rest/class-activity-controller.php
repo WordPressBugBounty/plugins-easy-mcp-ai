@@ -10,10 +10,13 @@
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\History\Change_Log_Repository;
+use Easy_MCP_AI\Rest_Routes\Route_Gate;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+require_once __DIR__ . '/../../rest-routes/class-route-gate.php';
 
 class Activity_Controller extends Admin_Rest_Controller {
 
@@ -245,6 +248,8 @@ class Activity_Controller extends Admin_Rest_Controller {
             'source'       => $credential['source'],
             'user'         => self::user_summary( (int) ( $row['wp_user_id'] ?? 0 ), $row['user_login'] ?? null ),
             'toolName'     => (string) ( $row['tool_name'] ?? '' ),
+            
+            'request'      => is_array( $arguments ) ? Route_Gate::request_summary( (string) ( $row['tool_name'] ?? '' ), $arguments ) : null,
             'changesCount' => (int) $count,
             'arguments'    => $arguments,
             'status'       => 'success' === $status ? 'ok' : $status,

@@ -59,11 +59,30 @@ class Check_Tool_Visibility {
 
 
     public static function run( $registry = null ) {
+        $registry = self::registry( $registry );
         return self::run_with_definitions(
             self::tool_definitions( $registry ),
-            (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() ),
+            self::off_names( $registry ),
             (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() )
         );
+    }
+
+    
+
+
+
+
+
+
+
+    private static function off_names( $registry ) {
+        if ( null === $registry ) {
+            return (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+        }
+        return \Easy_MCP_AI\Tools\Tool_State::off_names( $registry );
     }
 
     
@@ -224,22 +243,15 @@ class Check_Tool_Visibility {
         }
 
         
-        $surviving = $names;
-        if ( ! in_array( '*', $allowed, true ) ) {
-            $surviving = array_values( array_filter( $surviving, static function ( $name ) use ( $allowed ) {
-                if ( in_array( $name, $allowed, true ) ) {
-                    return true;
-                }
-                foreach ( $allowed as $pattern ) {
-                    if ( false !== strpos( (string) $pattern, '*' ) && fnmatch( (string) $pattern, $name ) ) {
-                        return true;
-                    }
-                }
-                return false;
-            } ) );
-            if ( empty( $surviving ) ) {
-                return array( 'visible' => array(), 'zeroed_by' => 'token_allowlist', 'eligible' => 0, 'missing_caps' => array() );
-            }
+        
+        if ( ! class_exists( '\\Easy_MCP_AI\\Auth\\Permission_Guard' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/auth/class-permission-guard.php';
+        }
+        $surviving = array_values( array_filter( $names, static function ( $name ) use ( $allowed ) {
+            return \Easy_MCP_AI\Auth\Permission_Guard::allowlist_permits( $allowed, $name );
+        } ) );
+        if ( empty( $surviving ) ) {
+            return array( 'visible' => array(), 'zeroed_by' => 'token_allowlist', 'eligible' => 0, 'missing_caps' => array() );
         }
 
         
@@ -781,20 +793,25 @@ class Check_Tool_Visibility {
     
 
     
+    private static function registry( $registry ) {
+        if ( null !== $registry ) {
+            return $registry;
+        }
+        if ( ! class_exists( '\Easy_MCP_AI\Tools\Tool_Registry' ) ) {
+            return null;
+        }
+        $registry = new \Easy_MCP_AI\Tools\Tool_Registry();
+        if ( method_exists( $registry, 'auto_discover' ) ) {
+            $registry->auto_discover();
+        }
+        return $registry;
+    }
+
+    
 
 
     private static function tool_definitions( $registry ) {
-        if ( null === $registry ) {
-            if ( ! class_exists( '\Easy_MCP_AI\Tools\Tool_Registry' ) ) {
-                return array();
-            }
-            $registry = new \Easy_MCP_AI\Tools\Tool_Registry();
-            if ( method_exists( $registry, 'auto_discover' ) ) {
-                $registry->auto_discover();
-            }
-        }
-
-        if ( ! method_exists( $registry, 'get_all_definitions' ) ) {
+        if ( null === $registry || ! method_exists( $registry, 'get_all_definitions' ) ) {
             return array();
         }
 

@@ -225,6 +225,12 @@ body.emcp-page {
 	color: var(--emcp-fg-muted);
 }
 
+/* Text a person wrote with line breaks (an agent's feedback report). */
+.emcp-text--pre {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
 .emcp-text--small {
 	font-size: var(--emcp-text-sm);
 }
@@ -594,6 +600,30 @@ body.emcp-page {
 	flex: none;
 	cursor: pointer;
 	accent-color: var(--emcp-ink-900);
+}
+
+/* ── privileged access (GitHub #94): the Full access notice and the Custom label ── */
+
+.emcp-text--danger {
+	display: block;
+	margin-top: 4px;
+	color: var(--emcp-red-700);
+}
+
+.emcp-flag {
+	display: inline-block;
+	margin-inline-start: 6px;
+	padding: 0 6px;
+	border-radius: 999px;
+	font-size: var(--emcp-text-sm);
+	font-weight: 500;
+	line-height: 1.6;
+	vertical-align: baseline;
+}
+
+.emcp-flag--danger {
+	background: var(--emcp-red-100);
+	color: var(--emcp-red-700);
 }
 
 /* ── disclosure ─────────────────────────────────────────────────────── */

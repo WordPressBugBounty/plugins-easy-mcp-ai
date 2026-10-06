@@ -129,6 +129,34 @@ class OAuth_Routes {
         );
 
         
+        
+        
+        
+        
+        
+        
+        
+        
+        foreach ( array(
+            '/mcp/.well-known/oauth-protected-resource'   => 'get_resource_issuer_protected_resource_metadata',
+            '/mcp/.well-known/oauth-authorization-server' => 'get_resource_issuer_metadata',
+            '/mcp/.well-known/openid-configuration'       => 'get_resource_issuer_openid_configuration',
+            '/discovery/openid-configuration'             => 'get_openid_configuration',
+            
+            '/oauth/jwks'                                 => 'get_jwks',
+        ) as $route => $callback ) {
+            register_rest_route(
+                self::NAMESPACE_V1,
+                $route,
+                array(
+                    'methods'             => \WP_REST_Server::READABLE,
+                    'callback'            => array( new Discovery(), $callback ),
+                    'permission_callback' => '__return_true',
+                )
+            );
+        }
+
+        
 
         register_rest_route(
             self::NAMESPACE_V1,

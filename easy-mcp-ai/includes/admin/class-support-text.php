@@ -142,7 +142,7 @@ class Support_Text {
             '',
             \__( 'THINGS THAT ARE USUALLY THE CAUSE, SO CHECK THEM FIRST', 'easy-mcp-ai' ),
             \__( '- Permalinks set to "Plain": WordPress writes no rewrite rules, so /wp-json/ and /.well-known/ return 404 before PHP runs, and OAuth discovery fails even though the endpoint appears to work.', 'easy-mcp-ai' ),
-            \__( '- The Authorization header never reaching PHP: on Apache this needs a RewriteRule that WordPress writes into .htaccess; on FastCGI or PHP-FPM it needs CGIPassAuth On or the nginx equivalent. From outside, a stripped header and a wrong token look like the same 401.', 'easy-mcp-ai' ),
+            \__( '- The Authorization header never reaching PHP: on Apache the RewriteRule WordPress writes into .htaccess passes it, and under FastCGI or PHP-FPM CGIPassAuth On in the server configuration does too; nginx needs the equivalent fastcgi_param. From outside, a stripped header and a wrong token look like the same 401.', 'easy-mcp-ai' ),
             \__( '- A site behind a proxy or CDN that terminates HTTPS: PHP then sees the request as insecure and every OAuth request is refused, while the site is perfectly secure for visitors.', 'easy-mcp-ai' ),
             \__( '- A security or firewall plugin, or a host-level rule, refusing the request before WordPress sees it. This is invisible from inside WordPress, which is what the external test is for.', 'easy-mcp-ai' ),
             \__( '- A token whose permissions, OAuth scope, or WordPress user role leave it able to see no tools at all.', 'easy-mcp-ai' ),
@@ -180,19 +180,30 @@ class Support_Text {
         $ext_count   = count( array_filter( $external ) );
         $ext_total   = count( $external );
 
-        $set_rate_limit       = (int) \get_option( 'easy_mcp_ai_rate_limit_per_minute', 60 );
-        $set_audit_enabled    = (bool) \get_option( 'easy_mcp_ai_audit_log_enabled', true );
-        $set_audit_retention  = (int) \get_option( 'easy_mcp_ai_audit_log_retention', 30 );
-        $set_change_enabled   = (bool) \get_option( 'easy_mcp_ai_change_log_enabled', true );
-        $set_change_retention = (int) \get_option( 'easy_mcp_ai_change_log_retention', 30 );
-        $set_force_draft      = (bool) \get_option( 'easy_mcp_ai_force_draft_on_create', false );
-        $set_max_title        = (int) \get_option( 'easy_mcp_ai_max_title_length', 0 );
+        $set_rate_limit       = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', 60 );
+        $set_audit_enabled    = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true );
+        $set_audit_retention  = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_retention', 30 );
+        $set_change_enabled   = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true );
+        $set_change_retention = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_retention', 30 );
+        $set_force_draft      = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false );
+        $set_max_title        = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_max_title_length', 0 );
         $set_admin_language   = (string) \get_option( 'easy_mcp_ai_admin_language', '' );
-        $set_disabled_tools   = count( (array) \get_option( 'easy_mcp_ai_disabled_tools', array() ) );
-        $set_allowed_patterns = count( (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() ) );
-        $set_oauth_cap        = (string) \get_option( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
-        $set_ext_cap          = (string) \get_option( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
-        $set_ip_entries       = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) \get_option( 'easy_mcp_ai_ip_whitelist', '' ) ) ) );
+        $set_disabled_tools   = count( (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() ) );
+        $set_enabled_tools    = count( (array) \get_option( 'easy_mcp_ai_enabled_tools', array() ) );
+        
+        
+        $set_tool_overrides   = 'Not set';
+        if ( defined( 'EASY_MCP_AI_TOOLS' ) || false !== getenv( 'EASY_MCP_AI_TOOLS' ) ) {
+            if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+                require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+            }
+            $set_tool_overrides = count( \Easy_MCP_AI\Tools\Tool_State::overrides() ) . ' (' . \Easy_MCP_AI\Tools\Tool_State::override_source()
+                . ( \Easy_MCP_AI\Tools\Tool_State::is_strict() ? ', strict' : '' ) . ')';
+        }
+        $set_allowed_patterns = count( (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() ) );
+        $set_oauth_cap        = (string) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_min_capability', 'publish_posts' );
+        $set_ext_cap          = (string) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_external_data_min_capability', 'manage_options' );
+        $set_ip_entries       = array_filter( array_map( 'trim', preg_split( '/\r\n|\r|\n/', (string) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_ip_whitelist', '' ) ) ) );
         $set_ip_count         = count( $set_ip_entries );
         $set_ip_display       = ( 0 === $set_ip_count )
             ? 'None'
@@ -291,6 +302,8 @@ class Support_Text {
             'Max Title Length:      ' . ( 0 === $set_max_title ? '0 (unlimited)' : $set_max_title ),
             'Admin Language:        ' . ( '' === $set_admin_language ? 'Site default' : $set_admin_language ),
             'Disabled Tools:        ' . $set_disabled_tools,
+            'Enabled Tools:         ' . $set_enabled_tools,
+            'Tool Overrides:        ' . $set_tool_overrides,
             'Allowed Tool Patterns: ' . $set_allowed_patterns,
             'OAuth Min Capability:  ' . $set_oauth_cap,
             'External Data Min Cap: ' . $set_ext_cap,

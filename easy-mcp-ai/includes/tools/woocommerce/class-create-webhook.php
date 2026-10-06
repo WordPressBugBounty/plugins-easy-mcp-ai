@@ -60,18 +60,13 @@ class Create_Webhook extends Base_Tool {
                     'enum'        => array( 'active', 'paused', 'disabled' ),
                     'default'     => 'active',
                 ),
-                'api_version'  => array(
-                    'type'        => 'string',
-                    'description' => 'WooCommerce REST API version to use for the webhook payload.',
-                    'enum'        => array( 'v3', 'v2', 'v1', 'wp_api_v2', 'wp_api_v1', 'legacy_v3' ),
-                    'default'     => 'v3',
-                ),
             ),
             'required'   => array( 'name', 'topic', 'delivery_url' ),
         );
     }
 
     public function execute( array $arguments ) {
+        $this->refuse_webhook_api_version( $arguments );
         if ( ! class_exists( 'WooCommerce' ) ) {
             throw new \RuntimeException( 'WooCommerce is not active.' );
         }
@@ -89,9 +84,6 @@ class Create_Webhook extends Base_Tool {
         }
         if ( isset( $arguments['status'] ) ) {
             $params['status'] = sanitize_text_field( $arguments['status'] );
-        }
-        if ( isset( $arguments['api_version'] ) ) {
-            $params['api_version'] = sanitize_text_field( $arguments['api_version'] );
         }
 
         $data = $this->rest_request( 'POST', '/wc/v3/webhooks', $params );

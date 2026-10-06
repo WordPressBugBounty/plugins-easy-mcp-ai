@@ -20,6 +20,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 
+
+
 class Approval_Page {
 
     const QUERY_VAR = 'easy_mcp_ai_approve';
@@ -27,8 +29,12 @@ class Approval_Page {
     
     private $gate;
 
-    public function __construct( Approval_Gate $gate ) {
-        $this->gate = $gate;
+    
+    private $feedback_queue;
+
+    public function __construct( Approval_Gate $gate, ?\Easy_MCP_AI\Feedback\Feedback_Queue $feedback_queue = null ) {
+        $this->gate           = $gate;
+        $this->feedback_queue = $feedback_queue;
     }
 
     
@@ -56,6 +62,11 @@ class Approval_Page {
         $row = $this->gate->get_store()->find( $approval_id );
         if ( ! $row || ! Approval_Gate::row_signature_valid( $row ) ) {
             return $this->page( 404, __( 'Approval not found', 'easy-mcp-ai' ), __( 'This approval does not exist. It may have been cleaned up, or the link was altered.', 'easy-mcp-ai' ) );
+        }
+        
+        
+        if ( self::is_feedback_row( $row ) ) {
+            return $this->handle_feedback( (string) $method, $row, $post );
         }
         if ( (int) $row['wp_user_id'] !== (int) \get_current_user_id() ) {
             return $this->page( 403, __( 'Not your approval', 'easy-mcp-ai' ), __( 'This approval belongs to a different WordPress account. Log in as the user whose AI assistant made the request.', 'easy-mcp-ai' ) );
@@ -90,6 +101,193 @@ class Approval_Page {
             return $this->page( 200, __( 'Approved', 'easy-mcp-ai' ), __( 'Approved. Ask your assistant to run the operation again; it will now execute. This approval can be used once and expires with the request.', 'easy-mcp-ai' ), $row );
         }
         return $this->page( 200, __( 'Denied', 'easy-mcp-ai' ), __( 'Denied. Nothing was changed. Your assistant will be told the operation was refused.', 'easy-mcp-ai' ), $row );
+    }
+
+    
+    private static function is_feedback_row( array $row ): bool {
+        return isset( $row['tool_name'] ) && '_feedback_report' === $row['tool_name'];
+    }
+
+    private function feedback_queue(): \Easy_MCP_AI\Feedback\Feedback_Queue {
+        if ( null === $this->feedback_queue ) {
+            require_once dirname( __DIR__ ) . '/feedback/class-feedback-queue.php';
+            \Easy_MCP_AI\Feedback\Feedback_Queue::load();
+            $this->feedback_queue = new \Easy_MCP_AI\Feedback\Feedback_Queue( $this->gate->get_store(), array( $this->gate, 'now' ) );
+        }
+        return $this->feedback_queue;
+    }
+
+    
+
+
+
+
+
+
+    
+
+
+
+
+    private function handle_feedback( string $method, array $row, array $post ): array {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Feedback\\Feedback_Queue' ) ) {
+            require_once dirname( __DIR__ ) . '/feedback/class-feedback-queue.php';
+        }
+        if ( ! \Easy_MCP_AI\Feedback\Feedback_Queue::may_decide( $row ) ) {
+            return $this->feedback_result( 403, __( 'Not your report', 'easy-mcp-ai' ), __( 'This report was written for a different WordPress account. Log in as the user whose AI assistant wrote it, or as an administrator.', 'easy-mcp-ai' ), 'error' );
+        }
+        if ( Approval_Gate::STATUS_PENDING !== $row['status'] ) {
+            $titles = array(
+                Approval_Gate::STATUS_CONSUMED => array( __( 'Sent', 'easy-mcp-ai' ), 'ok' ),
+                Approval_Gate::STATUS_DENIED   => array( __( 'Report discarded', 'easy-mcp-ai' ), 'info' ),
+                Approval_Gate::STATUS_APPROVED => array( __( 'Report being sent', 'easy-mcp-ai' ), 'info' ),
+            );
+            list( $title, $tone ) = isset( $titles[ $row['status'] ] ) ? $titles[ $row['status'] ] : array( __( 'Report not sent', 'easy-mcp-ai' ), 'warn' );
+            return $this->feedback_result( 200, $title, \Easy_MCP_AI\Feedback\Feedback_Queue::status_sentence( $row ), $tone );
+        }
+        if ( $this->feedback_queue()->is_expired( $row ) ) {
+            return $this->feedback_result( 200, __( 'Report expired', 'easy-mcp-ai' ), __( 'This report expired without being sent.', 'easy-mcp-ai' ), 'warn' );
+        }
+        if ( 'POST' !== strtoupper( $method ) ) {
+            return $this->render_feedback_form( $row );
+        }
+        return $this->handle_feedback_post( $row, $post );
+    }
+
+    
+
+
+
+
+
+
+
+    private function handle_feedback_post( array $row, array $post ): array {
+        $nonce = isset( $post['_wpnonce'] ) ? (string) $post['_wpnonce'] : '';
+        if ( ! \wp_verify_nonce( $nonce, self::nonce_action( $row['approval_id'] ) ) ) {
+            return $this->render_feedback_form( $row, __( 'Security check failed. Please try again.', 'easy-mcp-ai' ), 403 );
+        }
+        $deny = isset( $post['decision'] ) && 'deny' === (string) $post['decision'];
+        $sent = isset( $post['sent'] ) && '1' === (string) $post['sent'];
+        if ( ! $deny && ! $sent ) {
+            return $this->render_feedback_form( $row, __( 'Choose Send or Discard.', 'easy-mcp-ai' ), 400 );
+        }
+        $queue   = $this->feedback_queue();
+        $outcome = $deny
+            ? $queue->deny( $row['approval_id'], \get_current_user_id(), 'link' )
+            : $queue->mark_sent( $row['approval_id'], \get_current_user_id(), 'link' );
+        if ( 'sent' === $outcome['status'] ) {
+            return $this->feedback_result( 200, __( 'Sent', 'easy-mcp-ai' ), $outcome['message'], 'ok' );
+        }
+        if ( 'denied' === $outcome['status'] ) {
+            return $this->feedback_result( 200, __( 'Report discarded', 'easy-mcp-ai' ), $outcome['message'], 'info' );
+        }
+        return $this->feedback_result( 409, __( 'Already decided', 'easy-mcp-ai' ), $outcome['message'], 'warn' );
+    }
+
+    
+
+
+
+
+
+
+
+    private function render_feedback_form( array $row, string $notice = '', int $status = 200 ): array {
+        $id      = $row['approval_id'];
+        $brand   = \Easy_MCP_AI\Config::brand( 'Easy MCP AI' );
+        $payload = \wp_json_encode( \Easy_MCP_AI\Feedback\Feedback_Queue::payload( $row ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES );
+        $meta    = sprintf(
+            /* translators: 1: who queued the report, 2: when it expires, e.g. "in 2 weeks" */
+            __( 'Written by %1$s · Expires %2$s', 'easy-mcp-ai' ),
+            $this->credential_label( $row ),
+            $this->expires_label( $row )
+        );
+
+        $html  = '<form method="post" id="emcp-feedback-form" action="' . \esc_url( Approval_Gate::approve_url( $id ) ) . '">';
+        $html .= '<div class="emcp-body">';
+        if ( '' !== $notice ) {
+            $html .= '<div class="emcp-notice emcp-notice--error">' . \esc_html( $notice ) . '</div>';
+        }
+        $html .= '<p class="emcp-text">' . \esc_html( sprintf(
+            /* translators: %s: the plugin's name */
+            __( 'Your AI assistant ran into something %s cannot do yet and wrote it up for us. New features usually land within 1-2 weeks. Nothing has been sent yet.', 'easy-mcp-ai' ),
+            $brand
+        ) ) . '</p>';
+        $html .= '<div class="emcp-card emcp-card--subtle">';
+        $html .= '<p class="emcp-text emcp-text--pre" data-feedback-report>' . \esc_html( $row['preview'] ) . '</p>';
+        $html .= '<p class="emcp-text emcp-text--small emcp-text--muted" title="' . \esc_attr( $row['expires_at'] . ' UTC' ) . '">' . \esc_html( $meta ) . '</p>';
+        $html .= '</div>';
+        $html .= '<div class="emcp-notice emcp-notice--error" id="emcp-feedback-error" hidden>' . \esc_html__( 'The report could not be sent, so it is still waiting. Please try again in a moment.', 'easy-mcp-ai' ) . '</div>';
+        $html .= '<noscript><div class="emcp-notice emcp-notice--warn">' . \esc_html__( 'Sending needs JavaScript in this browser. Discard works without it.', 'easy-mcp-ai' ) . '</div></noscript>';
+        $html .= '<p class="emcp-text emcp-text--small emcp-text--muted">' . \esc_html( \Easy_MCP_AI\Feedback\Feedback_Queue::privacy_sentence() ) . '</p>';
+        $html .= '<input type="hidden" name="' . \esc_attr( self::QUERY_VAR ) . '" value="' . \esc_attr( $id ) . '">';
+        $html .= '<input type="hidden" name="sent" value="">';
+        $html .= \wp_nonce_field( self::nonce_action( $id ), '_wpnonce', false, false );
+        $html .= '</div>';
+        $html .= '<div class="emcp-footer">';
+        $html .= '<button type="submit" name="decision" value="deny" class="emcp-btn emcp-btn--secondary emcp-btn--lg">' . \esc_html__( 'Discard', 'easy-mcp-ai' ) . '</button>';
+        $html .= '<button type="button" id="emcp-feedback-send" class="emcp-btn emcp-btn--accent emcp-btn--lg">' . \esc_html( \Easy_MCP_AI\Feedback\Feedback_Queue::send_label( \Easy_MCP_AI\Feedback\Feedback_Queue::kind_of( $row ) ) ) . '</button>';
+        $html .= '</div>';
+        $html .= '</form>';
+        $html .= '<script type="application/json" id="emcp-feedback-payload">' . $payload . '</script>';
+        $html .= '<script>' . self::feedback_send_script() . '</script>';
+        /* translators: %s: the plugin's name */
+        return $this->console_page( $status, sprintf( __( 'Send this to the %s team?', 'easy-mcp-ai' ), $brand ), $html );
+    }
+
+    
+
+
+
+
+
+
+    private function feedback_result( int $status, string $title, string $message, string $tone ): array {
+        $html  = '<div class="emcp-body"><div class="emcp-notice emcp-notice--' . \esc_attr( $tone ) . '">';
+        $html .= '<p class="emcp-notice__title">' . \esc_html( $title ) . '</p>';
+        $html .= '<p>' . \esc_html( $message ) . '</p>';
+        $html .= '</div></div>';
+        return $this->console_page( $status, $title, $html );
+    }
+
+    
+
+
+
+
+
+
+
+    private function console_page( int $status, string $title, string $inner ): array {
+        if ( ! class_exists( '\\Easy_MCP_AI\\Console_Styles' ) ) {
+            require_once dirname( __DIR__ ) . '/class-console-styles.php';
+        }
+        $html  = '<!DOCTYPE html><html lang="' . \esc_attr( \get_locale() ) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow">';
+        $html .= '<title>' . \esc_html( $title ) . ' &mdash; ' . \esc_html( \Easy_MCP_AI\Console_Styles::site_label() ) . '</title>';
+        $html .= \Easy_MCP_AI\Console_Styles::inline();
+        $html .= '</head><body class="emcp-page"><div class="emcp-shell emcp-shell--narrow">';
+        $html .= '<div class="emcp-topbar">' . \Easy_MCP_AI\Console_Styles::logo() . '<h1 class="emcp-topbar__title">' . \esc_html( $title ) . '</h1>' . \Easy_MCP_AI\Console_Styles::site_name() . '</div>';
+        $html .= $inner;
+        $html .= '</div>';
+        $html .= '<p class="emcp-pagenote"><span class="emcp-dot"></span>' . \esc_html( \Easy_MCP_AI\Config::brand( __( 'Powered by Easy MCP AI', 'easy-mcp-ai' ) ) ) . '</p>';
+        $html .= '</body></html>';
+        return array( 'status' => $status, 'html' => $html );
+    }
+
+    
+
+
+
+
+    private static function feedback_send_script(): string {
+        $url = \wp_json_encode( \Easy_MCP_AI\Feedback\Feedback_Queue::ENDPOINT, JSON_UNESCAPED_SLASHES );
+        return '(function(){var f=document.getElementById("emcp-feedback-form"),b=document.getElementById("emcp-feedback-send"),e=document.getElementById("emcp-feedback-error");'
+            . 'var p=JSON.parse(document.getElementById("emcp-feedback-payload").textContent);'
+            . 'b.addEventListener("click",function(){b.disabled=true;e.hidden=true;'
+            . 'fetch(' . $url . ',{method:"POST",headers:{"Content-Type":"application/json",Accept:"application/json, */*;q=0.1","Cache-Control":"no-cache"},body:JSON.stringify(p)})'
+            . '.then(function(r){if(!r.ok){throw new Error(String(r.status));}f.elements.sent.value="1";f.submit();})'
+            . '.catch(function(){b.disabled=false;e.hidden=false;});});})();';
     }
 
     public static function nonce_action( $approval_id ) {

@@ -32,7 +32,7 @@ class History_List extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'object_type'     => array( 'type' => 'string', 'description' => 'Filter by object type. Core content: post, term, user, comment, option. Custom fields: meta (post meta), term_meta, user_meta, comment_meta. Network settings: site_option. WooCommerce: wc_product, wc_order. BuddyPress: bp_activity. Raw database capture: db_row (full before/after) and db_sql (statement only). Remote services: external. Free-form string rather than an enum, so a type added in a later release does not break existing callers.' ),
+                'object_type'     => array( 'type' => 'string', 'description' => 'Filter by object type. Core content: post, term, user, comment, option. Term assignments: object_terms (object_id "{post_id}:{taxonomy}", before/after term_ids). Custom fields: meta (post meta), term_meta, user_meta, comment_meta. Network settings: site_option. WooCommerce: wc_product, wc_order. BuddyPress: bp_activity. Raw database capture: db_row (full before/after) and db_sql (statement only). Remote services: external. Free-form string rather than an enum, so a type added in a later release does not break existing callers.' ),
                 'object_id'       => array( 'type' => 'string' ),
                 'tool_name'       => array( 'type' => 'string' ),
                 'wp_user_id'      => array( 'type' => 'integer', 'description' => 'Filter by originating user ID. Non-admin callers cannot filter by another user\'s ID — this is silently overridden with their own user ID.' ),
@@ -80,6 +80,7 @@ class History_List extends Base_Tool {
                 $filters[ $k ] = $args[ $k ];
             }
         }
+        $filters = $this->validate_choice_filters( $filters );
         
         
         
@@ -133,5 +134,37 @@ class History_List extends Base_Tool {
             $items[] = $item;
         }
         return array( 'items' => $items, 'limit' => $limit, 'offset' => $offset, 'count' => count( $items ) );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private function validate_choice_filters( array $filters ): array {
+        $choices = array(
+            'action'      => array( 'create', 'update', 'delete' ),
+            'auth_source' => array( 'legacy', 'oauth' ),
+        );
+        foreach ( $choices as $key => $allowed ) {
+            if ( ! isset( $filters[ $key ] ) ) {
+                continue;
+            }
+            if ( '' === $filters[ $key ] ) {
+                unset( $filters[ $key ] );
+                continue;
+            }
+            $this->refuse_unless_one_of( $key, $filters[ $key ], $allowed, $filters[ $key ], implode( ', ', $allowed ) );
+        }
+        return $filters;
     }
 }

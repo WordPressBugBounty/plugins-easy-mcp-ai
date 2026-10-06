@@ -42,8 +42,9 @@ class Check_Notices {
             );
         }
 
+        $plain = \Easy_MCP_AI\Admin\Admin_Page::permalinks_are_plain();
         return array(
-            self::evaluate_permalinks( \Easy_MCP_AI\Admin\Admin_Page::permalinks_are_plain() ),
+            self::evaluate_permalinks( $plain, $plain && self::plain_routes_in_place() ),
             self::evaluate_oauth_transport( \Easy_MCP_AI\Admin\Admin_Page::oauth_transport_problem() ),
         );
     }
@@ -57,11 +58,33 @@ class Check_Notices {
 
 
 
-    public static function evaluate_permalinks( $are_plain ) {
+
+
+
+
+
+
+
+
+
+
+
+    public static function evaluate_permalinks( $are_plain, $routed = false ) {
         $label = self::permalink_label();
 
         if ( ! $are_plain ) {
             return Diagnostic_Result::pass( 'a7', Diagnostic_Result::TIER_BLOCKER, $label, '', array( 'permalinks_plain' => false ) );
+        }
+
+        if ( $routed ) {
+            return Diagnostic_Result::warn(
+                'a7',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                __( 'Permalinks are set to "Plain". Rules in .htaccess send OAuth discovery and sign-in requests to WordPress anyway; the connection checks measure whether they arrive.', 'easy-mcp-ai' ),
+                __( 'Nothing is required. Choosing any structure other than Plain in Settings → Permalinks is still the simplest setup, and removes these rules.', 'easy-mcp-ai' ),
+                array( 'permalinks_plain' => true, 'plain_routes' => true )
+            );
         }
 
         return Diagnostic_Result::fail(
@@ -72,6 +95,17 @@ class Check_Notices {
             __( 'Open Settings → Permalinks and choose any structure other than Plain — "Post name" is the usual choice — then save. No other change is needed.', 'easy-mcp-ai' ),
             array( 'permalinks_plain' => true )
         );
+    }
+
+    
+
+
+
+
+
+    private static function plain_routes_in_place() {
+        require_once __DIR__ . '/class-htaccess-plain-routes.php';
+        return Htaccess_Plain_Routes::is_in_place();
     }
 
     

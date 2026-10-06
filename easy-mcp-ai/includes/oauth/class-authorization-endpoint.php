@@ -47,6 +47,77 @@ class Authorization_Endpoint {
 
 
 
+    const ISS_SITE     = 'site';
+    const ISS_RESOURCE = 'resource';
+    const ISS_NONE     = 'none';
+
+    
+    const ISS_PARAM = 'easy_mcp_ai_iss';
+
+    
+
+
+    private string $iss_mode = self::ISS_SITE;
+
+    
+
+
+    public function __construct( $iss_mode = self::ISS_SITE ) {
+        $this->iss_mode = self::valid_iss_mode( $iss_mode );
+    }
+
+    
+
+
+
+    public static function valid_iss_mode( $mode ): string {
+        return in_array( $mode, array( self::ISS_SITE, self::ISS_RESOURCE, self::ISS_NONE ), true ) ? $mode : self::ISS_SITE;
+    }
+
+    
+
+
+
+
+
+    public static function issuer_for( $mode ): ?string {
+        if ( self::ISS_NONE === $mode ) {
+            return null;
+        }
+        if ( self::ISS_RESOURCE === $mode ) {
+            return rest_url( self::NAMESPACE_V1 . '/mcp' );
+        }
+        return home_url();
+    }
+
+    
+
+
+
+
+
+
+
+    public static function consent_nonce_action( string $client_id, string $mode ): string {
+        $action = 'easy_mcp_ai_oauth_consent_' . $client_id;
+        return self::ISS_SITE === $mode ? $action : $action . '|' . $mode;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -172,7 +243,16 @@ class Authorization_Endpoint {
         
         $params['scope_sig'] = self::sign_scope( $params['client_id'], $params['scope'] );
         $script_nonce        = wp_create_nonce( 'easy_mcp_ai_consent_script' );
-        $html = Consent_Screen::render( $client, $user, $requested_scope, $params, $script_nonce );
+        
+        
+        $consent_options = array();
+        if ( self::ISS_SITE !== $this->iss_mode ) {
+            $consent_options = array(
+                'form_action'  => home_url( '?easy_mcp_ai_oauth=authorize&' . self::ISS_PARAM . '=' . $this->iss_mode ),
+                'nonce_action' => self::consent_nonce_action( $params['client_id'], $this->iss_mode ),
+            );
+        }
+        $html = Consent_Screen::render( $client, $user, $requested_scope, $params, $script_nonce, $consent_options );
 
         $response = new \WP_REST_Response( $html, 200 );
         $response->header( 'Content-Type', 'text/html; charset=utf-8' );
@@ -229,7 +309,7 @@ class Authorization_Endpoint {
 
         
         $nonce = sanitize_text_field( $request->get_param( '_wpnonce' ) );
-        if ( ! wp_verify_nonce( $nonce, 'easy_mcp_ai_oauth_consent_' . $params['client_id'] ) ) {
+        if ( ! wp_verify_nonce( $nonce, self::consent_nonce_action( $params['client_id'], $this->iss_mode ) ) ) {
             $this->log_authorize_failure( 'nonce_failed', $params );
             return new \WP_Error(
                 'invalid_request',
@@ -291,7 +371,7 @@ class Authorization_Endpoint {
         $args = array(
             'error'             => $error,
             'error_description' => Token_Endpoint::wire_safe_description( $error_description ),
-            'iss'               => home_url(),
+            'iss'               => self::issuer_for( $this->iss_mode ),
         );
         
         
@@ -432,8 +512,16 @@ class Authorization_Endpoint {
 
 
 
+
+
+
+
+
+
     public static function resolve_granted_scope( $requested_scope, $submitted_scopes ) {
-        $all_scopes = Scope_Map::get_all_scopes();
+        
+        
+        $all_scopes = array_values( array_diff( Scope_Map::get_all_scopes(), array( 'mcp' ) ) );
         $submitted  = array();
 
         if ( is_array( $submitted_scopes ) ) {
@@ -783,7 +871,7 @@ class Authorization_Endpoint {
         $error_args = array(
             'error'             => $error->get_error_code(),
             'error_description' => Token_Endpoint::wire_safe_description( $error->get_error_message() ),
-            'iss'               => home_url(),
+            'iss'               => self::issuer_for( $this->iss_mode ),
         );
         
         
@@ -966,7 +1054,7 @@ class Authorization_Endpoint {
         
         $args = array(
             'code' => $code,
-            'iss'  => home_url(),
+            'iss'  => self::issuer_for( $this->iss_mode ),
         );
         if ( '' !== (string) $state ) {
             $args['state'] = $state;
@@ -1007,6 +1095,9 @@ class Authorization_Endpoint {
                 if ( isset( $params[ $key ] ) ) {
                     $filtered[ $key ] = $params[ $key ];
                 }
+            }
+            if ( self::ISS_SITE !== $this->iss_mode ) {
+                $filtered[ self::ISS_PARAM ] = $this->iss_mode;
             }
             if ( ! empty( $filtered ) ) {
                 $base = self::build_query_url( $base, $filtered );

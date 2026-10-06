@@ -38,7 +38,7 @@ class External_Data_Controller extends Admin_Rest_Controller {
             ),
         );
         $this->register_route( '/external-data', \WP_REST_Server::READABLE, array( $this, 'get_all' ) );
-        $this->register_route( '/external-data/(?P<provider>[a-z]+)', 'PATCH', array( $this, 'patch_provider' ), $provider );
+        $this->register_route( '/external-data/(?P<provider>[a-z]+)', self::UPDATABLE, array( $this, 'patch_provider' ), $provider );
         $this->register_route( '/external-data/(?P<provider>[a-z]+)/test', \WP_REST_Server::CREATABLE, array( $this, 'post_test' ), $provider );
         $this->register_route( '/external-data/(?P<provider>[a-z]+)/remove-key', \WP_REST_Server::CREATABLE, array( $this, 'post_remove_key' ), $provider );
         $this->register_route( '/external-data/(?P<provider>[a-z]+)/clear-cache', \WP_REST_Server::CREATABLE, array( $this, 'post_clear_cache' ), $provider );

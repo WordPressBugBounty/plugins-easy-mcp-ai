@@ -88,7 +88,9 @@ class Blocker_Copy {
                     : array(
                         __( 'Your host intercepts /.well-known/', 'easy-mcp-ai' ),
                         __( 'your host intercepts /.well-known/', 'easy-mcp-ai' ),
-                        __( 'Clients can’t read the two sign-in documents at your domain root, so connecting fails at the first step.', 'easy-mcp-ai' ),
+                        isset( $evidence['workaround'] ) && 'off' === $evidence['workaround']
+                            ? __( 'Clients can’t read the two sign-in documents at your domain root, and this plugin’s workaround for blocked hosts is switched off on this site.', 'easy-mcp-ai' )
+                            : __( 'Clients can’t read the two sign-in documents at your domain root, so connecting fails at the first step.', 'easy-mcp-ai' ),
                         __( 'Ask your host to let /.well-known/ reach WordPress, or at least the two addresses starting /.well-known/oauth-. If they won’t, they can place both documents in /.well-known/ as ordinary files, copied from the /wp-json/ address. Full instructions at easymcpai.com/well-known.', 'easy-mcp-ai' ),
                     );
                 break;

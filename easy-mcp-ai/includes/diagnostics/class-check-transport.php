@@ -108,7 +108,7 @@ class Check_Transport {
         if ( 'cgi-fcgi' === $sapi || 'fpm-fcgi' === $sapi ) {
             $detail = sprintf(
                 /* translators: %s: PHP SAPI name. */
-                __( 'Running as %s (FastCGI). If Bearer tokens are being lost, the web server is not forwarding the Authorization header and PHP cannot recover it — on Apache this needs CGIPassAuth On. It cannot be fixed from within WordPress.', 'easy-mcp-ai' ),
+                __( 'Running as %s (FastCGI). If Bearer tokens are being lost, the web server is not handing the Authorization header to PHP, and PHP cannot recover it on its own. On Apache either the .htaccess rewrite WordPress writes or CGIPassAuth On in the server configuration hands it over; on nginx the server configuration needs the equivalent fastcgi_param.', 'easy-mcp-ai' ),
                 $sapi
             );
         } elseif ( 'apache2handler' === $sapi ) {
@@ -125,9 +125,13 @@ class Check_Transport {
     }
 
     
+
+
+
     const FASTCGI_SAPIS = array( 'cgi-fcgi', 'fpm-fcgi' );
 
     
+
 
 
 
@@ -183,34 +187,18 @@ class Check_Transport {
             );
         }
 
-        $is_fastcgi = in_array( strtolower( (string) $sapi ), self::FASTCGI_SAPIS, true );
+        $rule_present = self::has_active_auth_rule( $htaccess );
+
+        
+        if ( in_array( strtolower( (string) $sapi ), self::FASTCGI_SAPIS, true ) ) {
+            return self::evaluate_fastcgi_rule( $label, (string) $sapi, $rule_present );
+        }
 
         
         
         
         
-        if ( self::has_active_auth_rule( $htaccess ) ) {
-            
-            
-            
-            
-            
-            
-            
-            if ( $is_fastcgi ) {
-                return Diagnostic_Result::unknown(
-                    'a3',
-                    Diagnostic_Result::TIER_WARNING,
-                    $label,
-                    sprintf(
-                        /* translators: %s: PHP SAPI name, e.g. "fpm-fcgi". */
-                        __( 'The .htaccess rewrite is present, but this site runs PHP as %s (FastCGI), where that rule is not what delivers the header — CGIPassAuth in the web server configuration is. Whether the header actually arrives cannot be confirmed from here.', 'easy-mcp-ai' ),
-                        (string) $sapi
-                    ),
-                    array( 'rule_present' => true, 'sapi' => (string) $sapi, 'rule_is_mechanism' => false )
-                );
-            }
-
+        if ( $rule_present ) {
             return Diagnostic_Result::pass( 'a3', Diagnostic_Result::TIER_WARNING, $label, '', array( 'rule_present' => true, 'sapi' => (string) $sapi ) );
         }
 
@@ -219,10 +207,44 @@ class Check_Transport {
             Diagnostic_Result::TIER_WARNING,
             $label,
             __( 'The .htaccess rewrite that hands the Authorization header to PHP is missing. Bearer tokens can be dropped before WordPress ever sees them, which looks exactly like an invalid token.', 'easy-mcp-ai' ),
-            $is_fastcgi
-                ? __( 'Open Settings → Permalinks and press Save Changes so WordPress rewrites the rule. Note that on FastCGI the rule alone is not enough: the web server also needs CGIPassAuth On, which only the host can set.', 'easy-mcp-ai' )
-                : __( 'Open Settings → Permalinks and press Save Changes — WordPress rewrites the rule. If .htaccess is not writable, add it manually above the WordPress block.', 'easy-mcp-ai' ),
+            __( 'Open Settings → Permalinks and press Save Changes — WordPress rewrites the rule. If .htaccess is not writable, add it manually above the WordPress block.', 'easy-mcp-ai' ),
             array( 'rule_present' => false, 'sapi' => (string) $sapi )
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function evaluate_fastcgi_rule( string $label, string $sapi, bool $rule_present ): Diagnostic_Result {
+        $detail = $rule_present
+            ? sprintf(
+                /* translators: %s: PHP SAPI name, e.g. "fpm-fcgi". */
+                __( 'The .htaccess rewrite is present. This site runs PHP as %s (FastCGI), where whether this rule delivers the Authorization header depends on how the web server hands requests to PHP, so the file alone cannot confirm the header arrives. The "Login credentials reach WordPress" check measures it on a full Re-run.', 'easy-mcp-ai' ),
+                $sapi
+            )
+            : sprintf(
+                /* translators: %s: PHP SAPI name, e.g. "fpm-fcgi". */
+                __( 'The .htaccess rewrite is not present. This site runs PHP as %s (FastCGI), where the web server can deliver the Authorization header without it (CGIPassAuth On in its configuration), so a missing rule is not a fault on its own. The "Login credentials reach WordPress" check measures it on a full Re-run, and offers to add the rule if the header is lost.', 'easy-mcp-ai' ),
+                $sapi
+            );
+
+        return Diagnostic_Result::unknown(
+            'a3',
+            Diagnostic_Result::TIER_WARNING,
+            $label,
+            $detail,
+            array( 'rule_present' => $rule_present, 'sapi' => $sapi, 'measured_by' => 'a1' )
         );
     }
 

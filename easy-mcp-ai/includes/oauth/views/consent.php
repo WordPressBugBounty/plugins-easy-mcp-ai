@@ -32,6 +32,7 @@
 
 
 
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -152,6 +153,14 @@ require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-console-styles.php';
                         <?php echo esc_html( $copy[0] ); ?>
                     </span>
                     <span class="emcp-text emcp-text--small emcp-text--muted"><?php echo esc_html( $copy[1] ); ?></span>
+                    <?php if ( 'full' === $level && ! empty( $privileged_rows ) ) : ?>
+                    <span class="emcp-text emcp-text--small emcp-text--danger" data-privileged-notice>
+                        <?php
+                        /* translators: %s: comma-separated privileged actions, e.g. "Run PHP code" */
+                        echo esc_html( sprintf( __( 'Includes privileged actions, which can run code, read files on the server or rewrite the database: %s.', 'easy-mcp-ai' ), implode( ', ', array_column( $privileged_rows, 'label' ) ) ) );
+                        ?>
+                    </span>
+                    <?php endif; ?>
                 </span>
             </label>
             <?php endforeach; ?>
@@ -210,6 +219,27 @@ require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-console-styles.php';
                             <?php endif; ?>
                         </td>
                         <?php endforeach; ?>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php
+                    
+                    
+                    
+                    foreach ( $privileged_rows as $privileged_row ) :
+                        $box_scope = $privileged_row['scope'];
+                        if ( ! $ceiling_all && ! in_array( $box_scope, $ceiling, true ) ) {
+                            continue;
+                        }
+                        ?>
+                    <tr data-privileged-row>
+                        <td>
+                            <?php echo esc_html( $privileged_row['label'] ); ?>
+                            <span class="emcp-flag emcp-flag--danger"><?php echo esc_html__( 'Privileged', 'easy-mcp-ai' ); ?></span>
+                        </td>
+                        <td class="emcp-table__toggle" colspan="2">
+                            <input type="checkbox" name="scopes[]" value="<?php echo esc_attr( $box_scope ); ?>" class="scope-checkbox emcp-checkbox"
+                                <?php checked( $ceiling_all || in_array( $box_scope, $checked_scopes, true ) ); ?>>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php // phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound ?>

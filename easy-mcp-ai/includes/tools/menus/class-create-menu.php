@@ -9,12 +9,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Create_Menu extends Base_Tool {
 
+    use Menu_Slug;
+
     public function get_name() {
         return 'wp_create_menu';
     }
 
     public function get_description() {
-        return 'Creates a new WordPress navigation menu (a `nav_menu` taxonomy term). Required: `name` (display name). Optional: `slug` (auto-generated from name if omitted), `description`. Returns { id, name, slug, description }. The new menu has zero items — use `wp_create_menu_item` to add items afterward, then assign the menu to a theme location separately. Creating a menu with a name that already exists is rejected by WordPress core with a `menu_exists` error (HTTP 400) — menu names must be unique. Requires WordPress 5.9+.';
+        return 'Creates a new WordPress navigation menu (a `nav_menu` taxonomy term). Required: `name` (display name). Optional: `slug` (auto-generated from name if omitted; refused when another menu uses it), `description`. Returns { id, name, slug, description }. The new menu has zero items — use `wp_create_menu_item` to add items afterward, then assign the menu to a theme location separately. Creating a menu with a name that already exists is rejected by WordPress core with a `menu_exists` error (HTTP 400) — menu names must be unique. Requires WordPress 5.9+.';
     }
 
     public function get_category() {
@@ -58,12 +60,13 @@ class Create_Menu extends Base_Tool {
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'name' ) );
 
+        
+        
+        $slug = ( isset( $arguments['slug'] ) && '' !== $arguments['slug'] ) ? $this->requested_menu_slug( $arguments['slug'], 0 ) : null;
+
         $request = new \WP_REST_Request( 'POST', '/wp/v2/menus' );
         $request->set_param( 'name', sanitize_text_field( $arguments['name'] ) );
 
-        if ( ! empty( $arguments['slug'] ) ) {
-            $request->set_param( 'slug', sanitize_title( $arguments['slug'] ) );
-        }
         if ( isset( $arguments['description'] ) ) {
             $request->set_param( 'description', sanitize_text_field( $arguments['description'] ) );
         }
@@ -81,6 +84,16 @@ class Create_Menu extends Base_Tool {
         }
 
         $data = $response->get_data();
+
+        if ( null !== $slug ) {
+            try {
+                $data['slug'] = $this->store_menu_slug( (int) $data['id'], $slug );
+            } catch ( \RuntimeException $e ) {
+                
+                wp_delete_nav_menu( (int) $data['id'] );
+                throw new \RuntimeException( 'The menu was not created: ' . $e->getMessage() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+        }
 
         return array(
             'id'          => $data['id'],

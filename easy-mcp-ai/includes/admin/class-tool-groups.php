@@ -55,6 +55,8 @@ class Tool_Groups {
         'history'   => 'Change History',
         'audit'     => 'Audit Log',
         'site_health' => 'Site Health, Cron & Error Log',
+        
+        'rest'      => 'REST Routes (plugins and core)',
         'general'   => 'General',
     );
 
@@ -106,13 +108,18 @@ class Tool_Groups {
         $ability_defs   = array();
         $disabled_tools   = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
         $allowed_patterns = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() );
+        if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+            require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+        }
+        $off_tools = \Easy_MCP_AI\Tools\Tool_State::off_names( $this->tool_registry );
 
         
         
         
-        $is_tool_active = function ( $tool ) use ( $disabled_tools, $allowed_patterns ) {
+        
+        $is_tool_active = function ( $tool ) use ( $off_tools, $allowed_patterns ) {
             $name = $tool['name'];
-            if ( in_array( $name, $disabled_tools, true ) ) {
+            if ( in_array( $name, $off_tools, true ) ) {
                 return false;
             }
             return \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $allowed_patterns );

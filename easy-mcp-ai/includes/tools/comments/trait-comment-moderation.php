@@ -36,7 +36,62 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 
 
+
+
 trait Comment_Moderation {
+
+    
+
+
+
+
+
+
+
+
+    private static $comment_status_actions = array(
+        'approved' => 'approve',
+        'approve'  => 'approve',
+        '1'        => 'approve',
+        'hold'     => 'unapprove',
+        'spam'     => 'spam',
+        'unspam'   => 'unspam',
+        'trash'    => 'trash',
+        'untrash'  => 'untrash',
+    );
+
+    
+
+
+
+
+
+
+
+    protected static function status_sent( array $arguments ): bool {
+        return isset( $arguments['status'] ) && '' !== $arguments['status'];
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function comment_status_to_action( string $status, array $allowed = array() ): string {
+        $key = sanitize_key( $status );
+        if ( ! isset( self::$comment_status_actions[ $key ] ) || ( $allowed && ! in_array( self::$comment_status_actions[ $key ], $allowed, true ) ) ) {
+            throw new \InvalidArgumentException( sprintf( 'Invalid status: %s. Use approve, hold, spam or trash.', $key ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        return self::$comment_status_actions[ $key ];
+    }
 
     
 

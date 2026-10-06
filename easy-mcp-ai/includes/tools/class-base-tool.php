@@ -139,12 +139,36 @@ abstract class Base_Tool {
 
 
 
+    public function is_disabled_by_default() {
+        return false;
+    }
+
+    
+
+
+
+
+
+
+
 
 
 
 
     public function get_approval_policy( array $arguments ) {
         return 'inherit';
+    }
+
+    
+
+
+
+
+
+
+
+    public function is_composite() {
+        return false;
     }
 
     
@@ -229,6 +253,7 @@ abstract class Base_Tool {
     }
 
     
+
 
 
 
@@ -347,6 +372,26 @@ abstract class Base_Tool {
         }
         if ( ! empty( $missing ) ) {
             throw new \InvalidArgumentException( sprintf( 'Missing required parameters: %s', implode( ', ', $missing ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function refuse_unless_one_of( string $label, $checked, array $allowed, $shown, string $hint ): void {
+        if ( ! in_array( $checked, $allowed, true ) ) {
+            throw new \InvalidArgumentException( sprintf( 'Invalid %1$s: %2$s. Use %3$s.', $label, is_scalar( $shown ) ? (string) $shown : gettype( $shown ), $hint ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
     }
 
@@ -787,6 +832,26 @@ abstract class Base_Tool {
         unset( $variation );
 
         return $variations;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    protected function refuse_webhook_api_version( array $arguments ): void {
+        if ( array_key_exists( 'api_version', $arguments ) ) {
+            throw new \InvalidArgumentException( '"api_version" cannot be set: the WooCommerce REST API ignores it. A new webhook gets the /wc/v3 route default and an update keeps the stored version. Send the call again without it.' );
+        }
     }
 
     

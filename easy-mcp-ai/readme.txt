@@ -4,7 +4,7 @@ Tags: mcp, claude, chatgpt, wordpress-mcp, connector
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.0.1
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -225,73 +225,31 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 
 == Changelog ==
 
-= 2.0.1 =
-- Added approval prompts for destructive tool calls, with chat controls or a secure approval page.
-- Fixed admin links, labels, tool counts, and deployment lock messages.
-- Added non-destructive plugin abilities as enabled tools on fresh installs.
-- Fixed BuddyPress message tools rejecting users who take part in private message threads.
-- Improved enabled/total tool counts, moved WordPress abilities to Core, and moved plugin tools to Abilities.
-- Fixed the firewall check to warn when only ClaudeBot is blocked.
+= 2.1.0 =
 - Improved setup by moving AI client connections from the wizard to the dashboard.
-- Fixed event updates dropping unchanged details and venue or organizer creation overwriting existing records.
-- Improved search and Yoast tool results and clarified global style updates.
-- Improved tool replies when WordPress cannot complete a requested change.
+- Added a database search-and-replace tool that previews changes before writing.
+- Added a read-only tool to list, search, outline, and read files under wp-content.
+- Added safe restoration of AI changes from the change history.
+- Added a tool for agents to report bugs and missing features for approval.
+- Added tools that let AI clients find and call REST API routes from other plugins and WordPress core
+- Added temporary links that show unpublished posts, pages, and custom post types without signing in.
+- Added access controls for privileged tools.
+- Fixed the Claude.ai Open Settings link to open the current connectors screen
+- Fixed comment updates that accepted invalid statuses alongside text changes.
+- Fixed comment updates that reported success when they changed nothing.
+- Fixed incorrect Additional CSS results for theme folders that are not installed.
+- Fixed menu creation and renames to preserve custom slugs and existing descriptions.
+- Fixed menu tools to reject slugs WordPress cannot store as requested.
+- Fixed clients rejecting successful actions from bridged plugin abilities
+- Fixed LearnPress abilities failing when called through Easy MCP AI.
+- Fixed diagnostics to keep slower check results and rerun connection checks automatically.
+- Fixed FastCGI diagnostics warning when the Authorization header already reaches WordPress.
+- Improved FastCGI guidance to show both ways to pass authorization headers.
+- Fixed admin saves and deletions on hosts that allow only GET and POST.
+- Added a one-click fix that lets AI clients connect to Apache sites using Plain permalinks.
+- Fixed AI clients failing to sign in on hosts that block /.well-known/ addresses.
 
-= 2.0.0 =
-- New admin experience: a three-step setup (connect a client, verify, try a prompt), a dashboard showing what the AI changed this week, and five clear sections: Dashboard, Connections, Tools, Activity and Settings.
-- Pause all AI access with one switch: clients stay connected, but every tool call is refused until you resume.
-- Pick Read-only, Full access or Custom when approving an AI client or creating a token, instead of ticking tools one by one.
-- 39 new tools (283 in total):
-  - Moderate comments: approve, unapprove, spam, restore, trash, reply and bulk-moderate.
-  - Manage plugins and themes: activate, deactivate, update, switch themes and list available updates.
-  - Check site health: Site Health status, cron events (and run one), the PHP error log and the plugins own diagnostics.
-  - Edit widgets and sidebars on classic themes.
-  - Change theme mods and Additional CSS.
-  - Reorder menu items and set their nesting in one call.
-  - Block themes: edit headers and footers, apply style variations, discover patterns, and read or patch the blocks in a post.
-  - List the terms of any taxonomy and filter media by taxonomy, such as Media Library Organizer folders.
-  - Read and update Yoast SEO for categories and tags, including as an Editor.
-- Self-service API keys: when an admin enables it, eligible users create and revoke their own keys from their profile page.
-- Configure deployments from wp-config.php: every setting can be a constant and shows as locked in the admin. White-label the plugin name, or hide its admin screens or plugin row. [wp-config constants](https://docs.easymcpai.com/wp-config-constants) · [White-label](https://docs.easymcpai.com/white-label-and-hidden-admin)
-- API keys only work on the site that issued them, so a copied database (staging, clone) carries no working keys. A www or https switch keeps them working, and a real domain move takes one Re-bind click per key.
-- After a site address change, see the OAuth grants issued for the old address and revoke them in one click.
-- Optional HMAC hashing for API keys and OAuth credentials, with key rotation.
-- MCP Tasks: WordPress Abilities that declare long-running work return a task the AI client can check on, instead of timing out (MCP 2026-07-28 clients).
-- Term meta accepts arrays and objects.
-- Share anonymous feedback from the admin footer or the Help card.
-- Security: SCF and Meta Box abilities refuse PHP callback names and reserved or invalid slugs.
-- Fixed Rank Math, Yoast, SEOPress and The SEO Framework fields being silently dropped when written through the post meta tool or the post and page tools.
-- Fixed ACF tools missing field groups the user can edit, and reporting success for fields that were not saved.
-- Fixed the Antigravity steps in the plugins connect guide.
-
-= 1.7.18 =
-- Added support for MCP 2026-07-28 while retaining support for earlier MCP clients.
-- Fixed MCP connections blocked by REST security plugins or missing Authorization headers.
-- Fixed API key authentication for MCP clients that use Basic authentication.
-- Improved audit logs with user, credential, client, duration, search, and filters.
-- Added uploads of files from AI clients to the WordPress media library.
-- Added confidential OAuth client support with request body and HTTP Basic secrets.
-- Added device login for MCP clients that cannot open a browser.
-- Add expiration presets to API token creation and editing
-- Fixed cleanup of expired OAuth tokens that were never refreshed or revoked.
-- Fixed client address detection behind configured trusted proxies.
-- Fixed IP whitelist enforcement for OAuth grants.
-
-= 1.7.17 =
-* Easy MCP AI is now part of Themeisle. Your setup keeps working as before, with no action needed.
-
-= 1.7.16 =
-* New: Four new diagnostics find connection problems that sit outside WordPress, on your host, CDN or another plugin.
-* New: Diagnostics warn when a saved copy of your sign-in details no longer matches this site.
-* New: Calls refused before they run are now recorded in the Audit Log.
-* Fixed: Refused and failed sign-in rows in the Audit Log no longer show a green OK.
-* Fixed: Several diagnostics now name the actual cause instead of a generic one.
-
-= 1.7.15 =
-* New: The Ahrefs Domain Rating tool now takes a free Ahrefs APIv3 key, which Ahrefs began requiring.
-* New: Diagnostics now name any ability you switched on that WordPress did not register.
-* Fixed: Diagnostics no longer warns about caching, firewalls or change-tracking when nothing is actually wrong.
-* Fixed: Media and post counts are returned as numbers instead of text.
+[See changelog for all versions](https://easymcpai.com/changelog).
 
 == Upgrade Notice ==
 

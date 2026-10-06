@@ -91,6 +91,8 @@ class Dynamic_Tool_Registrar {
             
             
             
+            
+            
             $raw_output_schema = method_exists( $ability, 'get_output_schema' ) ? $ability->get_output_schema() : null;
             $output_needs_wrap = self::schema_needs_value_wrapper( $raw_output_schema );
             $output_schema     = self::finalize_output_schema( $raw_output_schema );

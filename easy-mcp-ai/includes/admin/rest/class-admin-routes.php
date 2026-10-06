@@ -51,15 +51,18 @@ class Admin_Routes {
             array(
                 'last_run'    => array( $this, 'diagnostics_last_run' ),
                 'deep_run'    => array( $this, 'diagnostics_run_deep' ),
+                'connection_due' => array( $this, 'diagnostics_connection_due' ),
                 'system_info' => array( $this, 'system_info_text' ),
                 'ai_prompt'   => array( $this, 'ai_prompt_text' ),
                 'check_action'    => array( $this, 'diagnostics_check_action' ),
                 'write_auth_rule' => array( $this, 'write_auth_rule' ),
+                'write_plain_routes' => array( $this, 'write_plain_routes' ),
             )
         );
         $status->register_routes();
 
         global $wpdb;
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-audit-log-repository.php';
         $dashboard = new Dashboard_Controller(
             $wpdb,
             new \Easy_MCP_AI\History\Change_Log_Repository(),
@@ -104,6 +107,14 @@ class Admin_Routes {
         require_once __DIR__ . '/class-external-data-controller.php';
         require_once dirname( __DIR__ ) . '/class-external-data-service.php';
         ( new External_Data_Controller( new \Easy_MCP_AI\Admin\External_Data_Service() ) )->register_routes();
+
+        
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/feedback/class-feedback-queue.php';
+        require_once __DIR__ . '/class-feedback-controller.php';
+        ( new Feedback_Controller() )->register_routes();
+        
+        require_once __DIR__ . '/class-rest-namespaces-controller.php';
+        ( new Rest_Namespaces_Controller() )->register_routes();
     }
 
     
@@ -144,10 +155,20 @@ class Admin_Routes {
 
 
 
-    public function diagnostics_run_deep() {
+
+
+
+
+    public function diagnostics_run_deep( $scope = 'all' ) {
         $this->load_diagnostics();
         $this->register_checks();
-        return Diagnostics::run( true );
+        return Diagnostics::run( true, 'connection' === $scope ? Diagnostics::CONNECTION_GROUPS : null );
+    }
+
+    
+    public function diagnostics_connection_due() {
+        $this->load_diagnostics();
+        return Diagnostics::connection_checks_due();
     }
 
     
@@ -157,6 +178,7 @@ class Admin_Routes {
     }
 
     
+
 
 
 
@@ -180,6 +202,19 @@ class Admin_Routes {
                 'block' => \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::block_text(),
             );
         }
+        if ( 'a7' === $result->id() ) {
+            require_once $dir . 'class-htaccess-plain-routes.php';
+            $offer = \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::offer_now();
+            if ( \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::OFFER_NONE === $offer['offer'] ) {
+                return null;
+            }
+            return array(
+                'kind'  => 'plain_routes',
+                'offer' => $offer['offer'],
+                'path'  => (string) $offer['path'],
+                'block' => \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::block_text( \Easy_MCP_AI\Diagnostics\Htaccess_Plain_Routes::home_root() ),
+            );
+        }
         if ( 'a10' === $result->id() ) {
             require_once $dir . 'class-check-discovery.php';
             $documents = array();
@@ -197,6 +232,14 @@ class Admin_Routes {
         $this->load_diagnostics();
         $this->register_checks();
         return \Easy_MCP_AI\Admin\Admin_Page::write_auth_rule();
+    }
+
+    
+    public function write_plain_routes(): string {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/admin/class-admin-page.php';
+        $this->load_diagnostics();
+        $this->register_checks();
+        return \Easy_MCP_AI\Admin\Admin_Page::write_plain_routes();
     }
 
     private function load_diagnostics() {
@@ -234,10 +277,13 @@ class Admin_Routes {
 
         $tools = 0;
         if ( $this->tool_registry && method_exists( $this->tool_registry, 'get_tools_by_category' ) ) {
+            if ( ! class_exists( '\\Easy_MCP_AI\\Tools\\Tool_State' ) ) {
+                require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/class-tool-state.php';
+            }
             $tools = Dashboard_Controller::count_active_tools(
                 (array) $this->tool_registry->get_tools_by_category(),
-                (array) \get_option( 'easy_mcp_ai_disabled_tools', array() ),
-                (array) \get_option( 'easy_mcp_ai_allowed_tool_patterns', array() )
+                \Easy_MCP_AI\Tools\Tool_State::off_names( $this->tool_registry ),
+                (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() )
             );
         }
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name, no user input

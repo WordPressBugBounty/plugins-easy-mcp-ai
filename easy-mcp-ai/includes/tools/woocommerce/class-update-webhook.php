@@ -14,7 +14,7 @@ class Update_Webhook extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce webhook (PATCH semantics). Required: `id`. Optional: `name`, `delivery_url` (URL that receives the payload), `topic` (e.g. order.created/product.updated/customer.created), `status` (active/paused/disabled — use "paused" to temporarily stop deliveries without deleting). `api_version` is accepted but has NO effect: WooCommerce never reads it from an update request — it is set once at creation from the store default — so sending it is silently discarded. Returns { id, name, topic, delivery_url, status }. Use `wp_wc_list_webhooks` to find the ID. Requires WooCommerce active.';
+        return 'Updates a WooCommerce webhook (PATCH semantics). Required: `id`. Optional: `name`, `delivery_url` (URL that receives the payload), `topic` (e.g. order.created/product.updated/customer.created), `status` (active/paused/disabled — use "paused" to temporarily stop deliveries without deleting). `api_version` is refused: the WooCommerce REST API ignores it, and an update keeps the stored version. Returns { id, name, topic, delivery_url, status }. Use `wp_wc_list_webhooks` to find the ID. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -59,17 +59,13 @@ class Update_Webhook extends Base_Tool {
                     'description' => 'Webhook status.',
                     'enum'        => array( 'active', 'paused', 'disabled' ),
                 ),
-                'api_version'  => array(
-                    'type'        => 'string',
-                    'description' => 'WooCommerce REST API version to use for the webhook payload.',
-                    'enum'        => array( 'v3', 'v2', 'v1', 'wp_api_v2', 'wp_api_v1', 'legacy_v3' ),
-                ),
             ),
             'required'   => array( 'id' ),
         );
     }
 
     public function execute( array $arguments ) {
+        $this->refuse_webhook_api_version( $arguments );
         if ( ! class_exists( 'WooCommerce' ) ) {
             throw new \RuntimeException( 'WooCommerce is not active.' );
         }
@@ -89,9 +85,6 @@ class Update_Webhook extends Base_Tool {
         }
         if ( isset( $arguments['status'] ) ) {
             $params['status'] = sanitize_text_field( $arguments['status'] );
-        }
-        if ( isset( $arguments['api_version'] ) ) {
-            $params['api_version'] = sanitize_text_field( $arguments['api_version'] );
         }
 
         $data = $this->rest_request( 'PUT', '/wc/v3/webhooks/' . $id, $params );

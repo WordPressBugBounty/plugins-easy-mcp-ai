@@ -9,6 +9,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Create_Comment extends Base_Tool {
 
+    
+    
+    use Comment_Moderation;
+
     public function get_name() {
         return 'wp_create_comment';
     }
@@ -67,6 +71,13 @@ class Create_Comment extends Base_Tool {
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'post', 'content' ) );
 
+        
+        
+        $status = self::status_sent( $arguments ) ? (string) $arguments['status'] : null;
+        if ( null !== $status ) {
+            $this->comment_status_to_action( $status, array( 'approve', 'unapprove', 'spam', 'trash' ) );
+        }
+
         $params = array(
             'post'    => absint( $arguments['post'] ),
             'content' => wp_kses_post( $arguments['content'] ),
@@ -80,8 +91,8 @@ class Create_Comment extends Base_Tool {
             $params['author_email'] = sanitize_email( $arguments['author_email'] );
         }
 
-        if ( ! empty( $arguments['status'] ) ) {
-            $params['status'] = sanitize_text_field( $arguments['status'] );
+        if ( null !== $status ) {
+            $params['status'] = sanitize_key( $status );
         }
 
         $data = $this->rest_request( 'POST', '/wp/v2/comments', $params );

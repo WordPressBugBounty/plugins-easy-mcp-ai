@@ -211,6 +211,18 @@ class Plugin_Integration_Registry {
                     array( 'name' => 'wp_tsf_update_post_seo', 'description' => 'Update The SEO Framework meta on a post: title, description, robots, OG/Twitter fields.', 'type' => 'write', 'api' => 'php' ),
                 ),
             ),
+            
+            
+            
+            array(
+                'slug'        => 'learnpress',
+                'name'        => 'LearnPress',
+                'description' => 'Lets LearnPress\'s own abilities (courses, lessons, quizzes, enrollments) run with your Easy MCP key or connection, whether or not LearnPress\'s own MCP setting is on. LearnPress allows them to administrators only by default. Without it, LearnPress accepts them only through its own MCP endpoint and key. Choose which LearnPress abilities are available in the Learnpress group on this tab.',
+                'status'      => 'stable',
+                'requires'    => 'LearnPress must be active.',
+                'detector'    => 'class:LearnPress',
+                'tools'       => array(),
+            ),
         );
     }
 

@@ -47,6 +47,12 @@ class Approval_Gate {
     const FORM_PROTOCOL = '2026-07-28';
     
     const META_KEY = 'easy-mcp-ai/approval';
+    
+
+
+
+
+    const PREVIEW_MAX = 2000;
 
     const STATUS_PENDING  = 'pending';
     const STATUS_APPROVED = 'approved';
@@ -85,23 +91,167 @@ class Approval_Gate {
 
 
 
-    public static function matches_any( $tool_name, array $patterns ) {
+
+
+
+
+
+
+    public static function matches_any( $tool_name, array $patterns, ?string $route = null ) {
         foreach ( $patterns as $pattern ) {
-            $pattern = trim( (string) $pattern );
-            if ( '' === $pattern ) {
+            $pattern       = trim( (string) $pattern );
+            $route_pattern = null;
+            
+            
+            
+            
+            if ( 1 === preg_match( '/^(\S+)\s+(\S+)$/', $pattern, $parts ) ) {
+                $pattern       = $parts[1];
+                $route_pattern = strtolower( $parts[2] );
+            }
+            if ( '' === $pattern || ! self::name_matches( $pattern, (string) $tool_name ) ) {
                 continue;
             }
-            if ( false === strpos( $pattern, '*' ) && false === strpos( $pattern, '?' ) ) {
-                if ( $pattern === $tool_name ) {
-                    return true;
-                }
-                continue;
+            if ( null === $route_pattern ) {
+                return true;
             }
-            if ( fnmatch( $pattern, $tool_name ) ) {
+            if ( is_string( $route ) && self::route_glob_matches( $route_pattern, strtolower( $route ) ) ) {
                 return true;
             }
         }
         return false;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private static function route_glob_matches( string $glob, string $route ): bool {
+        
+        
+        $regex = self::route_glob_regex( $glob );
+        return null !== $regex && 1 === @preg_match( '#^' . $regex . '$#', $route ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a malformed stored entry matches nothing.
+    }
+
+    
+
+
+
+
+
+
+    private static function route_glob_regex( string $glob ): ?string {
+        $regex  = '';
+        $length = strlen( $glob );
+        for ( $i = 0; $i < $length; $i++ ) {
+            $char  = $glob[ $i ];
+            $close = false;
+            if ( '{' === $char ) {
+                $close = strpos( $glob, '}', $i + 1 );
+            } elseif ( '[' === $char ) {
+                $close = self::class_end( $glob, $i );
+            }
+            if ( '*' === $char ) {
+                $regex .= '.*';
+            } elseif ( '?' === $char ) {
+                $regex .= '.';
+            } elseif ( '{' === $char && false !== $close ) {
+                $regex = self::with_placeholder( $regex, '?' === $glob[ $close - 1 ] );
+                $i     = $close;
+            } elseif ( '[' === $char && false !== $close ) {
+                $members = substr( $glob, $i + 1, $close - $i - 1 );
+                
+                
+                
+                if ( 1 === preg_match( '/\[[.=:]/', $members ) ) {
+                    return null;
+                }
+                $regex .= self::class_regex( $members );
+                $i      = $close;
+            } else {
+                $regex .= preg_quote( $char, '#' );
+            }
+        }
+        return $regex;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function with_placeholder( string $regex, bool $optional ): string {
+        if ( ! $optional ) {
+            return $regex . '[^/]+';
+        }
+        if ( '/' === substr( $regex, -1 ) ) {
+            return substr( $regex, 0, -1 ) . '(?:/[^/]*)?';
+        }
+        return $regex . '[^/]*';
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function class_end( string $glob, int $start ) {
+        $from = $start + 1;
+        if ( isset( $glob[ $from ] ) && ( '!' === $glob[ $from ] || '^' === $glob[ $from ] ) ) {
+            ++$from;
+        }
+        if ( isset( $glob[ $from ] ) && ']' === $glob[ $from ] ) {
+            ++$from;
+        }
+        return strpos( $glob, ']', $from );
+    }
+
+    
+
+
+
+
+
+
+    private static function class_regex( string $members ): string {
+        $negate = '' !== $members && ( '!' === $members[0] || '^' === $members[0] );
+        if ( $negate ) {
+            $members = substr( $members, 1 );
+        }
+        $out  = '';
+        $last = strlen( $members ) - 1;
+        for ( $i = 0; $i <= $last; $i++ ) {
+            $out .= ( '-' === $members[ $i ] && $i > 0 && $i < $last ) ? '-' : preg_quote( $members[ $i ], '#' );
+        }
+        return '[' . ( $negate ? '^' : '' ) . $out . ']';
+    }
+
+    
+
+
+
+
+
+
+    private static function name_matches( string $pattern, string $tool_name ): bool {
+        if ( false === strpos( $pattern, '*' ) && false === strpos( $pattern, '?' ) ) {
+            return $pattern === $tool_name;
+        }
+        return fnmatch( $pattern, $tool_name );
     }
 
     
@@ -131,10 +281,11 @@ class Approval_Gate {
         if ( ! self::enabled() ) {
             return false;
         }
-        if ( self::matches_any( $tool_name, (array) \Easy_MCP_AI\Config::get( 'approval_always' ) ) ) {
+        $route = method_exists( $tool, 'approval_route' ) ? $tool->approval_route( $arguments ) : null;
+        if ( self::matches_any( $tool_name, (array) \Easy_MCP_AI\Config::get( 'approval_always' ), $route ) ) {
             $required = true;
             $reason   = 'always';
-        } elseif ( self::matches_any( $tool_name, (array) \Easy_MCP_AI\Config::get( 'approval_never' ) ) ) {
+        } elseif ( self::matches_any( $tool_name, (array) \Easy_MCP_AI\Config::get( 'approval_never' ), $route ) ) {
             $required = false;
             $reason   = 'never';
         } else {
@@ -201,6 +352,15 @@ class Approval_Gate {
         }
         if ( $this->is_unattended( $identity ) ) {
             return array( 'kind' => 'run' );
+        }
+        
+        
+        
+        if ( method_exists( $tool, 'approval_refusal' ) ) {
+            $refusal = $tool->approval_refusal( $arguments );
+            if ( is_string( $refusal ) && '' !== $refusal ) {
+                return array( 'kind' => 'refused', 'reason' => 'preview', 'message' => $refusal );
+            }
         }
         $tool_name = $tool->get_name();
         $hash      = self::args_hash( $tool_name, $arguments );
@@ -614,11 +774,16 @@ class Approval_Gate {
         if ( '' === trim( $text ) ) {
             $text = Base_Tool::generic_description( $tool, $arguments );
         }
-        $text = trim( preg_replace( '/\s+/', ' ', $text ) );
+        $text = self::flatten( $text );
         if ( function_exists( 'mb_substr' ) ) {
-            return mb_substr( $text, 0, 2000 );
+            return mb_substr( $text, 0, self::PREVIEW_MAX );
         }
-        return substr( $text, 0, 2000 );
+        return substr( $text, 0, self::PREVIEW_MAX );
+    }
+
+    
+    public static function flatten( $text ) {
+        return trim( (string) preg_replace( '/\s+/', ' ', (string) $text ) );
     }
 
     

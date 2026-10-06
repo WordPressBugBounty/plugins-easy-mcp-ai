@@ -4,11 +4,14 @@ namespace Easy_MCP_AI\MCP;
 use Easy_MCP_AI\Auth\Token_Manager;
 use Easy_MCP_AI\Auth\Permission_Guard;
 use Easy_MCP_AI\Tools\Tool_Registry;
+use Easy_MCP_AI\Tools\Tool_State;
 use Easy_MCP_AI\Resources\Resource_Registry;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+require_once __DIR__ . '/class-option-guard.php';
 
 class Server {
     const PROTOCOL_VERSION = '2026-07-28';
@@ -61,7 +64,6 @@ class Server {
     private $token_manager;
     private $session_manager;
     private $permission_guard;
-    private $disabled_tools;
     private $audit_log_enabled;
     private $allowed_tool_patterns;
     private $last_negotiated_version;
@@ -72,6 +74,11 @@ class Server {
     private $request_auth_source = null;
     private $request_wp_user_id  = 0;
     private $request_client_id   = null;
+    
+    private $request_scope       = null;
+    
+    
+    private $scope_challenge     = null;
 
     
     
@@ -85,6 +92,9 @@ class Server {
     private $approval_mode       = null;
     
     private $last_approval       = array( 'kind' => 'run', 'approval_id' => null );
+    
+    
+    private $last_audit_id       = null;
 
     
     
@@ -92,6 +102,9 @@ class Server {
     private $approval_gate       = null;
     private $request_client_caps = null;
     private $request_client_protocol = null;
+
+    
+    private $feedback_queue      = null;
 
     
 
@@ -110,43 +123,125 @@ class Server {
         $this->token_manager     = $token_manager;
         $this->session_manager   = new Session();
         $this->permission_guard  = new Permission_Guard( $token_manager );
-        $this->disabled_tools       = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() );
         $this->audit_log_enabled    = (bool)  \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true );
         $this->allowed_tool_patterns = (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_allowed_tool_patterns', array() );
 
-        
-        
-        register_shutdown_function( function () {
-            
-            
-            
-            if ( class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ) {
-                \Easy_MCP_AI\Compat\Compat_Registry::release( 0 );
-            }
-            $err = error_get_last();
-            if ( ! $err ) { return; }
-            if ( ! in_array( $err['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR ), true ) ) {
-                return;
-            }
-            if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) { return; }
-            if ( ! \Easy_MCP_AI\History\Change_Context::is_active() ) { return; }
-            $audit_id = \Easy_MCP_AI\History\Change_Context::get( 'audit_id' );
-            if ( $audit_id ) {
-                $this->update_audit_status( (int) $audit_id, 'error' );
-            }
-        } );
+        register_shutdown_function( array( $this, 'finalise_interrupted_calls' ) );
     }
 
-    public function set_request_identity( $auth_source, $wp_user_id, $client_id = null ) {
+    
+
+
+
+
+
+
+
+    private $in_flight = array();
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function finalise_interrupted_calls() {
+        
+        
+        
+        
+        if ( class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ) {
+            \Easy_MCP_AI\Compat\Compat_Registry::release( 0 );
+        }
+        if ( empty( $this->in_flight ) ) {
+            return;
+        }
+        $unfinished      = $this->in_flight;
+        $this->in_flight = array();
+        foreach ( $unfinished as $audit_id ) {
+            $this->update_audit_status( (int) $audit_id, 'error' );
+        }
+        if ( ! class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) || ! \Easy_MCP_AI\History\Change_Context::is_active() ) {
+            return;
+        }
+        try {
+            \do_action( 'easy_mcp_ai_change_context_disarming' );
+        } catch ( \Throwable $ignored ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+            
+        } finally {
+            \Easy_MCP_AI\History\Change_Context::clear();
+        }
+    }
+
+    
+
+
+
+
+
+    public function set_request_identity( $auth_source, $wp_user_id, $client_id = null, $scope = null ) {
         $this->request_auth_source = $auth_source;
         $this->request_wp_user_id  = (int) $wp_user_id;
         $this->request_client_id   = $client_id;
+        $this->request_scope       = is_string( $scope ) ? $scope : null;
     }
 
     public function clear_request_identity() {
         $this->request_auth_source = null;
         $this->request_wp_user_id  = 0;
         $this->request_client_id   = null;
+        $this->request_scope       = null;
+    }
+
+    
+
+
+
+
+
+
+    public function take_scope_challenge() {
+        $challenge             = $this->scope_challenge;
+        $this->scope_challenge = null;
+        return $challenge;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+    private function privileged_scope_challenge( $tool_name ) {
+        if ( 'oauth' !== $this->request_auth_source || ! class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' ) ) {
+            return null;
+        }
+        $group = \Easy_MCP_AI\Privileged\Privileged_Groups::group_of_tool( $tool_name );
+        $tool  = null === $group ? null : $this->tool_registry->get_tool( $tool_name );
+        if ( ! $tool || ! Tool_State::is_enabled( $tool ) || ! \current_user_can( $tool->get_required_capability() ) ) {
+            return null;
+        }
+        $scopes   = preg_split( '/\s+/', trim( (string) $this->request_scope ), -1, PREG_SPLIT_NO_EMPTY );
+        $scopes[] = \Easy_MCP_AI\Privileged\Privileged_Groups::scope_for_group( $group );
+        return implode( ' ', array_values( array_unique( $scopes ) ) );
     }
 
     
@@ -215,6 +310,11 @@ class Server {
 
     public function set_approval_gate( $gate ) {
         $this->approval_gate = $gate;
+    }
+
+    
+    public function set_feedback_queue( ?\Easy_MCP_AI\Feedback\Feedback_Queue $queue ): void {
+        $this->feedback_queue = $queue;
     }
 
     
@@ -309,6 +409,58 @@ class Server {
     }
 
     
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function call_as_current_caller( string $tool_name, array $arguments, $approval = null ): ?array {
+        if ( null === self::$active_call ) {
+            return null;
+        }
+        $server                = self::$active_call['server'];
+        $server->last_audit_id = null;
+        $response              = $server->call_tool_internal(
+            'composite-' . $tool_name,
+            $tool_name,
+            $arguments,
+            self::$active_call['token_id'],
+            self::$active_call['allowed_tools'],
+            true,
+            'skip' === $approval ? 'skip' : null
+        );
+        return array(
+            'response' => $response,
+            'approval' => $server->get_last_approval(),
+            'audit_id' => $server->last_audit_id,
+        );
+    }
+
+    
+
+
+
+    public static function current_call_approval_kind(): ?string {
+        if ( null === self::$active_call ) {
+            return null;
+        }
+        return isset( self::$active_call['approval_kind'] ) ? (string) self::$active_call['approval_kind'] : null;
+    }
+
+    
     public function audit_task_event( $token_id, $event, array $details ) {
         $audit_id = $this->log_tool_call( $token_id, $event, $details, 'success' );
         return (int) $audit_id;
@@ -388,7 +540,7 @@ class Server {
                     'resources'  => new \stdClass(),
                     'extensions' => array( 'io.modelcontextprotocol/tasks' => new \stdClass() ),
                 ),
-                'instructions' => 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.',
+                'instructions' => $this->instructions( $token_id ),
             ) );
         } elseif ( in_array( $method, array( 'tasks/get', 'tasks/update', 'tasks/cancel' ), true ) ) {
             $response = $this->handle_task_method( $id, $method, isset( $message['params'] ) ? $message['params'] : array(), $token_id, $allowed_tools );
@@ -574,8 +726,36 @@ class Server {
                 'resources' => new \stdClass(),
             ),
             'serverInfo'      => array( 'name' => self::SERVER_NAME, 'version' => EASY_MCP_AI_VERSION ),
-            'instructions'    => 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.',
+            'instructions'    => $this->instructions( $token_id ),
         ) );
+    }
+
+    
+    const INSTRUCTIONS = 'WordPress MCP Server. Use tools to manage posts, pages, media, comments, users, and site settings. Use resources to read site information.';
+
+    
+
+
+
+
+
+
+
+
+    private function instructions( $token_id ): string {
+        if ( null === $token_id || \Easy_MCP_AI\Config::is_white_labelled() || ! Tool_State::resolve( 'wp_send_feedback', false )[0] ) {
+            return self::INSTRUCTIONS;
+        }
+        try {
+            if ( null === $this->feedback_queue ) {
+                require_once dirname( __DIR__ ) . '/feedback/class-feedback-queue.php';
+                $this->feedback_queue = \Easy_MCP_AI\Feedback\Feedback_Queue::create();
+            }
+            $line = $this->feedback_queue->instructions_line( $this->request_identity( $token_id ) );
+        } catch ( \Throwable $e ) {
+            $line = '';
+        }
+        return '' === $line ? self::INSTRUCTIONS : self::INSTRUCTIONS . ' ' . $line;
     }
 
     
@@ -597,17 +777,18 @@ class Server {
         if ( ! \Easy_MCP_AI\Config::tool_policy_valid() ) {
             return array();
         }
-        $disabled = (array) \Easy_MCP_AI\Config::get( 'disabled_tools' );
         $patterns = (array) \Easy_MCP_AI\Config::get( 'allowed_tool_patterns' );
-        return array_values( array_filter( null === $definitions ? $registry->get_all_definitions() : $definitions, static function ( $definition ) use ( $registry, $disabled, $patterns, $require_instance ) {
+        return array_values( array_filter( null === $definitions ? $registry->get_all_definitions() : $definitions, static function ( $definition ) use ( $registry, $patterns, $require_instance ) {
             $name = $definition['name'];
-            if ( in_array( $name, $disabled, true ) ) {
+            $tool = $registry->get_tool( $name );
+            
+            
+            if ( ! ( $tool ? Tool_State::is_enabled( $tool ) : Tool_State::resolve( $name, false )[0] ) ) {
                 return false;
             }
             if ( ! self::matches_tool_patterns( $name, $patterns ) ) {
                 return false;
             }
-            $tool = $registry->get_tool( $name );
             if ( ! $tool ) { return ! $require_instance; }
             $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
             return ! $cap || \current_user_can( $cap );
@@ -628,21 +809,12 @@ class Server {
         $all_tools = $this->tool_registry->get_all_definitions();
         
         $allowed = null !== $allowed_tools ? $allowed_tools : $this->permission_guard->get_allowed_tools( $token_id );
-        if ( ! in_array( '*', $allowed, true ) ) {
-            $all_tools = array_values( array_filter( $all_tools, function ( $tool ) use ( $allowed ) {
-                $name = $tool['name'];
-                if ( in_array( $name, $allowed, true ) ) {
-                    return true;
-                }
-                
-                foreach ( $allowed as $pattern ) {
-                    if ( false !== strpos( $pattern, '*' ) && fnmatch( $pattern, $name ) ) {
-                        return true;
-                    }
-                }
-                return false;
-            } ) );
-        }
+        
+        
+        
+        $all_tools = array_values( array_filter( $all_tools, static function ( $tool ) use ( $allowed ) {
+            return Permission_Guard::allowlist_permits( (array) $allowed, $tool['name'] );
+        } ) );
         $all_tools = self::available_tools( $this->tool_registry, false, $all_tools );
         
         
@@ -681,6 +853,7 @@ class Server {
         if ( null === $token_id ) {
             return JSON_RPC::error_response( $id, Error_Codes::UNAUTHORIZED, 'Authentication required' );
         }
+        $this->stamp_last_call( $token_id );
         
         
         
@@ -713,6 +886,7 @@ class Server {
         if ( null !== $allowed_tools ) {
             if ( ! $this->permission_guard->can_use_tool_with_scope( $allowed_tools, $tool_name ) ) {
                 $this->log_refusal( $token_id, $tool_name, $arguments );
+                $this->scope_challenge = $this->privileged_scope_challenge( $tool_name );
                 return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
             }
         } elseif ( ! $this->permission_guard->can_use_tool( $token_id, $tool_name ) ) {
@@ -738,7 +912,7 @@ class Server {
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Insufficient WordPress permissions for this tool' );
         }
 
-        if ( ! empty( $this->disabled_tools ) && in_array( $tool_name, $this->disabled_tools, true ) ) {
+        if ( ! Tool_State::is_enabled( $tool ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool has been disabled by the administrator.' );
         }
@@ -754,6 +928,39 @@ class Server {
         if ( self::is_app_only_tool( $tool ) && ! $this->client_declared_apps() ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool is only callable from an approval card.' );
+        }
+
+        
+        
+        
+        
+        $privileged_group = self::privileged_group( $tool_name );
+        if ( null !== $privileged_group ) {
+            $refusal = $this->privileged_refusal( $privileged_group );
+            if ( null !== $refusal ) {
+                $this->log_refusal( $token_id, $tool_name, $arguments );
+                return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $refusal );
+            }
+            if ( ! $this->check_privileged_rate_limit( $token_id ) ) {
+                return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, 'Privileged tool rate limit exceeded. Please try again in a minute.' );
+            }
+        }
+
+        
+        
+        
+        
+        
+        
+        if ( 'skip' !== $this->approval_mode && method_exists( $tool, 'precheck' ) ) {
+            self::load_approval_classes();
+            if ( \Easy_MCP_AI\Approvals\Approval_Gate::requires_approval( $tool, is_array( $this->approval_mode ) ? $this->approval_mode : $arguments ) ) {
+                $refused = self::precheck_refusal( $tool, $arguments );
+                if ( null !== $refused ) {
+                    $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' );
+                    return JSON_RPC::success_response( $id, $refused );
+                }
+            }
         }
 
         
@@ -795,6 +1002,7 @@ class Server {
         if ( 'ask_form' === $approval['kind'] || 'ask' === $approval['kind'] ) {
             $this->last_approval = array( 'kind' => 'paused', 'approval_id' => $approval['row']['approval_id'] );
             $paused_audit_id = $this->log_tool_call( $token_id, $tool_name, $arguments, 'approval_required' );
+            $this->note_audit_approval( $paused_audit_id, $approval['row'] );
             $this->get_approval_gate()->note_audit_id( $approval['row'], $paused_audit_id );
             if ( 'ask_form' === $approval['kind'] ) {
                 return $this->get_approval_gate()->build_input_required( $id, $approval['row'] );
@@ -808,9 +1016,28 @@ class Server {
         
         
         
-        $audit_id     = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
-        $final_status = null;
-        $result       = null;
+        $audit_id            = $this->log_tool_call( $token_id, $tool_name, $arguments, 'pending' );
+        $this->last_audit_id = $audit_id;
+        
+        
+        
+        if ( $approval_row ) {
+            $this->note_audit_approval( $audit_id, $approval_row );
+        }
+        
+        
+        $this->in_flight[]   = (int) $audit_id;
+        $final_status        = null;
+        $result              = null;
+        
+        
+        
+        
+        
+        
+        
+        
+        $composite           = method_exists( $tool, 'is_composite' ) && $tool->is_composite();
         
         
         
@@ -821,6 +1048,7 @@ class Server {
         
         
         $compat_mark  = class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ? \Easy_MCP_AI\Compat\Compat_Registry::mark() : null;
+        $option_guard_armed = false;
 
         
         
@@ -836,7 +1064,7 @@ class Server {
         
         
         try {
-        if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
+        if ( ! $composite && class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
             \Easy_MCP_AI\History\Change_Context::set( array(
                 'audit_id'        => $audit_id,
                 'tool_name'       => $tool_name,
@@ -851,6 +1079,14 @@ class Server {
                 'tool_args'       => $arguments,
                 
                 'approval_id'     => $approval_row ? $approval_row['approval_id'] : null,
+                
+                
+                
+                'privileged'      => null === $privileged_group ? '' : $privileged_group,
+                
+                
+                
+                'own_history'     => method_exists( $tool, 'records_own_history' ) && $tool->records_own_history(),
             ) );
             
             \do_action( 'easy_mcp_ai_change_context_armed' );
@@ -881,10 +1117,17 @@ class Server {
             if ( null !== $compat_mark ) {
                 \Easy_MCP_AI\Compat\Compat_Registry::arm_for( $tool, $arguments );
             }
+            
+            
+            Option_Guard::arm();
+            $option_guard_armed = true;
             self::$active_call = array(
                 'server'        => $this,
                 'token_id'      => $token_id,
                 'allowed_tools' => $allowed_tools,
+                
+                
+                'approval_kind' => $this->last_approval['kind'],
             );
             $exec_started = microtime( true );
             $result       = $tool->execute( $arguments );
@@ -898,6 +1141,10 @@ class Server {
             if ( is_array( $result ) && isset( $result['error'] ) && is_string( $result['error'] ) ) {
                 $result['error'] = self::sanitize_error_message( $result['error'] );
             }
+            
+            
+            
+            
             
             
             
@@ -955,17 +1202,7 @@ class Server {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
-            $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) );
-            
-            
-            
-            if ( $e instanceof Detailed_Tool_Error && '' !== trim( $e->get_details() ) ) {
-                $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
-            }
-            $approval_outcome = array(
-                'content' => $content,
-                'isError' => true,
-            );
+            $approval_outcome = self::error_result( $e );
             return JSON_RPC::success_response( $id, $approval_outcome );
         } catch ( \Error $e ) {
             
@@ -982,6 +1219,11 @@ class Server {
         } finally {
             
             
+            if ( $option_guard_armed ) {
+                Option_Guard::release();
+            }
+            
+            
             if ( null !== $compat_mark ) {
                 \Easy_MCP_AI\Compat\Compat_Registry::release( $compat_mark );
             }
@@ -989,8 +1231,10 @@ class Server {
             
             
             
+            
             $duration_ms = null === $exec_started ? null : (int) round( ( microtime( true ) - $exec_started ) * 1000 );
             $this->update_audit_status( $audit_id, null === $final_status ? 'error' : $final_status, $duration_ms );
+            array_pop( $this->in_flight );
             if ( $approval_row ) {
                 
                 
@@ -1001,7 +1245,7 @@ class Server {
                     
                 }
             }
-            if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
+            if ( ! $composite && class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
                 
                 
                 
@@ -1036,7 +1280,10 @@ class Server {
             
             
             
-            if ( 'success' === $final_status ) {
+            
+            
+            
+            if ( 'success' === $final_status && ! $composite ) {
                 $annotations = $tool->get_annotations();
                 if ( empty( $annotations['readOnlyHint'] ) ) {
                     
@@ -1053,6 +1300,105 @@ class Server {
                     \do_action( 'easy_mcp_ai_tool_mutated', $tool_name, $this->redact_for_tool( $tool_name, $arguments ), $result );
                 }
             }
+        }
+    }
+
+    
+    private static function privileged_group( $tool_name ) {
+        return class_exists( '\\Easy_MCP_AI\\Privileged\\Privileged_Groups' )
+            ? \Easy_MCP_AI\Privileged\Privileged_Groups::group_of_tool( $tool_name )
+            : null;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private function privileged_refusal( $group ) {
+        if ( ! \Easy_MCP_AI\Privileged\Privileged_Groups::is_enabled( $group ) ) {
+            return 'This privileged tool is not enabled on this site.';
+        }
+        if ( ! $this->audit_log_enabled ) {
+            return 'Privileged tools run only while the audit log is on. Ask the site administrator to turn it on.';
+        }
+        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true ) ) {
+            return 'Privileged tools run only while change history is on. Ask the site administrator to turn it on.';
+        }
+        return null;
+    }
+
+    
+
+
+
+
+
+
+    private function check_privileged_rate_limit( $token_id ) {
+        $limit = \Easy_MCP_AI\Privileged\Privileged_Groups::RATE_LIMIT_PER_MINUTE;
+        if ( 'oauth' === $this->request_auth_source ) {
+            $principal = 'o' . substr( hash( 'sha256', (string) $this->request_client_id . '|' . (int) $this->request_wp_user_id ), 0, 32 );
+        } else {
+            $principal = 'k' . (int) $token_id;
+        }
+        $cache_key = 'easy_mcp_ai_priv_rate_' . $principal;
+        if ( \wp_using_ext_object_cache() ) {
+            \wp_cache_add( $cache_key, 0, 'easy_mcp_ai', 60 );
+            return \wp_cache_incr( $cache_key, 1, 'easy_mcp_ai' ) <= $limit;
+        }
+        
+        
+        $current = (int) \get_transient( $cache_key );
+        if ( $current >= $limit ) {
+            return false;
+        }
+        \set_transient( $cache_key, $current + 1, 60 );
+        return true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+    private function note_audit_approval( $audit_id, array $row ) {
+        if ( ! $this->audit_log_enabled || ! $audit_id || empty( $row['approval_id'] ) ) {
+            return;
+        }
+        global $wpdb;
+        $data   = array( 'approval_id' => (string) $row['approval_id'] );
+        $format = array( '%s' );
+        if ( ! empty( $row['decided_by'] ) ) {
+            $data['approved_by']  = (int) $row['decided_by'];
+            $data['approved_via'] = isset( $row['decision_via'] ) ? substr( (string) $row['decision_via'], 0, 16 ) : null;
+            $data['approved_at']  = isset( $row['decided_at'] ) ? (string) $row['decided_at'] : null;
+            array_push( $format, '%d', '%s', '%s' );
+        }
+        
+        
+        $quiet = method_exists( $wpdb, 'suppress_errors' ) ? $wpdb->suppress_errors( true ) : null;
+        $wpdb->update( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct update of the plugin's own audit row.
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            $data,
+            array( 'id' => (int) $audit_id ),
+            $format,
+            array( '%d' )
+        );
+        if ( null !== $quiet ) {
+            $wpdb->suppress_errors( $quiet );
         }
     }
 
@@ -1079,6 +1425,45 @@ class Server {
             self::$active_call['token_id'],
             self::$active_call['allowed_tools'],
             $tool_name
+        );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function precheck_refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments ): ?array {
+        try {
+            $tool->precheck( Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] ) );
+        } catch ( \Exception $e ) {
+            return self::error_result( $e );
+        } catch ( \Error $e ) {
+            return null;
+        }
+        return null;
+    }
+
+    
+
+
+
+
+
+
+    private static function error_result( \Exception $e ): array {
+        $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) );
+        if ( $e instanceof Detailed_Tool_Error && '' !== trim( $e->get_details() ) ) {
+            $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
+        }
+        return array(
+            'content' => $content,
+            'isError' => true,
         );
     }
 
@@ -1397,6 +1782,32 @@ class Server {
 
 
     const STATUS_REFUSED = 'refused';
+
+    
+    const LAST_CALL_OPTION = 'easy_mcp_ai_last_tool_call';
+
+    
+
+
+
+    private function stamp_last_call( $token_id ) {
+        if ( $this->audit_log_enabled ) {
+            return;
+        }
+        
+        $oauth = 'oauth' === $this->request_auth_source;
+        \update_option(
+            self::LAST_CALL_OPTION,
+            array(
+                'id'              => bin2hex( random_bytes( 8 ) ),
+                'at'              => current_time( 'mysql', true ),
+                'auth_source'     => $oauth ? 'oauth' : 'legacy',
+                'token_id'        => (int) $token_id,
+                'oauth_client_id' => $oauth && is_string( $this->request_client_id ) && '' !== $this->request_client_id ? $this->request_client_id : null,
+            ),
+            false
+        );
+    }
 
     private function log_tool_call( $token_id, $tool_name, $arguments, $status ) {
         if ( ! $this->audit_log_enabled ) {

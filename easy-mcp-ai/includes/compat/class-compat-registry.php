@@ -37,6 +37,7 @@ final class Compat_Registry {
         'buddypress-loggedin-user' => 'Easy_MCP_AI\\Compat\\Shims\\Buddypress_Loggedin_User',
         'tec-event-update-fill'    => 'Easy_MCP_AI\\Compat\\Shims\\Tec_Event_Update_Fill',
         'tec-no-duplicate-reuse'   => 'Easy_MCP_AI\\Compat\\Shims\\Tec_No_Duplicate_Reuse',
+        'learnpress-mcp-auth'      => 'Easy_MCP_AI\\Compat\\Shims\\Learnpress_Mcp_Auth',
     );
 
     

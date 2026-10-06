@@ -53,6 +53,9 @@ class Settings_Validator {
             'wp_update_theme_mod',
             'wp_delete_theme_mod',
             'wp_update_custom_css',
+            
+            
+            'wp_rest_delete',
         );
     }
 
@@ -84,6 +87,29 @@ class Settings_Validator {
 
     public static function is_valid_pattern( $pattern ) {
         return is_string( $pattern ) && '' !== $pattern && 1 === preg_match( '/^[A-Za-z0-9_*?\[\]!\-]+$/', $pattern );
+    }
+
+    
+
+
+
+
+
+
+
+
+    public static function is_valid_approval_entry( $entry ): bool {
+        if ( self::is_valid_pattern( $entry ) ) {
+            return true;
+        }
+        if ( ! is_string( $entry ) || 1 !== preg_match( '/^(\S+) +(\S+)$/', $entry, $parts ) ) {
+            return false;
+        }
+        
+        
+        return self::is_valid_pattern( $parts[1] )
+            && 1 === preg_match( '#^/[A-Za-z0-9_.~%@{}*?!\[\]/\-]*$#', $parts[2] )
+            && 1 !== preg_match( '/\[!?\]?[^\]]*\[/', $parts[2] );
     }
 
     

@@ -29,6 +29,14 @@ abstract class Admin_Rest_Controller {
 
 
 
+
+    const UPDATABLE = 'POST, PATCH';
+
+    
+
+
+
+
     abstract public function register_routes();
 
     
@@ -116,5 +124,20 @@ abstract class Admin_Rest_Controller {
                 'args'                => $args,
             )
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    protected function register_delete_route( string $route, callable $callback, array $args = array() ): void {
+        $this->register_route( $route, \WP_REST_Server::DELETABLE, $callback, $args );
+        $this->register_route( $route . '/delete', \WP_REST_Server::CREATABLE, $callback, $args );
     }
 }

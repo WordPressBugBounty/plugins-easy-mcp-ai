@@ -3,7 +3,7 @@
  * Plugin Name: Easy MCP AI - Connector for Claude, ChatGPT & SEO Data
  * Plugin URI:  https://easymcpai.com
  * Description: Connect Claude, ChatGPT & any AI to WordPress. Manage your entire site by chat — content, media, GA4, Search Console, SEO & more. 243 tools. Free.
- * Version:     2.0.1
+ * Version:     2.1.0
  * Author:      EasyMCPAI
  * Author URI:  https://easymcpai.com/
  * License:     GPL-2.0-or-later
@@ -67,7 +67,30 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
         
         || false !== strpos( $easy_mcp_ai_req, '/easy-mcp-ai/v1/' )
         || false !== strpos( $easy_mcp_ai_req, 'easy_mcp_ai_oauth=' )
+        
+        
+        || false !== strpos( $easy_mcp_ai_req, '/easy-mcp-ai/authorize' )
     );
+
+    
+
+
+
+
+
+
+
+    if ( ! $easy_mcp_ai_own ) {
+        $easy_mcp_ai_path   = rtrim( (string) wp_parse_url( $easy_mcp_ai_req, PHP_URL_PATH ), '/' );
+        $easy_mcp_ai_method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( (string) $_SERVER['REQUEST_METHOD'] ) : 'GET'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- read-only comparison.
+        $easy_mcp_ai_ctype  = isset( $_SERVER['CONTENT_TYPE'] ) ? strtolower( (string) $_SERVER['CONTENT_TYPE'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- read-only comparison.
+        $easy_mcp_ai_own    = (
+            ( '/authorize' === $easy_mcp_ai_path && 'GET' === $easy_mcp_ai_method && false !== strpos( $easy_mcp_ai_req, 'response_type=code' ) )
+            || ( '/register' === $easy_mcp_ai_path && 'POST' === $easy_mcp_ai_method && 0 === strpos( $easy_mcp_ai_ctype, 'application/json' ) )
+            || ( '/token' === $easy_mcp_ai_path && 'POST' === $easy_mcp_ai_method )
+        );
+        unset( $easy_mcp_ai_path, $easy_mcp_ai_method, $easy_mcp_ai_ctype );
+    }
 
     
 
@@ -237,7 +260,7 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
     unset( $easy_mcp_ai_req, $easy_mcp_ai_own );
 }
 
-define( 'EASY_MCP_AI_VERSION', '2.0.1' );
+define( 'EASY_MCP_AI_VERSION', '2.1.0' );
 define( 'EASY_MCP_AI_PLUGIN_FILE', __FILE__ );
 define( 'EASY_MCP_AI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EASY_MCP_AI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

@@ -19,6 +19,9 @@
 
 
 
+
+
+
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\Admin\Access_Presets;
@@ -62,10 +65,10 @@ class Tokens_Controller extends Admin_Rest_Controller {
         $this->register_route( '/tokens', \WP_REST_Server::READABLE, array( $this, 'get_tokens' ) );
         $this->register_route( '/tokens/tool-catalogue', \WP_REST_Server::READABLE, array( $this, 'get_tool_catalogue' ) );
         $this->register_route( '/tokens', \WP_REST_Server::CREATABLE, array( $this, 'create_token' ) );
-        $this->register_route( '/tokens/(?P<id>\d+)', 'PATCH', array( $this, 'update_token' ), self::id_args() );
+        $this->register_route( '/tokens/(?P<id>\d+)', self::UPDATABLE, array( $this, 'update_token' ), self::id_args() );
         $this->register_route( '/tokens/(?P<id>\d+)/revoke', \WP_REST_Server::CREATABLE, array( $this, 'revoke_token' ), self::id_args() );
         $this->register_route( '/tokens/(?P<id>\d+)/rebind', \WP_REST_Server::CREATABLE, array( $this, 'rebind_token' ), self::id_args() );
-        $this->register_route( '/tokens/(?P<id>\d+)', \WP_REST_Server::DELETABLE, array( $this, 'delete_token' ), self::id_args() );
+        $this->register_delete_route( '/tokens/(?P<id>\d+)', array( $this, 'delete_token' ), self::id_args() );
     }
 
     
@@ -111,7 +114,31 @@ class Tokens_Controller extends Admin_Rest_Controller {
         $by_category = $this->tool_registry && method_exists( $this->tool_registry, 'get_tools_by_category' )
             ? (array) $this->tool_registry->get_tools_by_category()
             : array();
-        return $this->ok( array( 'categories' => self::catalogue( $by_category ) ) );
+        return $this->ok(
+            array(
+                'categories'   => self::catalogue( $by_category ),
+                
+                
+                
+                'privilegedOn' => $this->privileged_on(),
+            )
+        );
+    }
+
+    
+    private function privileged_on() {
+        $on = array();
+        if ( ! $this->tool_registry || ! method_exists( $this->tool_registry, 'get_all_tool_names' ) || ! method_exists( $this->tool_registry, 'get_tool' ) ) {
+            return $on;
+        }
+        foreach ( (array) $this->tool_registry->get_all_tool_names() as $name ) {
+            $tool = $this->tool_registry->get_tool( $name );
+            if ( $tool instanceof \Easy_MCP_AI\Tools\Privileged_Tool && \Easy_MCP_AI\Tools\Tool_State::is_enabled( $tool ) ) {
+                $on[] = (string) $name;
+            }
+        }
+        sort( $on );
+        return $on;
     }
 
     
@@ -119,12 +146,15 @@ class Tokens_Controller extends Admin_Rest_Controller {
 
 
     public static function catalogue( array $by_category ) {
+        
+        
+        require_once dirname( __DIR__, 2 ) . '/auth/class-permission-guard.php';
         $categories = array();
         foreach ( $by_category as $key => $defs ) {
             $tools = array();
             foreach ( (array) $defs as $def ) {
                 $name = is_array( $def ) ? (string) ( $def['name'] ?? '' ) : (string) $def;
-                if ( '' === $name ) {
+                if ( '' === $name || in_array( $name, \Easy_MCP_AI\Auth\Permission_Guard::EVERY_CREDENTIAL, true ) ) {
                     continue;
                 }
                 $tools[] = array(
@@ -138,10 +168,17 @@ class Tokens_Controller extends Admin_Rest_Controller {
             usort( $tools, static function ( $a, $b ) {
                 return strcmp( $a['name'], $b['name'] );
             } );
+            $privileged   = 'privileged' === (string) $key;
             $categories[] = array(
-                'key'   => (string) $key,
-                'label' => ucfirst( str_replace( array( '-', '_' ), ' ', (string) $key ) ),
-                'tools' => $tools,
+                'key'        => (string) $key,
+                'label'      => $privileged
+                    ? \__( 'Privileged: runs code, reads server files or rewrites the database', 'easy-mcp-ai' )
+                    : ucfirst( str_replace( array( '-', '_' ), ' ', (string) $key ) ),
+                'tools'      => $tools,
+                
+                
+                
+                'privileged' => $privileged,
             );
         }
         return $categories;
