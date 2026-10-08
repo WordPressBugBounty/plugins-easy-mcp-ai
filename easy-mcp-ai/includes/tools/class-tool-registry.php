@@ -347,6 +347,14 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Events_Calendar\\Create_Venue',
             'Easy_MCP_AI\\Tools\\Events_Calendar\\Create_Organizer',
             
+            'Easy_MCP_AI\\Tools\\Redirection\\List_Redirects',
+            'Easy_MCP_AI\\Tools\\Redirection\\Get_Redirect',
+            'Easy_MCP_AI\\Tools\\Redirection\\Create_Redirect',
+            'Easy_MCP_AI\\Tools\\Redirection\\Update_Redirect',
+            'Easy_MCP_AI\\Tools\\Redirection\\Delete_Redirects',
+            'Easy_MCP_AI\\Tools\\Redirection\\List_Groups',
+            'Easy_MCP_AI\\Tools\\Redirection\\List_404s',
+            
             'Easy_MCP_AI\\Tools\\BuddyPress\\List_Members',
             'Easy_MCP_AI\\Tools\\BuddyPress\\Get_Member',
             'Easy_MCP_AI\\Tools\\BuddyPress\\List_Activity',
@@ -523,6 +531,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\WooCommerce\\',
             'Easy_MCP_AI\\Tools\\ACF\\',
             'Easy_MCP_AI\\Tools\\Events_Calendar\\',
+            'Easy_MCP_AI\\Tools\\Redirection\\',
             'Easy_MCP_AI\\Tools\\BuddyPress\\',
             'Easy_MCP_AI\\Tools\\SEO\\',
             'Easy_MCP_AI\\Tools\\GSC\\',

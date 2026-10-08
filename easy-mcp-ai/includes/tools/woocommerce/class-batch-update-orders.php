@@ -14,7 +14,7 @@ class Batch_Update_Orders extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Pass-through WC response.';
+        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns WC\'s response { create, update, delete } with each item\'s `_links` omitted.';
     }
 
     public function get_category() {
@@ -97,6 +97,6 @@ class Batch_Update_Orders extends Base_Tool {
             set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
         }
 
-        return $this->rest_request( 'POST', '/wc/v3/orders/batch', $body );
+        return $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/orders/batch', $body ) );
     }
 }

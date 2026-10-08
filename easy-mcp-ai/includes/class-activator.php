@@ -222,6 +222,10 @@ class Activator {
         $tokens_table = $wpdb->prefix . 'easy_mcp_ai_tokens';
         $audit_table  = $wpdb->prefix . 'easy_mcp_ai_audit_log';
 
+        
+        
+        
+        
         $sql = "CREATE TABLE {$tokens_table} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             name varchar(255) NOT NULL,
@@ -235,8 +239,8 @@ class Activator {
             expires_at datetime DEFAULT NULL,
             is_active tinyint(1) NOT NULL DEFAULT 1,
             unattended tinyint(1) NOT NULL DEFAULT 0,
-            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
             PRIMARY KEY (id),
             UNIQUE KEY token_hash (token_hash),
             KEY wp_user_id (wp_user_id),
@@ -258,7 +262,7 @@ class Activator {
             approved_by bigint(20) unsigned DEFAULT NULL,
             approved_via varchar(16) DEFAULT NULL,
             approved_at datetime DEFAULT NULL,
-            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at datetime NOT NULL,
             PRIMARY KEY (id),
             KEY token_id (token_id),
             KEY tool_name (tool_name(150)),
@@ -272,6 +276,7 @@ class Activator {
         }
         \dbDelta( $sql );
 
+        
         
         
         

@@ -78,6 +78,7 @@ class Tool_Groups {
             'woocommerce'     => array( 'label' => 'WooCommerce',                 'class' => 'WooCommerce',             'fn' => 'WC' ),
             'acf'             => array( 'label' => 'Advanced Custom Fields (ACF)','class' => 'ACF',                     'fn' => 'acf' ),
             'events-calendar' => array( 'label' => 'The Events Calendar',         'class' => 'Tribe__Events__Main',     'fn' => '' ),
+            'redirection'     => array( 'label' => 'Redirection',                 'class' => 'Red_Item',                'fn' => '' ),
             'buddypress'      => array( 'label' => 'BuddyPress',                  'class' => 'BuddyPress',              'fn' => 'bp_is_active' ),
             'yoast-seo'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),
             'rank-math'       => array( 'label' => 'Rank Math SEO',               'class' => 'RankMath',                'fn' => '' ),

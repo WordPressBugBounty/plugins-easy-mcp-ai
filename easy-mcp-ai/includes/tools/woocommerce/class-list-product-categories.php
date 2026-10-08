@@ -14,7 +14,7 @@ class List_Product_Categories extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists WooCommerce product categories. Optional: `search`, `per_page` (default 100 — high default to get all categories in one call), `page`, `hide_empty` (boolean, default false — true returns only categories with products). Returns array of { id, name, slug, parent (0 if top-level), count, description, image }. Categories are hierarchical — use the `id` when assigning categories to products via the `categories` field. Requires WooCommerce active.';
+        return 'Lists WooCommerce product categories. Optional: `search`, `per_page` (default 100 — high default to get all categories in one call), `page`, `hide_empty` (boolean, default false — true returns only categories with products). Returns array of { id, name, slug, parent (0 if top-level), count, description, image }; each category\'s SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) and `_links` are omitted. Categories are hierarchical — use the `id` when assigning categories to products via the `categories` field. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -82,6 +82,6 @@ class List_Product_Categories extends Base_Tool {
 
         $data = $this->rest_request( 'GET', '/wc/v3/products/categories', $params );
 
-        return $data;
+        return $this->strip_response_noise( $data );
     }
 }

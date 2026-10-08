@@ -84,6 +84,9 @@ class Plugin {
         \add_action( 'init', array( __CLASS__, 'maybe_register_preview_link' ) );
         
         
+        \add_action( 'setup_theme', array( __CLASS__, 'maybe_autoload_customizer' ), 0 );
+        
+        
         
         \add_action( 'parse_request', array( $this, 'handle_root_fallback' ), 1 );
         
@@ -737,6 +740,19 @@ class Plugin {
     }
 
     
+
+
+
+
+    public static function maybe_autoload_customizer(): void {
+        require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/tools/appearance/class-customizer-autoload.php';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only routing check; nothing is acted on.
+        if ( Tools\Appearance\Customizer_Autoload::is_mcp_post( $_SERVER, $_GET ) ) {
+            Tools\Appearance\Customizer_Autoload::register();
+        }
+    }
+
+    
     public static function load_approvals() {
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/class-config.php';
         require_once EASY_MCP_AI_PLUGIN_DIR . 'includes/mcp/class-error-codes.php';
@@ -1284,6 +1300,7 @@ class Plugin {
                 'woocommerce'         => 'woocommerce',
                 'acf'                 => 'acf',
                 'the-events-calendar' => 'events-calendar',
+                'redirection'         => 'redirection',
                 'buddypress'          => 'buddypress',
                 'yoast-seo'           => 'seo/yoast',
                 'rank-math'           => 'seo/rank-math',

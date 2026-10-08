@@ -118,8 +118,6 @@ class Gemini_Safe_Schema {
 
 
 
-    
-
 
 
 
@@ -144,13 +142,35 @@ class Gemini_Safe_Schema {
         return false;
     }
 
-    private static function warn_about_uncoercible_paths( array $map ) {
-        
-        
-        
-        
-        static $reversible_kinds = array( 'stringify_enum', 'string_union' );
+    
 
+
+
+
+
+
+
+
+
+
+    public static function unreachable_paths( array $map ): array {
+        $unreachable = array();
+        foreach ( $map as $path => $descriptors ) {
+            if ( ! self::is_uncoercible_path( (string) $path ) ) {
+                continue;
+            }
+            foreach ( (array) $descriptors as $descriptor ) {
+                $kind = is_array( $descriptor ) && isset( $descriptor['kind'] ) ? $descriptor['kind'] : '';
+                if ( in_array( $kind, self::CALL_TIME_KINDS, true ) ) {
+                    $unreachable[] = (string) $path;
+                    break;
+                }
+            }
+        }
+        return $unreachable;
+    }
+
+    private static function warn_about_uncoercible_paths( array $map ) {
         
         
         
@@ -158,24 +178,12 @@ class Gemini_Safe_Schema {
         static $already_logged = array();
 
         $unreachable = array();
-        foreach ( $map as $path => $descriptors ) {
-            if ( '' === $path ) {
-                continue;
-            }
+        foreach ( self::unreachable_paths( $map ) as $path ) {
             if ( isset( $already_logged[ $path ] ) ) {
                 continue;
             }
-            if ( ! self::is_uncoercible_path( (string) $path ) ) {
-                continue;
-            }
-            foreach ( (array) $descriptors as $descriptor ) {
-                $kind = is_array( $descriptor ) && isset( $descriptor['kind'] ) ? $descriptor['kind'] : '';
-                if ( in_array( $kind, $reversible_kinds, true ) || 'unaddressable_property_name' === $kind ) {
-                    $unreachable[]           = $path;
-                    $already_logged[ $path ] = true;
-                    break;
-                }
-            }
+            $unreachable[]           = $path;
+            $already_logged[ $path ] = true;
         }
         if ( empty( $unreachable ) ) {
             return;
@@ -326,6 +334,22 @@ class Gemini_Safe_Schema {
 
 
     const UNCOERCIBLE_PATH = "\0uncoercible";
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private const CALL_TIME_KINDS = array( 'stringify_enum', 'string_union', 'unaddressable_property_name' );
 
     
 
@@ -726,6 +750,18 @@ class Gemini_Safe_Schema {
             }
         }
 
+        
+        
+        
+        $lifted = array();
+        if ( isset( $node['properties'] ) && is_array( $node['properties'] ) ) {
+            foreach ( $node['properties'] as $name => $sub ) {
+                if ( is_array( $sub ) && isset( $sub['required'] ) && true === $sub['required'] ) {
+                    $lifted[] = (string) $name;
+                }
+            }
+        }
+
         if ( isset( $node['properties'] ) && is_array( $node['properties'] ) ) {
             foreach ( $node['properties'] as $name => $sub ) {
                 
@@ -760,6 +796,32 @@ class Gemini_Safe_Schema {
 
                 $child_path = '' === $path ? (string) $name : $path . '.' . $name;
                 $node['properties'][ $name ] = self::walk( $sub, $child_path, $map, $defs, $depth + 1, $ancestors, $budget );
+            }
+        }
+
+        
+        
+        
+        
+        
+        
+        
+        if ( array_key_exists( 'required', $node ) || array() !== $lifted ) {
+            $declared = array();
+            if ( isset( $node['required'] ) && is_array( $node['required'] ) ) {
+                foreach ( $node['required'] as $member ) {
+                    if ( is_string( $member ) ) {
+                        $declared[] = $member;
+                    }
+                }
+            }
+            $names = array_values( array_unique( array_merge( $declared, $lifted ) ) );
+            if ( ! ( isset( $node['required'] ) && $node['required'] === $names ) ) {
+                if ( array() === $names ) {
+                    unset( $node['required'] );
+                } else {
+                    $node['required'] = $names;
+                }
             }
         }
 

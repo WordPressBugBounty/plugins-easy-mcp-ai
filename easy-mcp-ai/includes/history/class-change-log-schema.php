@@ -68,6 +68,9 @@ class Change_Log_Schema {
         global $wpdb;
         $table           = $wpdb->prefix . 'easy_mcp_ai_change_log';
         $charset_collate = method_exists( $wpdb, 'get_charset_collate' ) ? $wpdb->get_charset_collate() : '';
+        
+        
+        
         $sql = "CREATE TABLE {$table} (
             id              bigint(20)   unsigned NOT NULL AUTO_INCREMENT,
             audit_id        bigint(20)   unsigned DEFAULT NULL,
@@ -87,7 +90,7 @@ class Change_Log_Schema {
             truncated       tinyint(1)   NOT NULL DEFAULT 0,
             capture_mode    varchar(16)  DEFAULT NULL,
             ip_address      varchar(45)  DEFAULT NULL,
-            created_at      datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at      datetime     NOT NULL,
             PRIMARY KEY (id),
             KEY object_lookup (object_type, object_id(100), created_at),
             KEY tool_name (tool_name(150), created_at),

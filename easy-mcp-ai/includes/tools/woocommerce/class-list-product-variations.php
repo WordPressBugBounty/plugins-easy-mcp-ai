@@ -14,7 +14,7 @@ class List_Product_Variations extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists variations for a WooCommerce variable product, paginated (default per_page 10 — use `per_page`/`page` to page through all variations; the response has no total/total_pages count, so callers must keep paging until a short/empty page is returned). Returns each variation\'s id, sku, price, stock_status, stock_quantity, and attributes.';
+        return 'Lists variations for a WooCommerce variable product, paginated (default per_page 10 — use `per_page`/`page` to page through all variations; the response has no total/total_pages count, so callers must keep paging until a short/empty page is returned). Returns each variation\'s id, sku, price, stock_status, stock_quantity, and attributes; `_links` is omitted.';
     }
 
     public function get_category() {
@@ -75,7 +75,7 @@ class List_Product_Variations extends Base_Tool {
         $data = $this->rest_request( 'GET', '/wc/v3/products/' . $product_id . '/variations', $params );
 
         return array(
-            'variations' => $data,
+            'variations' => $this->strip_response_noise( $data ),
             'product_id' => $product_id,
         );
     }

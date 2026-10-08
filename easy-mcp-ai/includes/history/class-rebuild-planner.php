@@ -41,7 +41,23 @@ class Rebuild_Planner {
         'date_format'     => 'date_format',
         'time_format'     => 'time_format',
         'posts_per_page'  => 'posts_per_page',
+        'show_on_front'   => 'show_on_front',
+        'page_on_front'   => 'page_on_front',
+        'page_for_posts'  => 'page_for_posts',
     );
+
+    
+
+
+
+
+    const FRONT_PAGE_OPTIONS = array( 'show_on_front', 'page_on_front', 'page_for_posts' );
+
+    
+    const PAGE_OPTIONS = array( 'page_on_front', 'page_for_posts' );
+
+    
+    const INTEGER_SETTINGS = array( 'posts_per_page', 'page_on_front', 'page_for_posts' );
 
     
     const UNSUPPORTED_POST_TYPES = array(
@@ -78,6 +94,14 @@ class Rebuild_Planner {
     
 
 
+
+
+
+    private $front_page = null;
+
+    
+
+
     public function __construct( array $rows = array() ) {
         foreach ( $rows as $row ) {
             if ( 'object_terms' === ( $row['object_type'] ?? '' ) ) {
@@ -89,6 +113,52 @@ class Rebuild_Planner {
             if ( 'user' === ( $row['object_type'] ?? '' ) && 'update' === ( $row['action'] ?? '' ) && in_array( 'roles', self::changed( $row ), true ) ) {
                 $this->remember_role_row( $row );
             }
+            if ( self::is_front_page_row( $row ) ) {
+                $this->remember_front_page_row( $row );
+            }
+        }
+    }
+
+    
+
+
+
+
+
+
+    private static function is_front_page_row( array $row ): bool {
+        if ( 'option' !== ( $row['object_type'] ?? '' ) || 'update' !== ( $row['action'] ?? '' )
+            || ! in_array( (string) ( $row['object_id'] ?? '' ), self::FRONT_PAGE_OPTIONS, true )
+            || false !== strpos( (string) ( $row['object_subtype'] ?? '' ), ':' ) ) {
+            return false;
+        }
+        $before = self::before( $row );
+        return ! isset( $before['value_unavailable'] ) && array_key_exists( 'value', $before )
+            && null === self::value_problem( $row, $before['value'] );
+    }
+
+    
+
+
+
+
+
+
+    private function remember_front_page_row( array $row ): void {
+        $id   = (int) $row['id'];
+        $name = (string) $row['object_id'];
+        if ( null === $this->front_page ) {
+            $this->front_page = array( 'rows' => array(), 'before' => array(), 'after' => array(), 'oldest' => array(), 'latest' => array() );
+        }
+        $group                = &$this->front_page;
+        $group['rows'][ $id ] = $name;
+        if ( ! isset( $group['oldest'][ $name ] ) || $id < $group['oldest'][ $name ] ) {
+            $group['oldest'][ $name ] = $id;
+            $group['before'][ $name ] = self::before( $row )['value'];
+        }
+        if ( ! isset( $group['latest'][ $name ] ) || $id > $group['latest'][ $name ] ) {
+            $group['latest'][ $name ] = $id;
+            $group['after'][ $name ]  = self::after( $row )['value'] ?? null;
         }
     }
 
@@ -957,6 +1027,9 @@ class Rebuild_Planner {
         if ( 'sticky_posts' === $name ) {
             return $this->plan_sticky( $row );
         }
+        if ( null !== $this->front_page && isset( $this->front_page['rows'][ (int) $row['id'] ] ) ) {
+            return $this->plan_front_page( $row );
+        }
         if ( ! isset( self::SITE_SETTINGS[ $name ] ) ) {
             /* translators: %s: option name */
             return self::refuse( sprintf( __( 'no tool writes the option "%s"; its previous value is in this entry for a person to restore', 'easy-mcp-ai' ), $name ) );
@@ -969,12 +1042,99 @@ class Rebuild_Planner {
         if ( null !== $problem ) {
             return self::refuse( __( 'the previous value cannot be given back', 'easy-mcp-ai' ), array( 'value' => $problem ) );
         }
-        $value = 'posts_per_page' === $name ? (int) $before['value'] : (string) $before['value'];
         return self::restore(
-            array( array( 'tool' => 'wp_update_site_settings', 'arguments' => array( self::SITE_SETTINGS[ $name ] => $value ) ) ),
+            array( array( 'tool' => 'wp_update_site_settings', 'arguments' => array( self::SITE_SETTINGS[ $name ] => self::setting_value( $name, $before['value'] ) ) ) ),
             array(),
             array( 'value' )
         );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private function plan_front_page( array $row ): array {
+        $kept_off = $this->front_page_ids_kept_off();
+        $name     = (string) $row['object_id'];
+        if ( isset( $kept_off[ $name ] ) ) {
+            return self::refuse( $kept_off[ $name ] );
+        }
+        $carrier = $this->front_page_carrier();
+        if ( (int) $row['id'] !== $carrier ) {
+            /* translators: %d: change-history entry id */
+            return self::incidental( sprintf( __( 'a step of this call\'s homepage change; entry %d puts the homepage settings back', 'easy-mcp-ai' ), $carrier ) );
+        }
+        $args = array();
+        foreach ( $this->front_page_written() as $option ) {
+            $value           = self::setting_value( $option, $this->front_page['before'][ $option ] );
+            $args[ $option ] = 'show_on_front' === $option ? $value : $this->id( 'post', $value ); 
+        }
+        return self::restore( array( array( 'tool' => 'wp_update_site_settings', 'arguments' => $args ) ), array(), array( 'value' ) );
+    }
+
+    
+
+
+
+
+    private function front_page_written(): array {
+        $kept_off = $this->front_page_ids_kept_off();
+        return array_values( array_filter( self::FRONT_PAGE_OPTIONS, function ( $option ) use ( $kept_off ) {
+            return array_key_exists( $option, $this->front_page['before'] ) && ! isset( $kept_off[ $option ] );
+        } ) );
+    }
+
+    
+
+
+
+
+    private function front_page_carrier(): int {
+        $written = $this->front_page_written();
+        $ids     = array_keys( array_filter( $this->front_page['rows'], function ( $option ) use ( $written ) {
+            return in_array( $option, $written, true );
+        } ) );
+        return max( $ids );
+    }
+
+    
+
+
+
+
+
+
+
+
+    private function front_page_ids_kept_off(): array {
+        $before = $this->front_page['before'];
+        if ( ! array_key_exists( 'show_on_front', $before ) || 'page' === (string) $before['show_on_front'] ) {
+            return array();
+        }
+        $kept_off = array();
+        foreach ( self::PAGE_OPTIONS as $option ) {
+            if ( array_key_exists( $option, $before ) && 0 !== (int) $before[ $option ] ) {
+                $kept_off[ $option ] = __( 'a page ID the site kept while its homepage showed the latest posts; it had no effect there, and wp_update_site_settings refuses one sent with show_on_front "posts"', 'easy-mcp-ai' );
+            }
+        }
+        return $kept_off;
+    }
+
+    
+
+
+
+
+
+
+    private static function setting_value( string $name, $value ) {
+        return in_array( self::SITE_SETTINGS[ $name ], self::INTEGER_SETTINGS, true ) ? (int) $value : (string) $value;
     }
 
     
@@ -1223,6 +1383,21 @@ class Rebuild_Planner {
                         }
                         if ( ! $same ) {
                             $moved[] = 'post:' . $post_id;
+                        }
+                    }
+                    return self::moved_if( $moved );
+                }
+                if ( null !== $this->front_page && (int) $row['id'] === $this->front_page_carrier() ) {
+                    
+                    $moved = array();
+                    foreach ( $this->front_page_written() as $name ) {
+                        $value = $this->front_page['after'][ $name ];
+                        $live  = Live_State::read( 'option', (string) $name, $can_view_all );
+                        if ( null === $live ) {
+                            return self::unreadable();
+                        }
+                        if ( ! Live_State::same_value( $value, $live['value'] ?? null ) ) {
+                            $moved[] = (string) $name;
                         }
                     }
                     return self::moved_if( $moved );

@@ -14,7 +14,7 @@ class Get_Custom_Css extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Reads the Additional CSS (Appearance → Customize → Additional CSS) of a theme — the stylesheet WordPress prints in the page head. Optional `stylesheet` (theme folder name, from wp_list_themes); defaults to the active theme. Each theme keeps its own Additional CSS. Returns { stylesheet, active, css, post_id } where `css` is the text WordPress would print for that theme (after the `wp_get_custom_css` filter) and `post_id` is the id of the `custom_css` post that stores it, or null when the theme has none. Change it with wp_update_custom_css. Block-theme global styles CSS is separate (wp_get_global_styles).';
+        return 'Reads a theme\'s Additional CSS (Appearance → Customize → Additional CSS). `stylesheet` defaults to the active theme; each theme keeps its own. Returns { stylesheet, active, css, post_id } (post_id is null when there is none). Change it with wp_update_custom_css; block-theme global styles CSS is separate (wp_get_global_styles).';
     }
 
     public function get_category() {

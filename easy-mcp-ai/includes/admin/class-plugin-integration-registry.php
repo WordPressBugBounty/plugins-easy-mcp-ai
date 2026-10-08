@@ -110,6 +110,23 @@ class Plugin_Integration_Registry {
                 ),
             ),
             array(
+                'slug'        => 'redirection',
+                'name'        => 'Redirection',
+                'description' => 'Create, update and delete redirects, and read the 404 log, through the Redirection plugin\'s REST API.',
+                'status'      => 'stable',
+                'requires'    => 'Redirection must be active and its setup (Tools › Redirection) finished.',
+                'detector'    => 'class:Red_Item',
+                'tools'       => array(
+                    array( 'name' => 'wp_redirection_list_redirects',   'description' => 'List redirects, filtered by source, target, group, status or action.',                    'type' => 'read',  'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_get_redirect',     'description' => 'Get one redirect by id.',                                                                 'type' => 'read',  'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_create_redirect',  'description' => 'Create a redirect from a path to a target, or an HTTP error for a path.',                'type' => 'write', 'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_update_redirect',  'description' => 'Change a redirect\'s fields or switch it on or off; unsent fields keep their values.',   'type' => 'write', 'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_delete_redirects', 'description' => 'Permanently delete redirects by id.',                                                     'type' => 'write', 'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_list_groups',      'description' => 'List redirect groups with their ids and redirect counts.',                                'type' => 'read',  'api' => 'plugin_rest' ),
+                    array( 'name' => 'wp_redirection_list_404s',        'description' => 'Read the 404 log, or the most frequent 404 URLs.',                                        'type' => 'read',  'api' => 'plugin_rest' ),
+                ),
+            ),
+            array(
                 'slug'        => 'buddypress',
                 'name'        => 'BuddyPress',
                 'description' => 'Manage community members, activity streams, groups, and private messages via the BuddyPress REST API.',

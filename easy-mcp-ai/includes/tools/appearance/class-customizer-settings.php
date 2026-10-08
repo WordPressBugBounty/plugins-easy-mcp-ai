@@ -1,9 +1,33 @@
 <?php
 namespace Easy_MCP_AI\Tools\Appearance;
 
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
+
+require_once __DIR__ . '/../../mcp/class-detailed-tool-error.php';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -105,7 +129,62 @@ final class Customizer_Settings {
     const VALID_KEY_LIST_LIMIT = 40;
 
     
+
+
+
+
+    const WP_DIE_HANDLER_FILTERS = array(
+        'wp_die_handler',
+        'wp_die_ajax_handler',
+        'wp_die_json_handler',
+        'wp_die_jsonp_handler',
+        'wp_die_xmlrpc_handler',
+        'wp_die_xml_handler',
+    );
+
+    
+    const WP_DIE_MESSAGE_LIMIT = 300;
+
+    
+    const WHILE_LOADING = 'loading';
+
+    
+    const WHILE_PUBLISHING = 'publishing';
+
+    
+
+
+
+
+    const REFUSAL_TAILS = array(
+        ' Nothing was changed: send this call in its own request.',
+        ', so this tool cannot run on this site. Nothing was changed.',
+    );
+
+    
+    const MANAGER_FILE = 'class-wp-customize-manager.php';
+
+    
+    const NO_CUSTOMIZER = 'This site has no Customizer (WordPress\'s Customizer files are missing), so theme mods and Additional CSS cannot be changed with these tools. Nothing was changed.';
+
+    
     private static $manager_factory = null;
+
+    
+    private static $manager_built = false;
+
+    
+    private static $request_before_save = null;
+
+    
+
+
+
+
+    public static function reset_request_state(): void {
+        self::$manager_built = false;
+        self::restore_request();
+    }
 
     
 
@@ -115,6 +194,18 @@ final class Customizer_Settings {
 
     public static function set_manager_factory( ?callable $factory ): void {
         self::$manager_factory = $factory;
+    }
+
+    
+
+
+
+
+
+
+
+    public static function is_customizer_available(): bool {
+        return null !== self::$manager_factory || is_readable( ABSPATH . WPINC . '/' . self::MANAGER_FILE );
     }
 
     
@@ -180,54 +271,357 @@ final class Customizer_Settings {
         if ( isset( $GLOBALS['wp_customize'] ) && is_object( $GLOBALS['wp_customize'] ) ) {
             throw new \RuntimeException( 'This request is already running the Customizer (a preview or changeset request). Call the tool without Customizer parameters.' );
         }
+        self::refuse_second_manager();
 
         
         
         
         unset( $_POST['customized'], $_REQUEST['customized'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
 
-        $had_global = array_key_exists( 'wp_customize', $GLOBALS );
-        $previous   = $had_global ? $GLOBALS['wp_customize'] : null;
-        $ob_level   = ob_get_level();
+        $had_global   = array_key_exists( 'wp_customize', $GLOBALS );
+        $previous     = $had_global ? $GLOBALS['wp_customize'] : null;
+        $ob_level     = ob_get_level();
+        $filter_depth = self::current_filter_depth();
         ob_start();
 
         try {
             $registered_before = self::customize_register_callbacks();
 
-            $manager = null !== self::$manager_factory
-                ? call_user_func( self::$manager_factory )
-                : self::construct_manager();
+            $wp_die_filter = self::trap_wp_die();
+            try {
+                $manager = null !== self::$manager_factory
+                    ? call_user_func( self::$manager_factory )
+                    : self::construct_manager();
 
-            remove_action( 'setup_theme', array( $manager, 'setup_theme' ) );
-            remove_action( 'wp_loaded', array( $manager, 'wp_loaded' ) );
+                remove_action( 'setup_theme', array( $manager, 'setup_theme' ) );
+                remove_action( 'wp_loaded', array( $manager, 'wp_loaded' ) );
 
-            self::run_after_core_registration( $registered_before );
+                self::run_after_core_registration( $registered_before );
 
-            
-            
-            
-            
-            
-            
-            
-            if ( class_exists( '\WP_Customize_Setting', false ) && method_exists( '\WP_Customize_Setting', 'reset_aggregated_multidimensionals' ) ) {
-                \WP_Customize_Setting::reset_aggregated_multidimensionals();
+                
+                
+                
+                
+                
+                
+                
+                if ( class_exists( '\WP_Customize_Setting', false ) && method_exists( '\WP_Customize_Setting', 'reset_aggregated_multidimensionals' ) ) {
+                    \WP_Customize_Setting::reset_aggregated_multidimensionals();
+                }
+
+                $GLOBALS['wp_customize'] = $manager;
+                $manager->wp_loaded();
+            } finally {
+                self::release_wp_die( $wp_die_filter );
             }
-
-            $GLOBALS['wp_customize'] = $manager;
-            $manager->wp_loaded();
 
             return $fn( $manager );
         } finally {
-            while ( ob_get_level() > $ob_level ) {
-                ob_end_clean();
+            
+            
+            
+            
+            
+            for ( $level = ob_get_level(); $level > $ob_level; $level-- ) {
+                try {
+                    ob_end_clean();
+                } catch ( \Throwable $e ) {
+                    unset( $e );
+                }
             }
             if ( $had_global ) {
                 $GLOBALS['wp_customize'] = $previous;
             } else {
                 unset( $GLOBALS['wp_customize'] );
             }
+            self::restore_request();
+            self::unwind_current_filter( $filter_depth );
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function refuse_second_manager(): void {
+        if ( self::$manager_built ) {
+            throw new \Easy_MCP_AI\MCP\Detailed_Tool_Error(
+                'Only one Customizer tool call can run per request, and this request already ran one.' . self::REFUSAL_TAILS[0],
+                'Themes load their Customizer code once per request, as on the Customizer screen; a second Customizer in the same JSON-RPC batch can end the whole response with a fatal error.'
+            );
+        }
+        self::$manager_built = true;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function present_save_request( array $values ): void {
+        if ( null === self::$request_before_save ) {
+            self::$request_before_save = array(
+                'post'    => $_POST, // phpcs:ignore WordPress.Security.NonceVerification.Missing -- saved to be restored, not read.
+                'request' => $_REQUEST, // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- saved to be restored, not read.
+            );
+        }
+        $nonce      = wp_create_nonce( 'save-customize_' . get_stylesheet() );
+        $customized = wp_slash( (string) wp_json_encode( $values ) );
+
+        $_POST['nonce']         = $nonce;
+        $_REQUEST['nonce']      = $nonce;
+        $_POST['customized']    = $customized;
+        $_REQUEST['customized'] = $customized;
+    }
+
+    
+
+
+
+
+    private static function restore_request(): void {
+        if ( null === self::$request_before_save ) {
+            return;
+        }
+        $_POST                     = self::$request_before_save['post'];
+        $_REQUEST                  = self::$request_before_save['request'];
+        self::$request_before_save = null;
+    }
+
+    
+
+
+
+
+    private static function current_filter_depth(): int {
+        return isset( $GLOBALS['wp_current_filter'] ) && is_array( $GLOBALS['wp_current_filter'] ) ? count( $GLOBALS['wp_current_filter'] ) : 0;
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    private static function unwind_current_filter( int $depth ): void {
+        if ( self::current_filter_depth() > $depth ) {
+            array_splice( $GLOBALS['wp_current_filter'], $depth );
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private static function trap_wp_die( string $while = self::WHILE_LOADING ): \Closure {
+        $handler = static function ( $message, $title = '', $args = array() ) use ( $while ): void {
+            if ( is_array( $args ) && array_key_exists( 'exit', $args ) && ! $args['exit'] ) {
+                return;
+            }
+            throw self::wp_die_refusal( $message, debug_backtrace( DEBUG_BACKTRACE_IGNORE_ARGS, 12 ), $while ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_debug_backtrace -- names the caller in the refusal.
+        };
+        $filter = static function () use ( $handler ) {
+            return $handler;
+        };
+        foreach ( self::WP_DIE_HANDLER_FILTERS as $hook ) {
+            add_filter( $hook, $filter, PHP_INT_MAX );
+        }
+        return $filter;
+    }
+
+    
+
+
+
+
+
+    private static function release_wp_die( \Closure $filter ): void {
+        foreach ( self::WP_DIE_HANDLER_FILTERS as $hook ) {
+            remove_filter( $hook, $filter, PHP_INT_MAX );
+        }
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function wp_die_refusal( $message, array $trace, string $while = self::WHILE_LOADING ): \Easy_MCP_AI\MCP\Detailed_Tool_Error {
+        $text = '';
+        if ( is_object( $message ) && method_exists( $message, 'get_error_message' ) ) {
+            $text = (string) $message->get_error_message();
+        } elseif ( is_string( $message ) ) {
+            $text = $message;
+        }
+        $text = trim( (string) preg_replace( '/\s+/', ' ', wp_strip_all_tags( $text ) ) );
+        if ( strlen( $text ) > self::WP_DIE_MESSAGE_LIMIT ) {
+            $text = rtrim( substr( $text, 0, self::WP_DIE_MESSAGE_LIMIT ) ) . '…';
+        }
+
+        $caller = self::wp_die_caller( $trace );
+        $format = self::WHILE_PUBLISHING === $while
+            ? '%s stopped the Customizer while it published the change.'
+            : '%s stopped the Customizer from loading' . self::REFUSAL_TAILS[1];
+        return new \Easy_MCP_AI\MCP\Detailed_Tool_Error(
+            sprintf( $format, '' === $caller ? 'Code on this site' : $caller ),
+            ( '' === $text ? 'It gave no message.' : 'Its message: "' . $text . '".' ) . ' The conflict is in that code, not in the request: retrying fails the same way until it changes.'
+        );
+    }
+
+    
+
+
+
+
+
+
+
+    public static function cause_of( \Throwable $e ): string {
+        $message = $e->getMessage();
+        foreach ( self::REFUSAL_TAILS as $tail ) {
+            if ( strlen( $message ) > strlen( $tail ) && substr( $message, -strlen( $tail ) ) === $tail ) {
+                $message = rtrim( substr( $message, 0, -strlen( $tail ) ), '.' ) . '.';
+                break;
+            }
+        }
+        $details = $e instanceof \Easy_MCP_AI\MCP\Detailed_Tool_Error ? trim( $e->get_details() ) : '';
+        return '' === $details ? $message : $message . ' ' . $details;
+    }
+
+    
+
+
+
+
+
+
+
+    private static function wp_die_caller( array $trace ): string {
+        foreach ( $trace as $i => $frame ) {
+            if ( 'wp_die' !== ( $frame['function'] ?? '' ) || isset( $frame['class'] ) ) {
+                continue;
+            }
+            $name = '';
+            if ( isset( $trace[ $i + 1 ]['function'] ) && false === strpos( (string) $trace[ $i + 1 ]['function'], '{closure' ) ) {
+                $outer = $trace[ $i + 1 ];
+                $name  = ( isset( $outer['class'] ) ? $outer['class'] . '::' : '' ) . $outer['function'] . '()';
+            }
+            $owner = isset( $frame['file'] ) ? self::code_owner( (string) $frame['file'] ) : '';
+            if ( '' === $name ) {
+                return '' === $owner ? '' : 'Code in ' . $owner;
+            }
+            return '' === $owner ? $name : $name . ' in ' . $owner;
+        }
+        return '';
+    }
+
+    
+
+
+
+
+
+    private static function code_roots(): array {
+        $roots = array();
+        if ( defined( 'WPMU_PLUGIN_DIR' ) ) {
+            $roots['the must-use plugin'] = (string) WPMU_PLUGIN_DIR;
+        }
+        if ( defined( 'WP_PLUGIN_DIR' ) ) {
+            $roots['the plugin'] = (string) WP_PLUGIN_DIR;
+        }
+        if ( function_exists( 'get_theme_root' ) ) {
+            $roots['the theme'] = (string) get_theme_root();
+        }
+        return $roots;
+    }
+
+    
+
+
+
+
+
+
+    private static function code_owner( string $file ): string {
+        $normalize = static function ( string $path ): string {
+            return trailingslashit( str_replace( '\\', '/', $path ) );
+        };
+        
+        
+        
+        $file = str_replace( '\\', '/', $file );
+        foreach ( self::code_roots() as $label => $root ) {
+            $resolved = realpath( $root );
+            foreach ( array_unique( array( $normalize( $root ), $normalize( false === $resolved ? $root : $resolved ) ) ) as $prefix ) {
+                if ( '/' !== $prefix && 0 === strpos( $file, $prefix ) ) {
+                    $slug = explode( '/', substr( $file, strlen( $prefix ) ) )[0];
+                    return '' === $slug ? '' : $label . ' "' . $slug . '"';
+                }
+            }
+        }
+        return '';
     }
 
     
@@ -288,7 +682,10 @@ final class Customizer_Settings {
 
 
     private static function construct_manager(): \WP_Customize_Manager {
-        require_once ABSPATH . WPINC . '/class-wp-customize-manager.php';
+        if ( ! self::is_customizer_available() ) {
+            throw new \RuntimeException( self::NO_CUSTOMIZER );
+        }
+        require_once ABSPATH . WPINC . '/' . self::MANAGER_FILE;
         return new \WP_Customize_Manager(
             array(
                 'theme'              => get_stylesheet(),
@@ -590,7 +987,7 @@ final class Customizer_Settings {
 
 
 
-    public static function validate_and_save( object $manager, object $setting, $value ): void {
+    public static function validate_value( object $manager, object $setting, $value ): void {
         $id = (string) $setting->id;
 
         do_action( 'customize_save_validation_before', $manager );
@@ -612,8 +1009,24 @@ final class Customizer_Settings {
             $detail   = empty( $messages ) ? $validity->get_error_code() : implode( ' ', $messages );
             throw new \InvalidArgumentException( sprintf( 'WordPress rejected the value for "%s": %s', $id, html_entity_decode( wp_strip_all_tags( (string) $detail ), ENT_QUOTES, 'UTF-8' ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+    public static function validate_and_save( object $manager, object $setting, $value ): void {
+        $id = (string) $setting->id;
+        self::validate_value( $manager, $setting, $value );
 
         $manager->set_post_value( $id, $value );
+        self::present_save_request( $manager->unsanitized_post_values( array( 'exclude_changeset' => true ) ) );
 
         do_action( 'customize_save', $manager );
 
@@ -622,6 +1035,61 @@ final class Customizer_Settings {
         if ( false === $setting->save() ) {
             throw new \RuntimeException( sprintf( 'WordPress did not save "%s" (the value was invalid after sanitizing, or the setting refused the write).', $id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public static function publish_changeset( object $manager, int $changeset_id, object $setting, array $values, bool &$saved = false ): bool {
+        $data  = $setting->id_data();
+        $saved = false;
+        $mark  = static function ( $saving ) use ( $setting, &$saved ) {
+            if ( $saving === $setting ) {
+                $saved = true;
+            }
+        };
+        $hook  = 'customize_save_' . $data['base'];
+
+        
+        
+        
+        $manager->unsanitized_post_values();
+        self::present_save_request( $values );
+
+        add_action( $hook, $mark, PHP_INT_MAX );
+        $wp_die_filter = self::trap_wp_die( self::WHILE_PUBLISHING );
+        try {
+            wp_publish_post( $changeset_id );
+        } finally {
+            self::release_wp_die( $wp_die_filter );
+            remove_action( $hook, $mark, PHP_INT_MAX );
+        }
+        return $saved;
     }
 
     

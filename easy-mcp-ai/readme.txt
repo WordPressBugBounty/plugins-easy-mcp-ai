@@ -4,7 +4,7 @@ Tags: mcp, claude, chatgpt, wordpress-mcp, connector
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.1.0
+Stable tag: 2.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -225,29 +225,16 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 
 == Changelog ==
 
-= 2.1.0 =
-- Improved setup by moving AI client connections from the wizard to the dashboard.
-- Added a database search-and-replace tool that previews changes before writing.
-- Added a read-only tool to list, search, outline, and read files under wp-content.
-- Added safe restoration of AI changes from the change history.
-- Added a tool for agents to report bugs and missing features for approval.
-- Added tools that let AI clients find and call REST API routes from other plugins and WordPress core
-- Added temporary links that show unpublished posts, pages, and custom post types without signing in.
-- Added access controls for privileged tools.
-- Fixed the Claude.ai Open Settings link to open the current connectors screen
-- Fixed comment updates that accepted invalid statuses alongside text changes.
-- Fixed comment updates that reported success when they changed nothing.
-- Fixed incorrect Additional CSS results for theme folders that are not installed.
-- Fixed menu creation and renames to preserve custom slugs and existing descriptions.
-- Fixed menu tools to reject slugs WordPress cannot store as requested.
-- Fixed clients rejecting successful actions from bridged plugin abilities
-- Fixed LearnPress abilities failing when called through Easy MCP AI.
-- Fixed diagnostics to keep slower check results and rerun connection checks automatically.
-- Fixed FastCGI diagnostics warning when the Authorization header already reaches WordPress.
-- Improved FastCGI guidance to show both ways to pass authorization headers.
-- Fixed admin saves and deletions on hosts that allow only GET and POST.
-- Added a one-click fix that lets AI clients connect to Apache sites using Plain permalinks.
-- Fixed AI clients failing to sign in on hosts that block /.well-known/ addresses.
+= 2.1.1 =
+- Fixed ChatGPT connector failing when a tool declares a required field
+- Fixed large tool replies by omitting unused SEO markup and links.
+- Added Redirection tools to manage redirects and review 404 logs
+- Fixed false diagnostics warning for the Elementor manage-elements ability
+- Fixed the site settings tool setting the homepage and posts page.
+- Fixed API keys failing on MariaDB 5.5 databases
+- Fixed Customizer tools failing on Astra and Astra Pro
+- Fixed Customizer tools failing on Twenty Twenty, PopularFX, Zakra, ColorMag and other themes
+- Added staging for theme mod changes, with a preview link to review them.
 
 [See changelog for all versions](https://easymcpai.com/changelog).
 

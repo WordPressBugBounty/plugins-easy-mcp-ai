@@ -14,7 +14,7 @@ class List_Order_Notes extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all notes attached to a WooCommerce order. Required: `order_id`. Returns { notes: [...] } where each note includes id, note (text), date_created, customer_note (true = customer-visible, false = private/internal), added_by (system/admin username). Includes system-generated status-change notes (e.g. "Order status changed from pending to processing"). Requires WooCommerce active.';
+        return 'Lists all notes attached to a WooCommerce order. Required: `order_id`. Returns { notes: [...] } where each note includes id, note (text), date_created, customer_note (true = customer-visible, false = private/internal), added_by (system/admin username); `_links` is omitted. Includes system-generated status-change notes (e.g. "Order status changed from pending to processing"). Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -57,7 +57,7 @@ class List_Order_Notes extends Base_Tool {
         $data     = $this->rest_request( 'GET', '/wc/v3/orders/' . $order_id . '/notes' );
 
         return array(
-            'notes'    => $data,
+            'notes'    => $this->strip_response_noise( $data ),
             'order_id' => $order_id,
         );
     }

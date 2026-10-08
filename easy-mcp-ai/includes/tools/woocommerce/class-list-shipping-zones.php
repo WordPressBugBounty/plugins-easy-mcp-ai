@@ -14,7 +14,7 @@ class List_Shipping_Zones extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all WooCommerce shipping zones. No parameters. Returns the raw array of zones from the WooCommerce API, each including id, name, order (display sort order). Zone id=0 is the special "Rest of the World" fallback zone. Use the `id` with `wp_wc_list_shipping_methods` to see what shipping options are configured per zone. Requires WooCommerce active.';
+        return 'Lists all WooCommerce shipping zones. No parameters. Returns the array of zones from the WooCommerce API, each including id, name, order (display sort order); `_links` is omitted. Zone id=0 is the special "Rest of the World" fallback zone. Use the `id` with `wp_wc_list_shipping_methods` to see what shipping options are configured per zone. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -49,6 +49,6 @@ class List_Shipping_Zones extends Base_Tool {
 
         $data = $this->rest_request( 'GET', '/wc/v3/shipping/zones' );
 
-        return $data;
+        return $this->strip_response_noise( $data );
     }
 }

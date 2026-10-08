@@ -201,11 +201,8 @@ class Check_Tool_Visibility {
             
             
             
-            foreach ( array_keys( $map ) as $path ) {
-                if ( '' !== (string) $path && \Easy_MCP_AI\MCP\Gemini_Safe_Schema::is_uncoercible_path( (string) $path ) ) {
-                    $unrepairable[] = $name;
-                    break;
-                }
+            if ( array() !== \Easy_MCP_AI\MCP\Gemini_Safe_Schema::unreachable_paths( $map ) ) {
+                $unrepairable[] = $name;
             }
         }
 

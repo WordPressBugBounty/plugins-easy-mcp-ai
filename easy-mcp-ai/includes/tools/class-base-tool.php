@@ -44,6 +44,25 @@ abstract class Base_Tool {
 
 
 
+    const RESPONSE_NOISE_KEYS = array( 'yoast_head', 'yoast_head_json', 'aioseo_head', 'aioseo_head_json', 'aioseo_breadcrumb', 'aioseo_breadcrumb_json', '_links' );
+
+    
+
+
+
+
+
+    const RESPONSE_NOISE_PROTECTED_KEYS = array( 'id', 'meta', 'meta_data', 'acf', 'aioseo_meta_data' );
+
+    
+
+
+
+
+
+
+
+
     protected static $deferred_purge_ids = array();
 
     
@@ -83,6 +102,7 @@ abstract class Base_Tool {
             'wp_aioseo_'   => 'AIOSEO',
             'wp_bp_'       => 'BuddyPress',
             'wp_tec_'      => 'Events Calendar',
+            'wp_redirection_' => 'Redirection',
             'wp_yoast_'    => 'Yoast',
             'wp_rm_'       => 'Rank Math',
             'wp_seranking_' => 'SE Ranking',
@@ -1355,6 +1375,69 @@ abstract class Base_Tool {
 
     protected function allows_duplicate( array $arguments ): bool {
         return ! empty( $arguments['allow_duplicate'] ) && (bool) rest_sanitize_boolean( $arguments['allow_duplicate'] );
+    }
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    protected function strip_response_noise( $reply ) {
+        if ( ! is_array( $reply ) ) {
+            return $reply;
+        }
+        $drop      = array_flip( self::response_noise_keys() );
+        $strip_row = static function ( $row ) use ( $drop ) {
+            return is_array( $row ) ? array_diff_key( $row, $drop ) : $row;
+        };
+        if ( self::is_batch_reply( $reply ) ) {
+            foreach ( $reply as $operation => $items ) {
+                $reply[ $operation ] = is_array( $items ) ? array_map( $strip_row, $items ) : $items;
+            }
+            return $reply;
+        }
+        return array_values( $reply ) === $reply ? array_map( $strip_row, $reply ) : $strip_row( $reply );
+    }
+
+    
+
+
+
+
+
+
+
+    protected static function response_noise_keys(): array {
+        $keys = apply_filters( 'easy_mcp_ai_response_noise_keys', self::RESPONSE_NOISE_KEYS );
+        if ( ! is_array( $keys ) ) {
+            return self::RESPONSE_NOISE_KEYS;
+        }
+        $keys = array_filter(
+            $keys,
+            static function ( $key ) {
+                return is_string( $key ) && '' !== $key;
+            }
+        );
+        return array_values( array_diff( $keys, self::RESPONSE_NOISE_PROTECTED_KEYS ) );
+    }
+
+    
+
+
+
+
+
+
+
+    private static function is_batch_reply( array $reply ): bool {
+        return ! empty( $reply ) && array() === array_diff( array_keys( $reply ), array( 'create', 'update', 'delete' ) );
     }
 
     protected function rest_request( $method, $route, $params = array(), $fields = null ) {

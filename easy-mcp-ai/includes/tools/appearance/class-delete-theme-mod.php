@@ -14,7 +14,7 @@ class Delete_Theme_Mod extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Removes the stored value of one theme mod of the active theme, so the theme falls back to its registered default. Required: `key` — a Customizer setting id; the same keys as wp_update_theme_mod are accepted and the same ones refused (unknown keys, settings stored as site options, `nav_menu_locations`, `custom_css_post_id`, Additional CSS, and settings that need a capability you lack). For an array-style id such as `theme_options[accent]` only that entry is removed from the `theme_options` mod; the other entries stay. Returns { key, deleted, previous, value }: `deleted` is false when nothing was stored (no write happens), `previous` is the value before, and `value` is the default the theme now reads.';
+        return 'Removes one theme mod\'s stored value so the theme falls back to its default. Accepts and refuses the same keys as wp_update_theme_mod; for `foo[bar]` only that entry is removed. Returns { key, deleted, previous, value }: `deleted` is false when nothing was stored (nothing is written), and `value` is the default the theme now reads.';
     }
 
     public function get_category() {

@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-06T10:45:38+00:00\n"
+"POT-Creation-Date: 2026-10-08T12:14:52+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: easy-mcp-ai\n"
@@ -48,7 +48,7 @@ msgstr ""
 
 #: easy-mcp-ai.php:312
 #: includes/admin/class-app-page.php:195
-#: includes/oauth/class-scope-map.php:727
+#: includes/oauth/class-scope-map.php:731
 #: assets/build/index.js:22
 #: assets/build/index.js:34
 msgid "Settings"
@@ -1162,7 +1162,7 @@ msgid "Send this to the %s team?"
 msgstr ""
 
 #: includes/approvals/class-approval-page.php:273
-#: includes/class-plugin.php:1042
+#: includes/class-plugin.php:1058
 #: includes/oauth/class-authorization-endpoint.php:924
 #: includes/oauth/views/consent.php:274
 #: includes/oauth/views/device.php:163
@@ -1325,7 +1325,7 @@ msgstr ""
 msgid "Easy MCP AI: Invalid deployment settings use safe fallback values: %s"
 msgstr ""
 
-#: includes/class-plugin.php:1022
+#: includes/class-plugin.php:1038
 #: includes/oauth/class-authorization-endpoint.php:898
 msgid "Authorization Error"
 msgstr ""
@@ -1526,9 +1526,9 @@ msgstr ""
 #: includes/diagnostics/class-blocker-copy.php:199
 #: includes/diagnostics/class-check-config.php:357
 #: includes/diagnostics/class-check-observability.php:142
-#: includes/diagnostics/class-check-tool-visibility.php:359
-#: includes/diagnostics/class-check-tool-visibility.php:405
-#: includes/diagnostics/class-check-tool-visibility.php:1130
+#: includes/diagnostics/class-check-tool-visibility.php:356
+#: includes/diagnostics/class-check-tool-visibility.php:402
+#: includes/diagnostics/class-check-tool-visibility.php:1127
 msgid "unnamed"
 msgstr ""
 
@@ -1737,8 +1737,8 @@ msgstr ""
 
 #: includes/diagnostics/class-check-config.php:349
 #: includes/diagnostics/class-check-observability.php:133
-#: includes/diagnostics/class-check-tool-visibility.php:328
-#: includes/diagnostics/class-check-tool-visibility.php:380
+#: includes/diagnostics/class-check-tool-visibility.php:325
+#: includes/diagnostics/class-check-tool-visibility.php:377
 msgid "Could not read the API tokens."
 msgstr ""
 
@@ -2743,212 +2743,212 @@ msgid "Could not read the list of registered tools on this request."
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:110
-#: includes/diagnostics/class-check-tool-visibility.php:325
+#: includes/diagnostics/class-check-tool-visibility.php:322
 msgid "Every API token can see tools"
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:111
-#: includes/diagnostics/class-check-tool-visibility.php:377
+#: includes/diagnostics/class-check-tool-visibility.php:374
 msgid "Token users can reach the tools they need"
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:112
-#: includes/diagnostics/class-check-tool-visibility.php:439
+#: includes/diagnostics/class-check-tool-visibility.php:436
 msgid "Tool filter patterns match something"
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:113
-#: includes/diagnostics/class-check-tool-visibility.php:468
+#: includes/diagnostics/class-check-tool-visibility.php:465
 msgid "All tool categories are available"
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:115
-#: includes/diagnostics/class-check-tool-visibility.php:544
+#: includes/diagnostics/class-check-tool-visibility.php:541
 msgid "WordPress Abilities available"
 msgstr ""
 
 #: includes/diagnostics/class-check-tool-visibility.php:116
-#: includes/diagnostics/class-check-tool-visibility.php:673
+#: includes/diagnostics/class-check-tool-visibility.php:670
 msgid "Plugin ability schemas are client-compatible"
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:349
-#: includes/diagnostics/class-check-tool-visibility.php:432
+#: includes/diagnostics/class-check-tool-visibility.php:346
+#: includes/diagnostics/class-check-tool-visibility.php:429
 msgid "No API tokens exist yet, so there was nothing to check."
 msgstr ""
 
 #. translators: 1: token name, 2: WordPress user, 3: explanation of which filter hid the tools.
-#: includes/diagnostics/class-check-tool-visibility.php:358
+#: includes/diagnostics/class-check-tool-visibility.php:355
 #, php-format
 msgid "\"%1$s\" (user %2$s) sees no tools — %3$s"
 msgstr ""
 
 #. translators: %s: token names with visible/total counts and missing capabilities.
-#: includes/diagnostics/class-check-tool-visibility.php:420
+#: includes/diagnostics/class-check-tool-visibility.php:417
 #, php-format
 msgid "These tokens reach only a small part of the tool set because of their WordPress user's role: %s."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:423
+#: includes/diagnostics/class-check-tool-visibility.php:420
 msgid "Assign the token to a user with a higher role, or lower the minimum capability for External Data tools under Easy MCP AI → Settings → Advanced."
 msgstr ""
 
 #. translators: %s: comma-separated glob patterns.
-#: includes/diagnostics/class-check-tool-visibility.php:448
+#: includes/diagnostics/class-check-tool-visibility.php:445
 #, php-format
 msgid "These tool filter patterns match no tool at all: %s. A pattern that matches nothing hides tools without any warning."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:451
+#: includes/diagnostics/class-check-tool-visibility.php:448
 msgid "Correct or remove the pattern under Easy MCP AI → Settings → Advanced → Whitelist tools."
 msgstr ""
 
 #. translators: %s: comma-separated tool category names.
-#: includes/diagnostics/class-check-tool-visibility.php:477
+#: includes/diagnostics/class-check-tool-visibility.php:474
 #, php-format
 msgid "Every tool is switched off in: %s. If an AI client cannot do something in these areas, this is why."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:496
+#: includes/diagnostics/class-check-tool-visibility.php:493
 msgid "Connected clients have usable permissions"
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:499
+#: includes/diagnostics/class-check-tool-visibility.php:496
 msgid "Could not read the connected clients."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:506
+#: includes/diagnostics/class-check-tool-visibility.php:503
 msgid "unnamed client"
 msgstr ""
 
 #. translators: %d: number of connected clients examined.
-#: includes/diagnostics/class-check-tool-visibility.php:516
+#: includes/diagnostics/class-check-tool-visibility.php:513
 #, php-format
 msgid "(Only the first %d connected clients were checked.)"
 msgstr ""
 
 #. translators: %s: comma-separated OAuth client names.
-#: includes/diagnostics/class-check-tool-visibility.php:528
+#: includes/diagnostics/class-check-tool-visibility.php:525
 #, php-format
 msgid "These connected clients were granted permissions that resolve to no tools: %s. They can sign in and will see an empty tool list."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:531
+#: includes/diagnostics/class-check-tool-visibility.php:528
 msgid "Disconnect the client and reconnect it, approving broader permissions on the consent screen."
 msgstr ""
 
 #. translators: 1: number of abilities, 2: comma-separated ability slugs.
-#: includes/diagnostics/class-check-tool-visibility.php:573
+#: includes/diagnostics/class-check-tool-visibility.php:570
 #, php-format
 msgid "%1$d ability is switched on but WordPress has no record of it, so no tool was created for it: %2$s"
 msgid_plural "%1$d abilities are switched on but WordPress has no record of them, so no tools were created for them: %2$s"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:582
+#: includes/diagnostics/class-check-tool-visibility.php:579
 msgid "The plugin that published these abilities may have been deactivated, renamed them, or may conflict with another plugin bundling the same abilities library. Untick them under Easy MCP AI → Tools → Abilities, or resolve the conflicting plugin. Every other tool is unaffected."
 msgstr ""
 
 #. translators: 1: current WordPress version, 2: minimum required version.
-#: includes/diagnostics/class-check-tool-visibility.php:594
+#: includes/diagnostics/class-check-tool-visibility.php:591
 #, php-format
 msgid "This site runs WordPress %1$s. Abilities published by other plugins only become available as MCP tools on WordPress %2$s and later."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:598
+#: includes/diagnostics/class-check-tool-visibility.php:595
 msgid "Update WordPress to make plugin abilities available to your AI client."
 msgstr ""
 
 #. translators: 1: "1 ability" or "N abilities", 2: nothing — the count is already inside %1$s.
-#: includes/diagnostics/class-check-tool-visibility.php:618
+#: includes/diagnostics/class-check-tool-visibility.php:615
 #, php-format
 msgid "%1$s available on this site. None are switched on, which is the default — abilities are opt-in under Easy MCP AI → Tools → Abilities."
 msgstr ""
 
 #. translators: %d: number of abilities registered in WordPress.
-#: includes/diagnostics/class-check-tool-visibility.php:621
+#: includes/diagnostics/class-check-tool-visibility.php:618
 #, php-format
 msgid "%d ability is"
 msgid_plural "%d abilities are"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:633
+#: includes/diagnostics/class-check-tool-visibility.php:630
 msgid "Supported, but no installed plugin publishes any abilities yet. Nothing is wrong."
 msgstr ""
 
 #. translators: %d: number of registered abilities.
-#: includes/diagnostics/class-check-tool-visibility.php:644
+#: includes/diagnostics/class-check-tool-visibility.php:641
 #, php-format
 msgid "%d abilities registered."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:680
+#: includes/diagnostics/class-check-tool-visibility.php:677
 msgid "Could not verify — the schema compatibility component is not available on this request."
 msgstr ""
 
 #. translators: %s: comma-separated ability names.
-#: includes/diagnostics/class-check-tool-visibility.php:691
+#: includes/diagnostics/class-check-tool-visibility.php:688
 #, php-format
 msgid "These plugin abilities publish a tool description this plugin cannot make safe: %s. Some AI clients reject the entire tool list when one entry is invalid, so this can hide every tool at once."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:694
+#: includes/diagnostics/class-check-tool-visibility.php:691
 msgid "Report the ability names above to the plugin that provides them. Deactivating that plugin restores the rest of the tool list in the meantime."
 msgstr ""
 
 #. translators: %d: number of abilities adjusted automatically.
-#: includes/diagnostics/class-check-tool-visibility.php:706
+#: includes/diagnostics/class-check-tool-visibility.php:703
 #, php-format
 msgid "%d plugin ability schema(s) are adjusted automatically for client compatibility. No action needed."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:722
+#: includes/diagnostics/class-check-tool-visibility.php:719
 msgid "No plugin abilities are registered, so there was nothing to check."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:766
+#: includes/diagnostics/class-check-tool-visibility.php:763
 msgid "the token is limited to tools that do not exist or are not registered."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:768
+#: includes/diagnostics/class-check-tool-visibility.php:765
 msgid "every tool it is allowed to use has been switched off in Settings."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:770
+#: includes/diagnostics/class-check-tool-visibility.php:767
 msgid "the tool filter patterns in Settings exclude all of them."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:772
+#: includes/diagnostics/class-check-tool-visibility.php:769
 msgid "the WordPress user this token belongs to does not have permission for any of them."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:774
+#: includes/diagnostics/class-check-tool-visibility.php:771
 msgid "no tools are registered."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:781
+#: includes/diagnostics/class-check-tool-visibility.php:778
 msgid "Edit the token under Easy MCP AI → Connections → API tokens and widen the tools it may use."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:783
+#: includes/diagnostics/class-check-tool-visibility.php:780
 msgid "Re-enable the tools you need under Easy MCP AI → Tools → Core."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:785
+#: includes/diagnostics/class-check-tool-visibility.php:782
 msgid "Correct or clear the patterns under Easy MCP AI → Settings → Advanced → Whitelist tools."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:787
+#: includes/diagnostics/class-check-tool-visibility.php:784
 msgid "Assign the token to a WordPress user whose role permits these actions — an Editor or Administrator for most tools."
 msgstr ""
 
-#: includes/diagnostics/class-check-tool-visibility.php:789
+#: includes/diagnostics/class-check-tool-visibility.php:786
 msgid "Check that the plugin is fully activated."
 msgstr ""
 
 #. translators: %d: number of tokens examined.
-#: includes/diagnostics/class-check-tool-visibility.php:1143
+#: includes/diagnostics/class-check-tool-visibility.php:1140
 #, php-format
 msgid "(Only the first %d tokens were checked.)"
 msgstr ""
@@ -3223,358 +3223,368 @@ msgstr ""
 msgid "unavailable — this content type does not keep revisions, or revisions are switched off, so the previous body text was not stored anywhere"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:162
+#: includes/history/class-rebuild-planner.php:232
 msgid "this entry records a creation; wp_history_apply never deletes"
 msgstr ""
 
 #. translators: %s: a delete tool name
-#: includes/history/class-rebuild-planner.php:164
+#: includes/history/class-rebuild-planner.php:234
 #, php-format
 msgid "this entry records a creation; wp_history_apply never deletes — %s removes it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:184
+#: includes/history/class-rebuild-planner.php:254
 msgid "a deleted user cannot be recreated: the email is never recorded and a new account needs a password"
 msgstr ""
 
 #. translators: %d: user id
-#: includes/history/class-rebuild-planner.php:186
+#: includes/history/class-rebuild-planner.php:256
 #, php-format
 msgid "a deleted user cannot be recreated: the email is never recorded and a new account needs a password. Their content went to user %d"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:195
+#: includes/history/class-rebuild-planner.php:265
 msgid "no tool writes comment meta"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:197
+#: includes/history/class-rebuild-planner.php:267
 msgid "no tool writes network options"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:200
+#: includes/history/class-rebuild-planner.php:270
 msgid "WooCommerce objects are not rebuilt by wp_history_apply yet"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:203
+#: includes/history/class-rebuild-planner.php:273
 msgid "raw database entries are a record, not something a tool can write back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:205
+#: includes/history/class-rebuild-planner.php:275
 msgid "the change happened in another service; nothing local can put it back"
 msgstr ""
 
 #. translators: %s: object type
-#: includes/history/class-rebuild-planner.php:208
+#: includes/history/class-rebuild-planner.php:278
 #, php-format
 msgid "wp_history_apply does not rebuild %s entries"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:286
+#: includes/history/class-rebuild-planner.php:356
 msgid "no previous state was recorded for this post"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:317
+#: includes/history/class-rebuild-planner.php:387
 msgid "redacted: the log never keeps a password"
 msgstr ""
 
 #. translators: %s: tool name
-#: includes/history/class-rebuild-planner.php:319
-#: includes/history/class-rebuild-planner.php:617
+#: includes/history/class-rebuild-planner.php:389
+#: includes/history/class-rebuild-planner.php:687
 #, php-format
 msgid "%s has no argument for it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:331
+#: includes/history/class-rebuild-planner.php:401
 msgid "putting a post back in the trash is not a rebuild; wp_history_apply never trashes"
 msgstr ""
 
 #. translators: %s: post status
 #. translators: %s: comment status
-#: includes/history/class-rebuild-planner.php:336
-#: includes/history/class-rebuild-planner.php:933
+#: includes/history/class-rebuild-planner.php:406
+#: includes/history/class-rebuild-planner.php:1003
 #, php-format
 msgid "the tool cannot set the status \"%s\""
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:341
-#: includes/history/class-rebuild-planner.php:730
+#: includes/history/class-rebuild-planner.php:411
+#: includes/history/class-rebuild-planner.php:800
 msgid "the previous value was empty, and the tool keeps the current value when given an empty string"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:357
-#: includes/history/class-rebuild-planner.php:738
-#: includes/history/class-rebuild-planner.php:853
-#: includes/history/class-rebuild-planner.php:944
+#: includes/history/class-rebuild-planner.php:427
+#: includes/history/class-rebuild-planner.php:808
+#: includes/history/class-rebuild-planner.php:923
+#: includes/history/class-rebuild-planner.php:1014
 msgid "nothing in this entry can be written back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:358
-#: includes/history/class-rebuild-planner.php:739
-#: includes/history/class-rebuild-planner.php:854
-#: includes/history/class-rebuild-planner.php:945
+#: includes/history/class-rebuild-planner.php:428
+#: includes/history/class-rebuild-planner.php:809
+#: includes/history/class-rebuild-planner.php:924
+#: includes/history/class-rebuild-planner.php:1015
 msgid "no recorded field changed"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:383
-#: includes/history/class-rebuild-planner.php:396
+#: includes/history/class-rebuild-planner.php:453
+#: includes/history/class-rebuild-planner.php:466
 msgid "the previous body was empty, and the tool keeps the current body when given an empty string"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:386
-#: includes/history/class-rebuild-planner.php:401
+#: includes/history/class-rebuild-planner.php:456
+#: includes/history/class-rebuild-planner.php:471
 msgid "the previous body was \"0\", and WordPress's REST update stores that as an empty body"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:412
+#: includes/history/class-rebuild-planner.php:482
 msgid "a revision goes with its parent post; the parent entry carries the body"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:415
+#: includes/history/class-rebuild-planner.php:485
 msgid "a deleted media file cannot be rebuilt: the file itself is never recorded (the entry keeps its details and URL)"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:423
-#: includes/history/class-rebuild-planner.php:748
+#: includes/history/class-rebuild-planner.php:493
+#: includes/history/class-rebuild-planner.php:818
 msgid "no pre-delete snapshot was recorded"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:426
+#: includes/history/class-rebuild-planner.php:496
 msgid "this entry was written before permanent deletes kept the body; recreating it would leave the post empty"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:431
+#: includes/history/class-rebuild-planner.php:501
 msgid "a value the recreated post needs cannot be given back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:435
+#: includes/history/class-rebuild-planner.php:505
 msgid "the post had no title, and the create tools require one"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:440
+#: includes/history/class-rebuild-planner.php:510
 msgid "the recreated post gets a new id; entries after it in this call use the new one"
 msgstr ""
 
 #. translators: %s: post status
-#: includes/history/class-rebuild-planner.php:449
+#: includes/history/class-rebuild-planner.php:519
 #, php-format
 msgid "recreated as a draft: the tool cannot set the status \"%s\""
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:453
+#: includes/history/class-rebuild-planner.php:523
 msgid "the site's Force draft on create setting makes the recreated post a draft"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:485
+#: includes/history/class-rebuild-planner.php:555
 msgid "wp_create_cpt_item has no argument for it"
 msgstr ""
 
 #. translators: %s: tool name
-#: includes/history/class-rebuild-planner.php:498
+#: includes/history/class-rebuild-planner.php:568
 #, php-format
 msgid "%s has no argument for the parent or menu order"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:503
+#: includes/history/class-rebuild-planner.php:573
 msgid "redacted: if the post had a password, set it again by hand"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:525
+#: includes/history/class-rebuild-planner.php:595
 msgid "the post format could not be set on the recreated post"
 msgstr ""
 
 #. translators: %s: post type
-#: includes/history/class-rebuild-planner.php:554
+#: includes/history/class-rebuild-planner.php:624
 #, php-format
 msgid "wp_history_apply does not rebuild \"%s\" posts"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:563
+#: includes/history/class-rebuild-planner.php:633
 msgid "the entry does not name the meta key"
 msgstr ""
 
 #. translators: %d: change-history entry id
-#: includes/history/class-rebuild-planner.php:571
+#: includes/history/class-rebuild-planner.php:641
 #, php-format
 msgid "WordPress's storage of the user's roles, which wp_update_user rewrites; entry %d puts the roles back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:573
+#: includes/history/class-rebuild-planner.php:643
 msgid "WordPress's storage of the user's roles, which wp_update_user_meta never writes; apply the user entry that changed the roles"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:576
+#: includes/history/class-rebuild-planner.php:646
 msgid "the key held several values; the meta tools write one"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:584
-#: includes/history/class-rebuild-planner.php:966
-#: includes/history/class-rebuild-planner.php:990
+#: includes/history/class-rebuild-planner.php:654
+#: includes/history/class-rebuild-planner.php:1039
+#: includes/history/class-rebuild-planner.php:1150
 msgid "the previous value was not captured"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:589
-#: includes/history/class-rebuild-planner.php:970
+#: includes/history/class-rebuild-planner.php:659
+#: includes/history/class-rebuild-planner.php:1043
 msgid "the previous value cannot be given back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:598
+#: includes/history/class-rebuild-planner.php:668
 msgid "wp_update_user_meta writes a string, and the previous value was not one"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:607
+#: includes/history/class-rebuild-planner.php:677
 msgid "the post this meta belongs to no longer exists"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:630
+#: includes/history/class-rebuild-planner.php:700
 msgid "the key is not registered for the REST API on this post type, so wp_update_post_meta cannot write it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:674
+#: includes/history/class-rebuild-planner.php:744
 msgid "the entry does not name the taxonomy"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:678
+#: includes/history/class-rebuild-planner.php:748
 msgid "the previous set includes terms that could not be identified"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:688
+#: includes/history/class-rebuild-planner.php:758
 msgid "WordPress always gives a post a category, so an empty category list cannot be restored"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:690
+#: includes/history/class-rebuild-planner.php:760
 msgid "wp_add_post_terms cannot empty a taxonomy"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:716
+#: includes/history/class-rebuild-planner.php:786
 msgid "no previous state was recorded for this term"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:724
+#: includes/history/class-rebuild-planner.php:794
 msgid "wp_update_term has no argument for it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:761
+#: includes/history/class-rebuild-planner.php:831
 msgid "the recreated term gets a new id; entries after it in this call use the new one"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:764
+#: includes/history/class-rebuild-planner.php:834
 msgid "wp_create_term has no argument for it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:779
+#: includes/history/class-rebuild-planner.php:849
 msgid "this taxonomy is not for posts; wp_add_post_terms cannot re-attach its objects"
 msgstr ""
 
 #. translators: %d: number of posts
-#: includes/history/class-rebuild-planner.php:794
+#: includes/history/class-rebuild-planner.php:864
 #, php-format
 msgid "%d post that carried the term no longer exists"
 msgid_plural "%d posts that carried the term no longer exist"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/history/class-rebuild-planner.php:797
+#: includes/history/class-rebuild-planner.php:867
 msgid "the term was on more objects than the log keeps; only the recorded ones are re-attached"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:836
+#: includes/history/class-rebuild-planner.php:906
 msgid "the user had no role, and wp_update_user cannot remove every role"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:842
+#: includes/history/class-rebuild-planner.php:912
 msgid "redacted: the log never keeps an email address"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:844
+#: includes/history/class-rebuild-planner.php:914
 msgid "wp_update_user has no argument for it"
 msgstr ""
 
 #. translators: %d: change-history entry id
-#: includes/history/class-rebuild-planner.php:850
+#: includes/history/class-rebuild-planner.php:920
 #, php-format
 msgid "a step of this call's role change; entry %d puts the roles back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:874
+#: includes/history/class-rebuild-planner.php:944
 msgid "no previous state was recorded for this comment"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:880
+#: includes/history/class-rebuild-planner.php:950
 msgid "the comment text cannot be given back"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:892
+#: includes/history/class-rebuild-planner.php:962
 msgid "this site requires a name and an email for a new comment (Settings > Discussion), and the change history never keeps the email"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:901
+#: includes/history/class-rebuild-planner.php:971
 msgid "the recreated comment gets a new id"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:902
+#: includes/history/class-rebuild-planner.php:972
 msgid "never recorded"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:905
+#: includes/history/class-rebuild-planner.php:975
 msgid "wp_create_comment cannot set a parent, so the reply is recreated outside its thread"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:908
+#: includes/history/class-rebuild-planner.php:978
 msgid "wp_create_comment cannot set the date"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:911
+#: includes/history/class-rebuild-planner.php:981
 msgid "wp_create_comment cannot set the registered author"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:924
+#: includes/history/class-rebuild-planner.php:994
 msgid "the previous text was empty"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:939
+#: includes/history/class-rebuild-planner.php:1009
 msgid "wp_update_comment has no argument for it"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:955
+#: includes/history/class-rebuild-planner.php:1025
 msgid "this entry records one part of an option; no tool writes a part"
 msgstr ""
 
 #. translators: %s: option name
-#: includes/history/class-rebuild-planner.php:962
+#: includes/history/class-rebuild-planner.php:1035
 #, php-format
 msgid "no tool writes the option \"%s\"; its previous value is in this entry for a person to restore"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1014
+#. translators: %d: change-history entry id
+#: includes/history/class-rebuild-planner.php:1071
+#, php-format
+msgid "a step of this call's homepage change; entry %d puts the homepage settings back"
+msgstr ""
+
+#: includes/history/class-rebuild-planner.php:1123
+msgid "a page ID the site kept while its homepage showed the latest posts; it had no effect there, and wp_update_site_settings refuses one sent with show_on_front \"posts\""
+msgstr ""
+
+#: includes/history/class-rebuild-planner.php:1174
 msgid "the post no longer exists"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1021
+#: includes/history/class-rebuild-planner.php:1181
 msgid "no post it names exists any more"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1025
+#: includes/history/class-rebuild-planner.php:1185
 msgid "the post is recreated by this same call, with its sticky flag"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1026
+#: includes/history/class-rebuild-planner.php:1186
 msgid "no post was stuck or unstuck"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1075
+#: includes/history/class-rebuild-planner.php:1235
 msgid "WordPress's queue of pings and enclosures to send; it fills it again when the post is published"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1078
+#: includes/history/class-rebuild-planner.php:1238
 msgid "WordPress's own record of a trash, not content of the post"
 msgstr ""
 
-#: includes/history/class-rebuild-planner.php:1089
+#: includes/history/class-rebuild-planner.php:1249
 msgid "WooCommerce's record of when the customer last changed; it stamps it again on the next profile update"
 msgstr ""
 
 #. translators: %s: taxonomy name
-#: includes/history/class-rebuild-planner.php:1095
+#: includes/history/class-rebuild-planner.php:1255
 #, php-format
 msgid "WordPress's cache of the %s hierarchy; it rebuilds it itself"
 msgstr ""
@@ -3836,161 +3846,161 @@ msgstr ""
 msgid "Token audience does not match this MCP server."
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:717
+#: includes/oauth/class-scope-map.php:721
 msgid "Posts & Pages"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:718
+#: includes/oauth/class-scope-map.php:722
 msgid "Custom Post Types"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:719
+#: includes/oauth/class-scope-map.php:723
 msgid "Media"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:720
+#: includes/oauth/class-scope-map.php:724
 msgid "Taxonomies"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:721
+#: includes/oauth/class-scope-map.php:725
 msgid "Comments"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:722
+#: includes/oauth/class-scope-map.php:726
 msgid "Users"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:723
+#: includes/oauth/class-scope-map.php:727
 msgid "Menus"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:724
+#: includes/oauth/class-scope-map.php:728
 msgid "Blocks & Themes"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:725
+#: includes/oauth/class-scope-map.php:729
 msgid "Plugins"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:726
+#: includes/oauth/class-scope-map.php:730
 msgid "Themes"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:729
+#: includes/oauth/class-scope-map.php:733
 msgid "Advanced Custom Fields"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:731
+#: includes/oauth/class-scope-map.php:735
 msgid "The Events Calendar"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:732
+#: includes/oauth/class-scope-map.php:737
 msgid "Yoast SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:733
+#: includes/oauth/class-scope-map.php:738
 msgid "All in One SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:734
+#: includes/oauth/class-scope-map.php:739
 msgid "Rank Math SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:735
+#: includes/oauth/class-scope-map.php:740
 #: assets/build/page-tools.js:13
 msgid "Google Search Console"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:736
+#: includes/oauth/class-scope-map.php:741
 msgid "Google Analytics"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:737
+#: includes/oauth/class-scope-map.php:742
 msgid "DataforSEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:738
+#: includes/oauth/class-scope-map.php:743
 #: assets/build/page-tools.js:15
 msgid "Semrush"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:739
+#: includes/oauth/class-scope-map.php:744
 #: assets/build/page-tools.js:19
 msgid "Ahrefs (DR)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:740
+#: includes/oauth/class-scope-map.php:745
 #: assets/build/page-tools.js:17
 msgid "SE Ranking"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:741
+#: includes/oauth/class-scope-map.php:746
 msgid "SEOPress"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:742
+#: includes/oauth/class-scope-map.php:747
 msgid "Slim SEO"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:743
+#: includes/oauth/class-scope-map.php:748
 msgid "The SEO Framework"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:744
+#: includes/oauth/class-scope-map.php:749
 msgid "Term Meta"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:745
+#: includes/oauth/class-scope-map.php:750
 msgid "User Meta"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:746
+#: includes/oauth/class-scope-map.php:751
 msgid "Site Appearance (templates, global styles, theme mods & CSS)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:747
+#: includes/oauth/class-scope-map.php:752
 msgid "Widgets & Sidebars"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:749
+#: includes/oauth/class-scope-map.php:754
 msgid "Users — Create"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:750
+#: includes/oauth/class-scope-map.php:755
 msgid "Users — Update"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:751
+#: includes/oauth/class-scope-map.php:756
 msgid "Users — Delete"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:752
+#: includes/oauth/class-scope-map.php:757
 msgid "Change History (audit log of MCP edits)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:753
+#: includes/oauth/class-scope-map.php:758
 msgid "Audit Log (every MCP call, all users — admin only)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:754
+#: includes/oauth/class-scope-map.php:759
 msgid "Site Health, Cron & Error Log"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:755
+#: includes/oauth/class-scope-map.php:760
 msgid "REST routes of plugins and core (the route checks your permissions)"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:756
+#: includes/oauth/class-scope-map.php:761
 msgid "REST routes — Delete"
 msgstr ""
 
-#: includes/oauth/class-scope-map.php:812
+#: includes/oauth/class-scope-map.php:817
 #: assets/build/page-tools.js:1
 msgid "Core"
 msgstr ""
 
 #. translators: %s: ability prefix (e.g. "Core", "Wpforms")
-#: includes/oauth/class-scope-map.php:824
+#: includes/oauth/class-scope-map.php:829
 #, php-format
 msgid "Abilities — %s"
 msgstr ""
@@ -4354,7 +4364,7 @@ msgstr ""
 msgid "This chat host did not complete the card handshake. Use the approval link in the message above, then ask the assistant to run the operation again."
 msgstr ""
 
-#: includes/tools/class-base-tool.php:252
+#: includes/tools/class-base-tool.php:272
 msgid "(no title)"
 msgstr ""
 
@@ -4524,6 +4534,20 @@ msgstr ""
 #: includes/tools/posts/class-delete-post.php:65
 #, php-format
 msgid "Delete post '%1$s' (ID %2$d, %3$s) — %4$s."
+msgstr ""
+
+#. translators: 1: number of redirects, 2: list of redirects
+#: includes/tools/redirection/class-delete-redirects.php:72
+#, php-format
+msgid "Permanently delete %1$d redirect: %2$s"
+msgid_plural "Permanently delete %1$d redirects: %2$s"
+msgstr[0] ""
+msgstr[1] ""
+
+#. translators: 1: redirect id, 2: source path, 3: target, 4: JSON of the fields being set
+#: includes/tools/redirection/class-update-redirect.php:86
+#, php-format
+msgid "Update redirect #%1$d (%2$s → %3$s): set %4$s"
 msgstr ""
 
 #. translators: 1: term name, 2: taxonomy, 3: term id, 4: number of posts

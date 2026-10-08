@@ -42,6 +42,7 @@ class Feedback_Availability {
         'woocommerce'         => array( 'woocommerce', 'WooCommerce', array( 'woocommerce', 'woo commerce' ) ),
         'acf'                 => array( 'acf', 'Advanced Custom Fields', array( 'acf', 'advanced custom fields', 'secure custom fields' ) ),
         'the-events-calendar' => array( 'events', 'The Events Calendar', array( 'events calendar', 'tribe events' ) ),
+        'redirection'         => array( 'redirection', 'Redirection', array( 'redirection plugin', 'redirection by john godley' ) ),
         'buddypress'          => array( 'buddypress', 'BuddyPress', array( 'buddypress' ) ),
         'yoast-seo'           => array( 'yoast', 'Yoast SEO', array( 'yoast' ) ),
         'rank-math'           => array( 'rankmath', 'Rank Math', array( 'rank math', 'rankmath' ) ),

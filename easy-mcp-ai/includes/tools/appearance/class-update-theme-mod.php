@@ -7,6 +7,9 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
+require_once __DIR__ . '/class-customizer-settings.php';
+require_once __DIR__ . '/class-customizer-changeset.php';
+
 class Update_Theme_Mod extends Base_Tool {
 
     public function get_name() {
@@ -14,7 +17,7 @@ class Update_Theme_Mod extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Changes one theme mod of the active theme, exactly as saving it in Appearance → Customize would. Required: `key` (the Customizer setting id, e.g. `header_textcolor`, or an array-style id such as `theme_options[accent]`) and `value` (a string, number or boolean, passed to the setting\'s validation and sanitize callbacks with exactly the JSON type you send — use the type the setting stores, which its `default` in wp_get_theme_mods include_editable shows; a checkbox control does not always mean a boolean: WordPress\'s own background_attachment checkbox stores "scroll" or "fixed"). Only keys the active theme or a plugin registers as Customizer settings are accepted; an unknown key is refused with the list of valid keys (wp_get_theme_mods with include_editable: true lists them with labels and allowed choices). Refused: settings stored as site options rather than theme mods, menu locations (`nav_menu_locations`), `custom_css_post_id`, and Additional CSS (use wp_update_custom_css). A setting may require a stronger capability than edit_theme_options, and a value WordPress rejects is reported with the Customizer\'s own message; nothing is written in either case. Returns { key, previous, value, stored }: `previous` and `value` are what the theme reads through get_theme_mod() before and after (its registered default when nothing is stored), and `stored` is the raw value now saved — they differ when the theme filters the mod or the setting\'s sanitizer changed your value. Arrays and objects are not accepted. Some themes register their settings only inside the Customizer screen; those keys are refused here.';
+        return 'Changes one theme mod of the active theme, as publishing it in Appearance → Customize does: the setting\'s own validation and sanitizing run. `key` must be a Customizer setting the theme or a plugin registers (wp_get_theme_mods with include_editable: true lists them, with defaults and choices); send `value` in the type the setting stores (see its default). Refused, with nothing written: unknown keys, site options, menu locations, custom_css_post_id, Additional CSS (use wp_update_custom_css) and values the setting rejects. Live: { published: true, changed, key, previous, value, stored, warning? } — `changed` is false when nothing stored changed. Not live: { published: false, staged: true, key, value, checked, preview_url, share_url, message, reason? } — with publish: false, or when this site stops the Customizer outside its own screen (`reason`), the change waits in the Customizer draft for a person to publish at preview_url (login required); share_url shows it on the site to anyone with the link, until it is published.';
     }
 
     public function get_category() {
@@ -38,7 +41,7 @@ class Update_Theme_Mod extends Base_Tool {
         return array(
             'type'       => 'object',
             'properties' => array(
-                'key'   => array(
+                'key'     => array(
                     'type'        => 'string',
                     'description' => 'Customizer setting id of the theme mod to change.',
                 ),
@@ -48,13 +51,17 @@ class Update_Theme_Mod extends Base_Tool {
                 
                 
                 
-                'value' => array(
+                'value'   => array(
                     'description' => 'New value: a string, number or boolean, of the type the setting stores (see its default).',
                     'oneOf'       => array(
                         array( 'type' => 'string' ),
                         array( 'type' => 'number' ),
                         array( 'type' => 'boolean' ),
                     ),
+                ),
+                'publish' => array(
+                    'type'        => 'boolean',
+                    'description' => 'Make the change live (default true). false stages it in the Customizer draft for a person to review and publish.',
                 ),
             ),
             'required'   => array( 'key', 'value' ),
@@ -73,28 +80,147 @@ class Update_Theme_Mod extends Base_Tool {
             throw new \InvalidArgumentException( '"value" must be a string, number or boolean. Arrays, objects and null are not accepted; use wp_delete_theme_mod to go back to the default.' );
         }
 
+        $publish = ! array_key_exists( 'publish', $arguments ) || rest_sanitize_boolean( $arguments['publish'] );
+
         
         $denied = Customizer_Settings::denied_reason( $key );
         if ( null !== $denied ) {
             throw new \InvalidArgumentException( $denied ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         Customizer_Settings::assert_can_customize();
+        if ( ! Customizer_Settings::is_customizer_available() || ! Customizer_Changeset::is_available() ) {
+            throw new \RuntimeException( Customizer_Settings::NO_CUSTOMIZER );
+        }
 
-        return Customizer_Settings::with_manager(
-            static function ( $manager ) use ( $key, $value ) {
-                $setting  = Customizer_Settings::resolve_writable_setting( $manager, $key );
-                $previous = Customizer_Settings::effective_value( $setting );
+        
+        
+        
+        
+        
+        
+        $entered = false;
+        $checked = null;
+        $unknown = false;
+        try {
+            return Customizer_Settings::with_manager(
+                static function ( $manager ) use ( $key, $value, $publish, &$entered, &$checked, &$unknown ) {
+                    $entered = true;
+                    $setting = Customizer_Settings::resolve_writable_setting( $manager, $key );
+                    Customizer_Settings::validate_value( $manager, $setting, $value );
+                    $checked = $setting;
 
-                Customizer_Settings::validate_and_save( $manager, $setting, $value );
-                Customizer_Settings::after_save( $manager );
+                    return $publish
+                        ? self::publish( $manager, $setting, $value, $unknown )
+                        : self::staged( (string) $setting->id, $value, true, null );
+                }
+            );
+        } catch ( \Throwable $e ) {
+            if ( $unknown || ( $entered && null === $checked ) ) {
+                throw $e;
+            }
+            return self::staged( null === $checked ? $key : (string) $checked->id, $value, null !== $checked, $e );
+        }
+    }
 
-                return array(
-                    'key'      => (string) $setting->id,
-                    'previous' => $previous,
-                    'value'    => Customizer_Settings::effective_value( $setting ),
-                    'stored'   => Customizer_Settings::stored_value( $setting ),
+    
+
+
+
+
+
+
+
+
+
+
+    private static function publish( object $manager, object $setting, $value, bool &$unknown ): array {
+        $id        = (string) $setting->id;
+        $previous  = Customizer_Settings::effective_value( $setting );
+        $before    = Customizer_Settings::stored_value( $setting );
+        $changeset = Customizer_Changeset::create( $id, $value );
+        $warnings  = array();
+        $saved     = false;
+        try {
+            if ( ! Customizer_Settings::publish_changeset( $manager, $changeset, $setting, array( $id => $value ), $saved ) ) {
+                throw new \RuntimeException( sprintf( 'WordPress did not save "%s" (the value was invalid after sanitizing, or the setting refused the write).', $id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+        } catch ( \Throwable $e ) {
+            Customizer_Changeset::discard( $changeset );
+            
+            
+            
+            
+            
+            
+            try {
+                $after = Customizer_Settings::stored_value( $setting );
+                $live  = $after !== $before || ( $saved && null !== $after && $setting->sanitize( $value ) === $after );
+            } catch ( \Throwable $read ) {
+                $unknown = true;
+                throw new \Easy_MCP_AI\MCP\Detailed_Tool_Error(
+                    'Whether this change is live is unknown: publishing it failed, and reading it back failed too. Check with wp_get_theme_mods before trying again.',
+                    sprintf( 'Publishing "%1$s" failed: %2$s Reading it back failed: %3$s', $id, $e->getMessage(), $read->getMessage() )
                 );
             }
+            if ( ! $live ) {
+                throw $e;
+            }
+            $warnings[] = 'The value was saved, but code on this site failed after the save: ' . $e->getMessage();
+        }
+
+        
+        
+        
+        $result = array(
+            'published' => true,
+            'changed'   => null,
+            'key'       => $id,
+            'previous'  => $previous,
+            'value'     => null,
+            'stored'    => null,
         );
+        try {
+            $result['stored'] = Customizer_Settings::stored_value( $setting );
+            
+            
+            
+            $result['changed'] = $result['stored'] !== $before;
+            $result['value']   = Customizer_Settings::effective_value( $setting );
+        } catch ( \Throwable $e ) {
+            $warnings[] = 'The value was saved, but reading it back failed: ' . $e->getMessage();
+        }
+        if ( ! empty( $warnings ) ) {
+            $result['warning'] = implode( ' ', $warnings );
+        }
+        return $result;
+    }
+
+    
+
+
+
+
+
+
+
+
+    private static function staged( string $key, $value, bool $checked, ?\Throwable $why ): array {
+        $uuid   = Customizer_Changeset::stage( $key, $value );
+        $result = array(
+            'published'   => false,
+            'staged'      => true,
+            'key'         => $key,
+            'value'       => $value,
+            'checked'     => $checked,
+            'preview_url' => Customizer_Changeset::preview_url( $uuid ),
+            'share_url'   => Customizer_Changeset::share_url( $uuid ),
+            'message'     => null === $why
+                ? 'Staged in the Customizer, not published. Open preview_url to review and publish it, or call again with publish: true.'
+                : 'Not published (see reason). The change is staged in the Customizer instead; an administrator can review and publish it at preview_url.',
+        );
+        if ( null !== $why ) {
+            $result['reason'] = Customizer_Settings::cause_of( $why );
+        }
+        return $result;
     }
 }

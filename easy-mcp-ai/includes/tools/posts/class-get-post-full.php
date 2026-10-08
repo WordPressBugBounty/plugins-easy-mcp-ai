@@ -27,7 +27,7 @@ class Get_Post_Full extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap). Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit.';
+        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap). Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit. SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) is omitted from `post`: saved Yoast fields are in `meta` (context=edit), and AIOSEO\'s stay in post.aioseo_meta_data. For the rendered head, use the Yoast SEO or AIOSEO tool for a post when one is listed.';
     }
 
     public function get_category() {
@@ -115,10 +115,12 @@ class Get_Post_Full extends Base_Tool {
         }
 
         
-        $post = $this->rest_request(
-            'GET',
-            '/wp/v2/' . $post_type . '/' . $post_id,
-            array( 'context' => $context )
+        $post = $this->strip_response_noise(
+            $this->rest_request(
+                'GET',
+                '/wp/v2/' . $post_type . '/' . $post_id,
+                array( 'context' => $context )
+            )
         );
 
         
