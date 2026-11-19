@@ -175,7 +175,7 @@ class Task_Manager {
             if ( 'poll' === $row['phase'] && is_array( $contract ) && null !== $contract['cancel_ability'] && '' !== (string) $row['job_id'] ) {
                 $cancel_tool = Dynamic_Tool_Registrar::build_tool_name( $contract['cancel_ability'] );
                 if ( $this->registry->get_tool( $cancel_tool ) ) {
-                    $this->server->call_tool_internal( 0, $cancel_tool, array( 'job_id' => (string) $row['job_id'] ), $token_id, $allowed_tools, false, 'skip' );
+                    $this->server->call_tool_for_task( $cancel_tool, array( 'job_id' => (string) $row['job_id'] ), $token_id, $allowed_tools );
                 }
             }
             $this->finish( $row, 'cancelled', 'Cancelled by the client.', null, null );
@@ -260,7 +260,7 @@ class Task_Manager {
             return false;
         }
         $arguments['cursor'] = (string) $row['task_cursor'];
-        $response = $this->server->call_tool_internal( 0, $row['tool_name'], $this->with_budget( $arguments, $contract, $remaining ), $token_id, $allowed_tools, false, 'skip' );
+        $response = $this->server->call_tool_for_task( $row['tool_name'], $this->with_budget( $arguments, $contract, $remaining ), $token_id, $allowed_tools );
         $outcome  = self::read_response( $response );
         if ( $outcome['failed'] ) {
             $this->finish( $row, 'failed', $outcome['message'], null, $outcome['code'], array(), $lock );
@@ -323,7 +323,7 @@ class Task_Manager {
         if ( ! $this->registry->get_tool( $status_tool ) ) {
             return null;
         }
-        $outcome = self::read_response( $this->server->call_tool_internal( 0, $status_tool, array( 'job_id' => $job_id ), $token_id, $allowed_tools, false, 'skip' ) );
+        $outcome = self::read_response( $this->server->call_tool_for_task( $status_tool, array( 'job_id' => $job_id ), $token_id, $allowed_tools ) );
         if ( $outcome['failed'] ) {
             return null;
         }
@@ -522,7 +522,7 @@ class Task_Manager {
     private function tool_result( array $row, $data ) {
         $value  = is_array( $data ) && empty( $data ) ? new \stdClass() : $data;
         $result = array(
-            'content' => array( array( 'type' => 'text', 'text' => \wp_json_encode( $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ) ),
+            'content' => array( array( 'type' => 'text', 'text' => \wp_json_encode( $value, Server::RESULT_JSON_FLAGS ) ) ),
             'isError' => false,
         );
         $tool = $this->registry->get_tool( $row['tool_name'] );

@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\ACF;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -15,7 +16,8 @@ class Update_User_Fields extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates ACF field values attached to a WordPress user. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path (the same underlying mechanism used by wp_acf_update_fields); field keys (e.g. field_abc123) also work. Reaches every field group assigned to the user, including groups with "Show in REST API" off, when you can edit that user. Any field that was not saved is listed in `fields_ignored` with a `notice` giving the reason.';
+        $same = Post_Type_Tool_Hint::may_describe( 'wp_acf_update_fields' ) ? ' (the same underlying mechanism used by wp_acf_update_fields)' : '';
+        return 'Updates ACF field values attached to a WordPress user. Pass field names and values as an object in the "fields" parameter (e.g. {"my_field_name": "value"}). Field names are the canonical documented form and are resolved by the ACF REST write path' . $same . '; field keys (e.g. field_abc123) also work. Reaches every field group assigned to the user, including groups with "Show in REST API" off, when you can edit that user. Any field that was not saved is listed in `fields_ignored` with a `notice` giving the reason.';
     }
 
     public function get_category() {

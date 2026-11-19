@@ -65,14 +65,23 @@ class Check_Header_Probe {
             }
         }
 
+        $htaccess = null;
+        if ( class_exists( '\Easy_MCP_AI\Diagnostics\Check_Transport' ) ) {
+            try {
+                $htaccess = Check_Transport::htaccess_reading();
+            } catch ( \Throwable $e ) {
+                unset( $e );
+            }
+        }
+
         return array(
-            self::evaluate( $body, $secret ),
+            self::evaluate( $body, $secret, $htaccess ),
             self::evaluate_mcp_headers( $body, $secret ),
-            self::evaluate_basic( $basic_body, $secret ),
+            self::evaluate_basic( $basic_body, $secret, $htaccess ),
         );
     }
 
-    public static function evaluate_basic( $body, $secret ) {
+    public static function evaluate_basic( $body, $secret, ?array $htaccess = null ) {
         if ( ! is_array( $body ) || empty( $body['proof'] )
             || ! hash_equals( self::expected_proof( $secret ), (string) $body['proof'] ) ) {
             return self::unknown_basic(
@@ -100,7 +109,7 @@ class Check_Header_Probe {
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 __( 'The web server is not passing a username-and-password sign-in to PHP in the normal way. This plugin recovers it from a fallback source, so bridges that sign in this way still work today — but a site relying on that fallback breaks as soon as anything about the server changes.', 'easy-mcp-ai' ),
-                __( 'Open Settings → Permalinks and press Save Changes so WordPress writes the rewrite that passes the header to PHP properly.', 'easy-mcp-ai' ),
+                self::fix_for_lost_header( $htaccess, __( 'Open Settings → Permalinks and press Save Changes so WordPress writes the rewrite that passes the header to PHP properly.', 'easy-mcp-ai' ) ),
                 $evidence
             );
         }
@@ -110,7 +119,7 @@ class Check_Header_Probe {
             Diagnostic_Result::TIER_WARNING,
             $label,
             __( 'A username-and-password sign-in sent to this site never reaches WordPress. Bridges and connectors that only offer username and password fields cannot sign in with an API key here; clients that send a Bearer token are unaffected.', 'easy-mcp-ai' ),
-            __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
+            self::fix_for_lost_header( $htaccess, __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ) ),
             $evidence
         );
     }
@@ -236,7 +245,7 @@ class Check_Header_Probe {
         );
     }
 
-    public static function evaluate( $body, $secret ) {
+    public static function evaluate( $body, $secret, ?array $htaccess = null ) {
         if ( ! is_array( $body ) || empty( $body['proof'] )
             || ! hash_equals( self::expected_proof( $secret ), (string) $body['proof'] ) ) {
             return self::unknown(
@@ -259,7 +268,7 @@ class Check_Header_Probe {
                 Diagnostic_Result::TIER_WARNING,
                 $label,
                 __( 'The web server is not passing the Authorization header to PHP in the normal way. This plugin recovers it from a fallback source, so AI clients still work today — but a site relying on that fallback breaks as soon as anything about the server changes.', 'easy-mcp-ai' ),
-                __( 'Open Settings → Permalinks and press Save Changes so WordPress writes the rewrite that passes the header to PHP properly.', 'easy-mcp-ai' ),
+                self::fix_for_lost_header( $htaccess, __( 'Open Settings → Permalinks and press Save Changes so WordPress writes the rewrite that passes the header to PHP properly.', 'easy-mcp-ai' ) ),
                 $evidence
             );
         }
@@ -269,9 +278,46 @@ class Check_Header_Probe {
             Diagnostic_Result::TIER_WARNING,
             $label,
             __( 'An Authorization header sent to this site never reaches WordPress. This is the usual reason an AI client that worked yesterday suddenly reports an invalid token: the credential is fine, the web server is removing it before WordPress sees it.', 'easy-mcp-ai' ),
-            __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ),
+            self::fix_for_lost_header( $htaccess, __( 'On Apache, with mod_php or FastCGI, re-save Settings → Permalinks so WordPress writes the rewrite that passes the header to PHP, or add the rule to .htaccess by hand where WordPress cannot write it. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' ) ),
             $evidence
         );
+    }
+
+    private static function fix_for_lost_header( ?array $htaccess, string $default ): string {
+        if ( null === $htaccess || ( 'absent' === $htaccess['reach'] && $htaccess['writes_rule'] ) ) {
+            return $default;
+        }
+        if ( 'unknown' === $htaccess['reach'] ) {
+            return __( 'This plugin could not read .htaccess, so it cannot tell whether the rewrite that passes the header to PHP is there. If it is missing, add it above the WordPress block. If it is there, something else drops the header: a proxy or firewall in front of the site, or, where PHP runs as FastCGI, a server configuration that needs CGIPassAuth On (on nginx the equivalent fastcgi_param). Usually only the host can change these — quote this check when asking them.', 'easy-mcp-ai' );
+        }
+        if ( 'absent' === $htaccess['reach'] ) {
+            return __( 'WordPress does not write the rewrite that passes the header to PHP on this site (Multisite, or Plain permalinks), so re-saving Settings → Permalinks will not add it. Add it to .htaccess by hand, above the WordPress block. If the header is still lost with the rule in place, the web server needs CGIPassAuth On in its configuration, or on nginx the equivalent fastcgi_param, which usually only the host can set — quote this check when asking them.', 'easy-mcp-ai' );
+        }
+        if ( 'reached' === $htaccess['reach'] ) {
+            return __( 'The rewrite that passes the header to PHP is already in .htaccess and runs, so re-saving Settings → Permalinks will not help. Something else drops the header: a proxy or firewall in front of the site, or, where PHP runs as FastCGI, a server configuration that needs CGIPassAuth On (on nginx the equivalent fastcgi_param). Usually only the host can change these — quote this check when asking them.', 'easy-mcp-ai' );
+        }
+        $line = $htaccess['line'];
+        if ( 'refused' === $htaccess['reach'] ) {
+            $text = null === $line
+                ? __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: a rule in the file refuses or redirects these requests before WordPress. Change .htaccess so it lets requests to /wp-json/ through to WordPress.', 'easy-mcp-ai' )
+                /* translators: %d: line number in .htaccess. */
+                : sprintf( __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: the rule on line %d refuses or redirects these requests before WordPress. Change that line so it lets requests to /wp-json/ through to WordPress.', 'easy-mcp-ai' ), $line );
+        } elseif ( 'maybe' === $htaccess['reach'] ) {
+            $text = null === $line
+                ? __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: a rule in the file may stop these requests before it runs. Move the rewrite to the top of .htaccess.', 'easy-mcp-ai' )
+                /* translators: %d: line number in .htaccess. */
+                : sprintf( __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: the rule on line %d may stop these requests before it runs. Move the rewrite above that line.', 'easy-mcp-ai' ), $line );
+        } else {
+            $text = null === $line
+                ? __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: a rule in the file stops these requests before it runs. Move the rewrite to the top of .htaccess.', 'easy-mcp-ai' )
+                /* translators: %d: line number in .htaccess. */
+                : sprintf( __( 'The rewrite that passes the header to PHP is already in .htaccess, so re-saving Settings → Permalinks will not help: the rule on line %d stops these requests before it runs. Move the rewrite above that line.', 'easy-mcp-ai' ), $line );
+        }
+        if ( ! $htaccess['writes_rule'] ) {
+            return $text;
+        }
+        /* translators: 1: what to change in .htaccess, 2: label of the check that reads .htaccess. */
+        return sprintf( __( '%1$s "%2$s" has the details.', 'easy-mcp-ai' ), $text, $htaccess['check'] );
     }
 
     private static function arm() {

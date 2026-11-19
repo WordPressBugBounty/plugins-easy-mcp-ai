@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Rest;
 
 use Easy_MCP_AI\Tools\Rest_Route_Tool;
+use Easy_MCP_AI\Tools\Widgets\Sidebars_Widgets_Hold;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Rest_Read extends Rest_Route_Tool {
     }
 
     public function get_description() {
-        return 'Sends a GET request to any WordPress REST route a plugin or WordPress core registers (e.g. Contact Form 7, Redirection, WooCommerce settings, Site Kit), in-process, as this key\'s user: the route\'s own permission check decides. Find routes and their arguments with wp_rest_routes. Required: `route` (path with URL parameters filled in, e.g. "/redirection/v1/redirect"). Optional: `query` (object of query parameters), `fields` (comma-separated top-level fields). Returns { status, route, namespace, data, pagination? (total, total_pages, page, next_page), dedicated_tool? }. When `dedicated_tool` is present, prefer that tool for this kind of request. A route that answers an error is reported as an error with its status, code and message. Responses over 100 KB are refused: narrow them with per_page or fields.';
+        return 'Sends a GET request to any WordPress REST route a plugin or WordPress core registers (e.g. Contact Form 7, Redirection, WooCommerce settings, Site Kit), in-process, as this key\'s user: the route\'s own permission check decides. Find routes and their arguments with wp_rest_routes. Required: `route` (path with URL parameters filled in, e.g. "/redirection/v1/redirect"). Optional: `query` (object of query parameters), `fields` (comma-separated top-level fields). Returns { status, route, namespace, data, pagination? (total, total_pages, page, next_page), dedicated_tool? }. When `dedicated_tool` is present, prefer that tool for this kind of request. A route that answers an error is reported as an error with its status, code and message. Responses over 100 KB are refused: narrow them with per_page or fields. A route a dedicated tool covers is refused while the site has that tool switched off, naming the tool.';
     }
 
     public function get_annotations() {
@@ -39,6 +40,10 @@ class Rest_Read extends Rest_Route_Tool {
     }
 
     public function execute( array $arguments ) {
-        return $this->call_route( $arguments );
+        return Sidebars_Widgets_Hold::during(
+            function () use ( $arguments ) {
+                return $this->call_route( $arguments );
+            }
+        );
     }
 }

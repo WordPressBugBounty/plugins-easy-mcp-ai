@@ -36,7 +36,7 @@ class Update_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing event in The Events Calendar. Only the fields you send change; every other field keeps its value. Required: `id` (event post ID). Optional: `title`, `start_date` and `end_date` (YYYY-MM-DD HH:MM:SS, in the event\'s timezone; either may be sent alone), `description` (HTML allowed), `all_day` (boolean), `timezone` (e.g. "America/New_York"), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`; an empty array removes every organizer), `cost` (string, e.g. "10.00"), `url` (event website URL — sets the event\'s "website" field), `status` (publish/draft/pending), `image` (attachment ID of the featured image; 0 removes it), `featured`, `sticky`, `show_map`, `show_map_link`, `hide_from_listings` (booleans). Returns { id, title, start_date, end_date, url }. Note: the returned `url` is the event\'s permalink, NOT the website URL you set via the input `url` param — same field name, different meaning on input vs output. Requires The Events Calendar plugin active.';
+        return 'Updates an existing event in The Events Calendar. Only the fields you send change; every other field keeps its value. Required: `id` (event post ID). Optional: `title`, `start_date` and `end_date` (YYYY-MM-DD HH:MM:SS, in the event\'s timezone; either may be sent alone), `description` (HTML allowed), `all_day` (boolean), `timezone` (e.g. "America/New_York"), `venue` (venue ID — use `wp_tec_list_venues`), `organizer` (array of organizer IDs — use `wp_tec_list_organizers`; an empty array removes every organizer), `cost` (string, e.g. "10.00"), `url` (event website URL — sets the event\'s "website" field), `status` (publish/draft/pending; publish needs permission to publish events and is refused without it, since The Events Calendar would quietly save the event as pending), `image` (attachment ID of the featured image; 0 removes it), `featured`, `sticky`, `show_map`, `show_map_link`, `hide_from_listings` (booleans). Returns { id, title, start_date, end_date, url, status } (`status` as saved). Note: the returned `url` is the event\'s permalink, NOT the website URL you set via the input `url` param — same field name, different meaning on input vs output. Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -163,6 +163,7 @@ class Update_Event extends Base_Tool {
         if ( ! current_user_can( 'edit_post', $id ) ) {
             throw new \RuntimeException( 'You are not allowed to edit this event.' );
         }
+        $this->refuse_unpublishable_status( $arguments );
         $params = $this->rest_params( $arguments );
 
         $this->require_compat_shim( 'tec-event-update-fill', $arguments );
@@ -175,7 +176,14 @@ class Update_Event extends Base_Tool {
             'start_date' => $data['start_date'],
             'end_date'   => $data['end_date'],
             'url'        => $data['url'],
-        );
+        ) + Create_Event::saved_status( $data );
+    }
+
+    private function refuse_unpublishable_status( array $arguments ): void {
+        $status = isset( $arguments['status'] ) && is_scalar( $arguments['status'] ) ? sanitize_text_field( (string) $arguments['status'] ) : '';
+        if ( in_array( $status, array( 'publish', 'future' ), true ) && ! current_user_can( Create_Event::publish_capability() ) ) {
+            throw new \RuntimeException( sprintf( 'Sorry, you are not allowed to publish events, so status "%s" is refused: The Events Calendar would save the event as pending instead. Nothing was changed.', $status ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
     }
 
     private function rest_params( array $arguments ) {

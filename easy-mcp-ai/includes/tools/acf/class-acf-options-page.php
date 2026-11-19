@@ -55,7 +55,7 @@ final class Acf_Options_Page {
         $input = self::to_input( $sent, $fields );
         if ( empty( $input['values'] ) ) {
             throw new Detailed_Tool_Error(
-                'Nothing was saved: no field sent belongs to this options page.' . ( Post_Type_Tool_Hint::may_use( 'wp_acf_get_fields' ) ? ' wp_acf_get_fields with this options_page lists its field names.' : '' ),
+                'Nothing was saved: no field sent belongs to this options page.' . ( Post_Type_Tool_Hint::may_reach( 'wp_acf_get_fields' ) ? ' wp_acf_get_fields with this options_page lists its field names.' : '' ),
                 empty( $input['ignored'] ) ? 'fields was empty.' : 'Not fields of this page: ' . implode( ', ', $input['ignored'] ) . '.'
             );
         }
@@ -104,7 +104,7 @@ final class Acf_Options_Page {
         if ( ! empty( self::groups( $slug ) ) ) {
             return new Detailed_Tool_Error( sprintf( 'Field groups target this options page, but the site registers it on admin screens only, so it is not reachable here: %s', $slug ), $details );
         }
-        $where = Post_Type_Tool_Hint::may_use( 'wp_acf_list_field_groups' ) ? ' (wp_acf_list_field_groups lists them under options_pages)' : '';
+        $where = Post_Type_Tool_Hint::may_reach( 'wp_acf_list_field_groups' ) ? ' (wp_acf_list_field_groups lists them under options_pages)' : '';
         return new Detailed_Tool_Error( sprintf( 'No ACF options page has this slug%s: %s', $where, $slug ), $details );
     }
 

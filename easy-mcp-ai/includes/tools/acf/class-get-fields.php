@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\ACF;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -15,7 +16,9 @@ class Get_Fields extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page, or for an ACF options page. Returns fields under the "acf_fields" key keyed by field name (e.g. "my_field_name"). For a post, send `post_id` (and `post_type`); this includes groups with "Show in REST API" off when you can edit the post, as the editor screen does. For an options page, send `options_page` with its slug instead (wp_acf_list_field_groups lists them under options_pages); you need the capability the page itself requires. To update fields with wp_acf_update_fields, pass these same field names (field keys like "field_abc123" also work). Works with ACF and Secure Custom Fields (SCF); options pages need ACF PRO or SCF.';
+        $listing = Post_Type_Tool_Hint::may_describe( 'wp_acf_list_field_groups' ) ? ' (wp_acf_list_field_groups lists them under options_pages)' : '';
+        $update  = Post_Type_Tool_Hint::may_describe( 'wp_acf_update_fields' ) ? ' To update fields with wp_acf_update_fields, pass these same field names (field keys like "field_abc123" also work).' : '';
+        return 'Gets all ACF (Advanced Custom Fields) field values for a post or page, or for an ACF options page. Returns fields under the "acf_fields" key keyed by field name (e.g. "my_field_name"). For a post, send `post_id` (and `post_type`); this includes groups with "Show in REST API" off when you can edit the post, as the editor screen does. For an options page, send `options_page` with its slug instead' . $listing . '; you need the capability the page itself requires.' . $update . ' Works with ACF and Secure Custom Fields (SCF); options pages need ACF PRO or SCF.';
     }
 
     public function get_category() {
@@ -36,7 +39,7 @@ class Get_Fields extends Base_Tool {
             'properties' => array(
                 'post_id'      => array( 'type' => 'integer', 'description' => 'The ID of the post, page, or custom post type item to retrieve ACF fields from. Required unless options_page is sent.' ),
                 'post_type'    => array( 'type' => 'string',  'description' => 'REST base of the post type (e.g. "posts", "pages"). Defaults to "posts". A post_type slug is also accepted. Not used with options_page.', 'default' => 'posts' ),
-                'options_page' => array( 'type' => 'string',  'description' => 'Slug of an ACF options page (e.g. "general-settings") to read instead of a post; send it without post_id. wp_acf_list_field_groups lists the slugs under options_pages.' ),
+                'options_page' => array( 'type' => 'string',  'description' => 'Slug of an ACF options page (e.g. "general-settings") to read instead of a post; send it without post_id.' . ( Post_Type_Tool_Hint::may_describe( 'wp_acf_list_field_groups' ) ? ' wp_acf_list_field_groups lists the slugs under options_pages.' : '' ) ),
             ),
         );
     }

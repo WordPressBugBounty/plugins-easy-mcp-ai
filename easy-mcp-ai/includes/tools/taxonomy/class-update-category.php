@@ -65,6 +65,7 @@ class Update_Category extends Base_Tool {
     }
 
     public function precheck( array $arguments ): void {
+        $this->precheck_other_taxonomy( $arguments, 'category_id', 'category', 'update' );
         self::parent_param( $arguments );
     }
 
@@ -82,8 +83,9 @@ class Update_Category extends Base_Tool {
         $this->validate_required( $arguments, array( 'category_id' ) );
 
         $category_id = $this->parse_required_id( $arguments['category_id'], 'category_id' );
-        $parent      = self::parent_param( $arguments );
-        $params      = array();
+        $this->refuse_other_taxonomy( $category_id, 'category', 'update' );
+        $parent = self::parent_param( $arguments );
+        $params = array();
 
         if ( isset( $arguments['name'] ) ) {
             $params['name'] = sanitize_text_field( $arguments['name'] );

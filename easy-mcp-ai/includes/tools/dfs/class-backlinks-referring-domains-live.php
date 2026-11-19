@@ -98,7 +98,7 @@ class Backlinks_Referring_Domains_Live extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['target'] ) || empty( $arguments['target'] ) ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'target is required.'
 			);
 		}
@@ -106,7 +106,7 @@ class Backlinks_Referring_Domains_Live extends Base_Tool {
 		if ( isset( $arguments['mode'] ) ) {
 			$mode = (string) $arguments['mode'];
 			if ( ! in_array( $mode, array( 'as_is', 'one_per_domain', 'one_per_anchor' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'mode must be one of: as_is, one_per_domain, one_per_anchor.'
 				);
 			}
@@ -115,7 +115,7 @@ class Backlinks_Referring_Domains_Live extends Base_Tool {
 		if ( isset( $arguments['limit'] ) ) {
 			$limit = (int) $arguments['limit'];
 			if ( $limit < 1 || $limit > 1000 ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'limit must be between 1 and 1000.'
 				);
 			}
@@ -124,7 +124,7 @@ class Backlinks_Referring_Domains_Live extends Base_Tool {
 		if ( isset( $arguments['backlinks_status_type'] ) ) {
 			$backlinks_status_type = (string) $arguments['backlinks_status_type'];
 			if ( ! in_array( $backlinks_status_type, array( 'all', 'live', 'lost' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'backlinks_status_type must be one of: all, live, lost.'
 				);
 			}

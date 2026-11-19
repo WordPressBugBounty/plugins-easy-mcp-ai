@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Users;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_User extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress user by ID. Required: `user_id`, and EITHER `reassign` (the user ID to transfer the deleted user\'s posts and links to) OR `delete_content: true` (delete the user\'s posts and links with the account, as WordPress does when no one inherits them). Omitting both is refused. Single site: the account is removed permanently. Multisite (super admins only, as in WordPress): without `network`, the user is removed from THIS site (their posts here reassigned or deleted, the network account kept); with `network: true` (needs manage_network_users, and `delete_content: true` — WordPress deletes the user\'s posts on every site and cannot reassign them), the account is deleted from the whole network; super admins cannot be deleted that way. Deletion is immediate and irreversible (no trash for users). Returns { deleted, previous: { id, name, email }, scope ("account", "site" or "network"), content ("reassigned" or "deleted"), reassigned_to }. Cannot delete the current authenticated user or the last admin.';
+        return 'Deletes a WordPress user by ID. Required: `user_id`, and EITHER `reassign` (the user ID to transfer the deleted user\'s posts and links to) OR `delete_content: true` (delete the user\'s posts and links with the account, as WordPress does when no one inherits them). Omitting both is refused. Single site: the account is removed permanently. Multisite (super admins only, as in WordPress): without `network`, the user is removed from THIS site (their posts here reassigned or deleted, the network account kept); with `network: true` (needs manage_network_users, and `delete_content: true` — WordPress deletes the user\'s posts on every site and cannot reassign them), the account is deleted from the whole network; super admins cannot be deleted that way. Deletion is immediate and irreversible (no trash for users). Returns { deleted, previous: { id, name, email }, scope ("account", "site" or "network"), content ("reassigned" or "deleted"), reassigned_to }. On multisite, if a plugin keeps the user a member of this site, the call is an error naming what already happened to their content. Cannot delete the current authenticated user or the last admin.';
     }
 
     public function get_category() {
@@ -162,6 +163,10 @@ class Delete_User extends Base_Tool {
             'force'    => true,
             'reassign' => null === $reassign ? false : $reassign,
         ) );
+        $account = Delete_Outcome::stored_user( $user_id, 'user ' . $user_id );
+        if ( false !== $account ) {
+            throw new \RuntimeException( sprintf( 'WordPress answered that user %d was deleted, but the account still exists. A plugin or theme on this site may have answered the request in its place.', $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
 
         return array(
             'deleted'       => $data['deleted'] ?? false,
@@ -184,6 +189,17 @@ class Delete_User extends Base_Tool {
         }
         if ( ! wp_delete_user( $user_id, $reassign ) ) {
             throw new \RuntimeException( sprintf( 'WordPress did not remove user %d from this site.', $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        $member = Delete_Outcome::site_membership( $user_id );
+        if ( null === $member ) {
+            throw new \RuntimeException( sprintf( 'WordPress answered that user %d was removed from this site, but a database error stopped the membership being read to confirm it. Check the user under Users.', $user_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        if ( $member ) {
+            throw new \RuntimeException( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                null === $reassign
+                    ? sprintf( 'User %d was not removed from this site: they are still a member. A plugin or theme on this site stopped it. Their posts here were already moved to the Trash or deleted, and their links deleted.', $user_id )
+                    : sprintf( 'User %1$d was not removed from this site: they are still a member. A plugin or theme on this site stopped it. Their posts and links here were already given to user %2$d.', $user_id, $reassign )
+            );
         }
         return array(
             'deleted'       => true,

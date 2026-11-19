@@ -51,7 +51,7 @@ class Delete_Key_Event extends Base_Tool {
                 return sprintf( 'Remove the Google Analytics key event %s', self::resource_name( $key_event, $arguments ) );
             }
             return sprintf( 'Remove the key event "%s" from Google Analytics %s', $event_name, self::property( $arguments ) );
-        } catch ( \RuntimeException $e ) {
+        } catch ( \RuntimeException | \InvalidArgumentException $e ) {
             return self::generic_description( $this, $arguments );
         }
     }
@@ -60,7 +60,7 @@ class Delete_Key_Event extends Base_Tool {
         $event_name = self::text_arg( $arguments, 'event_name' );
         $key_event  = self::text_arg( $arguments, 'key_event' );
         if ( ( '' === $event_name ) === ( '' === $key_event ) ) {
-            throw new \RuntimeException( 'Give exactly one of event_name or key_event.' );
+            throw new \InvalidArgumentException( 'Give exactly one of event_name or key_event.' );
         }
 
         $existing = '' !== $key_event
@@ -92,17 +92,17 @@ class Delete_Key_Event extends Base_Tool {
         if ( preg_match( self::NAME_PATTERN, $key_event, $m ) ) {
             $property = 'properties/' . $m[1];
             if ( 1 === preg_match( '/^0+\z/', $m[1] ) ) {
-                throw new \RuntimeException( 'key_event must name a GA4 property; properties/0 is not one. Nothing was changed.' );
+                throw new \InvalidArgumentException( 'key_event must name a GA4 property; properties/0 is not one. Nothing was changed.' );
             }
             if ( array_key_exists( 'property_id', $arguments ) && null !== $arguments['property_id'] && GA_Client::write_property( $arguments ) !== $property ) {
-                throw new \RuntimeException( 'key_event belongs to a different property than property_id; nothing was changed.' );
+                throw new \InvalidArgumentException( 'key_event belongs to a different property than property_id; nothing was changed.' );
             }
             return $key_event;
         }
         if ( preg_match( '/^[A-Za-z0-9_-]+\z/', $key_event ) ) {
             return self::property( $arguments ) . '/keyEvents/' . $key_event;
         }
-        throw new \RuntimeException( 'key_event must be a key event ID or "properties/{id}/keyEvents/{id}".' );
+        throw new \InvalidArgumentException( 'key_event must be a key event ID or "properties/{id}/keyEvents/{id}".' );
     }
 
     private static function by_resource_name( string $name ): array {

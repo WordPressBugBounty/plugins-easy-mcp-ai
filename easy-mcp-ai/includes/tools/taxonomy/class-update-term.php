@@ -103,8 +103,11 @@ class Update_Term extends Base_Tool {
 
         $namespace = List_Terms::taxonomy_rest_namespace( $tax_obj, $taxonomy );
 
+        $this->refuse_other_taxonomy( $term_id, $taxonomy, 'update' );
+
         $before = get_term( $term_id, $taxonomy );
 
+        $this->refuse_switched_off_term_route( 'POST', $taxonomy, true );
         $data = $this->rest_request( 'POST', '/' . $namespace . '/' . $rest_base . '/' . $term_id, $params );
 
         $result = array(
@@ -148,6 +151,8 @@ class Update_Term extends Base_Tool {
 
     public function precheck( array $arguments ): void {
         self::parent_param( $arguments );
+        $this->precheck_other_taxonomy( $arguments, 'term_id', is_string( $arguments['taxonomy'] ?? null ) ? $arguments['taxonomy'] : '', 'update' );
+        $this->refuse_switched_off_term_route( 'POST', $arguments['taxonomy'] ?? null, true );
     }
 
     private function name_and_slug_params( array $arguments ): array {

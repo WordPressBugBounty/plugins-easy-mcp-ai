@@ -64,6 +64,10 @@ final class Term_Meta_Handler extends Meta_Command {
         return ! ( function_exists( 'is_wp_error' ) && \is_wp_error( $result ) ) && false !== $result && null !== $result;
     }
 
+    protected function stored_values( $object_id, string $meta_key ) {
+        return $this->table_values( $object_id, $meta_key );
+    }
+
     protected function update_metadata( $object_id, string $meta_key, $meta_value ): bool {
         throw new \LogicException( 'term meta update is Adapters\\Term_Meta_Adapter.' );
     }

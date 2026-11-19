@@ -1,6 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Cli_Router;
 
+use Easy_MCP_AI\Drafts\Strict_Ceiling;
+use Easy_MCP_AI\Drafts\Strict_Refusal;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -89,12 +92,20 @@ final class Fetchers {
         self::require_tool( $ctx, $inv, $tool );
         $item = $this->get_check( $arg, $ctx->out );
         if ( null !== $object_check ) {
-            $refusal = call_user_func( $object_check, $item );
+            $strict_mark = Strict_Ceiling::mark();
+            $refusal     = call_user_func( $object_check, $item );
             if ( is_string( $refusal ) && '' !== $refusal ) {
-                $ctx->out->error( $refusal );
+                $ctx->out->error( self::named_cause( $refusal, $strict_mark, $item ) );
             }
         }
         return $item;
+    }
+
+    private static function named_cause( string $refusal, int $strict_mark, object $item ): string {
+        if ( ! Strict_Ceiling::is_armed() || ! Strict_Ceiling::refused_since( $strict_mark ) ) {
+            return $refusal;
+        }
+        return Strict_Refusal::for_answer( $refusal, (int) ( $item->ID ?? 0 ) )->getMessage();
     }
 
     public static function require_tool( Context $ctx, Invocation $inv, string $tool ): void {

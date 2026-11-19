@@ -175,10 +175,10 @@ trait Package_Guard {
             throw new \RuntimeException( $this->upgrader_error_text( $skin->result ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( $skin->get_errors()->has_errors() ) {
-            throw new \RuntimeException( $this->redact_urls( $this->relative_paths( wp_strip_all_tags( (string) $skin->get_error_messages() ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( wp_strip_all_tags( (string) $skin->get_error_messages() ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( null === $result || false === $result ) {
-            throw new \RuntimeException( $this->redact_urls( $this->relative_paths( $this->filesystem_failure_message() ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( $this->filesystem_failure_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( true !== $result ) {
             throw new \RuntimeException( $failed ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -191,16 +191,8 @@ trait Package_Guard {
         if ( is_string( $data ) && '' !== trim( $data ) ) {
             $text .= ' ' . wp_strip_all_tags( $data );
         }
-        $text = trim( $this->redact_urls( $this->relative_paths( $text ) ) );
+        $text = trim( $this->safe_message( $text ) );
         return '' === $text ? 'WordPress refused the operation without giving a reason.' : $text;
-    }
-
-    protected function relative_paths( string $text ): string {
-        $root = rtrim( str_replace( '\\', '/', (string) ABSPATH ), '/' ) . '/';
-        if ( '/' === $root ) {
-            return $text;
-        }
-        return str_replace( array( $root, str_replace( '/', '\\', $root ) ), '', $text );
     }
 
     protected function filesystem_failure_message(): string {

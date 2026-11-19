@@ -47,22 +47,42 @@ class OAuth_Admin {
         if ( ! \current_user_can( 'manage_options' ) ) {
             return false;
         }
+        return null !== self::revoke_consent( (int) $consent_id, 0 );
+    }
+
+    public static function revoke_own_grant( int $consent_id ): ?string {
+        $user_id = \get_current_user_id();
+        if ( $user_id < 1 ) {
+            return null;
+        }
+        $consent = self::revoke_consent( $consent_id, $user_id );
+        return null === $consent ? null : (string) $consent->client_id;
+    }
+
+    private static function revoke_consent( int $consent_id, int $owner_id ): ?object {
         global $wpdb;
 
         $consents_table = $wpdb->prefix . 'easy_mcp_ai_oauth_consents';
         $tokens_table   = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
+        $where          = array( 'id' => $consent_id );
+        $where_format   = array( '%d' );
+        if ( $owner_id > 0 ) {
+            $where['wp_user_id'] = $owner_id;
+            $where_format[]      = '%d';
+        }
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Custom plugin table; name prefixed by $wpdb->prefix.
-        $consent = $wpdb->get_row(
+        $owner_sql = $owner_id > 0 ? $wpdb->prepare( ' AND wp_user_id = %d', $owner_id ) : '';
+        $consent   = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT wp_user_id, client_id FROM {$consents_table} WHERE id = %d",
                 $consent_id
-            )
+            ) . $owner_sql
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
         if ( ! $consent ) {
-            return false;
+            return null;
         }
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -72,9 +92,9 @@ class OAuth_Admin {
                 'scope'      => '',
                 'updated_at' => \current_time( 'mysql', true ),
             ),
-            array( 'id' => $consent_id ),
+            $where,
             array( '%s', '%s' ),
-            array( '%d' )
+            $where_format
         );
 
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
@@ -92,11 +112,11 @@ class OAuth_Admin {
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
         $wpdb->delete(
             $consents_table,
-            array( 'id' => $consent_id ),
-            array( '%d' )
+            $where,
+            $where_format
         );
 
-        return true;
+        return $consent;
     }
 
     public static function save_scope( $consent_id, array $scopes ) {

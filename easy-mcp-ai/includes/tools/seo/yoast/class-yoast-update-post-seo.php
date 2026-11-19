@@ -191,7 +191,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 
 		foreach ( $meta_map as $arg_key => $meta_key ) {
 			if ( isset( $arguments[ $arg_key ] ) ) {
-				if ( false !== update_post_meta( $post_id, $meta_key, sanitize_text_field( $arguments[ $arg_key ] ) ) ) {
+				if ( false !== update_post_meta( $post_id, $meta_key, wp_slash( Seo_Text::clean( $arguments[ $arg_key ] ) ) ) ) {
 					$updated[] = $arg_key;
 				}
 			}
@@ -201,7 +201,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 			if ( isset( $arguments[ $arg_key ] ) ) {
 				$url         = esc_url_raw( $arguments[ $arg_key ] );
 				$url_changed = false !== update_post_meta( $post_id, $meta_key, $url );
-				$id_changed  = Yoast_Image_Id::store_for_post( $post_id, self::IMAGE_IDS[ $arg_key ], $url );
+				$id_changed  = Image_Attachment_Id::store_for_post( $post_id, self::IMAGE_IDS[ $arg_key ], $url );
 				if ( $url_changed || $id_changed ) {
 					$updated[] = $arg_key;
 				}
@@ -229,17 +229,17 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 		}
 
 		if ( isset( $arguments['breadcrumb_title'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_bctitle', sanitize_text_field( $arguments['breadcrumb_title'] ) );
+			update_post_meta( $post_id, '_yoast_wpseo_bctitle', wp_slash( Seo_Text::clean( $arguments['breadcrumb_title'] ) ) );
 			$updated[] = 'breadcrumb_title';
 		}
 
 		if ( isset( $arguments['schema_page_type'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_schema_page_type', sanitize_text_field( $arguments['schema_page_type'] ) );
+			update_post_meta( $post_id, '_yoast_wpseo_schema_page_type', wp_slash( sanitize_text_field( $arguments['schema_page_type'] ) ) );
 			$updated[] = 'schema_page_type';
 		}
 
 		if ( isset( $arguments['schema_article_type'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_schema_article_type', sanitize_text_field( $arguments['schema_article_type'] ) );
+			update_post_meta( $post_id, '_yoast_wpseo_schema_article_type', wp_slash( sanitize_text_field( $arguments['schema_article_type'] ) ) );
 			$updated[] = 'schema_article_type';
 		}
 

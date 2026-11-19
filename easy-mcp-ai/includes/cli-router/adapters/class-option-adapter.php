@@ -18,6 +18,9 @@ final class Option_Adapter extends Command_Handler {
     const AUTOLOAD = "wp_cli_run cannot pass --autoload for '%s': wp_update_site_settings, which writes this setting, has no autoload argument. Run the command without --autoload.";
     const NOT_TEXT = "wp_cli_run cannot store a JSON array or object in '%s': wp_update_site_settings stores this setting as text or a number.";
     const NOT_MINE = "wp_cli_run cannot hand '%s' to wp_update_site_settings: it is not one of that tool's settings.";
+    const FRONT_PAGE = ' One `option update` sends one option; to change the homepage, call wp_update_site_settings with show_on_front, page_on_front and page_for_posts together.';
+
+    const FRONT_PAGE_OPTIONS = array( 'show_on_front', 'page_on_front', 'page_for_posts' );
 
     public function preflight_update( Invocation $inv, Context $ctx ): void {
         if ( null !== Read_Value::flag( $inv->assoc, 'autoload' ) ) {
@@ -50,7 +53,8 @@ final class Option_Adapter extends Command_Handler {
 
     private static function report( Context $ctx, string $key, array $result ): void {
         if ( ! $result['ok'] ) {
-            $ctx->out->error( "Could not update option '{$key}': " . (string) $result['error'] );
+            $hint = in_array( strtolower( trim( $key ) ), self::FRONT_PAGE_OPTIONS, true ) && $ctx->may_use( self::TOOL ) ? self::FRONT_PAGE : '';
+            $ctx->out->error( "Could not update option '{$key}': " . (string) $result['error'] . $hint );
             return;
         }
         if ( ! empty( $result['payload']['updated'] ) ) {

@@ -186,6 +186,7 @@ class List_Terms extends Base_Tool {
 
         $params = $this->with_collection_filters( $arguments, $params, $query_args );
 
+        $this->refuse_switched_off_term_route( 'GET', $taxonomy, false );
         $request = new \WP_REST_Request( 'GET', '/' . $namespace . '/' . $rest_base );
         foreach ( $params as $key => $value ) {
             $request->set_param( $key, $value );

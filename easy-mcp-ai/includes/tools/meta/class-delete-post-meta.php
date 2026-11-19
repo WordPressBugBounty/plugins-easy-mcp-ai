@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Meta;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Post_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes post meta for a given post. Required: `post_id`, `key`. Optional: `value` — if provided, deletes only matching rows; omit to remove ALL rows for the key. Optional `exact_key` (boolean, default false): when true the key is matched exactly as stored, byte for byte; by default it is cleaned first (surrounding whitespace, tags and %xx sequences removed). Returns { deleted: bool, post_id, key, value_provided: bool } — deleted is false when no row matched. Authorization is WordPress\'s own: `edit_post` on the post, then core\'s meta capability for deleting that key on that post — for a protected key (leading underscore) the key\'s registered auth callback plus any auth_post_meta filters decide; a protected key nothing has registered needs administrator privileges (manage_options). A key that an enabled SEO plugin integration exposes (Rank Math, Yoast, SEOPress, The SEO Framework) is refused when that plugin restricts the field for your role, as writing it through wp_update_post_meta would be.';
+        return 'Deletes post meta for a given post. Required: `post_id`, `key`. Optional: `value` — if provided, deletes only matching rows; omit to remove ALL rows for the key. Optional `exact_key` (boolean, default false): when true the key is matched exactly as stored, byte for byte; by default it is cleaned first (surrounding whitespace, tags and %xx sequences removed). Returns { deleted: bool, post_id, key, value_provided: bool } — deleted is false when no row matched. If a plugin stops the delete (a `delete_post_metadata` filter returning true, which makes WordPress answer true and keep the rows), the call is an error. Authorization is WordPress\'s own: `edit_post` on the post, then core\'s meta capability for deleting that key on that post — for a protected key (leading underscore) the key\'s registered auth callback plus any auth_post_meta filters decide; a protected key nothing has registered needs administrator privileges (manage_options). A key that an enabled SEO plugin integration exposes (Rank Math, Yoast, SEOPress, The SEO Framework) is refused when that plugin restricts the field for your role, as writing it through wp_update_post_meta would be.';
     }
 
     public function get_category() {
@@ -84,6 +85,9 @@ class Delete_Post_Meta extends Base_Tool {
             $deleted = delete_post_meta( $post_id, $target, $arguments['value'] );
         } else {
             $deleted = delete_post_meta( $post_id, $target );
+        }
+        if ( $deleted ) {
+            Delete_Outcome::require_meta_gone( 'post', $parent ? (int) $parent : $post_id, $target, $value_provided ? $arguments['value'] : '', 'post ' . $post_id, $deleted_key );
         }
         if ( $deleted ) {
             $this->clear_page_cache( array( $post_id ) );

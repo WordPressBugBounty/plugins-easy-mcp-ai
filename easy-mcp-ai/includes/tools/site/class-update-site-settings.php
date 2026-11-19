@@ -12,12 +12,14 @@ class Update_Site_Settings extends Base_Tool {
 
     const PAGE_FIELDS = array( 'page_on_front', 'page_for_posts' );
 
+    const IMAGE_FIELDS = array( 'site_icon', 'site_logo' );
+
     public function get_name() {
         return 'wp_update_site_settings';
     }
 
     public function get_description() {
-        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone` (e.g. "America/New_York" or "Europe/London"; `timezone_string` is accepted as an alias; a timezone WordPress does not know is refused and nothing is changed), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer; -1 shows every post, as WordPress allows), `language` (the site locale, e.g. "de_DE"; "en_US" or "" for English; only a language already installed on this site is accepted — any other is refused and nothing is changed, because WordPress would silently keep the current one), and the homepage: `show_on_front` ("posts" for the latest posts, "page" for a static page), `page_on_front` (the static homepage) and `page_for_posts` (the page that lists posts) — page IDs of published pages, 0 clears one. To make a page the homepage, send `show_on_front: "page"` with `page_on_front`; a page ID while the homepage shows posts, the same page for both, or a page that is not published is refused. Any other key is refused and nothing is changed: admin email, permalinks and site URL are not editable here (wp-admin > Settings). Requires `manage_options` (administrators only). Changes take effect immediately; a new language applies from the next request. Returns { updated, changed_fields, unchanged_fields, title, description, show_on_front, page_on_front, page_for_posts, language (only when sent) }: `updated` is true when at least one setting changed its stored value, and false, with `changed_fields` empty, when every setting sent already had that value.';
+        return 'Updates WordPress site settings (PATCH semantics — only supplied fields change). Editable: `title`, `description` (tagline), `timezone` (e.g. "Europe/London"; `timezone_string` is accepted as an alias; a timezone WordPress does not know is refused and nothing is changed), `date_format` (e.g. "F j, Y"), `time_format` (e.g. "g:i a"), `posts_per_page` (integer; -1 shows every post, as WordPress allows), `language` (the site locale, e.g. "de_DE"; "en_US" or "" for English; only a language already installed on this site is accepted — any other is refused and nothing is changed, because WordPress would silently keep the current one), and the homepage: `show_on_front` ("posts" for the latest posts, "page" for a static page), `page_on_front` (the static homepage) and `page_for_posts` (the page that lists posts) — page IDs of published pages, 0 clears one. To make a page the homepage, send `show_on_front: "page"` with `page_on_front`; a page ID while the homepage shows posts, the same page for both, or a page that is not published is refused. `site_icon` (the browser tab and app icon) and `site_logo` take the attachment ID of an image in the media library (wp_list_media), 0 removes one; an ID that is not an image you can read is refused, and so is a logo on a classic theme without custom logo support. Any other key is refused and nothing is changed: admin email, permalinks and site URL are not editable here (wp-admin > Settings). Requires `manage_options`. Changes take effect immediately; a new language applies from the next request. Returns { updated, changed_fields, unchanged_fields, title, description, show_on_front, page_on_front, page_for_posts, language (only when sent), site_icon and site_icon_url (only when site_icon was sent), site_logo (only when sent) }: `updated` is true when at least one setting changed its stored value (for site_icon and site_logo, the attachment WordPress reads to show it), and false, with `changed_fields` empty, when every setting sent already had that value.';
     }
 
     public function get_category() {
@@ -86,6 +88,14 @@ class Update_Site_Settings extends Base_Tool {
                     'type'        => 'integer',
                     'description' => 'ID of a published page that lists the latest posts; 0 clears it. Needs show_on_front "page".',
                 ),
+                'site_icon'      => array(
+                    'type'        => 'integer',
+                    'description' => 'Attachment ID of an image in the media library to use as the site icon (browser tab and app icon; WordPress asks for a square image of at least 512 by 512 pixels); 0 removes it.',
+                ),
+                'site_logo'      => array(
+                    'type'        => 'integer',
+                    'description' => 'Attachment ID of an image in the media library to use as the site logo; 0 removes it. Refused on a classic theme that does not support a custom logo.',
+                ),
             ),
         );
     }
@@ -104,16 +114,16 @@ class Update_Site_Settings extends Base_Tool {
         $this->refuse_undeclared_arguments( $arguments );
         $settable = array_keys( $this->get_input_schema()['properties'] );
 
-        $params = array_merge( self::settings_params( $arguments ), $this->front_page_params( $arguments ) );
+        $params = array_merge( self::settings_params( $arguments ), $this->front_page_params( $arguments ), self::image_params( $arguments ) );
         if ( empty( $params ) ) {
-            throw new \InvalidArgumentException( 'No setting given. Pass at least one of: ' . implode( ', ', $settable ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \InvalidArgumentException( 'No setting given. Pass at least one of: ' . implode( ', ', array_diff( $settable, array( 'timezone_string' ) ) ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         self::refuse_unknown_timezone( $params );
 
-        $before = $this->stored_settings( $params );
+        $before = self::with_shown_images( $this->stored_settings( $params ) );
 
         $data = $this->rest_request( 'POST', '/wp/v2/settings', $params );
-        $data = is_array( $data ) ? $data : array();
+        $data = self::with_shown_images( is_array( $data ) ? $data : array() );
 
         list( $changed, $unchanged ) = self::changed_and_unchanged( $params, $before, $data );
 
@@ -129,6 +139,14 @@ class Update_Site_Settings extends Base_Tool {
         );
         if ( isset( $params['language'] ) ) {
             $result['language'] = isset( $data['language'] ) ? (string) $data['language'] : '';
+        }
+        foreach ( self::IMAGE_FIELDS as $field ) {
+            if ( isset( $params[ $field ] ) ) {
+                $result[ $field ] = $data[ $field ];
+            }
+        }
+        if ( isset( $params['site_icon'] ) ) {
+            $result['site_icon_url'] = (string) get_site_icon_url();
         }
         return $result;
     }
@@ -213,6 +231,21 @@ class Update_Site_Settings extends Base_Tool {
             }
         }
         return array( $changed, $unchanged );
+    }
+
+    private static function with_shown_images( array $settings ): array {
+        foreach ( self::IMAGE_FIELDS as $field ) {
+            $settings[ $field ] = self::shown_image( $field );
+        }
+        return $settings;
+    }
+
+    private static function shown_image( string $field ): int {
+        if ( 'site_icon' === $field ) {
+            return (int) get_option( 'site_icon' );
+        }
+        $logo = get_theme_mod( 'custom_logo' );
+        return is_numeric( $logo ) ? (int) $logo : 0;
     }
 
     private static function resolve_language( $value ): string {
@@ -307,13 +340,58 @@ class Update_Site_Settings extends Base_Tool {
     }
 
     private static function page_id( string $field, $value ): int {
+        $id = self::whole_id( $value );
+        if ( null === $id ) {
+            throw new \InvalidArgumentException( sprintf( '%s must be a page ID, or 0 to clear it; nothing was changed.', $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        return $id;
+    }
+
+    private static function whole_id( $value ): ?int {
         if ( is_int( $value ) && $value >= 0 ) {
             return $value;
         }
         if ( is_string( $value ) && ctype_digit( $value ) ) {
             return (int) $value;
         }
-        throw new \InvalidArgumentException( sprintf( '%s must be a page ID, or 0 to clear it; nothing was changed.', $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        return null;
+    }
+
+    private static function image_params( array $arguments ): array {
+        $params = array();
+        foreach ( self::IMAGE_FIELDS as $field ) {
+            if ( ! isset( $arguments[ $field ] ) ) {
+                continue;
+            }
+            $id = self::whole_id( $arguments[ $field ] );
+            if ( null === $id ) {
+                throw new \InvalidArgumentException( sprintf( '%s must be the attachment ID of an image, or 0 to remove it; nothing was changed.', $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+            if ( 0 !== $id ) {
+                if ( 'site_logo' === $field ) {
+                    self::require_logo_support();
+                }
+                self::require_readable_image( $field, $id );
+            }
+            $params[ $field ] = $id;
+        }
+        return $params;
+    }
+
+    private static function require_readable_image( string $field, int $id ): void {
+        $post = get_post( $id );
+        if ( ! $post || 'attachment' !== $post->post_type || ! current_user_can( 'read_post', $id ) ) {
+            throw new \InvalidArgumentException( sprintf( '%s %d is not an attachment in the media library that you can read; nothing was changed. Use wp_list_media to find the ID.', $field, $id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        if ( ! wp_attachment_is_image( $id ) ) {
+            throw new \InvalidArgumentException( sprintf( '%s: attachment %d is not an image; nothing was changed. Pick an image from the media library.', $field, $id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+    }
+
+    private static function require_logo_support(): void {
+        if ( ! wp_is_block_theme() && ! current_theme_supports( 'custom-logo' ) ) {
+            throw new \InvalidArgumentException( 'site_logo cannot be set: the active theme is a classic theme without custom logo support, so it would not show a logo; nothing was changed.' );
+        }
     }
 
     private static function require_published_page( string $field, int $id ): void {

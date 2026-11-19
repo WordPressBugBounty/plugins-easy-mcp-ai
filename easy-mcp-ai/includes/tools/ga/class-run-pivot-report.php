@@ -66,20 +66,20 @@ class Run_Pivot_Report extends Base_Tool {
         $this->validate_required( $arguments, array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) );
         foreach ( array( 'date_ranges', 'dimensions', 'metrics', 'pivots' ) as $field ) {
             if ( ! is_array( $arguments[ $field ] ) ) {
-                throw new \RuntimeException( "{$field} must be an array." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                throw new \InvalidArgumentException( "{$field} must be an array." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
         }
         if ( empty( $arguments['dimensions'] ) ) {
-            throw new \RuntimeException( 'dimensions must contain at least one dimension apiName string.' );
+            throw new \InvalidArgumentException( 'dimensions must contain at least one dimension apiName string.' );
         }
         if ( empty( $arguments['metrics'] ) ) {
-            throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. sessions).' );
+            throw new \InvalidArgumentException( 'metrics must contain at least one metric apiName string (e.g. sessions).' );
         }
         if ( empty( $arguments['pivots'] ) ) {
-            throw new \RuntimeException( 'pivots must contain at least one Pivot object. See GA4 Data API runPivotReport docs.' );
+            throw new \InvalidArgumentException( 'pivots must contain at least one Pivot object. See GA4 Data API runPivotReport docs.' );
         }
         if ( count( $arguments['date_ranges'] ) > 4 ) {
-            throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
+            throw new \InvalidArgumentException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
         }
 
         $property = ! empty( $arguments['property_id'] )
@@ -94,13 +94,13 @@ class Run_Pivot_Report extends Base_Tool {
         );
         if ( ! empty( $arguments['dimension_filter'] ) ) {
             if ( ! is_array( $arguments['dimension_filter'] ) ) {
-                throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+                throw new \InvalidArgumentException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
             }
             $body['dimensionFilter'] = $arguments['dimension_filter'];
         }
         if ( ! empty( $arguments['metric_filter'] ) ) {
             if ( ! is_array( $arguments['metric_filter'] ) ) {
-                throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+                throw new \InvalidArgumentException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
             }
             $body['metricFilter'] = $arguments['metric_filter'];
         }

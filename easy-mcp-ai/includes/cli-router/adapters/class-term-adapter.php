@@ -33,6 +33,8 @@ final class Term_Adapter extends Command_Handler {
 
     const MISSING_ERRORS = array( 'Term not found.', 'Term does not exist.' );
 
+    const OTHER_TAXONOMY_ERROR = '/^(?:Use wp_[a-z_]+ for that ID, which|ID [0-9]+) is a term of taxonomy "[^"]*", not "[^"]*"[:,] /';
+
     const QUERY_ARGS = array(
         'search'            => 'text',
         'parent'            => 'id0',
@@ -980,7 +982,7 @@ final class Term_Adapter extends Command_Handler {
     }
 
     private static function missing( string $error ): ?string {
-        if ( in_array( $error, self::MISSING_ERRORS, true ) || 0 === strpos( $error, 'Unknown taxonomy: ' ) ) {
+        if ( in_array( $error, self::MISSING_ERRORS, true ) || 0 === strpos( $error, 'Unknown taxonomy: ' ) || 1 === preg_match( self::OTHER_TAXONOMY_ERROR, $error ) ) {
             return self::TERM_MISSING;
         }
         return null;

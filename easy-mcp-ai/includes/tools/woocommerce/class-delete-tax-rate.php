@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Tax_Rate extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce tax rate with its postcodes and cities. Required: `id` (wp_wc_list_tax_rates). Orders already placed keep the tax they were charged. There is no trash and no undo. Returns { deleted: true, id, name, rate, country }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce tax rate with its postcodes and cities. Required: `id` (wp_wc_list_tax_rates). Orders already placed keep the tax they were charged. There is no trash and no undo. Returns { deleted: true, id, name, rate, country }; if WooCommerce\'s read still finds the rate afterwards, or does not answer that it is gone, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -72,6 +73,7 @@ class Delete_Tax_Rate extends Base_Tool {
         $id = $this->parse_required_id( $arguments['id'], 'id' );
 
         $rate = $this->rest_request( 'DELETE', '/wc/v3/taxes/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_route_gone( '/wc/v3/taxes/' . $id, 'tax rate ' . $id, 'woocommerce_rest_invalid_id' );
 
         return array(
             'deleted' => true,

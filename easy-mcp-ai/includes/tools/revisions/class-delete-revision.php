@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Revisions;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Revision extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes one post revision, but only where the site\'s own code allows it: WordPress core refuses to delete single revisions for every user, administrators included, to protect post history, so on a standard site this always fails and no role or Easy MCP setting changes that. To go back to an older version use wp_restore_revision; to limit how many revisions are kept, set WP_POST_REVISIONS in wp-config.php; a database-cleanup plugin or WP-CLI can purge old ones. Required: `post_id` and `revision_id` (both from `wp_list_revisions`). Returns { deleted, revision_id, post_id }.';
+        return 'Permanently deletes one post revision, but only where the site\'s own code allows it: WordPress core refuses to delete single revisions for every user, administrators included, to protect post history, so on a standard site this always fails and no role or Easy MCP setting changes that. To go back to an older version use wp_restore_revision; to limit how many revisions are kept, set WP_POST_REVISIONS in wp-config.php; a database-cleanup plugin or WP-CLI can purge old ones. Required: `post_id` and `revision_id` (both from `wp_list_revisions`). Returns { deleted: true, revision_id, post_id }; if a plugin stops the delete, the call is an error.';
     }
 
     public function get_category() {
@@ -64,16 +65,15 @@ class Delete_Revision extends Base_Tool {
             throw new \RuntimeException( 'WordPress core blocks deleting single revisions for every user, admins included; no role or setting change helps. Cap revisions with WP_POST_REVISIONS; to go back, use wp_restore_revision.' );
         }
 
-        $data = $this->rest_request(
+        $this->rest_request(
             'DELETE',
             '/wp/v2/' . $rest_base . '/' . $post_id . '/revisions/' . $revision_id,
             array( 'force' => true )
         );
-
-        $deleted = is_array( $data ) && ! empty( $data['deleted'] );
+        Delete_Outcome::require_post_gone( $revision_id, 'revision ' . $revision_id );
 
         return array(
-            'deleted'     => $deleted,
+            'deleted'     => true,
             'revision_id' => $revision_id,
             'post_id'     => $post_id,
         );

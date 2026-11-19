@@ -87,14 +87,12 @@ class Update_User_Meta extends Base_Tool {
         if ( 'json' === $format ) {
             $value = self::decode_json_value( $value );
         }
-        $slash = ( 'json' === $format || 'add' === $mode );
-
         $before = self::meta_rows( $user_id, $key );
 
         if ( 'add' === $mode ) {
             return self::add_row( $user_id, $key, $value, $before );
         }
-        return self::update_rows( $user_id, $key, $value, $slash, $before );
+        return self::update_rows( $user_id, $key, $value, $before );
     }
 
     private static function refuse_unless_editable( int $user_id ): void {
@@ -162,10 +160,10 @@ class Update_User_Meta extends Base_Tool {
         );
     }
 
-    private static function update_rows( int $user_id, string $key, $value, bool $slash, array $before ): array {
-        $result    = update_user_meta( $user_id, $key, $slash ? wp_slash( $value ) : $value );
+    private static function update_rows( int $user_id, string $key, $value, array $before ): array {
+        $result    = update_user_meta( $user_id, $key, wp_slash( $value ) );
         $after     = self::meta_rows( $user_id, $key );
-        $unchanged = self::is_unchanged( $result, $before, wp_unslash( $slash ? wp_slash( $value ) : $value ) );
+        $unchanged = self::is_unchanged( $result, $before, $value );
         return array(
             'updated'   => ( false !== $result ),
             'user_id'   => $user_id,

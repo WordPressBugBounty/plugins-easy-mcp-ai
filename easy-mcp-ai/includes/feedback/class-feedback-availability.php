@@ -38,6 +38,8 @@ class Feedback_Availability {
         'site-kit'            => array( 'site kit', 'sitekit' ),
         'divi'                => array( 'divi' ),
         'contact-form-7'      => array( 'contact form 7', 'cf7' ),
+        'smart-slider-3'      => array( 'smart slider', 'smartslider' ),
+        'loco-translate'      => array( 'loco translate', 'loco' ),
         'buddypress'          => array( 'buddypress' ),
         'yoast-seo'           => array( 'yoast' ),
         'rank-math'           => array( 'rank math', 'rankmath' ),

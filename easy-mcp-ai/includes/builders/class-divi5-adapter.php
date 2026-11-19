@@ -209,9 +209,9 @@ final class Divi5_Adapter extends Layout_Adapter {
         if ( ! $this->is_present() ) {
             return 'Divi 5 is not active, so this layout can be read but not saved.';
         }
-        $version = $this->version();
-        if ( ! in_array( $version, self::TESTED_VERSIONS, true ) ) {
-            return sprintf( 'Editing Divi 5 layouts is measured on version %1$s; this site runs %2$s, so its layouts can be read but not edited.', implode( ', ', self::TESTED_VERSIONS ), '' === $version ? 'an unknown version' : $version );
+        $refusal = $this->version_refusal( self::TESTED_VERSIONS );
+        if ( null !== $refusal ) {
+            return $refusal;
         }
         if ( array() === $this->modules() ) {
             return 'Divi 5\'s module metadata could not be read on this site, so this layout can be read but not edited.';
@@ -271,8 +271,9 @@ final class Divi5_Adapter extends Layout_Adapter {
         $saved = wp_update_post(
             wp_slash(
                 array(
-                    'ID'           => $post_id,
-                    'post_content' => $plan['content'],
+                    'ID'            => $post_id,
+                    'post_content'  => $plan['content'],
+                    'page_template' => null,
                 )
             ),
             true

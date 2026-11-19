@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Users;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_User_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes user meta. Required: `user_id`, `key`. Optional: `value` (deletes only matching rows). Returns { deleted: bool, user_id, key, value_provided: bool }. Users can delete their own meta; deleting another user\'s meta requires the `edit_user` capability for that user. Auth-sensitive keys blocked, and so is a key with a character outside printable ASCII (an accented letter, a full-width form) or a backslash: the database compares keys ignoring accents and width, and WordPress strips a backslash before matching the key, so either could reach a protected key. `_`-prefixed keys require admin + per-key allowlist.';
+        return 'Deletes user meta. Required: `user_id`, `key`. Optional: `value` (deletes only matching rows). Returns { deleted: bool, user_id, key, value_provided: bool }. If a plugin stops the delete (a `delete_user_metadata` filter returning true, which makes WordPress answer true and keep the rows), the call is an error. Users can delete their own meta; deleting another user\'s meta requires the `edit_user` capability for that user. Auth-sensitive keys blocked, and so is a key with a character outside printable ASCII (an accented letter, a full-width form) or a backslash: the database compares keys ignoring accents and width, and WordPress strips a backslash before matching the key, so either could reach a protected key. `_`-prefixed keys require admin + per-key allowlist.';
     }
 
     public function get_category() {
@@ -97,10 +98,22 @@ class Delete_User_Meta extends Base_Tool {
         }
         $this->refuse_delete_value_read_as_empty( $arguments );
         $value_provided = array_key_exists( 'value', $arguments );
+        $value          = '';
         if ( $value_provided ) {
-            $deleted = delete_user_meta( $user_id, $key, $arguments['value'] );
+            list( $deleted, $value ) = $this->delete_meta_by_value(
+                'user',
+                $user_id,
+                $key,
+                static function ( $candidate ) use ( $user_id, $key ) {
+                    return delete_user_meta( $user_id, $key, $candidate );
+                },
+                $arguments['value']
+            );
         } else {
             $deleted = delete_user_meta( $user_id, $key );
+        }
+        if ( $deleted ) {
+            Delete_Outcome::require_meta_gone( 'user', $user_id, $key, $value, 'user ' . $user_id, $key );
         }
         return array(
             'deleted'        => (bool) $deleted,

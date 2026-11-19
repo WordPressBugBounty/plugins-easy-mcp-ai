@@ -33,7 +33,7 @@ class Upload_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Uploads a file you hold to the WordPress media library, in one of two ways. Small file: `filename` plus `content_base64` (the bytes in base64, or a data:<mime>;base64,... URI); add `size` and `sha256` and the site refuses mistyped or cut-off content instead of storing it. Larger file, or base64 too long to type, when you can run a shell: call with `filename`, `size` (bytes) and `sha256` (hex) and no content. The reply holds a one-time `upload_url` and a ready `command` (curl -T) that sends the raw file; run it within 15 minutes, then call again with `filename` and `upload_id` (plus any title, alt_text, caption) to create the attachment. The link takes only that exact file, from this connection. This site cannot read a local path (/mnt/data/..., C:\\..., file://). For a file at a public URL, or one your client hands off as a file reference, use wp_upload_media_from_url. Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. SVG is NOT accepted on a default WordPress install (no default MIME entry) unless a plugin enables it. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }; the link step returns { uploaded: false, upload_id, upload_url, command, expires_at }. Empty-string handling differs by field: an empty `title` is ignored (the attachment keeps its auto-generated title from the filename), while an empty `caption` or `alt_text` is applied as-is, clearing that field.';
+        return 'Uploads a file you hold to the WordPress media library, in one of two ways. Small file: `filename` plus `content_base64` (the bytes in base64, or a data:<mime>;base64,... URI); add `size` and `sha256` and the site refuses mistyped or cut-off content instead of storing it. Larger file, or base64 too long to type, when you can run a shell: call with `filename`, `size` (bytes) and `sha256` (hex) and no content. The reply holds a one-time `upload_url` and a ready `command` (curl -T, a PUT) that sends the raw file, and `post_command`, the same request sent with POST, for a site that refuses PUT (403, 405 or rest_no_route); run one within 15 minutes, then call again with `filename` and `upload_id` (plus any title, alt_text, caption) to create the attachment. The link takes only that exact file, from this connection. This site cannot read a local path (/mnt/data/..., C:\\..., file://). For a file at a public URL, or one your client hands off as a file reference, use wp_upload_media_from_url. Optional: `title`, `alt_text`, `caption`. Accepted types: image/* (jpeg/png/gif/webp), video/* (mp4/mov/avi), audio/* (mp3/wav/ogg), application/pdf, and others allowed by the site\'s upload settings. SVG is NOT accepted on a default WordPress install (no default MIME entry) unless a plugin enables it. File size limit: WordPress server `upload_max_filesize`. Returns { id, title, source_url, mime_type }; the link step returns { uploaded: false, upload_id, upload_url, command, post_command, expires_at }. Empty-string handling differs by field: an empty `title` is ignored (the attachment keeps its auto-generated title from the filename), while an empty `caption` or `alt_text` is applied as-is, clearing that field.';
     }
 
     public function get_category() {
@@ -212,17 +212,19 @@ class Upload_Media extends Base_Tool {
             }
             throw self::too_many_links();
         }
-        $url = Upload_Route::url( $id, $key );
+        $url  = Upload_Route::url( $id, $key );
+        $file = self::shell_quote( '' !== $filename ? $filename : 'file' );
         return array(
-            'uploaded'   => false,
-            'upload_id'  => $id,
-            'upload_url' => $url,
-            'method'     => 'PUT',
-            'size'       => $size,
-            'sha256'     => $hash,
-            'expires_at' => gmdate( 'Y-m-d\TH:i:s\Z', $expires ),
-            'command'    => 'curl -sS -T ' . self::shell_quote( '' !== $filename ? $filename : 'file' ) . ' ' . self::shell_quote( $url ),
-            'next'       => 'Run command where the file is, with the file\'s path in place of its name, before expires_at. It answers "received": true. Then call wp_upload_media with filename and this upload_id to add the file to the media library.',
+            'uploaded'     => false,
+            'upload_id'    => $id,
+            'upload_url'   => $url,
+            'method'       => 'PUT',
+            'size'         => $size,
+            'sha256'       => $hash,
+            'expires_at'   => gmdate( 'Y-m-d\TH:i:s\Z', $expires ),
+            'command'      => 'curl -sS -T ' . $file . ' ' . self::shell_quote( $url ),
+            'post_command' => 'curl -sS -X POST -T ' . $file . ' ' . self::shell_quote( $url ),
+            'next'         => 'Run command where the file is, with the file\'s path in place of its name, before expires_at. It answers "received": true. If the site refuses it (HTTP 403 or 405, or rest_no_route), run post_command instead: the same upload sent with POST. Then call wp_upload_media with filename and this upload_id to add the file to the media library.',
         );
     }
 
@@ -243,7 +245,7 @@ class Upload_Media extends Base_Tool {
             throw new \InvalidArgumentException( self::NO_SUCH_UPLOAD );
         }
         if ( Upload_Sessions::STATUS_RECEIVED !== $session['status'] ) {
-            throw new \InvalidArgumentException( 'No file has arrived for this upload_id yet. Run the command from the link step (it answers "received": true), then call again.' );
+            throw new \InvalidArgumentException( 'No file has arrived for this upload_id yet. Run command from the link step, or post_command where the site refuses PUT (403, 405 or rest_no_route); it answers "received": true. Then call again.' );
         }
         if ( ( self::given( $arguments, 'size' ) && self::parse_size( $arguments['size'] ) !== (int) $session['size'] )
             || ( self::given( $arguments, 'sha256' ) && self::parse_sha256( $arguments['sha256'] ) !== $session['sha256'] ) ) {
@@ -412,7 +414,7 @@ class Upload_Media extends Base_Tool {
         $meta_update_failed = false;
         $post_update        = array( 'ID' => $attachment_id );
         if ( ! empty( $arguments['title'] ) ) {
-            $post_update['post_title'] = sanitize_text_field( $arguments['title'] );
+            $post_update['post_title'] = wp_slash( sanitize_text_field( $arguments['title'] ) );
         }
         if ( isset( $arguments['caption'] ) ) {
             $post_update['post_excerpt'] = wp_slash( (string) $arguments['caption'] );
@@ -425,7 +427,7 @@ class Upload_Media extends Base_Tool {
         }
 
         if ( isset( $arguments['alt_text'] ) ) {
-            \update_post_meta( $attachment_id, '_wp_attachment_image_alt', \sanitize_text_field( $arguments['alt_text'] ) );
+            \update_post_meta( $attachment_id, '_wp_attachment_image_alt', wp_slash( \sanitize_text_field( $arguments['alt_text'] ) ) );
         }
 
         $attachment = get_post( $attachment_id );

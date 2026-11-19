@@ -1,6 +1,8 @@
 <?php
 namespace Easy_MCP_AI\Privileged;
 
+use Easy_MCP_AI\MCP\Server;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -279,7 +281,7 @@ final class Privileged_Groups {
     }
 
     public static function cap_output( $result ) {
-        $text = is_string( $result ) ? $result : \wp_json_encode( $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+        $text = is_string( $result ) ? $result : \wp_json_encode( $result, Server::RESULT_JSON_FLAGS );
         if ( ! is_string( $text ) || strlen( $text ) <= self::OUTPUT_MAX_BYTES ) {
             return $result;
         }

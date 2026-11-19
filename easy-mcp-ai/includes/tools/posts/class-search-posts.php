@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -15,6 +16,10 @@ class Search_Posts extends Base_Tool {
 
     public function get_description() {
         return 'Searches published posts by keyword, in every public post type or the one named in `subtype`. Never returns drafts, pending, private or scheduled posts, or media, so an empty result does not mean the item is missing; for those use wp_list_posts / wp_list_pages with `search` and `status: "any"`, or wp_list_media with `search`. Returns { results: [{ id, title, url (the permalink), type, subtype, snippet (only with `snippet: true`) }], total, total_pages, page, per_page, query }. To include terms, use wp_search.';
+    }
+
+    public function get_required_tools(): array {
+        return array( 'wp_search' );
     }
 
     public function get_category() {
@@ -35,7 +40,7 @@ class Search_Posts extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'query'     => array(
@@ -73,6 +78,12 @@ class Search_Posts extends Base_Tool {
             ),
             'required'   => array( 'query' ),
         );
+        $schema['properties'] += Translation_Read::properties();
+        return $schema;
+    }
+
+    public function precheck( array $arguments ): void {
+        $this->refuse_switched_off_route( 'GET', '/wp/v2/search' );
     }
 
     public function execute( array $arguments ) {
@@ -91,27 +102,29 @@ class Search_Posts extends Base_Tool {
             $params['subtype'] = sanitize_text_field( $arguments['subtype'] );
         }
 
+        $this->refuse_switched_off_route( 'GET', '/wp/v2/search' );
         $request = new \WP_REST_Request( 'GET', '/wp/v2/search' );
         foreach ( $params as $key => $value ) {
             $request->set_param( $key, $value );
         }
 
-        $response = rest_do_request( $request );
+        $lang     = Translation_Read::requested( $arguments );
+        $send     = static function () use ( $request, $lang ): \WP_REST_Response {
+            return Translation_Read::run(
+                $lang,
+                static function () use ( $request, $lang ): \WP_REST_Response {
+                    return Translation_Read::search( $request, $lang );
+                }
+            );
+        };
+        $response = $send();
 
-        if ( $response->is_error() ) {
-            $error = $response->as_error();
-            if ( $this->is_invalid_page_error( $error ) ) {
-                return array_merge(
-                    array( 'results' => array() ),
-                    $this->pagination_meta( null, $page, $params['per_page'], 0 ),
-                    array( 'query' => $query )
-                );
-            }
-            throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        $past = $this->search_past_the_end( $response, $request, $send, $page, (int) $params['per_page'], $query );
+        if ( null !== $past ) {
+            return $past;
         }
 
-        $items = $response->get_data();
-
+        $items        = $response->get_data();
         $want_snippet = ! empty( $arguments['snippet'] );
         $snippet_len  = isset( $arguments['snippet_length'] ) ? (int) $arguments['snippet_length'] : 200;
 
@@ -136,7 +149,7 @@ class Search_Posts extends Base_Tool {
         }
 
         return array_merge(
-            array( 'results' => $results ),
+            array( 'results' => Translation_Read::label_rows( $results ) ),
             $this->pagination_meta( $response, $page, $params['per_page'], count( $items ) ),
             array( 'query' => $query )
         );

@@ -256,11 +256,11 @@ class Consent_Screen {
                 continue;
             }
             if ( ! empty( $category['read_scope'] ) ) {
-                /* translators: %s: permission category, e.g. "Posts & Pages" */
+                /* translators: %s: permission category, e.g. "Posts & pages" */
                 $labels[ (string) $category['read_scope'] ] = sprintf( __( '%s (read)', 'easy-mcp-ai' ), $label );
             }
             if ( ! empty( $category['write_scope'] ) ) {
-                /* translators: %s: permission category, e.g. "Posts & Pages" */
+                /* translators: %s: permission category, e.g. "Posts & pages" */
                 $labels[ (string) $category['write_scope'] ] = sprintf( __( '%s (write)', 'easy-mcp-ai' ), $label );
             }
         }

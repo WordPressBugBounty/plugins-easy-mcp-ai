@@ -117,6 +117,9 @@ class Update_Comment extends Base_Tool {
         $comment_id = $this->parse_required_id( $arguments['comment_id'], 'comment_id' );
 
         $action = self::status_sent( $arguments ) ? $this->comment_status_to_action( (string) $arguments['status'] ) : null;
+        if ( null !== $action ) {
+            $this->refuse_switched_off_moderation( $action );
+        }
 
         $fields    = $this->field_params( $arguments, $comment_id );
         $meta_sent = $this->apply_meta_argument( $arguments, $fields );

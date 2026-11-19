@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -14,7 +15,7 @@ class Create_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new WordPress post. Required: `title` (unless `allow_empty_title` is true and `content` or `excerpt` is given). Optional: `content` (HTML/Gutenberg blocks accepted; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — default draft; use "future" with `date` or `date_gmt` to schedule), `date` (ISO 8601 site time, e.g. 2026-06-01T09:00:00), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `tag_names` (array of tag names or slugs; a missing tag is created, as WordPress does for tags typed in the editor), `tax_input` (object: taxonomy slug → array of term IDs, for any taxonomy of posts shown in the REST API), `password` (protects the post; a password-protected post cannot be sticky), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `template` (theme file slug for the post template), `comment_status` (open/closed), `ping_status` (open/closed), `sticky`, `allow_empty_title` (boolean, default false: WordPress itself refuses only a post whose title, content and excerpt are all empty). If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, date }, plus `created_tag_ids` when `tag_names` was given. Revisions are created automatically on each update.';
+        return 'Creates a new WordPress post. Required: `title` (unless `allow_empty_title` is true and `content` or `excerpt` is given). Optional: `content` (HTML/Gutenberg blocks accepted; sanitized by WordPress per the calling user capability), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — default draft; use "future" with `date` or `date_gmt` to schedule), `date` (ISO 8601 site time, e.g. 2026-06-01T09:00:00), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of category IDs), `tags` (array of tag IDs), `tag_names` (array of tag names or slugs; a missing tag is created, as WordPress does for tags typed in the editor), `tax_input` (object: taxonomy slug → array of term IDs, for any taxonomy of posts shown in the REST API), `password` (protects the post; a password-protected post cannot be sticky), `featured_media` (attachment ID), `slug`, `format` (standard/aside/chat/gallery/link/image/quote/status/video/audio), `author` (user ID), `template` (theme file slug for the post template), `comment_status` (open/closed), `ping_status` (open/closed), `sticky`, `allow_empty_title` (boolean, default false: WordPress itself refuses only a post whose title, content and excerpt are all empty). If **Easy MCP AI → Settings → Draft mode** saves new content as drafts (New content or Strict), `status` is silently overridden to `draft` regardless of the value supplied. Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, date }, plus `created_tag_ids` when `tag_names` was given. Revisions are created automatically on each update.' . Translation_Write::description();
     }
 
     public function get_redacted_arguments() {
@@ -39,7 +40,7 @@ class Create_Post extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'title'          => array(
@@ -137,6 +138,8 @@ class Create_Post extends Base_Tool {
                 ),
             ),
         );
+        $schema['properties'] += Translation_Write::properties();
+        return $schema;
     }
 
     public function execute( array $arguments ) {
@@ -146,6 +149,8 @@ class Create_Post extends Base_Tool {
         if ( $has_title ) {
             $this->validate_title_length( $arguments['title'] );
         }
+
+        $translation = Translation_Write::plan( $arguments, 'post', null, true );
 
         $params = array_merge(
             self::body_params( $arguments, $has_title ),
@@ -165,7 +170,12 @@ class Create_Post extends Base_Tool {
 
         $created_tag_ids = null === $tag_names ? null : self::resolve_tag_names( $tag_names, $params );
 
-        $data = $this->rest_request( 'POST', '/wp/v2/posts', $params, 'id,title,status,link,date' . ( $meta_sent ? ',meta' : '' ) );
+        $params += $translation->create_params();
+        $data    = $translation->save(
+            function () use ( $params, $meta_sent ) {
+                return $this->rest_request( 'POST', '/wp/v2/posts', $params, 'id,title,status,link,date' . ( $meta_sent ? ',meta' : '' ) );
+            }
+        );
 
         $result = array(
             'id'     => $data['id'],
@@ -181,7 +191,7 @@ class Create_Post extends Base_Tool {
             $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], $data['meta'] ?? null, 'post', 'post' ) );
         }
 
-        return $result;
+        return $result + $translation->finish( (int) $data['id'] );
     }
 
     private function require_title_or_body( array $arguments, bool $has_title ): void {
@@ -214,6 +224,7 @@ class Create_Post extends Base_Tool {
     public function precheck( array $arguments ): void {
         $params = $this->term_and_media_params( $arguments );
         self::prepare_term_arguments( $arguments, $params );
+        Translation_Write::plan( $arguments, 'post', null );
     }
 
     private function term_and_media_params( array $arguments ): array {
@@ -401,10 +412,15 @@ class Create_Post extends Base_Tool {
         $tax     = function_exists( 'get_taxonomy' ) ? get_taxonomy( 'post_tag' ) : null;
         $base    = is_object( $tax ) && ! empty( $tax->rest_base ) ? (string) $tax->rest_base : 'tags';
         foreach ( $tag_names as $name ) {
-            $found = term_exists( $name, 'post_tag' );
+            $found = term_exists( wp_slash( $name ), 'post_tag' );
             if ( is_array( $found ) && ! empty( $found['term_id'] ) ) {
                 $ids[] = (int) $found['term_id'];
                 continue;
+            }
+            $tool    = is_object( $tax ) ? \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::term_tool( 'post_tag', $tax, 'create' ) : null;
+            $refusal = null === $tool ? null : \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::refusal( array( $tool ) );
+            if ( null !== $refusal ) {
+                throw \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             $request = new \WP_REST_Request( 'POST', '/wp/v2/' . $base );
             $request->set_header( 'content-type', 'application/json' );

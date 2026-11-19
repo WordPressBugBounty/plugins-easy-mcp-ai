@@ -126,7 +126,7 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 		);
 		foreach ( $text_map as $arg => $key ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				update_post_meta( $post_id, $key, sanitize_text_field( (string) $arguments[ $arg ] ) );
+				update_post_meta( $post_id, $key, wp_slash( Seo_Text::clean( (string) $arguments[ $arg ] ) ) );
 				$updated[] = $key;
 			}
 		}

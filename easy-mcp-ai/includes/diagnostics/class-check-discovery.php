@@ -104,7 +104,7 @@ class Check_Discovery {
                 'a10',
                 Diagnostic_Result::TIER_WARNING,
                 $result->label(),
-                __( 'Your host intercepts /.well-known/, and this plugin is working around it. The sign-in documents at your domain root never reach WordPress, so this plugin points AI clients at copies served under this site\'s AI connection address instead; ChatGPT and Claude connect through them. A client that only looks at the domain root can still fail.', 'easy-mcp-ai' ),
+                __( 'Your host intercepts /.well-known/, and this plugin is working around it. The sign-in documents at your domain root never reach WordPress, so this plugin points AI clients at copies served under this site\'s /wp-json/ address instead; ChatGPT and Claude connect through them. A client that only looks at the domain root can still fail.', 'easy-mcp-ai' ),
                 __( 'Nothing is needed for ChatGPT or Claude. To make every client work, ask your host to let /.well-known/ reach WordPress, or at least the two addresses starting /.well-known/oauth-. Full instructions: https://easymcpai.com/well-known', 'easy-mcp-ai' ),
                 $evidence
             );

@@ -51,7 +51,8 @@ class Get_Category extends Base_Tool {
         $this->validate_required( $arguments, array( 'category_id' ) );
 
         $category_id = $this->parse_required_id( $arguments['category_id'], 'category_id' );
-        $data        = $this->rest_request( 'GET', '/wp/v2/categories/' . $category_id );
+        $this->refuse_other_taxonomy( $category_id, 'category', 'get' );
+        $data = $this->rest_request( 'GET', '/wp/v2/categories/' . $category_id );
 
         return array(
             'id'          => $data['id'],

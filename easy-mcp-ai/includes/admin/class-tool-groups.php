@@ -29,6 +29,7 @@ class Tool_Groups {
         'meta'      => 'Post Meta',
         'search'    => 'Search',
         'blocks'    => 'Blocks',
+        'cloud'     => 'Cloud tools',
         'cpt'       => 'Custom Post Types',
         'templates' => 'Templates',
         'styles'    => 'Global Styles',
@@ -43,6 +44,7 @@ class Tool_Groups {
         'cache'     => 'Cache',
         'mail'      => 'Email',
         'builders'  => 'Page Builders',
+        'translations' => 'Translations',
         'general'   => 'General',
     );
 
@@ -57,6 +59,8 @@ class Tool_Groups {
             'sitekit'         => array( 'label' => 'Site Kit by Google',          'class' => 'Google\\Site_Kit\\Plugin', 'fn' => '' ),
             'divi'            => array( 'label' => 'Divi',                        'class' => '',                        'fn' => 'et_divi_get_content_width' ),
             'contact-form-7'  => array( 'label' => 'Contact Form 7',              'class' => 'WPCF7_ContactForm',       'fn' => '' ),
+            'smart-slider-3'  => array( 'label' => 'Smart Slider 3',              'class' => 'Nextend\\SmartSlider3\\SmartSlider3Info', 'fn' => '' ),
+            'loco-translate'  => array( 'label' => 'Loco Translate',              'class' => '',                        'fn' => 'loco_plugin_version' ),
             'buddypress'      => array( 'label' => 'BuddyPress',                  'class' => 'BuddyPress',              'fn' => 'bp_is_active' ),
             'yoast-seo'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),
             'rank-math'       => array( 'label' => 'Rank Math SEO',               'class' => 'RankMath',                'fn' => '' ),
@@ -89,7 +93,11 @@ class Tool_Groups {
             if ( in_array( $name, $off_tools, true ) ) {
                 return false;
             }
-            return \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $allowed_patterns );
+            if ( ! \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $allowed_patterns ) ) {
+                return false;
+            }
+            $instance = $this->tool_registry->get_tool( $name );
+            return ! $instance || null === \Easy_MCP_AI\MCP\Server::required_tool_off( $this->tool_registry, $instance );
         };
 
         foreach ( $tools_by_category as $category => $tools ) {

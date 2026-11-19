@@ -20,6 +20,8 @@ class Htaccess_Auth_Rule {
 
     const OFFER_PASTE = 'paste';
 
+    const OFFER_PASTE_ABOVE = 'paste_above';
+
     const OFFER_ALREADY_PRESENT = 'already_present';
 
     const OFFER_NOT_APPLICABLE = 'not_applicable';
@@ -56,90 +58,12 @@ class Htaccess_Auth_Rule {
         if ( null === $contents || '' === (string) $contents ) {
             return false;
         }
-        return 1 === preg_match( self::active_rule_pattern(), (string) $contents );
-    }
-
-    public static function has_effective_rule( $contents ) {
-        if ( null === $contents || '' === (string) $contents ) {
-            return false;
-        }
-        $contents = (string) $contents;
-        if ( ! preg_match( self::active_rule_pattern(), $contents, $rule, PREG_OFFSET_CAPTURE ) ) {
-            return false;
-        }
-        $stop = self::first_last_flag_offset( $contents );
-        return null === $stop || $rule[0][1] < $stop;
-    }
-
-    public static function foreign_blocks_ahead_of_rule( ?string $contents ): array {
-        $contents = (string) $contents;
-        if ( ! preg_match( self::active_rule_pattern(), $contents, $rule, PREG_OFFSET_CAPTURE ) ) {
-            return array();
-        }
-        preg_match_all( self::last_flag_pattern(), $contents, $stops, PREG_OFFSET_CAPTURE );
-        $blocks  = self::marked_blocks( $contents );
-        $markers = array();
-        foreach ( $stops[0] as $stop ) {
-            if ( $stop[1] >= $rule[0][1] ) {
-                break;
-            }
-            $marker = self::exempting_block( $blocks, $stop[1] );
-            if ( null === $marker ) {
-                return array();
-            }
-            if ( ! in_array( $marker, $markers, true ) ) {
-                $markers[] = $marker;
-            }
-        }
-        return $markers;
-    }
-
-    public static function first_last_flag_offset( $contents ) {
-        if ( preg_match( self::last_flag_pattern(), (string) $contents, $m, PREG_OFFSET_CAPTURE ) ) {
-            return (int) $m[0][1];
-        }
-        return null;
-    }
-
-    private static function last_flag_pattern(): string {
-        return '/^[ \t]*RewriteRule\b[^\r\n]*\[(?:[^\]\r\n]*,)?[ \t]*L[ \t]*(?:,[^\]\r\n]*)?\][ \t]*\r?$/mi';
-    }
-
-    private static function marked_blocks( string $contents ): array {
-        preg_match_all( '/^[ \t]*# BEGIN ([^\r\n]*?)[ \t]*\r?$/m', $contents, $begins, PREG_SET_ORDER | PREG_OFFSET_CAPTURE );
-        $own    = array( '', self::WORDPRESS_MARKER, 'WordPress Multisite', self::MARKER, self::PLAIN_ROUTES_MARKER );
-        $blocks = array();
-        foreach ( $begins as $begin ) {
-            $marker   = $begin[1][0];
-            $end      = '/^[ \t]*# END ' . preg_quote( $marker, '/' ) . '[ \t]*\r?$/m';
-            $closed   = 1 === preg_match( $end, $contents, $m, PREG_OFFSET_CAPTURE, $begin[0][1] );
-            $blocks[] = array(
-                'marker'  => $marker,
-                'start'   => $begin[0][1],
-                'end'     => $closed ? $m[0][1] : strlen( $contents ),
-                'foreign' => $closed && ! in_array( $marker, $own, true ),
-            );
-        }
-        return $blocks;
-    }
-
-    private static function exempting_block( array $blocks, int $offset ): ?string {
-        $marker = null;
-        foreach ( $blocks as $block ) {
-            if ( $offset <= $block['start'] || $offset >= $block['end'] ) {
-                continue;
-            }
-            if ( ! $block['foreign'] ) {
-                return null;
-            }
-            $marker = $block['marker'];
-        }
-        return $marker;
+        return 1 === preg_match( self::active_rule_pattern(), (string) preg_replace( '/\\\\\r?\n/', ' ', (string) $contents ) );
     }
 
     private static function active_rule_pattern() {
         return '/^[ \t]*(?:'
-            . 'RewriteRule\b[^\r\n]*\bE=HTTP_AUTHORIZATION\b'
+            . 'RewriteRule\b[^\r\n]*\b(?:E|env)=HTTP_AUTHORIZATION\b'
             . '|SetEnvIf(?:NoCase)?\b[^\r\n]*\bHTTP_AUTHORIZATION\b'
             . '|CGIPassAuth[ \t]+On\b'
             . ')/mi';
@@ -163,20 +87,43 @@ class Htaccess_Auth_Rule {
         return null === $updated ? $contents : $updated;
     }
 
-    public static function offer( $a1_status, $server_software, $file_exists, $file_writable, $contents ) {
+    public static function offer( $a1_status, $server_software, $file_exists, $file_writable, $contents, ?array $site = null ) {
+        return self::decide( $a1_status, $server_software, $file_exists, $file_writable, $contents, $site )['offer'];
+    }
+
+    private static function decide( $a1_status, $server_software, $file_exists, $file_writable, $contents, ?array $site ): array {
         if ( Diagnostic_Result::STATUS_WARN !== $a1_status ) {
-            return self::OFFER_NONE;
+            return array( 'offer' => self::OFFER_NONE, 'line' => null );
         }
         if ( ! self::server_applies( $server_software ) ) {
-            return self::OFFER_NOT_APPLICABLE;
+            return array( 'offer' => self::OFFER_NOT_APPLICABLE, 'line' => null );
         }
-        if ( self::has_effective_rule( $contents ) ) {
-            return self::OFFER_ALREADY_PRESENT;
+        $site    = $site ?? Htaccess_Rewrite_Reader::default_site();
+        $reading = Htaccess_Rewrite_Reader::read( $contents, $site );
+        if ( Htaccess_Rewrite_Reader::REACHED === $reading['reach'] ) {
+            return array( 'offer' => self::OFFER_ALREADY_PRESENT, 'line' => null );
         }
-        if ( $file_exists && $file_writable ) {
-            return self::OFFER_BUTTON;
+        $placed = Htaccess_Rewrite_Reader::read( self::place( (string) $contents ), $site );
+        if ( Htaccess_Rewrite_Reader::REACHED !== $placed['reach'] ) {
+            $line = array() === $reading['lines'] ? self::line_before_placing( (string) $contents, $placed['lines'] ) : $reading['lines'][0];
+            return array( 'offer' => self::OFFER_PASTE_ABOVE, 'line' => $line );
         }
-        return self::OFFER_PASTE;
+        return array( 'offer' => $file_exists && $file_writable ? self::OFFER_BUTTON : self::OFFER_PASTE, 'line' => null );
+    }
+
+    private static function line_before_placing( string $contents, array $placed_lines ): ?int {
+        $placed = preg_split( '/\r\n|\r|\n/', self::place( $contents ) );
+        $start  = array_search( '# BEGIN ' . self::MARKER, array_map( 'trim', $placed ), true );
+        $length = count( self::rule_lines() ) + 2;
+        foreach ( $placed_lines as $line ) {
+            if ( false === $start || $line <= $start ) {
+                return $line;
+            }
+            if ( $line > $start + $length ) {
+                return $line - $length;
+            }
+        }
+        return null;
     }
 
     public static function may_write( $has_manage_options, $is_multisite, $is_super_admin, $has_network_cap ) {
@@ -205,20 +152,18 @@ class Htaccess_Auth_Rule {
     }
 
     public static function offer_now( $a1 ) {
-        $status = ( $a1 instanceof Diagnostic_Result ) ? $a1->status() : Diagnostic_Result::STATUS_UNKNOWN;
-        $server = isset( $_SERVER['SERVER_SOFTWARE'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '';
-        $path   = self::htaccess_path();
-        $exists = file_exists( $path );
+        $status   = ( $a1 instanceof Diagnostic_Result ) ? $a1->status() : Diagnostic_Result::STATUS_UNKNOWN;
+        $server   = isset( $_SERVER['SERVER_SOFTWARE'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '';
+        $path     = self::htaccess_path();
+        $exists   = file_exists( $path );
+        $decision = Diagnostic_Result::STATUS_WARN === $status && self::server_applies( $server )
+            ? self::decide( $status, $server, $exists, $exists && is_writable( $path ), self::read( $path ), array( 'document_root' => dirname( $path ) ) + Htaccess_Rewrite_Reader::site_now() )
+            : self::decide( $status, $server, $exists, false, null, null );
 
         return array(
-            'offer' => self::offer(
-                $status,
-                $server,
-                $exists,
-                $exists && is_writable( $path ),
-                self::read( $path )
-            ),
+            'offer' => $decision['offer'],
             'path'  => $path,
+            'line'  => $decision['line'],
         );
     }
 

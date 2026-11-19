@@ -1,7 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -22,7 +24,7 @@ class Get_Post_Full extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap), `raw_post` (boolean, edit context only: adds `raw_post`, every database column of the post as stored — raw post_title, to_ping, pinged, post_content_filtered, post_mime_type, comment_count and the rest), `meta_keys` (array: return only these meta keys, so the key cap cannot hide one), `meta_all_values` (boolean: each meta key maps to the list of all its stored values instead of the first), `terms_taxonomies` (array: only these taxonomies in `terms`), `full_terms` (boolean: each term also carries term_taxonomy_id, description, parent, count and term_group). Meta values are the stored strings (serialized values are not unserialized). For a password-protected post you cannot edit, `meta` is left out and `meta_withheld` says why. Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit. SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) is omitted from `post`: saved Yoast fields are in `meta` (context=edit), and AIOSEO\'s stay in post.aioseo_meta_data. For the rendered head, use the Yoast SEO or AIOSEO tool for a post when one is listed.';
+        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap), `raw_post` (boolean, edit context only: adds `raw_post`, every database column of the post as stored), `meta_keys` (array: return only these meta keys, so the key cap cannot hide one), `meta_all_values` (boolean: each meta key maps to the list of all its stored values instead of the first), `terms_taxonomies` (array: only these taxonomies in `terms`), `full_terms` (boolean: more fields per term). Meta values are the stored strings (serialized values are not unserialized). A page builder\'s layout meta (Elementor\'s `_elementor_data`) is left out of both meta maps unless `meta_keys` names it, and named in `meta_left_out`; `wp_get_page_layout` reads it. For a password-protected post you cannot edit, `meta` is left out and `meta_withheld` says why. Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit. SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) is omitted from `post`: saved Yoast fields are in `meta` (context=edit), and AIOSEO\'s stay in post.aioseo_meta_data. For the rendered head, use the Yoast SEO or AIOSEO tool for a post when one is listed. `content_sha256` and `content_bytes` (beside `post`, also with `exclude: ["content"]`; null if you cannot edit the post) are post_content\'s SHA-256 and byte length as stored.';
     }
 
     public function get_category() {
@@ -113,6 +115,8 @@ class Get_Post_Full extends Base_Tool {
         list( $include, $exclude ) = self::sections( $arguments );
         $options                   = $this->section_options( $arguments, $context, $include );
 
+        $this->refuse_switched_off_post_type_route( 'GET', $post_type, true );
+
         $post = $this->strip_response_noise(
             $this->rest_request(
                 'GET',
@@ -125,13 +129,19 @@ class Get_Post_Full extends Base_Tool {
             unset( $post[ $key ] );
         }
 
-        $result = array( 'post' => $post );
-
         $post_object = get_post( $post_id );
         if ( ! $post_object ) {
-            return $result;
+            return array( 'post' => $post ) + Content_Hash::none();
         }
         $this->refuse_another_object( $post_object, $post_type );
+
+        $layout   = self::builder_layout_meta_keys( $post_id );
+        $left_out = array();
+        if ( isset( $post['meta'] ) && is_array( $post['meta'] ) ) {
+            list( $post['meta'], $left_out ) = self::split_layout_meta( $post['meta'], $layout );
+        }
+        $result  = array( 'post' => $post );
+        $result += current_user_can( 'edit_post', $post_id ) ? Content_Hash::of_object( $post_object ) : Content_Hash::none();
 
         if ( $options['raw_post'] ) {
             $result['raw_post'] = get_object_vars( $post_object );
@@ -146,8 +156,13 @@ class Get_Post_Full extends Base_Tool {
                 $result,
                 self::meta_is_withheld( $post_object )
                     ? array( 'meta_withheld' => self::META_WITHHELD )
-                    : $this->meta_section( $post_id, $context, $options['meta_keys'], $options['meta_all_values'] )
+                    : $this->meta_section( $post_id, $context, $options['meta_keys'], $options['meta_all_values'], array_diff( $layout, $options['meta_keys'] ?? array() ) )
             );
+            $left_out = array_merge( $left_out, $result['meta_left_out'] ?? array() );
+        }
+        if ( array() !== $left_out ) {
+            $result['meta_left_out']      = array_values( array_unique( $left_out ) );
+            $result['meta_left_out_note'] = sprintf( 'Left out of meta: %s, the page builder\'s stored layout. Read the layout with wp_get_page_layout, or the raw value by naming the key in meta_keys (context edit).', implode( ', ', $result['meta_left_out'] ) );
         }
 
         if ( in_array( 'terms', $include, true ) ) {
@@ -162,7 +177,7 @@ class Get_Post_Full extends Base_Tool {
             $result['author'] = self::author_section( $post_object );
         }
 
-        return $result;
+        return $result + Translation_Read::fields_for( $post_id );
     }
 
     private function refuse_another_object( object $post_object, string $rest_base ): void {
@@ -257,13 +272,12 @@ class Get_Post_Full extends Base_Tool {
         return post_password_required( $post_object ) && ! current_user_can( 'edit_post', (int) $post_object->ID );
     }
 
-    private function meta_section( int $post_id, string $context, ?array $meta_keys, bool $meta_all_values ): array {
+    private function meta_section( int $post_id, string $context, ?array $meta_keys, bool $meta_all_values, array $leave_out ): array {
         $meta_cap = (int) apply_filters( 'easy_mcp_ai_post_full_max_meta_keys', self::DEFAULT_MAX_META_KEYS );
         $all_meta = get_post_meta( $post_id );
         if ( ! is_array( $all_meta ) ) {
             $all_meta = array();
         }
-
         if ( 'edit' !== $context ) {
             $all_meta = self::without_protected_meta( $all_meta );
         }
@@ -271,6 +285,8 @@ class Get_Post_Full extends Base_Tool {
         if ( null !== $meta_keys ) {
             $all_meta = array_intersect_key( $all_meta, array_flip( $meta_keys ) );
         }
+
+        list( $all_meta, $left_out ) = self::split_layout_meta( $all_meta, $leave_out );
 
         $meta_truncated = false;
         if ( $meta_cap > 0 && count( $all_meta ) > $meta_cap ) {
@@ -283,6 +299,9 @@ class Get_Post_Full extends Base_Tool {
         $section = array( 'meta' => empty( $normalized ) ? new \stdClass() : $normalized );
         if ( $meta_truncated ) {
             $section['meta_truncated'] = true;
+        }
+        if ( array() !== $left_out ) {
+            $section['meta_left_out'] = $left_out;
         }
         return $section;
     }

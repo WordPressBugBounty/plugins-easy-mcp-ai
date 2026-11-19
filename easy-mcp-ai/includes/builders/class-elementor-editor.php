@@ -20,11 +20,29 @@ final class Elementor_Editor {
 
     const MAX_CREATED = 150;
 
+    const MAX_COLUMNS = 10;
+
+    const SECTION_PRESETS = array(
+        '21' => array( 33, 66 ),
+        '22' => array( 66, 33 ),
+        '31' => array( 25, 25, 50 ),
+        '32' => array( 50, 25, 25 ),
+        '33' => array( 25, 50, 25 ),
+        '34' => array( 16, 66, 16 ),
+    );
+
     const TEXT_KINDS = array( 'text', 'html' );
 
-    const FIELD_KINDS = array( 'text', 'html', 'code', 'select', 'number', 'boolean', 'color' );
+    const FIELD_KINDS = array( 'text', 'html', 'code', 'select', 'number', 'boolean', 'color', 'size', 'spacing', 'gap', 'gallery' );
+
+    const SIDES = array(
+        'spacing' => array( 'top', 'right', 'bottom', 'left' ),
+        'gap'     => array( 'column', 'row' ),
+    );
 
     const CONTAINERS = array( 'section', 'column', 'container' );
+
+    const CSS_VALUE = 'is written into the page CSS, so it takes a CSS value without ; { } < > \\ or a comment';
 
     const DYNAMIC_KEY = '__dynamic__';
     const GLOBALS_KEY = '__globals__';
@@ -34,6 +52,8 @@ final class Elementor_Editor {
     const SAVED_DEFAULTS = array( 'text', 'textarea' );
 
     private $fields_of;
+
+    private $hidden;
 
     private $media;
 
@@ -51,13 +71,20 @@ final class Elementor_Editor {
 
     private $created = 0;
 
-    public function __construct( callable $fields_of, callable $media, callable $nested, bool $unfiltered, bool $containers, ?callable $kses = null ) {
+    private $notes = array();
+
+    private $widths_written = array();
+
+    public function __construct( callable $fields_of, callable $media, callable $nested, bool $unfiltered, bool $containers, ?callable $kses = null, ?callable $hidden = null ) {
         $this->fields_of  = $fields_of;
         $this->media      = $media;
         $this->nested     = $nested;
         $this->unfiltered = $unfiltered;
         $this->containers = $containers;
         $this->kses       = $kses ?? 'wp_kses_post';
+        $this->hidden     = $hidden ?? static function (): array {
+            return array();
+        };
     }
 
     public function plan( array $data, array $ops ): array {
@@ -79,6 +106,8 @@ final class Elementor_Editor {
         $this->refs     = array();
         $this->taken    = Elementor_Tree::ids( $data );
         $this->created  = 0;
+        $this->notes    = array();
+        $this->widths_written = array();
         $next           = $data;
         $results        = array();
         foreach ( array_values( $ops ) as $index => $op ) {
@@ -87,16 +116,25 @@ final class Elementor_Editor {
                 $errors[] = sprintf( 'Operation %d: %s', $index + 1, $applied );
                 continue;
             }
-            $next      = array_values( $applied['data'] );
+            $sized = $this->resize_sections( $next, array_values( $applied['data'] ) );
+            if ( is_string( $sized ) ) {
+                $errors[] = sprintf( 'Operation %d: %s', $index + 1, $sized );
+                continue;
+            }
+            $next      = $sized;
             $results[] = $applied['result'];
+            if ( 'column' === $applied['result']['type'] && in_array( $applied['result']['op'], self::SET_OPS, true ) && array() !== array_intersect( explode( ', ', $applied['result']['field'] ), array( '_column_size', '_inline_size' ) ) ) {
+                $this->widths_written[] = $applied['result']['element'];
+            }
         }
         if ( array() !== $errors ) {
             return self::refused( $data, $errors );
         }
         return array(
-            'data'    => $next,
-            'results' => $results,
-            'errors'  => array(),
+            'data'     => $next,
+            'results'  => $results,
+            'errors'   => array(),
+            'warnings' => array_values( array_unique( $this->notes ) ),
         );
     }
 
@@ -142,7 +180,7 @@ final class Elementor_Editor {
         }
         $path = Elementor_Tree::path( $data, $address );
         if ( null === $path ) {
-            return sprintf( 'no element "%s" in this layout. Read it again with wp_get_page_layout.', $address );
+            return $this->no_element( $data, $address, '. Read it again with wp_get_page_layout.' );
         }
         $element = Elementor_Tree::at( $data, $path );
         $type    = self::type_of( $element );
@@ -157,7 +195,7 @@ final class Elementor_Editor {
         if ( null !== $refusal ) {
             return $refusal;
         }
-        $fields = ( $this->fields_of )( $type );
+        $fields = self::fields_or_none( ( $this->fields_of )( $type ), $type );
         if ( null === $fields ) {
             return sprintf( 'Elementor has no %s widget registered, so "%s" cannot be edited.', $type, $address );
         }
@@ -172,7 +210,7 @@ final class Elementor_Editor {
         $in_item  = isset( $op['list'] ) || isset( $op['item'] );
         $target   = $settings;
         $specs    = $fields;
-        $owner    = $type . ' widgets';
+        $owner    = self::owner( $type );
         $hint     = self::hint( $type );
         $where    = '"' . $address . '"';
         if ( $in_item ) {
@@ -195,14 +233,18 @@ final class Elementor_Editor {
         }
 
         $changes = 'set_fields' === $name
-            ? $this->field_changes( $op, $specs, $owner, $hint )
+            ? $this->field_changes( $op, $specs, $owner, $hint, $target )
             : $this->single_change( $name, $op, $specs, $target, $in_item ? '' : $type, $owner, $hint );
         if ( is_string( $changes ) ) {
             return $changes;
         }
-        $bound = self::bound_fields( $target, array_keys( $changes ) );
+        $bound = array_values( array_unique( array_merge( self::bound_fields( $target, array_keys( $changes ) ), self::bound_by_group( $target, array_keys( $changes ), $specs ) ) ) );
         if ( array() !== $bound ) {
             return sprintf( 'field %s of %s shows a dynamic tag or a global value set in Elementor, so a value written there would not appear. Remove it in Elementor first.', implode( ', ', $bound ), $where );
+        }
+        $css_id = self::css_id_refusal( $changes );
+        if ( null !== $css_id ) {
+            return $css_id;
         }
 
         $before = array();
@@ -211,6 +253,12 @@ final class Elementor_Editor {
             $before[ $field ] = $target[ $field ] ?? null;
             $after[ $field ]  = $value;
             $target[ $field ] = $value;
+        }
+        if ( ! $in_item ) {
+            $hidden = $this->hidden_refusal( $type, $target, array_keys( $changes ), $where );
+            if ( null !== $hidden ) {
+                return $hidden;
+            }
         }
         $result = array(
             'op'      => $name,
@@ -337,7 +385,7 @@ final class Elementor_Editor {
             if ( ! is_array( $op['fields'] ) ) {
                 return '`fields` must be an object of field name to value.';
             }
-            $changes = $this->checked_fields( $op['fields'], $specs, sprintf( 'items of list "%s"', $rows['spec']['name'] ), self::item_hint( $type, $rows['spec']['name'] ), true );
+            $changes = $this->checked_fields( $op['fields'], $specs, sprintf( 'items of list "%s"', $rows['spec']['name'] ), self::item_hint( $type, $rows['spec']['name'] ), true, $row );
             if ( is_string( $changes ) ) {
                 return $changes;
             }
@@ -369,14 +417,17 @@ final class Elementor_Editor {
     private function rows( array $op, array $fields, array $settings, string $type, string $address ) {
         $name = self::text_arg( $op, 'list' );
         if ( '' === $name ) {
-            return sprintf( '`list` is required: the name of a list of items in %s widgets %s.', $type, self::hint( $type ) );
+            return sprintf( '`list` is required: the name of a list of items in %s %s.', self::owner( $type ), self::hint( $type ) );
         }
         $spec = self::field_spec( $fields, $name );
         if ( null === $spec ) {
-            return sprintf( '%s widgets have no list "%s" %s.', $type, $name, self::hint( $type ) );
+            return sprintf( '%s have no list "%s" %s.', self::owner( $type ), $name, self::hint( $type ) );
+        }
+        if ( 'gallery' === $spec['kind'] ) {
+            return sprintf( 'field "%s" of %s is a gallery of images, not a list of items: set it whole with set_fields and a list of image attachment IDs.', $name, self::owner( $type ) );
         }
         if ( 'list' !== $spec['kind'] || ! isset( $spec['item_fields'] ) ) {
-            return sprintf( 'field "%s" of %s widgets is not a list of items.', $name, $type );
+            return sprintf( 'field "%s" of %s is not a list of items.', $name, self::owner( $type ) );
         }
         $where  = sprintf( 'list "%s" of "%s"', $name, $address );
         $stored = $settings[ $name ] ?? null;
@@ -416,7 +467,7 @@ final class Elementor_Editor {
             return $place;
         }
         $created = array();
-        $built   = $this->build( $op, $place['parent'], $created );
+        $built   = $this->build( $op, $place['parent'], $created, self::in_inner_section( $data, $place['path'] ) || self::is_inner_section( $place['parent'] ) );
         if ( is_string( $built ) ) {
             return $built;
         }
@@ -442,7 +493,7 @@ final class Elementor_Editor {
         );
     }
 
-    private function build( $spec, ?array $parent, array &$created ) {
+    private function build( $spec, ?array $parent, array &$created, bool $in_inner = false ) {
         if ( ! is_array( $spec ) ) {
             return 'each entry of `children` must be an object.';
         }
@@ -450,24 +501,23 @@ final class Elementor_Editor {
         if ( '' === $type ) {
             return '`element_type` is required: a widget type from wp_list_layout_elements, or "container".';
         }
-        if ( in_array( $type, array( 'section', 'column' ), true ) ) {
-            return 'sections and columns are not inserted here: Elementor\'s editor sizes a section\'s columns from its own structure presets. Insert a container, or add widgets to an existing column.';
-        }
         if ( 0 === strpos( $type, 'e-' ) ) {
             return sprintf( '"%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) adds those.', $type );
         }
         $is_container = 'container' === $type;
+        $is_structure = self::is_structure( $type );
         if ( $is_container && ! $this->containers ) {
             return 'Elementor\'s container experiment (Flexbox Container) is off on this site, so a container would not show. Turn it on under Elementor › Settings › Features, or add widgets to an existing column.';
         }
-        $fields = $is_container ? array() : ( $this->fields_of )( $type );
+        $fields = self::is_structure( $type ) && empty( $spec['fields'] ) ? array() : self::fields_or_none( ( $this->fields_of )( $type ), $type );
         if ( null === $fields ) {
             return sprintf( 'Elementor has no %s widget registered.', $type );
         }
-        if ( ! $is_container && ( $this->nested )( $type ) ) {
+        if ( ! $is_structure && ( $this->nested )( $type ) ) {
             return sprintf( 'a %s widget keeps a container of content for each of its items, which Elementor\'s editor creates with it; add it in Elementor, then edit its items here.', $type );
         }
-        $misplaced = self::misplaced( $is_container ? 'container' : 'widget', $parent );
+        $kind      = self::kind_of( $type, $parent );
+        $misplaced = self::misplaced( $kind, $parent ) ?? ( 'inner-section' === $kind && $in_inner ? 'in a column of an inner section; Elementor nests sections one level only' : null );
         if ( null !== $misplaced ) {
             return sprintf( 'a %s cannot go %s.', $type, $misplaced );
         }
@@ -481,12 +531,13 @@ final class Elementor_Editor {
             if ( ! is_array( $spec['fields'] ) ) {
                 return '`fields` must be an object of field name to value.';
             }
-            if ( $is_container && array() !== $spec['fields'] ) {
-                return 'a container\'s settings are not set here; insert it without `fields` and set its layout in Elementor.';
-            }
-            $settings = $this->checked_fields( $spec['fields'], array_values( $fields ), $type . ' widgets', self::hint( $type ), true );
+            $settings = $this->checked_fields( $spec['fields'], array_values( $fields ), self::owner( $type ), self::hint( $type ), true );
             if ( is_string( $settings ) ) {
                 return $settings;
+            }
+            $refusal = self::css_id_refusal( $settings ) ?? $this->hidden_refusal( $type, $settings, array_keys( $settings ), 'the new ' . $type );
+            if ( null !== $refusal ) {
+                return $refusal;
             }
         }
         $ref = self::text_arg( $spec, 'ref' );
@@ -496,16 +547,25 @@ final class Elementor_Editor {
 
         $id        = Elementor_Tree::new_id( $this->taken );
         $created[] = $id;
-        $element   = $is_container
-            ? array( 'id' => $id, 'elType' => 'container', 'settings' => array(), 'elements' => array(), 'isInner' => null !== $parent )
+        if ( 'column' === $type && array() !== array_intersect( array_keys( $settings ), array( '_column_size', '_inline_size' ) ) ) {
+            $this->widths_written[] = $id;
+        }
+        $element   = $is_structure
+            ? array( 'id' => $id, 'elType' => $type, 'settings' => $settings, 'elements' => array() )
             : array( 'id' => $id, 'elType' => 'widget', 'widgetType' => $type, 'settings' => $settings, 'elements' => array() );
+        if ( 'column' !== $type && $is_structure ) {
+            $element['isInner'] = null !== $parent;
+        }
         if ( '' !== $ref ) {
             $this->refs[ $ref ] = $id;
+        }
+        if ( 'section' === $type ) {
+            return $this->built_section( $element, $spec, $created );
         }
         if ( ! isset( $spec['children'] ) ) {
             return $element;
         }
-        if ( ! $is_container ) {
+        if ( ! $is_structure ) {
             return sprintf( 'a %s widget holds no elements, so it takes no `children`.', $type );
         }
         if ( ! is_array( $spec['children'] ) ) {
@@ -513,7 +573,7 @@ final class Elementor_Editor {
         }
         $problems = array();
         foreach ( array_values( $spec['children'] ) as $child ) {
-            $built = $this->build( $child, $element, $created );
+            $built = $this->build( $child, $element, $created, $in_inner );
             if ( is_string( $built ) ) {
                 $problems[] = $built;
                 continue;
@@ -523,12 +583,147 @@ final class Elementor_Editor {
         return array() === $problems ? $element : implode( '; ', array_unique( $problems ) );
     }
 
+    private function built_section( array $section, array $spec, array &$created ) {
+        $inner    = ! empty( $section['isInner'] );
+        $children = isset( $spec['children'] ) ? $spec['children'] : null;
+        if ( null !== $children && ! is_array( $children ) ) {
+            return '`children` must be a list of columns to insert.';
+        }
+        $count = null === $children ? ( $inner ? 2 : 1 ) : count( $children );
+        if ( isset( $spec['columns'] ) ) {
+            $columns = is_int( $spec['columns'] ) || ( is_string( $spec['columns'] ) && ctype_digit( $spec['columns'] ) ) ? (int) $spec['columns'] : 0;
+            if ( $columns < 1 || $columns > self::MAX_COLUMNS ) {
+                return sprintf( '`columns` must be a whole number from 1 to %d.', self::MAX_COLUMNS );
+            }
+            if ( null !== $children && $columns !== $count ) {
+                return sprintf( '`columns` is %d but `children` lists %d columns; give one of them.', $columns, $count );
+            }
+            $count = $columns;
+        }
+        if ( $count < 1 || $count > self::MAX_COLUMNS ) {
+            return sprintf( 'a section holds 1 to %d columns, not %d.', self::MAX_COLUMNS, $count );
+        }
+        $widths = self::preset( $count, isset( $spec['structure'] ) ? (string) $spec['structure'] : '' );
+        if ( is_string( $widths ) ) {
+            return $widths;
+        }
+        $problems = array();
+        for ( $i = 0; $i < $count; $i++ ) {
+            $entry = null === $children ? array( 'element_type' => 'column' ) : array_values( $children )[ $i ];
+            if ( ! is_array( $entry ) || 'column' !== ( $entry['element_type'] ?? 'column' ) ) {
+                $problems[] = 'a section takes only columns as `children`: each entry is { "element_type": "column", "children"?: [...] }';
+                continue;
+            }
+            $built = $this->build( array( 'element_type' => 'column' ) + $entry, $section, $created, $inner );
+            if ( is_string( $built ) ) {
+                $problems[] = $built;
+                continue;
+            }
+            $built['settings']['_column_size'] = $widths[ $i ];
+            $built['isInner']                  = $inner;
+            $section['elements'][]             = $built;
+        }
+        if ( array() !== $problems ) {
+            return implode( '; ', array_unique( $problems ) );
+        }
+        $structure = isset( $spec['structure'] ) && '' !== (string) $spec['structure'] ? (string) $spec['structure'] : $count . '0';
+        if ( '10' !== $structure ) {
+            $section['settings']['structure'] = $structure;
+        }
+        return $section;
+    }
+
+    private static function preset( int $count, string $structure ) {
+        if ( '' === $structure || $count . '0' === $structure ) {
+            return array_fill( 0, $count, (int) floor( 100 / $count ) );
+        }
+        if ( isset( self::SECTION_PRESETS[ $structure ] ) && count( self::SECTION_PRESETS[ $structure ] ) === $count ) {
+            return self::SECTION_PRESETS[ $structure ];
+        }
+        $keys = array( $count . '0' );
+        foreach ( self::SECTION_PRESETS as $key => $widths ) {
+            if ( count( $widths ) === $count ) {
+                $keys[] = (string) $key;
+            }
+        }
+        return sprintf( '`structure` "%s" is not one of Elementor\'s presets for %d columns: %s.', $structure, $count, implode( ', ', $keys ) );
+    }
+
+    private static function kind_of( string $type, ?array $parent ): string {
+        if ( 'section' === $type ) {
+            return null !== $parent && 'column' === self::type_of( $parent ) ? 'inner-section' : 'section';
+        }
+        return in_array( $type, array( 'container', 'column' ), true ) ? $type : 'widget';
+    }
+
+    private function resize_sections( array $before, array $after ) {
+        $old = self::section_columns( $before );
+        foreach ( self::section_columns( $after ) as $id => $columns ) {
+            if ( ! isset( $old[ $id ] ) ) {
+                continue;
+            }
+            $was = $old[ $id ];
+            $now = $columns;
+            sort( $was );
+            sort( $now );
+            if ( $was === $now ) {
+                continue;
+            }
+            if ( count( $columns ) > self::MAX_COLUMNS && count( $columns ) > count( $old[ $id ] ) ) {
+                return sprintf( 'section "%s" would hold %d columns; Elementor\'s editor allows at most %d.', $id, count( $columns ), self::MAX_COLUMNS );
+            }
+            $resets = array_intersect( $columns, $this->widths_written );
+            if ( array() !== $resets ) {
+                return sprintf( 'this resizes section "%s", which resets the column width this call sets on %s; set column widths after adding, removing or moving columns.', $id, implode( ', ', array_map( array( __CLASS__, 'quoted' ), $resets ) ) );
+            }
+            $path    = Elementor_Tree::path( $after, (string) $id );
+            $section = Elementor_Tree::at( $after, $path );
+            $count   = count( $section['elements'] );
+            $width   = (int) floor( 100 / $count );
+            if ( '10' === $count . '0' ) {
+                unset( $section['settings']['structure'] );
+            } else {
+                $section['settings']['structure'] = $count . '0';
+            }
+            foreach ( $section['elements'] as $i => $column ) {
+                $column['settings']['_column_size'] = $width;
+                unset( $column['settings']['_inline_size'] );
+                $column['isInner']         = ! empty( $section['isInner'] );
+                $section['elements'][ $i ] = $column;
+            }
+            $after         = Elementor_Tree::replace( $after, $path, $section );
+            $this->notes[] = sprintf( 'Section "%s" now has %d column%s, each %d%% wide, as Elementor\'s editor sizes them when a column is added, removed or moved; any custom column widths in it were reset.', $id, $count, 1 === $count ? '' : 's', $width );
+        }
+        return $after;
+    }
+
+    private static function section_columns( array $data ): array {
+        $sections = array();
+        foreach ( Elementor_Tree::elements( $data ) as $element ) {
+            if ( 'section' === ( $element['elType'] ?? '' ) && isset( $element['id'] ) && is_scalar( $element['id'] ) ) {
+                $sections[ (string) $element['id'] ] = array_map(
+                    static function ( $column ): string {
+                        return is_array( $column ) && isset( $column['id'] ) && is_scalar( $column['id'] ) ? (string) $column['id'] : '';
+                    },
+                    isset( $element['elements'] ) && is_array( $element['elements'] ) ? array_values( $element['elements'] ) : array()
+                );
+            }
+        }
+        return $sections;
+    }
+
+    private static function in_inner_section( array $data, array $path ): bool {
+        if ( count( $path ) < 2 ) {
+            return false;
+        }
+        $column  = Elementor_Tree::at( $data, $path );
+        $section = Elementor_Tree::at( $data, array_slice( $path, 0, -1 ) );
+        return 'column' === ( $column['elType'] ?? '' ) && ! empty( $section['isInner'] );
+    }
+
     private function restructure( string $name, array $data, array $op, array $path, array $element, string $type, string $address ) {
         if ( 0 === strpos( $type, 'e-' ) || self::has_transformables( $element['settings'] ) ) {
             return sprintf( 'element "%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) changes those.', $address );
-        }
-        if ( 'column' === $type ) {
-            return sprintf( 'element "%s" is a column: Elementor\'s editor resizes a section\'s other columns when one is added or removed, which this tool does not reproduce. Change columns in Elementor, or move the widgets inside them.', $address );
         }
         $parent_path = array_slice( $path, 0, -1 );
         $parent      = array() === $parent_path ? null : Elementor_Tree::at( $data, $parent_path );
@@ -545,10 +740,7 @@ final class Elementor_Editor {
             'field'   => '',
         );
 
-        $kind = in_array( $type, array( 'section', 'container' ), true ) ? $type : 'widget';
-        if ( 'section' === $kind && ! empty( $element['isInner'] ) && 'remove' !== $name ) {
-            return sprintf( 'element "%s" is an inner section; %s it in Elementor.', $address, 'move' === $name ? 'move' : 'copy' );
-        }
+        $kind = 'section' === $type ? ( empty( $element['isInner'] ) ? 'section' : 'inner-section' ) : self::kind_of( $type, null );
         if ( 'duplicate' === $name ) {
             return $this->duplicate( $data, $op, $element, $kind, $result, self::position( $parent, $index + 1 ) + array( 'path' => $parent_path ) );
         }
@@ -556,6 +748,9 @@ final class Elementor_Editor {
         array_splice( $siblings, $index, 1 );
         $without = Elementor_Tree::with_children( $data, $parent_path, $siblings );
         if ( 'remove' === $name ) {
+            if ( 'column' === $type && array() === $siblings ) {
+                return sprintf( 'element "%s" is the only column of section "%s"; a section needs one. Remove the section instead.', $address, (string) $parent['id'] );
+            }
             if ( array() === $without ) {
                 return sprintf( 'element "%s" is the last one at the top of the layout; with no elements Elementor shows the post content instead. Insert its replacement first.', $address );
             }
@@ -582,9 +777,12 @@ final class Elementor_Editor {
         if ( is_string( $place ) ) {
             return $place;
         }
-        $misplaced = self::misplaced( $kind, $place['parent'] );
+        $misplaced = $this->placement_refusal( $kind, $without, $place, $element );
         if ( null !== $misplaced ) {
             return sprintf( 'a %s cannot go %s.', $type, $misplaced );
+        }
+        if ( 'column' === $type && array() === $siblings && 'section' === self::type_of( (array) $parent ) ) {
+            return sprintf( 'element "%s" is the only column of section "%s"; a section needs one. Move its contents instead.', $address, (string) $parent['id'] );
         }
         if ( 'container' === $kind ) {
             $element['isInner'] = null !== $place['parent'];
@@ -612,7 +810,7 @@ final class Elementor_Editor {
         if ( is_string( $place ) ) {
             return $place;
         }
-        $misplaced = self::misplaced( $kind, $place['parent'] );
+        $misplaced = $this->placement_refusal( $kind, $data, $place, $element );
         if ( null !== $misplaced ) {
             return sprintf( 'a %s cannot go %s.', $result['type'], $misplaced );
         }
@@ -671,7 +869,7 @@ final class Elementor_Editor {
             }
             $after = Elementor_Tree::path( $data, $after_id );
             if ( null === $after ) {
-                return sprintf( 'no element "%s" in this layout to place it after.', $after_id );
+                return $this->no_element( $data, $after_id, ' to place it after.' );
             }
             $path   = array_slice( $after, 0, -1 );
             $parent = array() === $path ? null : Elementor_Tree::at( $data, $path );
@@ -686,7 +884,7 @@ final class Elementor_Editor {
         if ( '' !== $parent_id ) {
             $path = Elementor_Tree::path( $data, $parent_id );
             if ( null === $path ) {
-                return sprintf( 'no element "%s" in this layout to place it in.', $parent_id );
+                return $this->no_element( $data, $parent_id, ' to place it in.' );
             }
         }
         $count = count( Elementor_Tree::children( $data, $path ) );
@@ -711,7 +909,13 @@ final class Elementor_Editor {
 
     private static function misplaced( string $kind, ?array $parent ): ?string {
         if ( null === $parent ) {
-            return 'widget' === $kind ? 'at the top level of the layout; put it in a container or a column' : null;
+            if ( 'widget' === $kind ) {
+                return 'at the top level of the layout; put it in a container or a column';
+            }
+            if ( 'column' === $kind ) {
+                return 'at the top level of the layout; put it in a section';
+            }
+            return 'inner-section' === $kind ? 'at the top level of the layout: an inner section stays in a column' : null;
         }
         $type = self::type_of( $parent );
         $id   = isset( $parent['id'] ) && is_scalar( $parent['id'] ) ? (string) $parent['id'] : '';
@@ -720,7 +924,8 @@ final class Elementor_Editor {
         }
         $accepts = array(
             'container' => array( 'container', 'widget' ),
-            'column'    => array( 'widget' ),
+            'column'    => array( 'widget', 'inner-section' ),
+            'section'   => array( 'column' ),
         );
         if ( in_array( $kind, $accepts[ $type ] ?? array(), true ) ) {
             return null;
@@ -729,6 +934,30 @@ final class Elementor_Editor {
             return 'anywhere but the top level of the layout';
         }
         return sprintf( 'in "%s", a %s', $id, $type );
+    }
+
+    private function placement_refusal( string $kind, array $data, array $place, ?array $element = null ): ?string {
+        $misplaced = self::misplaced( $kind, $place['parent'] );
+        if ( null === $misplaced && 'inner-section' === $kind && self::in_inner_section( $data, $place['path'] ) ) {
+            return 'in a column of an inner section; Elementor nests sections one level only';
+        }
+        if ( null === $misplaced && 'column' === $kind && self::is_inner_section( $place['parent'] ) && null !== $element && self::holds_section( $element ) ) {
+            return 'in an inner section while it holds a section; Elementor nests sections one level only';
+        }
+        return $misplaced;
+    }
+
+    private static function is_inner_section( ?array $element ): bool {
+        return null !== $element && 'section' === ( $element['elType'] ?? '' ) && ! empty( $element['isInner'] );
+    }
+
+    private static function holds_section( array $element ): bool {
+        foreach ( Elementor_Tree::elements( isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : array() ) as $inside ) {
+            if ( 'section' === ( $inside['elType'] ?? '' ) ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function position( ?array $parent, int $index ): array {
@@ -765,8 +994,8 @@ final class Elementor_Editor {
         if ( 0 === strpos( $type, 'e-' ) || self::has_transformables( $settings ) ) {
             return sprintf( 'element "%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) edits those.', $address );
         }
-        if ( 'widget' !== ( $element['elType'] ?? '' ) || in_array( $type, self::CONTAINERS, true ) ) {
-            return sprintf( 'element "%s" is a %s; only widgets have fields these operations write.', $address, $type );
+        if ( 'widget' !== ( $element['elType'] ?? '' ) && ! self::is_structure( $type ) ) {
+            return sprintf( 'element "%s" is a %s; only widgets, containers, sections and columns have fields these operations write.', $address, $type );
         }
         return null;
     }
@@ -781,13 +1010,13 @@ final class Elementor_Editor {
 
         $field = isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field']
             ? $op['field']
-            : self::default_field( $roles_type, $role, $kinds, $fields );
+            : self::default_field( $roles_type, $role, $kinds, self::primary_fields( $fields, $roles_type ) );
         if ( '' === $field ) {
             return sprintf( '%s have no %s field; give `field` %s.', $owner, $role, $hint );
         }
         $spec = self::field_spec( $fields, $field );
         if ( null === $spec ) {
-            return sprintf( '%s have no content field "%s" %s.', $owner, $field, $hint );
+            return sprintf( '%s have no field "%s" %s.', $owner, $field, $hint );
         }
         if ( ! in_array( $spec['kind'], $kinds, true ) ) {
             return sprintf( 'field "%s" holds %s, which %s does not write%s.', $field, $spec['kind'], $name, $this->writer_hint( $spec['kind'], $field ) );
@@ -796,6 +1025,13 @@ final class Elementor_Editor {
         if ( 'set_text' === $name ) {
             if ( ! isset( $op['value'] ) || ! is_string( $op['value'] ) ) {
                 return 'set_text needs `value`, a string.';
+            }
+            if ( ! empty( $spec['css'] ) && self::leaves_css_value( $op['value'] ) ) {
+                return sprintf( 'field "%s" %s.', $field, self::CSS_VALUE );
+            }
+            $font = self::font_refusal( $spec, $op['value'] );
+            if ( null !== $font ) {
+                return sprintf( 'field "%s" %s.', $field, $font );
             }
             $value = $this->html_value( $op['value'], $spec['kind'] );
             return is_array( $value ) ? $value['error'] : array( $field => $value );
@@ -822,21 +1058,21 @@ final class Elementor_Editor {
         return in_array( $kind, self::FIELD_KINDS, true ) ? sprintf( '; use set_fields with fields: { "%s": … }', $field ) : '';
     }
 
-    private function field_changes( array $op, array $fields, string $owner, string $hint ) {
+    private function field_changes( array $op, array $fields, string $owner, string $hint, array $stored ) {
         if ( ! isset( $op['fields'] ) || ! is_array( $op['fields'] ) || array() === $op['fields'] ) {
             return 'set_fields needs `fields`, an object of field name to value.';
         }
-        return $this->checked_fields( $op['fields'], $fields, $owner, $hint, false );
+        return $this->checked_fields( $op['fields'], $fields, $owner, $hint, false, $stored );
     }
 
-    private function checked_fields( array $values, array $fields, string $owner, string $hint, bool $creating ) {
+    private function checked_fields( array $values, array $fields, string $owner, string $hint, bool $creating, array $stored = array() ) {
         $changes  = array();
         $problems = array();
         foreach ( $values as $field => $value ) {
             $field = (string) $field;
             $spec  = self::field_spec( $fields, $field );
             if ( null === $spec ) {
-                $problems[] = sprintf( '%s have no content field "%s"', $owner, $field );
+                $problems[] = sprintf( '%s have no field "%s"', $owner, $field );
                 continue;
             }
             if ( $creating && in_array( $spec['kind'], array( 'link', 'image' ), true ) ) {
@@ -860,7 +1096,7 @@ final class Elementor_Editor {
         if ( array() !== $problems ) {
             return implode( '; ', $problems ) . ' ' . $hint . '.';
         }
-        return $changes;
+        return self::with_stored_sides( $changes, $fields, $stored );
     }
 
     private static function hint( string $type ): string {
@@ -889,6 +1125,9 @@ final class Elementor_Editor {
             if ( ! self::is_option( $value, $options ) ) {
                 return array( 'error' => sprintf( 'must be one of: %s', implode( ', ', array_map( array( __CLASS__, 'quoted' ), $options ) ) ) );
             }
+            if ( array() === $options && ! empty( $spec['css'] ) && self::leaves_css_value( (string) $value ) ) {
+                return array( 'error' => self::CSS_VALUE );
+            }
             return (string) $value;
         }
         if ( 'number' === $kind ) {
@@ -901,6 +1140,19 @@ final class Elementor_Editor {
             }
             return $value ? ( $spec['on_value'] ?? 'yes' ) : '';
         }
+        if ( 'size' === $kind ) {
+            return self::size_value( $spec, $value );
+        }
+        if ( 'gallery' === $kind ) {
+            return $this->gallery_value( $value );
+        }
+        $font = self::font_refusal( $spec, $value );
+        if ( null !== $font ) {
+            return array( 'error' => $font );
+        }
+        if ( isset( self::SIDES[ $kind ] ) ) {
+            return self::sides_value( $spec, $value );
+        }
         if ( 'color' === $kind ) {
             $valid = is_string( $value ) && 1 === preg_match( '/^(?:#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s]+\)|hsla?\([0-9.,%\s]+\)|)$/', $value );
             return $valid ? $value : array( 'error' => 'must be a colour such as #1a2b3c, or "" to clear it' );
@@ -908,8 +1160,116 @@ final class Elementor_Editor {
         if ( ! is_string( $value ) ) {
             return array( 'error' => 'must be a string' );
         }
+        if ( ! empty( $spec['css'] ) && self::leaves_css_value( $value ) ) {
+            return array( 'error' => self::CSS_VALUE );
+        }
         $checked = $this->html_value( $value, $kind );
         return is_array( $checked ) ? array( 'error' => lcfirst( $checked['error'] ) ) : $checked;
+    }
+
+    private static function font_refusal( array $spec, $value ): ?string {
+        if ( 'font' !== ( $spec['control'] ?? '' ) ) {
+            return null;
+        }
+        return is_string( $value ) && 1 === preg_match( '/^[\p{L}\p{N} _\-]*\z/u', $value ) ? null : 'takes a font family name such as "Open Sans" (letters, digits, spaces, - and _), or "" to clear it';
+    }
+
+    private static function leaves_css_value( string $value ): bool {
+        return 1 === preg_match( '/[;{}<>\\\\]|\/\*|\*\//', $value );
+    }
+
+    private function gallery_value( $value ) {
+        if ( ! is_array( $value ) || array_values( $value ) !== $value ) {
+            return array( 'error' => 'takes a list of image attachment IDs from the media library, such as [12, 15], or [] to empty it' );
+        }
+        $images = array();
+        $seen   = array();
+        foreach ( $value as $raw ) {
+            $id = is_int( $raw ) || ( is_string( $raw ) && ctype_digit( $raw ) ) ? (int) $raw : 0;
+            if ( $id <= 0 ) {
+                return array( 'error' => sprintf( 'takes image attachment IDs, not %s', is_scalar( $raw ) ? self::quoted( (string) $raw ) : (string) wp_json_encode( $raw ) ) );
+            }
+            if ( isset( $seen[ $id ] ) ) {
+                return array( 'error' => sprintf( 'lists attachment %d twice', $id ) );
+            }
+            $media = ( $this->media )( $id );
+            if ( null === $media ) {
+                return array( 'error' => sprintf( 'holds attachment %d, which is not an image in the media library that this account can use', $id ) );
+            }
+            $seen[ $id ] = true;
+            $images[]    = array(
+                'id'  => (int) $media['id'],
+                'url' => (string) $media['url'],
+            );
+        }
+        return $images;
+    }
+
+    private static function size_value( array $spec, $value ) {
+        $units = $spec['units'] ?? array( 'px' );
+        if ( is_int( $value ) || is_float( $value ) || '' === $value ) {
+            $value = array( 'size' => $value );
+        }
+        if ( ! is_array( $value ) || ! array_key_exists( 'size', $value ) ) {
+            return array( 'error' => sprintf( 'takes a number, or { "size": 24, "unit": one of %s }', implode( ', ', array_map( array( __CLASS__, 'quoted' ), $units ) ) ) );
+        }
+        $unit = self::unit_of( $value, $units );
+        if ( is_array( $unit ) ) {
+            return $unit;
+        }
+        $size = self::length( $value['size'], $unit );
+        return is_array( $size ) ? $size : array( 'unit' => $unit, 'size' => $size, 'sizes' => array() );
+    }
+
+    private static function sides_value( array $spec, $value ) {
+        $sides = self::SIDES[ $spec['kind'] ];
+        $units = $spec['units'] ?? array( 'px' );
+        $keys = array_merge( $sides, array( 'unit', 'isLinked' ) );
+        if ( ! is_array( $value ) || array() === $value ) {
+            return array( 'error' => sprintf( 'takes an object of %s, each a number or "" (unit: one of %s)', implode( ', ', $sides ), implode( ', ', array_map( array( __CLASS__, 'quoted' ), $units ) ) ) );
+        }
+        $unknown = array_diff( array_map( 'strval', array_keys( $value ) ), $keys );
+        if ( array() !== $unknown ) {
+            return array( 'error' => sprintf( 'has no side %s; its sides are %s', implode( ', ', array_map( array( __CLASS__, 'quoted' ), $unknown ) ), implode( ', ', $sides ) ) );
+        }
+        $out = array();
+        if ( array_key_exists( 'unit', $value ) ) {
+            $unit = self::unit_of( $value, $units );
+            if ( is_array( $unit ) ) {
+                return $unit;
+            }
+            $out['unit'] = $unit;
+        }
+        foreach ( $sides as $side ) {
+            if ( array_key_exists( $side, $value ) ) {
+                $out[ $side ] = $value[ $side ];
+            }
+        }
+        if ( array_key_exists( 'isLinked', $value ) ) {
+            if ( ! is_bool( $value['isLinked'] ) ) {
+                return array( 'error' => '"isLinked" must be true or false' );
+            }
+            $out['isLinked'] = $value['isLinked'];
+        }
+        return $out;
+    }
+
+    private static function unit_of( array $value, array $units ) {
+        if ( ! array_key_exists( 'unit', $value ) ) {
+            return $units[0];
+        }
+        return is_string( $value['unit'] ) && in_array( $value['unit'], $units, true ) ? $value['unit'] : array( 'error' => sprintf( 'takes a unit of %s', implode( ', ', array_map( array( __CLASS__, 'quoted' ), $units ) ) ) );
+    }
+
+    private static function length( $length, string $unit ) {
+        if ( '' === $length ) {
+            return '';
+        }
+        if ( 'custom' === $unit ) {
+            return is_string( $length ) && ! self::leaves_css_value( $length ) ? $length : array( 'error' => 'with the custom unit takes a CSS value such as "calc(100% - 2rem)", without ; { } < > \\ or a comment' );
+        }
+        $number = is_numeric( $length ) && ! is_bool( $length ) ? $length + 0 : null;
+        return is_int( $number ) || ( is_float( $number ) && is_finite( $number ) ) ? $number : array( 'error' => 'must be a finite number, or "" to clear it' );
     }
 
     private static function choices_value( $value, array $options ) {
@@ -998,6 +1358,18 @@ final class Elementor_Editor {
         return $bound;
     }
 
+    private static function bound_by_group( array $settings, array $names, array $fields ): array {
+        $globals = isset( $settings[ self::GLOBALS_KEY ] ) && is_array( $settings[ self::GLOBALS_KEY ] ) ? $settings[ self::GLOBALS_KEY ] : array();
+        $bound   = array();
+        foreach ( $names as $name ) {
+            $spec = self::field_spec( $fields, (string) $name );
+            if ( null !== $spec && 'typography' === ( $spec['group'] ?? '' ) && ! empty( $globals[ ( $spec['group_prefix'] ?? '' ) . 'typography' ] ) ) {
+                $bound[] = '"' . $name . '"';
+            }
+        }
+        return $bound;
+    }
+
     private static function default_field( string $type, string $role, array $kinds, array $fields ): string {
         $roles = Elementor_Adapter::ROLES[ $type ] ?? array();
         if ( isset( $roles[ $role ] ) ) {
@@ -1015,6 +1387,133 @@ final class Elementor_Editor {
         foreach ( $fields as $spec ) {
             if ( $spec['name'] === $name ) {
                 return $spec;
+            }
+        }
+        foreach ( $fields as $spec ) {
+            foreach ( $spec['devices'] ?? array() as $device ) {
+                if ( $spec['name'] . '_' . $device === $name ) {
+                    unset( $spec['default'], $spec['devices'] );
+                    $spec['name'] = $name;
+                    return $spec;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static function with_stored_sides( array $changes, array $fields, array $stored ) {
+        foreach ( $changes as $name => $value ) {
+            $spec = self::field_spec( $fields, (string) $name );
+            if ( null === $spec || ! isset( self::SIDES[ $spec['kind'] ] ) || ! is_array( $value ) ) {
+                continue;
+            }
+            $sides  = self::SIDES[ $spec['kind'] ];
+            $base   = isset( $stored[ $name ] ) && is_array( $stored[ $name ] ) ? $stored[ $name ] : array();
+            $merged = array( 'unit' => $value['unit'] ?? ( isset( $base['unit'] ) && is_string( $base['unit'] ) && in_array( $base['unit'], $spec['units'] ?? array( 'px' ), true ) ? $base['unit'] : ( $spec['units'][0] ?? 'px' ) ) );
+            foreach ( $sides as $side ) {
+                if ( ! array_key_exists( $side, $value ) ) {
+                    $merged[ $side ] = isset( $base[ $side ] ) && is_scalar( $base[ $side ] ) ? (string) $base[ $side ] : '';
+                    continue;
+                }
+                $length = self::length( $value[ $side ], $merged['unit'] );
+                if ( is_array( $length ) ) {
+                    return sprintf( 'field "%s": "%s" %s (unit "%s")', $name, $side, $length['error'], $merged['unit'] );
+                }
+                $merged[ $side ] = (string) $length;
+            }
+            $values = array_intersect_key( $merged, array_flip( $sides ) );
+            if ( array() !== array_filter( $values, 'strlen' ) ) {
+                foreach ( $sides as $side ) {
+                    $merged[ $side ] = '' === $merged[ $side ] ? '0' : $merged[ $side ];
+                }
+            }
+            $merged['isLinked'] = $value['isLinked'] ?? 1 === count( array_unique( array_intersect_key( $merged, array_flip( $sides ) ) ) );
+            $changes[ $name ]   = $merged;
+        }
+        return $changes;
+    }
+
+    private static function primary_fields( array $fields, string $type ): array {
+        $tab = Elementor_Adapter::primary_tab( $type );
+        return array_values(
+            array_filter(
+                $fields,
+                static function ( array $spec ) use ( $tab ): bool {
+                    return ! isset( $spec['tab'] ) || $tab === $spec['tab'];
+                }
+            )
+        );
+    }
+
+    private static function fields_or_none( ?array $fields, string $type ): ?array {
+        return null === $fields && self::is_structure( $type ) ? array() : $fields;
+    }
+
+    private static function is_structure( string $type ): bool {
+        return in_array( $type, self::CONTAINERS, true );
+    }
+
+    private static function owner( string $type ): string {
+        return $type . ( self::is_structure( $type ) ? ' elements' : ' widgets' );
+    }
+
+    private static function css_id_refusal( array $changes ): ?string {
+        if ( ! isset( $changes['_element_id'] ) || ! is_string( $changes['_element_id'] ) ) {
+            return null;
+        }
+        $id = trim( $changes['_element_id'] );
+        if ( '#' === substr( $id, 0, 1 ) ) {
+            return sprintf( 'the CSS ID %s starts with "#"; send it without the "#", as Elementor\'s CSS ID field asks.', self::quoted( $id ) );
+        }
+        if ( 1 === preg_match( '/\s/', $id ) ) {
+            return sprintf( 'the CSS ID %s holds white space, which an HTML id cannot; join the words with "-" or "_".', self::quoted( $id ) );
+        }
+        return null;
+    }
+
+    private function hidden_refusal( string $type, array $settings, array $names, string $where ): ?string {
+        $hidden = ( $this->hidden )( $type, $settings, array_map( 'strval', $names ) );
+        if ( array() === $hidden ) {
+            return null;
+        }
+        $parts = array();
+        foreach ( $hidden as $name => $when ) {
+            $parts[] = sprintf( 'field "%s" shows %s', $name, $when );
+        }
+        return sprintf( 'Elementor would not show what this writes on %s: %s. Set those fields first, in the same call.', $where, implode( '; ', $parts ) );
+    }
+
+    private function no_element( array $data, string $address, string $tail ): string {
+        $holder = $this->item_holder( $data, $address );
+        if ( null === $holder ) {
+            return sprintf( 'no element "%s" in this layout%s', $address, $tail );
+        }
+        return sprintf( '"%1$s" is an item of the list "%2$s" of element "%3$s", not an element: address it with `element` "%3$s", `list` "%2$s" and `item` "%1$s".', $address, $holder['list'], $holder['element'] );
+    }
+
+    private function item_holder( array $elements, string $id ): ?array {
+        foreach ( $elements as $element ) {
+            if ( ! is_array( $element ) ) {
+                continue;
+            }
+            $settings = is_array( $element['settings'] ?? null ) ? $element['settings'] : array();
+            foreach ( ( $this->fields_of )( self::type_of( $element ) ) ?? array() as $spec ) {
+                if ( 'list' !== $spec['kind'] || ! isset( $spec['item_fields'] ) ) {
+                    continue;
+                }
+                $name = $spec['name'];
+                foreach ( is_array( $settings[ $name ] ?? null ) ? $settings[ $name ] : array() as $row ) {
+                    if ( is_array( $row ) && isset( $row[ self::ITEM_ID ] ) && is_scalar( $row[ self::ITEM_ID ] ) && (string) $row[ self::ITEM_ID ] === $id ) {
+                        return array(
+                            'element' => isset( $element['id'] ) && is_scalar( $element['id'] ) ? (string) $element['id'] : '',
+                            'list'    => (string) $name,
+                        );
+                    }
+                }
+            }
+            $found = $this->item_holder( is_array( $element['elements'] ?? null ) ? $element['elements'] : array(), $id );
+            if ( null !== $found ) {
+                return $found;
             }
         }
         return null;

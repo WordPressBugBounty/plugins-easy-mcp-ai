@@ -23,15 +23,17 @@ class Check_Transport {
         $server_software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '';
         $is_apache_like  = self::is_apache_like( $server_software );
         $edges           = self::read_head_of_bootstrap_files();
+        $htaccess        = $is_apache_like ? self::read_htaccess( self::resolve_home_path(), ABSPATH ) : null;
 
         return array(
             self::evaluate_sapi( PHP_SAPI, $server_software ),
             self::evaluate_htaccess_rule(
-                $is_apache_like ? self::read_htaccess( self::resolve_home_path(), ABSPATH ) : null,
+                null === $htaccess ? null : $htaccess['contents'],
                 $is_apache_like,
                 (string) \get_option( 'permalink_structure', '' ),
                 PHP_SAPI,
-                function_exists( 'is_multisite' ) && \is_multisite()
+                function_exists( 'is_multisite' ) && \is_multisite(),
+                null === $htaccess ? null : array( 'document_root' => dirname( $htaccess['path'] ) ) + Htaccess_Rewrite_Reader::site_now()
             ),
             self::evaluate_error_display(
                 (bool) filter_var( ini_get( 'display_errors' ), FILTER_VALIDATE_BOOLEAN ),
@@ -66,7 +68,7 @@ class Check_Transport {
                 $sapi
             );
         } elseif ( 'apache2handler' === $sapi ) {
-            $detail = __( 'Running as mod_php. If Bearer tokens are being lost, the .htaccess rewrite that passes the Authorization header to PHP is missing — see the next check.', 'easy-mcp-ai' );
+            $detail = __( 'Running as mod_php. If Bearer tokens are being lost, the .htaccess rewrite that passes the Authorization header to PHP is missing or does not run — the next check says which.', 'easy-mcp-ai' );
         } else {
             $detail = sprintf(
                 /* translators: %s: PHP SAPI name. */
@@ -80,8 +82,8 @@ class Check_Transport {
 
     const FASTCGI_SAPIS = array( 'cgi-fcgi', 'fpm-fcgi' );
 
-    public static function evaluate_htaccess_rule( $htaccess, $is_apache, $permalinks, $sapi = '', $is_multisite = false ) {
-        $label = __( 'Authorization header rewrite present', 'easy-mcp-ai' );
+    public static function evaluate_htaccess_rule( $htaccess, $is_apache, $permalinks, $sapi = '', $is_multisite = false, ?array $site = null ) {
+        $label = self::rule_check_label();
 
         if ( ! $is_apache ) {
             return Diagnostic_Result::unknown(
@@ -92,16 +94,17 @@ class Check_Transport {
             );
         }
 
-        if ( $is_multisite ) {
-            return Diagnostic_Result::unknown(
-                'a3',
-                Diagnostic_Result::TIER_WARNING,
-                $label,
-                __( 'Not checked — on Multisite, WordPress never writes this rewrite rule automatically. If Bearer tokens are being lost, it has to be added to .htaccess by hand; there is no settings screen that generates it here.', 'easy-mcp-ai' )
-            );
+        $multisite_unknown = Diagnostic_Result::unknown(
+            'a3',
+            Diagnostic_Result::TIER_WARNING,
+            $label,
+            __( 'Not checked — on Multisite, WordPress never writes this rewrite rule automatically. If Bearer tokens are being lost, it has to be added to .htaccess by hand; there is no settings screen that generates it here.', 'easy-mcp-ai' )
+        );
+        if ( $is_multisite && null === $htaccess ) {
+            return $multisite_unknown;
         }
 
-        if ( '' === trim( (string) $permalinks ) ) {
+        if ( ! $is_multisite && '' === trim( (string) $permalinks ) ) {
             return Diagnostic_Result::unknown(
                 'a3',
                 Diagnostic_Result::TIER_WARNING,
@@ -119,19 +122,88 @@ class Check_Transport {
             );
         }
 
-        $rule_present = self::has_active_auth_rule( $htaccess );
-        $blocks_ahead = $rule_present ? array() : Htaccess_Auth_Rule::foreign_blocks_ahead_of_rule( $htaccess );
+        $reading = Htaccess_Rewrite_Reader::read( $htaccess, $site ?? Htaccess_Rewrite_Reader::default_site() );
 
         if ( in_array( strtolower( (string) $sapi ), self::FASTCGI_SAPIS, true ) ) {
-            return self::evaluate_fastcgi_rule( $label, (string) $sapi, $rule_present || array() !== $blocks_ahead );
+            return self::evaluate_fastcgi_rule( $label, (string) $sapi, Htaccess_Rewrite_Reader::ABSENT !== $reading['reach'] );
         }
 
-        if ( $rule_present ) {
-            return Diagnostic_Result::pass( 'a3', Diagnostic_Result::TIER_WARNING, $label, '', array( 'rule_present' => true, 'sapi' => (string) $sapi ) );
+        $evidence = array(
+            'rule_present' => Htaccess_Rewrite_Reader::ABSENT !== $reading['reach'],
+            'sapi'         => (string) $sapi,
+            'reach'        => $reading['reach'],
+            'probe_reach'  => $reading['probe_reach'],
+            'lines'        => $reading['lines'],
+            'probe_lines'  => $reading['probe_lines'],
+            'client'       => $reading['client'],
+        );
+        $line     = array() === $reading['lines'] ? null : $reading['lines'][0];
+
+        if ( $is_multisite && Htaccess_Rewrite_Reader::ABSENT === $reading['reach'] ) {
+            return Diagnostic_Result::unknown( 'a3', $multisite_unknown->tier(), $label, $multisite_unknown->detail(), $evidence );
         }
 
-        if ( array() !== $blocks_ahead ) {
-            return self::evaluate_rule_behind_blocks( $label, (string) $sapi, $blocks_ahead );
+        switch ( $reading['reach'] ) {
+            case Htaccess_Rewrite_Reader::REACHED:
+                return Diagnostic_Result::pass( 'a3', Diagnostic_Result::TIER_WARNING, $label, '', $evidence );
+
+            case Htaccess_Rewrite_Reader::NOT_REACHED:
+                return Diagnostic_Result::warn(
+                    'a3',
+                    Diagnostic_Result::TIER_WARNING,
+                    $label,
+                    null === $line
+                        ? __( 'The .htaccess rewrite that hands the Authorization header to PHP is in the file, but no request reaches it before WordPress handles the request. Bearer tokens can be dropped before WordPress ever sees them, which looks exactly like an invalid token.', 'easy-mcp-ai' )
+                        : sprintf(
+                            /* translators: %d: line number in .htaccess. */
+                            __( 'The .htaccess rewrite that hands the Authorization header to PHP is in the file, but the rule on line %d sends requests to WordPress before it runs. Bearer tokens can be dropped before WordPress ever sees them, which looks exactly like an invalid token.', 'easy-mcp-ai' ),
+                            $line
+                        ),
+                    null === $line
+                        ? __( 'Move the Authorization rewrite to the top of .htaccess.', 'easy-mcp-ai' )
+                        : sprintf(
+                            /* translators: %d: line number in .htaccess. */
+                            __( 'Move the Authorization rewrite above line %d of .htaccess.', 'easy-mcp-ai' ),
+                            $line
+                        ),
+                    $evidence
+                );
+
+            case Htaccess_Rewrite_Reader::MAYBE:
+                return Diagnostic_Result::unknown(
+                    'a3',
+                    Diagnostic_Result::TIER_WARNING,
+                    $label,
+                    null === $line
+                        ? sprintf(
+                            /* translators: %s: label of the check that measures delivery. */
+                            __( 'The .htaccess rewrite that hands the Authorization header to PHP is in the file, but whether rewriting reaches it depends on something the file alone cannot show, such as the server configuration. The "%s" check measures it on a full Re-run.', 'easy-mcp-ai' ),
+                            self::delivery_check_label()
+                        )
+                        : sprintf(
+                            /* translators: 1: line number in .htaccess, 2: label of the check that measures delivery. */
+                            __( 'The .htaccess rewrite that hands the Authorization header to PHP is in the file, but the rule on line %1$d may end rewriting before it runs. Whether it does depends on something the file alone cannot show, such as a header the AI client sends. The "%2$s" check measures it on a full Re-run.', 'easy-mcp-ai' ),
+                            $line,
+                            self::delivery_check_label()
+                        ),
+                    $evidence + array( 'measured_by' => 'a1' )
+                );
+
+            case Htaccess_Rewrite_Reader::REFUSED:
+                return Diagnostic_Result::warn(
+                    'a3',
+                    Diagnostic_Result::TIER_WARNING,
+                    $label,
+                    null === $line
+                        ? __( 'AI requests never reach WordPress: .htaccess refuses or redirects them first, so no AI client can connect.', 'easy-mcp-ai' )
+                        : sprintf(
+                            /* translators: %d: line number in .htaccess. */
+                            __( 'AI requests never reach WordPress: the rule on line %d of .htaccess refuses or redirects them first, so no AI client can connect.', 'easy-mcp-ai' ),
+                            $line
+                        ),
+                    __( 'Change .htaccess so it lets requests to /wp-json/ through to WordPress. If it redirects them to HTTPS, set the WordPress Address and Site Address under Settings → General to https:// instead.', 'easy-mcp-ai' ),
+                    $evidence
+                );
         }
 
         return Diagnostic_Result::warn(
@@ -140,8 +212,105 @@ class Check_Transport {
             $label,
             __( 'The .htaccess rewrite that hands the Authorization header to PHP is missing. Bearer tokens can be dropped before WordPress ever sees them, which looks exactly like an invalid token.', 'easy-mcp-ai' ),
             __( 'Open Settings → Permalinks and press Save Changes — WordPress rewrites the rule. If .htaccess is not writable, add it manually above the WordPress block.', 'easy-mcp-ai' ),
-            array( 'rule_present' => false, 'sapi' => (string) $sapi )
+            $evidence
         );
+    }
+
+    public static function reconcile_with_probe( Diagnostic_Result $a3, ?Diagnostic_Result $a1, ?int $htaccess_mtime ): Diagnostic_Result {
+        $evidence = $a3->evidence();
+        $reach    = $evidence['reach'] ?? null;
+        $settles  = Diagnostic_Result::STATUS_PASS !== $a3->status()
+            && in_array( $reach, array( Htaccess_Rewrite_Reader::MAYBE, Htaccess_Rewrite_Reader::NOT_REACHED, Htaccess_Rewrite_Reader::ABSENT ), true )
+            && $reach === ( $evidence['probe_reach'] ?? null )
+            && ( $evidence['lines'] ?? null ) === ( $evidence['probe_lines'] ?? null )
+            && empty( $evidence['client'] )
+            && null !== $a1
+            && Diagnostic_Result::STATUS_PASS === $a1->status()
+            && null !== $htaccess_mtime
+            && null !== $a1->measured_at()
+            && $a1->measured_at() > $htaccess_mtime;
+        if ( ! $settles ) {
+            return $a3;
+        }
+
+        $measured = self::delivery_check_label();
+        $line     = array() === $evidence['lines'] ? null : $evidence['lines'][0];
+        if ( Htaccess_Rewrite_Reader::MAYBE === $reach ) {
+            $detail = sprintf(
+                /* translators: 1: where the rule that may end rewriting is, 2: label of the check that measures delivery. */
+                __( '%1$s may end rewriting before the Authorization rewrite runs, but "%2$s" measured the header arriving after .htaccess last changed.', 'easy-mcp-ai' ),
+                null === $line
+                    ? __( 'A rule in .htaccess', 'easy-mcp-ai' )
+                    /* translators: %d: line number in .htaccess. */
+                    : sprintf( __( 'The rule on line %d of .htaccess', 'easy-mcp-ai' ), $line ),
+                $measured
+            );
+        } else {
+            $detail = sprintf(
+                /* translators: 1: label of the check that measures delivery, 2: what to do with the rewrite if the server changes. */
+                __( 'The Authorization header reaches WordPress without the .htaccess rewrite: "%1$s" measured it after .htaccess last changed. The server hands it over some other way, such as PHP running as an Apache module or CGIPassAuth in its configuration. If that changes, %2$s', 'easy-mcp-ai' ),
+                $measured,
+                Htaccess_Rewrite_Reader::ABSENT === $reach
+                    ? __( 'the rewrite has to be added above the WordPress block.', 'easy-mcp-ai' )
+                    : ( null === $line
+                        ? __( 'the rewrite has to be moved to the top of .htaccess.', 'easy-mcp-ai' )
+                        /* translators: %d: line number in .htaccess. */
+                        : sprintf( __( 'the rewrite has to be moved above line %d.', 'easy-mcp-ai' ), $line ) )
+            );
+        }
+
+        return Diagnostic_Result::pass( 'a3', $a3->tier(), $a3->label(), $detail, $evidence + array( 'measured_by' => 'a1' ) );
+    }
+
+    public static function settle_with_probe( array $results ): array {
+        $a1 = null;
+        foreach ( $results as $result ) {
+            if ( 'a1' === $result->id() ) {
+                $a1 = $result;
+            }
+        }
+        if ( null === $a1 ) {
+            return $results;
+        }
+        $mtime = null;
+        foreach ( $results as $index => $result ) {
+            if ( 'a3' !== $result->id() ) {
+                continue;
+            }
+            if ( null === $mtime ) {
+                $mtime = self::htaccess_mtime();
+            }
+            $results[ $index ] = self::reconcile_with_probe( $result, $a1, $mtime );
+        }
+        return $results;
+    }
+
+    public static function htaccess_reading(): ?array {
+        $server_software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) : '';
+        if ( ! self::is_apache_like( $server_software ) ) {
+            return null;
+        }
+        $writes_rule = ! ( function_exists( 'is_multisite' ) && \is_multisite() )
+            && '' !== trim( (string) \get_option( 'permalink_structure', '' ) );
+        $htaccess    = self::read_htaccess( self::resolve_home_path(), ABSPATH );
+        if ( null === $htaccess ) {
+            return array( 'reach' => 'unknown', 'line' => null, 'check' => self::rule_check_label(), 'writes_rule' => $writes_rule );
+        }
+        $reading = Htaccess_Rewrite_Reader::read( $htaccess['contents'], array( 'document_root' => dirname( $htaccess['path'] ) ) + Htaccess_Rewrite_Reader::site_now() );
+        return array(
+            'reach'       => $reading['reach'],
+            'line'        => array() === $reading['lines'] ? null : $reading['lines'][0],
+            'check'       => self::rule_check_label(),
+            'writes_rule' => $writes_rule,
+        );
+    }
+
+    private static function rule_check_label(): string {
+        return __( 'Authorization header rewrite present', 'easy-mcp-ai' );
+    }
+
+    private static function delivery_check_label(): string {
+        return __( 'Login credentials reach WordPress', 'easy-mcp-ai' );
     }
 
     private static function evaluate_fastcgi_rule( string $label, string $sapi, bool $rule_present ): Diagnostic_Result {
@@ -163,22 +332,6 @@ class Check_Transport {
             $label,
             $detail,
             array( 'rule_present' => $rule_present, 'sapi' => $sapi, 'measured_by' => 'a1' )
-        );
-    }
-
-    private static function evaluate_rule_behind_blocks( string $label, string $sapi, array $blocks ): Diagnostic_Result {
-        $blocks = array_map( 'sanitize_text_field', $blocks );
-
-        return Diagnostic_Result::unknown(
-            'a3',
-            Diagnostic_Result::TIER_WARNING,
-            $label,
-            sprintf(
-                /* translators: %s: comma-separated names of .htaccess blocks written by other plugins, e.g. "LSCACHE". */
-                __( 'The .htaccess rewrite is present, but rules in another block above it (%s) can end rewriting before it is reached. Such rules usually apply only to a few addresses, so the file alone cannot confirm that AI requests reach the rewrite. The "Login credentials reach WordPress" check measures it on a full Re-run.', 'easy-mcp-ai' ),
-                implode( ', ', $blocks )
-            ),
-            array( 'rule_present' => true, 'sapi' => $sapi, 'measured_by' => 'a1', 'blocks_ahead' => $blocks )
         );
     }
 
@@ -398,10 +551,6 @@ class Check_Transport {
         return $candidates;
     }
 
-    public static function has_active_auth_rule( $htaccess ) {
-        return Htaccess_Auth_Rule::has_effective_rule( $htaccess );
-    }
-
     private static function is_apache_like( $server_software ) {
         $s = strtolower( (string) $server_software );
         return false !== strpos( $s, 'apache' ) || false !== strpos( $s, 'litespeed' );
@@ -475,14 +624,24 @@ class Check_Transport {
         return false === $contents ? null : $contents;
     }
 
-    private static function read_htaccess( $home_path, $abspath ) {
+    private static function read_htaccess( $home_path, $abspath ): ?array {
         foreach ( self::htaccess_candidates( $home_path, $abspath ) as $candidate ) {
             $contents = self::read_file( $candidate );
             if ( null !== $contents ) {
-                return $contents;
+                return array( 'path' => $candidate, 'contents' => $contents );
             }
         }
         return null;
+    }
+
+    private static function htaccess_mtime(): ?int {
+        $htaccess = self::read_htaccess( self::resolve_home_path(), ABSPATH );
+        if ( null === $htaccess ) {
+            return null;
+        }
+        clearstatcache( true, $htaccess['path'] );
+        $mtime = @filemtime( $htaccess['path'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- A file removed since it was read has no time; null says so.
+        return false === $mtime ? null : (int) $mtime;
     }
 
     private static function resolve_home_path() {

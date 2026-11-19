@@ -15,7 +15,7 @@ class Device_Verification {
             return $tls_error;
         }
 
-        $rate_error = Token_Endpoint::enforce_rate_limit();
+        $rate_error = Authorization_Endpoint::enforce_rate_limit();
         if ( null !== $rate_error ) {
             return $rate_error;
         }
@@ -41,7 +41,7 @@ class Device_Verification {
             return $tls_error;
         }
 
-        $rate_error = Token_Endpoint::enforce_rate_limit();
+        $rate_error = Authorization_Endpoint::enforce_rate_limit();
         if ( null !== $rate_error ) {
             return $rate_error;
         }
@@ -271,20 +271,36 @@ class Device_Verification {
             'easy_mcp_ai_device_lookup_rl_ip_' . md5( $ip ),
             'easy_mcp_ai_device_lookup_rl_user_' . (int) get_current_user_id(),
         );
-
-        $limited = false;
-        foreach ( $keys as $key ) {
-            if ( \wp_using_ext_object_cache() ) {
-                \wp_cache_add( $key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-                $count = \wp_cache_incr( $key, 1, 'easy_mcp_ai' );
-            } else {
-                $count = Token_Endpoint::rl_transient_increment( $key );
+        if ( \wp_using_ext_object_cache() ) {
+            $window = intdiv( time(), HOUR_IN_SECONDS );
+            $slots  = array();
+            foreach ( $keys as $key ) {
+                $slots[] = $key . '_' . $window;
+                if ( (int) \wp_cache_get( end( $slots ), 'easy_mcp_ai' ) >= self::LOOKUP_LIMIT_PER_HOUR ) {
+                    return true;
+                }
             }
-            if ( $count > self::LOOKUP_LIMIT_PER_HOUR ) {
-                $limited = true;
+            $over = false;
+            foreach ( $slots as $slot ) {
+                \wp_cache_add( $slot, 0, 'easy_mcp_ai', max( 1, ( $window + 1 ) * HOUR_IN_SECONDS - time() ) );
+                $over = (int) \wp_cache_incr( $slot, 1, 'easy_mcp_ai' ) > self::LOOKUP_LIMIT_PER_HOUR || $over;
+            }
+            if ( $over ) {
+                foreach ( $slots as $slot ) {
+                    \wp_cache_decr( $slot, 1, 'easy_mcp_ai' );
+                }
+            }
+            return $over;
+        }
+        foreach ( $keys as $key ) {
+            if ( \Easy_MCP_AI\Fixed_Window_Counter::count( $key ) >= self::LOOKUP_LIMIT_PER_HOUR ) {
+                return true;
             }
         }
-        return $limited;
+        foreach ( $keys as $key ) {
+            Token_Endpoint::rl_transient_increment( $key );
+        }
+        return false;
     }
 
     private function enforce_transport_security() {

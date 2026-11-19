@@ -43,7 +43,8 @@ final class Breakdance_Abilities extends Vendor_Abilities {
         );
     }
 
-    protected static function ran_before_switches_dropped(): bool {
+    protected static function ran_before_switches_dropped( string $slug ): bool {
+        unset( $slug );
         $stored = \get_option( self::SETTING_OPTION, null );
         if ( null === $stored ) {
             return true;

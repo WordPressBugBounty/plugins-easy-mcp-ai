@@ -2,12 +2,15 @@
 namespace Easy_MCP_AI\Tools\Meta;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
 class Update_Post_Meta extends Base_Tool {
+
+    const ACF_HINT = 'ACF fields: use wp_acf_update_fields, not this tool. ';
 
     public function get_name() {
         return 'wp_update_post_meta';
@@ -18,14 +21,15 @@ class Update_Post_Meta extends Base_Tool {
         if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
             $description .= \Easy_MCP_AI\Meta\Meta_Exposure::describe_writable_keys();
         }
-        return $description . $this->acf_hint( ' ' );
+        $reach = class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) ? \Easy_MCP_AI\MCP\Server::current_caller_may_reach( 'wp_acf_update_fields' ) : null;
+        if ( null === $reach ? class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) && \Easy_MCP_AI\Meta\Meta_Exposure::is_group_enabled( 'acf' ) : $reach ) {
+            $description .= ' ' . self::ACF_HINT;
+        }
+        return $description;
     }
 
-    private function acf_hint( $prefix = '' ) {
-        if ( class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) && \Easy_MCP_AI\Meta\Meta_Exposure::is_group_enabled( 'acf' ) ) {
-            return $prefix . 'ACF fields: use wp_acf_update_fields, not this tool. ';
-        }
-        return '';
+    private function acf_hint() {
+        return Post_Type_Tool_Hint::may_reach( 'wp_acf_update_fields' ) ? self::ACF_HINT : '';
     }
 
     public function get_category() {
@@ -137,7 +141,13 @@ class Update_Post_Meta extends Base_Tool {
         $request->set_body( wp_json_encode( array( 'meta' => $meta ) ) );
         $response = $this->dispatch_post_update( $request, $post_id, $resave );
         if ( $response->is_error() ) {
-            throw new \RuntimeException( $this->explain_rejected_meta( $response, $meta, $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            $text = $this->explain_rejected_meta( $response, $meta, $post_id );
+            $fit  = \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $text );
+            $data = $response->get_data();
+            if ( is_array( $data ) && in_array( $data['code'] ?? '', array( 'rest_invalid_param', 'rest_invalid_type' ), true ) ) {
+                throw $fit; // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+            throw '' === $fit->get_details() ? new \RuntimeException( $text ) : new \Easy_MCP_AI\MCP\Detailed_Runtime_Error( $fit->getMessage(), $fit->get_details() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $read = $this->rest_request( 'GET', $route, array(
             'context' => 'edit',

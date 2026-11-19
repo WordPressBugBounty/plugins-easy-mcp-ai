@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Product extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce product by ID. Required: `id`. Deletion is immediate and irreversible — the product, its images (media records), and all its variations are deleted. Orders that included this product are preserved. To hide without deleting, use `wp_wc_update_product` with status="draft" instead. Returns { deleted: true, id }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce product by ID. Required: `id`. Deletion is immediate and irreversible — the product, its images (media records), and all its variations are deleted. Orders that included this product are preserved. To hide without deleting, use `wp_wc_update_product` with status="draft" instead. Returns { deleted: true, id }; if a plugin stops the delete, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -69,6 +70,7 @@ class Delete_Product extends Base_Tool {
         $id = $this->parse_required_id( $arguments['id'], 'id' );
 
         $this->rest_request( 'DELETE', '/wc/v3/products/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_post_gone( $id, 'product ' . $id, 'Its variations or child products may have been changed first.' );
 
         return array(
             'deleted' => true,

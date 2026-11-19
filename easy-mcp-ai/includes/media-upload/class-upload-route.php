@@ -76,7 +76,7 @@ final class Upload_Route {
             return self::refusal( 409, 'already_received', 'This link already received its file. Call wp_upload_media with filename and upload_id to add it to the media library.' );
         }
         if ( 0 === stripos( trim( $content_type ), 'multipart/' ) ) {
-            return self::refusal( 415, 'form_upload', 'Send the file itself as the request body: curl -T <file> \'<upload_url>\'. A form upload (curl -F) is not accepted. Nothing was stored.' );
+            return self::refusal( 415, 'form_upload', 'Send the file itself as the request body: curl -T <file> \'<upload_url>\' (add -X POST where PUT is refused). A form upload (curl -F) is not accepted. Nothing was stored.' );
         }
         $refusal = self::mismatch( $session, $body );
         if ( null !== $refusal ) {

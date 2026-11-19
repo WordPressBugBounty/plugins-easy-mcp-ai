@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Posts;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress post by ID. Required: `post_id`. Optional: `force` (default false) — false moves the post to trash (recoverable via `wp_update_post` setting status="publish"/"draft"); true permanently deletes the post and its meta/revisions (irreversible). Returns { deleted, id, title }. Prefer false (trash) unless permanent deletion is explicitly requested. For CPT items use `wp_delete_cpt_item` instead.';
+        return 'Deletes a WordPress post by ID. Required: `post_id`. Optional: `force` (default false) — false moves the post to trash (recoverable via `wp_update_post` setting status="publish"/"draft"); true permanently deletes the post and its meta/revisions (irreversible). Returns { deleted: true, status, id, title }: `status` is "trash" when the post was moved to the Trash and "deleted" when it no longer exists, read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error. Prefer false (trash) unless permanent deletion is explicitly requested. For CPT items use `wp_delete_cpt_item` instead.';
     }
 
     public function get_category() {
@@ -89,16 +90,13 @@ class Delete_Post extends Base_Tool {
             $params['force'] = $force;
         }
 
-        $data = $this->rest_request( 'DELETE', '/wp/v2/posts/' . $post_id, $params );
-
-        if ( $force ) {
-            $post = $data['previous'] ?? array();
-        } else {
-            $post = $data;
-        }
+        $data    = $this->rest_request( 'DELETE', '/wp/v2/posts/' . $post_id, $params );
+        $outcome = Delete_Outcome::of_post( $data, $post_id, 'post ' . $post_id );
+        $post    = $outcome['item'];
 
         return array(
             'deleted' => true,
+            'status'  => $outcome['status'],
             'id'      => $post['id'] ?? null,
             'title'   => $post['title']['raw'] ?? ( $post['title']['rendered'] ?? '' ),
         );

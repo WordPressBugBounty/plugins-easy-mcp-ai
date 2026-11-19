@@ -18,6 +18,14 @@ class Theme_Mod_Handler extends Command_Handler {
     const MISSING_ALL     = 'The active theme has no stored theme mods, so nothing was removed. WP-CLI prints a success line anyway.';
     const NOTE_NOT_STORED = 'Not stored, so not removed (WP-CLI counts them anyway): %s.';
 
+    const KEPT = 'Theme mods still stored after the removal: WordPress did not save the change. A plugin or theme may have stopped the write. Still stored: %s';
+
+    const UNREAD = 'Theme mods may not have been removed: a database error stopped the stored theme mods being read back, so whether they changed is not known. Mods: %s';
+
+    const KEPT_ALL = 'Theme mods still stored after the removal: the theme mods option was not deleted. A plugin, theme or database error may have stopped it.';
+
+    const UNREAD_ALL = 'Theme mods may not have been removed: a database error stopped the theme mods option being read back, so whether it was deleted is not known.';
+
     const NOT_CAPTURED = 'Theme mods live in the theme_mods_<theme> option, which change history records only while it records every option (not in allowlist mode); wp_history_apply cannot restore it.';
 
     const TOOL = 'wp_delete_theme_mod';
@@ -43,7 +51,14 @@ class Theme_Mod_Handler extends Command_Handler {
         self::refuse_owned_without_tool( $inv, $ctx, $args );
 
         if ( Read_Value::flag( $inv->assoc, 'all' ) ) {
-            if ( Theme_Handler::wp( 'remove_theme_mods' ) ) {
+            $removed = Theme_Handler::wp( 'remove_theme_mods' );
+            if ( Theme_Handler::MODS_UNREAD === $removed ) {
+                $ctx->not_known( self::UNREAD_ALL );
+            }
+            if ( null === $removed ) {
+                $ctx->out->error( self::KEPT_ALL );
+            }
+            if ( $removed ) {
                 $ctx->mark_changed();
             } else {
                 $ctx->fail_missing_target( self::MISSING_ALL );
@@ -65,12 +80,29 @@ class Theme_Mod_Handler extends Command_Handler {
 
     private static function remove_named( array $args, Context $ctx ): void {
         $not_stored = array();
+        $kept       = array();
+        $unread     = array();
         foreach ( $args as $mod ) {
-            if ( Theme_Handler::wp( 'remove_theme_mod', array( $mod ) ) ) {
+            $removed = Theme_Handler::wp( 'remove_theme_mod', array( $mod ) );
+            if ( Theme_Handler::MODS_UNREAD === $removed ) {
+                $unread[] = "'" . $mod . "'";
+            } elseif ( null === $removed ) {
+                $kept[] = "'" . $mod . "'";
+            } elseif ( $removed ) {
                 $ctx->mark_changed();
             } else {
                 $not_stored[] = "'" . $mod . "'";
             }
+        }
+
+        if ( $unread ) {
+            $ctx->mark_changed();
+        }
+        if ( $kept ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::KEPT, array( implode( ', ', $kept ) ) ) );
+        }
+        if ( $unread ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::UNREAD, array( implode( ', ', $unread ) ) ) );
         }
 
         if ( ! $ctx->changed() ) {

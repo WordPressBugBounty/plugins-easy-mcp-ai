@@ -28,6 +28,20 @@ final class Plugin_Handler extends Command_Handler {
 
     const AUTO_UPDATE_OPTION = 'auto_update_plugins';
 
+    const AUTO_DISABLE_KEPT = 'Auto-updates were not disabled: the stored auto_update_plugins option still lists them. A plugin or theme may have stopped the write. Plugins: %s';
+
+    const AUTO_DISABLE_PART = 'Auto-updates were disabled only in part: auto_update_plugins changed but still lists some. A plugin or theme may have stopped the rest. Still listed: %s';
+
+    const AUTO_DISABLE_UNKNOWN = 'Auto-updates may not have been disabled: a database error stopped the auto_update_plugins option being read back, so whether it changed is not known. Plugins: %s';
+
+    const AUTO_ENABLE_KEPT = 'Auto-updates were not enabled: the stored auto_update_plugins option does not list them. A plugin or theme may have stopped the write. Plugins: %s';
+
+    const AUTO_ENABLE_PART = 'Auto-updates were enabled only in part: auto_update_plugins changed but does not list some. A plugin or theme may have stopped the rest. Not listed: %s';
+
+    const AUTO_BEFORE_UNREAD = 'Nothing was written: a database error stopped the auto_update_plugins option being read before the write, so its state is not known. Plugins: %s';
+
+    const AUTO_ENABLE_UNKNOWN = 'Auto-updates may not have been enabled: a database error stopped the auto_update_plugins option being read back, so whether it changed is not known. Plugins: %s';
+
     const PLUGIN_CHECKSUMS_ENDPOINT = 'https://downloads.wordpress.org/plugin-checksums/';
     const CORE_CHECKSUMS_ENDPOINT   = 'https://api.wordpress.org/core/checksums/1.0/';
 
@@ -767,7 +781,6 @@ final class Plugin_Handler extends Command_Handler {
             return;
         }
 
-        $before = \get_site_option( self::AUTO_UPDATE_OPTION );
         $walk   = self::walk_auto_updates( $plan['plugins'], self::stored_auto_updates(), $enable, $plan['only'] );
         self::warn_already( $walk['events'], $enable, $ctx->out );
 
@@ -775,10 +788,22 @@ final class Plugin_Handler extends Command_Handler {
             $ctx->out->error( sprintf( 'No plugins provided to %s auto-updates for.', $enable ? 'enable' : 'disable' ) );
         }
 
-        self::store_auto_updates( $walk['list'], $enable, $before, $ctx );
+        $named      = array_values( array_unique( array_map( 'strval', array_column( $walk['events'], 'file' ) ) ) );
+        $before_row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::AUTO_UPDATE_OPTION, true );
+        if ( null === $before_row ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::AUTO_BEFORE_UNREAD, array( implode( ', ', $named ) ) ) );
+        }
+        $after_row = self::store_auto_updates( $walk['list'], $enable, $before_row, $named, $ctx );
+        if ( $enable ) {
+            self::refuse_unlisted_auto_updates( $walk['events'], $before_row, $after_row, $ctx );
+        } else {
+            self::refuse_kept_auto_updates( $walk['events'], $before_row, $after_row, $ctx );
+        }
+        $earlier   = $before_row[0] && is_array( $before_row[1] ) ? array_map( 'strval', $before_row[1] ) : array();
+        $successes = $enable ? count( array_diff( $named, $earlier ) ) : count( array_intersect( $named, $earlier ) );
 
         $missing = count( $plan['missing'] );
-        Values::report_batch( $ctx->out, 'plugin auto-update', $enable ? 'enable' : 'disable', $walk['count'] + $missing, $walk['successes'], $walk['count'] - $walk['successes'] + $missing );
+        Values::report_batch( $ctx->out, 'plugin auto-update', $enable ? 'enable' : 'disable', $walk['count'] + $missing, $successes, $walk['count'] - $successes + $missing );
     }
 
     private static function warn_already( array $events, bool $enable, Output $out ): void {
@@ -789,15 +814,48 @@ final class Plugin_Handler extends Command_Handler {
         }
     }
 
-    private static function store_auto_updates( array $list, bool $enable, $before, Context $ctx ): void {
+    private static function store_auto_updates( array $list, bool $enable, array $before_row, array $named, Context $ctx ): array {
         $ctx->not_captured( \is_multisite() ? self::NOT_CAPTURED_AUTO_NETWORK : self::NOT_CAPTURED_AUTO_SINGLE );
         if ( $enable || count( $list ) > 0 ) {
             \update_site_option( self::AUTO_UPDATE_OPTION, $list );
         } else {
             \delete_site_option( self::AUTO_UPDATE_OPTION );
         }
-        if ( \get_site_option( self::AUTO_UPDATE_OPTION ) !== $before ) {
+        $after_row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::AUTO_UPDATE_OPTION, true );
+        if ( null === $after_row ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( $enable ? self::AUTO_ENABLE_UNKNOWN : self::AUTO_DISABLE_UNKNOWN, array( implode( ', ', $named ) ) ) );
+        }
+        if ( $before_row !== $after_row ) {
             $ctx->mark_changed();
+        }
+        return $after_row;
+    }
+
+    private static function refuse_kept_auto_updates( array $events, array $before_row, array $row, Context $ctx ): void {
+        $changed = array_column( $events, 'file' );
+        if ( ! $changed ) {
+            return;
+        }
+        $stored = $row[0] && is_array( $row[1] ) ? $row[1] : array();
+        $kept   = array_values( array_intersect( $changed, $stored ) );
+        if ( $kept ) {
+            $listed = $before_row[0] && is_array( $before_row[1] ) ? $before_row[1] : array();
+            $part   = (bool) array_diff( array_intersect( array_unique( $changed ), $listed ), $kept );
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( $part ? self::AUTO_DISABLE_PART : self::AUTO_DISABLE_KEPT, array( implode( ', ', array_unique( $kept ) ) ) ) );
+        }
+    }
+
+    private static function refuse_unlisted_auto_updates( array $events, array $before_row, array $row, Context $ctx ): void {
+        $changed = array_values( array_unique( array_map( 'strval', array_column( $events, 'file' ) ) ) );
+        if ( ! $changed ) {
+            return;
+        }
+        $stored  = $row[0] && is_array( $row[1] ) ? $row[1] : array();
+        $missing = array_values( array_diff( $changed, $stored ) );
+        if ( $missing ) {
+            $listed = $before_row[0] && is_array( $before_row[1] ) ? $before_row[1] : array();
+            $part   = (bool) array_diff( array_intersect( $changed, $stored ), $listed );
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( $part ? self::AUTO_ENABLE_PART : self::AUTO_ENABLE_KEPT, array( implode( ', ', $missing ) ) ) );
         }
     }
 

@@ -406,6 +406,20 @@ final class Argument_Targets {
             'operations' => 'own_type',
             'title'      => 'own',
         ),
+        'wp_find_in_post' => array(
+            'context'     => 'own',
+            'field'       => 'own',
+            'ids'         => 'own',
+            'max_matches' => 'own',
+            'queries'     => 'own',
+        ),
+        'wp_find_in_site' => array(
+            'context'    => 'own',
+            'cursor'     => 'own',
+            'post_types' => 'own',
+            'queries'    => 'own',
+            'sources'    => 'own',
+        ),
         'wp_get_block' => array(
             'block_id' => 'own',
         ),
@@ -436,9 +450,10 @@ final class Argument_Targets {
             'page_id' => 'own',
         ),
         'wp_get_page_layout' => array(
-            'depth'   => 'own',
-            'element' => 'own',
-            'post_id' => 'own',
+            'depth'       => 'own',
+            'element'     => 'own',
+            'list_offset' => 'own',
+            'post_id'     => 'own',
         ),
         'wp_get_post' => array(
             'post_id' => 'own',
@@ -488,6 +503,9 @@ final class Argument_Targets {
         ),
         'wp_get_theme_mods' => array(
             'keys' => 'own',
+        ),
+        'wp_get_translations' => array(
+            'post_id' => 'own',
         ),
         'wp_get_user' => array(
             'user_id' => 'own',
@@ -539,6 +557,9 @@ final class Argument_Targets {
             'slug'           => 'own',
             'url'            => 'own',
             'version'        => 'own',
+        ),
+        'wp_link_translations' => array(
+            'translations' => 'own',
         ),
         'wp_list_block_types' => array(
             'category' => 'own',
@@ -622,6 +643,7 @@ final class Argument_Targets {
         'wp_list_layout_elements' => array(
             'builder' => 'own',
             'search'  => 'own',
+            'tab'     => 'own',
             'type'    => 'own',
         ),
         'wp_list_media' => array(
@@ -777,6 +799,22 @@ final class Argument_Targets {
         ),
         'wp_list_widgets' => array(
             'sidebar' => 'own',
+        ),
+        'wp_loco_get_translations' => array(
+            'filter'   => 'own',
+            'page'     => 'own',
+            'path'     => 'own',
+            'per_page' => 'own',
+            'search'   => 'own',
+        ),
+        'wp_loco_list_files' => array(
+            'locale' => 'own',
+            'search' => 'own',
+            'type'   => 'own',
+        ),
+        'wp_loco_update_translations' => array(
+            'path'         => 'own',
+            'translations' => 'own_type',
         ),
         'wp_privileged_files_read_query' => array(
             'action'      => 'own',
@@ -1062,6 +1100,31 @@ final class Argument_Targets {
             'title'          => 'own',
             'twitter_image'  => 'own',
         ),
+        'wp_smartslider_delete_slide' => array(
+            'slide_id' => 'own',
+        ),
+        'wp_smartslider_duplicate_slide' => array(
+            'slide_id' => 'own',
+        ),
+        'wp_smartslider_get_slide' => array(
+            'slide_id' => 'own',
+        ),
+        'wp_smartslider_get_slider' => array(
+            'slider_id' => 'own',
+        ),
+        'wp_smartslider_list_sliders' => array(
+            'status' => 'own',
+        ),
+        'wp_smartslider_reorder_slides' => array(
+            'slide_ids' => 'own',
+            'slider_id' => 'own',
+        ),
+        'wp_smartslider_update_slide' => array(
+            'layers'   => 'own',
+            'slide_id' => 'own',
+            'title'    => 'own',
+            'version'  => 'own',
+        ),
         'wp_spam_comment' => array(
             'comment_id' => 'own',
         ),
@@ -1323,6 +1386,8 @@ final class Argument_Targets {
             'page_on_front'   => 'own',
             'posts_per_page'  => 'own',
             'show_on_front'   => 'own',
+            'site_icon'       => 'own',
+            'site_logo'       => 'own',
             'time_format'     => 'own',
             'timezone'        => 'own',
             'timezone_string' => 'own',
@@ -1855,7 +1920,24 @@ final class Argument_Targets {
         ),
     );
 
+    const MULTILINGUAL = array(
+        'wp_create_cpt_item' => array( 'lang' => 'own', 'translation_of' => 'own' ),
+        'wp_create_page'     => array( 'lang' => 'own', 'translation_of' => 'own' ),
+        'wp_create_post'     => array( 'lang' => 'own', 'translation_of' => 'own' ),
+        'wp_list_cpt_items'  => array( 'lang' => 'own' ),
+        'wp_list_pages'      => array( 'lang' => 'own' ),
+        'wp_list_posts'      => array( 'lang' => 'own' ),
+        'wp_search_posts'    => array( 'lang' => 'own' ),
+        'wp_update_cpt_item' => array( 'lang' => 'own', 'translation_of' => 'own' ),
+        'wp_update_page'     => array( 'lang' => 'own', 'translation_of' => 'own' ),
+        'wp_update_post'     => array( 'lang' => 'own', 'translation_of' => 'own' ),
+    );
+
     public static function of( string $tool_name ): array {
-        return isset( self::MAP[ $tool_name ] ) ? self::MAP[ $tool_name ] : array();
+        $targets = isset( self::MAP[ $tool_name ] ) ? self::MAP[ $tool_name ] : array();
+        if ( isset( self::MULTILINGUAL[ $tool_name ] ) && null !== \Easy_MCP_AI\Multilingual\Translation_Registry::active() ) {
+            $targets += self::MULTILINGUAL[ $tool_name ];
+        }
+        return $targets;
     }
 }

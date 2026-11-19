@@ -21,7 +21,7 @@ class List_Disabled_Tools extends Base_Tool {
 
     const OUT_OF_REACH = 'out_of_reach';
 
-    const NOTE = 'These are the site\'s switches. What this connection\'s key or grant and the user\'s WordPress role allow is separate, so a tool missing from your list may be switched on and out of your reach. An item whose `state` is `out_of_reach` is such a tool, named by your query: tell the user what its `why` says, never that the site lacks the tool. Nothing listed can be called until it is switched on or within your reach, and this tool cannot switch anything on or widen your reach. First check that no tool you have does the task another way (a plugin\'s own REST routes, for example). Otherwise tell the user what to switch on and where. Name a tool or an ability by its exact `name`, never by a description of what it does, because the screens list them by that name alone; name an integration or a provider by its `label`. For an item with `requires`, say that the user\'s WordPress account must hold that capability as well, or that an administrator has to do the task. Once something is switched on, a new chat or a reconnect reads the tool list again.';
+    const NOTE = 'These are the site\'s switches. What this connection\'s key or grant and the user\'s WordPress role allow is separate, so a tool missing from your list may be switched on and out of your reach. An item whose `state` is `out_of_reach` is such a tool, named by your query: tell the user what its `why` says, never that the site lacks the tool. An item with both `where` and `why` is switched off and out of your reach too: tell the user both, because switching it on alone is not enough. Nothing listed can be called until it is switched on or within your reach, and this tool cannot switch anything on or widen your reach. First check that no tool you have does the task another way (a plugin\'s own REST routes, for example). Otherwise tell the user what to switch on and where. Name a tool or an ability by its exact `name`, never by a description of what it does, because the screens list them by that name alone; name an integration or a provider by its `label`. For an item with `requires`, say that the user\'s WordPress account must hold that capability as well, or that an administrator has to do the task. Once something is switched on, a new chat or a reconnect reads the tool list again.';
 
     const NO_MATCH = 'Nothing that is switched off on this site matches "%s". This list covers the site\'s switches, not every tool this connection\'s key or grant or the user\'s WordPress role leaves out, so no match does not mean the site cannot do it. If no tool in your list does it either, tell the user that, and that an administrator can check which tools this connection includes.';
 
@@ -91,7 +91,14 @@ class List_Disabled_Tools extends Base_Tool {
         $entries = Switched_Off_Inventory::all( $this->registry() );
         $query   = isset( $arguments['query'] ) && is_string( $arguments['query'] ) ? trim( mb_substr( $arguments['query'], 0, self::QUERY_MAX ) ) : '';
         $group   = isset( $arguments['group'] ) && is_string( $arguments['group'] ) ? trim( $arguments['group'] ) : '';
-        $reach   = '' !== $query && '' === $group ? $this->out_of_reach( $query, $entries ) : array();
+        $reach   = '' !== $query && '' === $group ? $this->out_of_reach( $query ) : array();
+        foreach ( $entries as $i => $entry ) {
+            if ( isset( $reach[ $entry['name'] ] ) ) {
+                $entries[ $i ]['why'] = $reach[ $entry['name'] ]['why'];
+                unset( $reach[ $entry['name'] ] );
+            }
+        }
+        $reach = array_map( array( __CLASS__, 'item' ), array_values( $reach ) );
 
         if ( array() === $entries && array() === $reach ) {
             return array( 'total' => 0, 'groups' => array(), 'note' => self::NOTHING_OFF );
@@ -106,30 +113,29 @@ class List_Disabled_Tools extends Base_Tool {
             $result['group'] = $group;
         }
         if ( '' !== $query ) {
-            $entries         = self::ranked( $entries, $query );
+            $entries         = self::named_first( $entries, $query );
             $result['query'] = $query;
         }
         return $result + self::page( array_merge( $reach, array_map( array( __CLASS__, 'item' ), $entries ) ), $arguments, '' !== $query ? $query : $group );
     }
 
-    private function out_of_reach( string $query, array $entries ): array {
+    private function out_of_reach( string $query ): array {
         $registry = $this->registry();
         if ( null === $registry ) {
             return array();
         }
-        $listed = array_column( $entries, 'name' );
-        $items  = array();
+        $entries = array();
         foreach ( Feedback_Availability::out_of_reach( $query, $registry, array( Server::class, 'current_call_tool_status' ), self::NAME ) as $match ) {
             $tool = $registry->get_tool( $match['name'] );
-            if ( in_array( $match['name'], $listed, true ) || ! $tool instanceof Base_Tool || Server::is_app_only_tool( $tool ) ) {
+            if ( ! $tool instanceof Base_Tool || Server::is_app_only_tool( $tool ) ) {
                 continue;
             }
             $entry        = Switched_Off_Inventory::tool_entry( $tool, $match['name'], self::OUT_OF_REACH, '' );
             $entry['why'] = $match['label'] . ' ' . $match['why'] . '.';
             unset( $entry['requires'] );
-            $items[]      = self::item( $entry );
+            $entries[ $match['name'] ] = $entry;
         }
-        return $items;
+        return $entries;
     }
 
     private static function summary( array $entries ): array {
@@ -184,6 +190,21 @@ class List_Disabled_Tools extends Base_Tool {
             throw new \InvalidArgumentException( sprintf( 'No group "%s" has anything switched off. Groups: %s.', $group, implode( ', ', array_keys( $known ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $kept;
+    }
+
+    private static function named_first( array $entries, string $query ): array {
+        $listed = array();
+        foreach ( $entries as $entry ) {
+            if ( isset( $entry['why'] ) ) {
+                $listed[] = $entry;
+            }
+        }
+        foreach ( self::ranked( $entries, $query ) as $entry ) {
+            if ( ! isset( $entry['why'] ) ) {
+                $listed[] = $entry;
+            }
+        }
+        return $listed;
     }
 
     private static function ranked( array $entries, string $query ): array {
@@ -323,10 +344,11 @@ class List_Disabled_Tools extends Base_Tool {
             $item['covers'] = $entry['covers'];
         }
         $item['state'] = $entry['state'];
+        if ( self::OUT_OF_REACH !== $entry['state'] ) {
+            $item['where'] = $entry['where'];
+        }
         if ( isset( $entry['why'] ) ) {
             $item['why'] = $entry['why'];
-        } else {
-            $item['where'] = $entry['where'];
         }
         $item['summary'] = $entry['summary'];
         return $item;

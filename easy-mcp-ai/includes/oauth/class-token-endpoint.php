@@ -11,18 +11,26 @@ class Token_Endpoint {
 
     const BODY_ONLY_PARAMS = array( 'code', 'code_verifier', 'refresh_token', 'client_secret' );
 
+    private $failure_detail = array();
+
+    const AUDIT_TEXT_MAX = 255;
+
     public function handle( \WP_REST_Request $request ) {
 
         $transport_error = self::enforce_transport_security();
-        if ( null !== $transport_error ) {
-            return $transport_error;
-        }
 
-        $rate_error = self::enforce_rate_limit();
+        $rate_error = self::enforce_rate_limit( null === $transport_error ? $request : null );
         if ( null !== $rate_error ) {
             return $rate_error;
         }
 
+        $this->failure_detail = array();
+        $response             = $transport_error ?? $this->handle_grant( $request );
+        $this->log_failure( $request, $response );
+        return $response;
+    }
+
+    private function handle_grant( \WP_REST_Request $request ) {
         $query_error = self::reject_query_credentials( $request, self::BODY_ONLY_PARAMS );
         if ( null !== $query_error ) {
             return $query_error;
@@ -51,7 +59,47 @@ class Token_Endpoint {
         }
     }
 
-    private function handle_device_code( \WP_REST_Request $request ) {
+    private function log_failure( \WP_REST_Request $request, \WP_REST_Response $response ): void {
+        $data  = $response->get_data();
+        $error = is_array( $data ) && isset( $data['error'] ) && is_string( $data['error'] ) ? $data['error'] : '';
+        if ( $response->get_status() < 400 || in_array( $error, array( 'authorization_pending', 'slow_down' ), true ) ) {
+            return;
+        }
+        $basic     = self::read_basic_credentials( $request );
+        $client_id = sanitize_text_field( (string) $request->get_param( 'client_id' ) );
+        if ( '' === $client_id && is_array( $basic ) && isset( $basic['client_id'] ) ) {
+            $client_id = sanitize_text_field( (string) $basic['client_id'] );
+        }
+        OAuth_Audit_Log::write(
+            '_oauth_token',
+            array_map(
+                array( self::class, 'audit_text' ),
+                array(
+                    'stage'      => 'token',
+                    'grant_type' => self::audit_grant_type( $request->get_param( 'grant_type' ) ),
+                    'error'      => $error,
+                    'reason'     => is_array( $data ) && isset( $data['error_description'] ) ? (string) $data['error_description'] : '',
+                    'client_id'  => $client_id,
+                ) + $this->failure_detail
+            ),
+            'auth_failure',
+            $client_id
+        );
+    }
+
+    private static function audit_grant_type( $grant_type ): string {
+        $grant_type = is_string( $grant_type ) ? $grant_type : '';
+        if ( '' === $grant_type || in_array( $grant_type, array( 'authorization_code', 'refresh_token', Device_Authorization::GRANT_TYPE ), true ) ) {
+            return $grant_type;
+        }
+        return 'unsupported';
+    }
+
+    private static function audit_text( $value ): string {
+        return mb_substr( (string) $value, 0, self::AUDIT_TEXT_MAX );
+    }
+
+    private function checked_device( \WP_REST_Request $request, bool $poll ) {
         $device_code = is_string( $request->get_param( 'device_code' ) ) ? $request->get_param( 'device_code' ) : '';
         $resource    = is_string( $request->get_param( 'resource' ) ) ? esc_url_raw( $request->get_param( 'resource' ) ) : '';
 
@@ -95,7 +143,9 @@ class Token_Endpoint {
                 return $this->token_error( 'slow_down', __( 'Polling too frequently.', 'easy-mcp-ai' ) );
             }
         }
-        Device_Authorization::touch_polled( (int) $row->id );
+        if ( $poll ) {
+            Device_Authorization::touch_polled( (int) $row->id );
+        }
 
         if ( Device_Authorization::STATUS_PENDING === $row->status ) {
             return $this->token_error( 'authorization_pending', __( 'The authorization request is still pending.', 'easy-mcp-ai' ) );
@@ -110,6 +160,15 @@ class Token_Endpoint {
         }
         if ( ! empty( $row->resource ) && ! self::resource_matches( $resource, $row->resource ) ) {
             return $this->token_error( 'invalid_target', __( 'Resource parameter does not match the authorized resource.', 'easy-mcp-ai' ) );
+        }
+
+        return $row;
+    }
+
+    private function handle_device_code( \WP_REST_Request $request ) {
+        $row = $this->checked_device( $request, true );
+        if ( $row instanceof \WP_REST_Response ) {
+            return $row;
         }
 
         if ( Device_Authorization::STATUS_APPROVED !== $row->status || ! Device_Authorization::claim_approved( (int) $row->id ) ) {
@@ -246,7 +305,7 @@ class Token_Endpoint {
         return $this->token_error( 'invalid_grant', $messages[ $reason ] ?? $messages['empty'] );
     }
 
-    private function handle_authorization_code( \WP_REST_Request $request ) {
+    private function checked_code( \WP_REST_Request $request ) {
         global $wpdb;
 
         $code          = self::body_param( $request, 'code' );
@@ -286,7 +345,7 @@ class Token_Endpoint {
         $is_reuse = ( null !== $code_row->used_at );
 
         $now_utc = gmdate( 'Y-m-d H:i:s' );
-        if ( ! $is_reuse && $code_row->expires_at < $now_utc ) {
+        if ( ! $is_reuse && $code_row->expires_at <= $now_utc ) {
             return $this->token_error( 'invalid_grant', __( 'Authorization code has expired.', 'easy-mcp-ai' ) );
         }
 
@@ -306,6 +365,10 @@ class Token_Endpoint {
         }
 
         if ( $code_row->redirect_uri !== $redirect_uri ) {
+            $this->failure_detail = array(
+                'redirect_host'          => Authorization_Endpoint::redirect_host( $redirect_uri ),
+                'expected_redirect_host' => Authorization_Endpoint::redirect_host( $code_row->redirect_uri ),
+            );
             return $this->token_error( 'invalid_grant', __( 'Redirect URI mismatch.', 'easy-mcp-ai' ) );
         }
 
@@ -320,6 +383,27 @@ class Token_Endpoint {
         if ( ! hash_equals( $code_row->code_challenge, $computed_challenge ) ) {
             return $this->token_error( 'invalid_grant', __( 'PKCE verification failed.', 'easy-mcp-ai' ) );
         }
+
+        return array(
+            'row'       => $code_row,
+            'code_hash' => $code_hash,
+            'reuse'     => $is_reuse,
+            'now'       => $now_utc,
+        );
+    }
+
+    private function handle_authorization_code( \WP_REST_Request $request ) {
+        global $wpdb;
+
+        $checked = $this->checked_code( $request );
+        if ( $checked instanceof \WP_REST_Response ) {
+            return $checked;
+        }
+        $code_row    = $checked['row'];
+        $code_hash   = $checked['code_hash'];
+        $is_reuse    = $checked['reuse'];
+        $now_utc     = $checked['now'];
+        $codes_table = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
 
         if ( $is_reuse ) {
             $this->revoke_tokens_for_code( $code_row );
@@ -390,7 +474,7 @@ class Token_Endpoint {
         return $response;
     }
 
-    private function handle_refresh_token( \WP_REST_Request $request ) {
+    private function checked_refresh( \WP_REST_Request $request ) {
 
         $refresh_token = self::body_param( $request, 'refresh_token' );
         $basic         = self::read_basic_credentials( $request );
@@ -423,9 +507,22 @@ class Token_Endpoint {
             return $this->token_error( 'invalid_grant', __( 'Resource mismatch.', 'easy-mcp-ai' ) );
         }
 
-        $stored_client_id = Client_Metadata::storage_id( $client_id );
+        return array(
+            'refresh_token' => $refresh_token,
+            'client_id'     => $client_id,
+            'resource'      => $resource,
+        );
+    }
+
+    private function handle_refresh_token( \WP_REST_Request $request ) {
+        $checked = $this->checked_refresh( $request );
+        if ( $checked instanceof \WP_REST_Response ) {
+            return $checked;
+        }
+
+        $stored_client_id = Client_Metadata::storage_id( $checked['client_id'] );
         $token_manager    = new OAuth_Token_Manager();
-        $result           = $token_manager->refresh( $refresh_token, $stored_client_id, $resource );
+        $result           = $token_manager->refresh( $checked['refresh_token'], $stored_client_id, $checked['resource'] );
 
         if ( false === $result ) {
             return $this->token_error( 'invalid_grant', __( 'Refresh token is invalid, expired, or revoked.', 'easy-mcp-ai' ) );
@@ -794,30 +891,30 @@ class Token_Endpoint {
         return in_array( $remote, array( '127.0.0.1', '::1' ), true );
     }
 
-    public static function enforce_rate_limit() {
-        $ip = \Easy_MCP_AI\Client_IP::get();
+    public static function enforce_rate_limit( ?\WP_REST_Request $request = null ) {
+        $admitted = null === $request ? null : static function () use ( $request ): bool {
+            return self::admitted_past_site_limit( $request );
+        };
+        return Rate_Limit::check( 'token', 'easy_mcp_ai_token_rl_', 120, 1200, $admitted );
+    }
 
-        $per_ip_key   = 'easy_mcp_ai_token_rl_' . md5( $ip );
-        $global_key   = 'easy_mcp_ai_token_rl_global';
-        $per_ip_limit = 120;
-        $global_limit = 1200;
-
-        if ( \wp_using_ext_object_cache() ) {
-            \wp_cache_add( $per_ip_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $ip_count = \wp_cache_incr( $per_ip_key, 1, 'easy_mcp_ai' );
-
-            \wp_cache_add( $global_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $global_count = \wp_cache_incr( $global_key, 1, 'easy_mcp_ai' );
-        } else {
-            $ip_count     = self::rl_transient_increment( $per_ip_key );
-            $global_count = self::rl_transient_increment( $global_key );
+    private static function admitted_past_site_limit( \WP_REST_Request $request ): bool {
+        if ( null !== self::reject_query_credentials( $request, self::BODY_ONLY_PARAMS ) ) {
+            return false;
         }
-
-        if ( $ip_count > $per_ip_limit || $global_count > $global_limit ) {
-            return new \WP_REST_Response( null, 429 );
+        $grant = new self();
+        switch ( sanitize_text_field( (string) $request->get_param( 'grant_type' ) ) ) {
+            case 'refresh_token':
+                $checked = $grant->checked_refresh( $request );
+                return is_array( $checked ) && ( new OAuth_Token_Manager() )->refresh_token_is_live( $checked['refresh_token'], Client_Metadata::storage_id( $checked['client_id'] ) );
+            case 'authorization_code':
+                $checked = $grant->checked_code( $request );
+                return is_array( $checked ) && ! $checked['reuse'];
+            case Device_Authorization::GRANT_TYPE:
+                $checked = $grant->checked_device( $request, false );
+                return ! $checked instanceof \WP_REST_Response;
         }
-
-        return null;
+        return false;
     }
 
     public static function rl_transient_increment( string $key ): int {

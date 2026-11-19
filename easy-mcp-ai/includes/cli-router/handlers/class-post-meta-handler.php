@@ -87,6 +87,15 @@ final class Post_Meta_Handler extends Meta_Command {
         return (bool) \update_post_meta( $object_id, $meta_key, $meta_value );
     }
 
+    protected function stored_values( $object_id, string $meta_key ) {
+        return $this->table_values( $object_id, $meta_key );
+    }
+
+    protected function write_object_id( $object_id ) {
+        $parent = function_exists( 'wp_is_post_revision' ) ? \wp_is_post_revision( (int) $object_id ) : false;
+        return $parent ? (int) $parent : $object_id;
+    }
+
     protected function delete_metadata( $object_id, string $meta_key, $meta_value = '' ): bool {
         throw new \LogicException( 'post meta delete is delegated (Post_Meta_Adapter).' );
     }

@@ -144,7 +144,11 @@ class Update_Menu_Item extends Base_Tool {
             }
         }
 
-        $response = rest_do_request( $request );
+        $response = Menu_Item_Stored_Fields::around(
+            static function () use ( $request ) {
+                return rest_do_request( $request );
+            }
+        );
 
         if ( $response->is_error() ) {
             self::throw_rest_error( $response );

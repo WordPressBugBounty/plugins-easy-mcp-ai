@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Webhook extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce webhook by ID. Required: `id`. Deletion stops all future deliveries immediately and is irreversible. To temporarily stop deliveries without deleting, use `wp_wc_update_webhook` with status="paused" instead. Returns { deleted: true, id }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce webhook by ID. Required: `id`. Deletion stops all future deliveries immediately and is irreversible. To temporarily stop deliveries without deleting, use `wp_wc_update_webhook` with status="paused" instead. Returns { deleted: true, id }; if a plugin stops the delete, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -56,6 +57,7 @@ class Delete_Webhook extends Base_Tool {
         $id = $this->parse_required_id( $arguments['id'], 'id' );
 
         $this->rest_request( 'DELETE', '/wc/v3/webhooks/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_route_gone( '/wc/v3/webhooks/' . $id, 'webhook ' . $id, 'woocommerce_rest_shop_webhook_invalid_id' );
 
         return array(
             'deleted' => true,

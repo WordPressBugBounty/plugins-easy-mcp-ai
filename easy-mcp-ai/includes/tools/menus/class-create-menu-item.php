@@ -124,6 +124,9 @@ class Create_Menu_Item extends Base_Tool {
 
         $orders               = ( 0 === $position || $shift ) ? self::stored_orders( $menu_id ) : array();
         $params['menu_order'] = 0 === $position ? self::end_position( $orders ) : $position;
+        if ( $shift && max( array_merge( array( 0 ), $orders ) ) >= $position ) {
+            $this->refuse_switched_off_route( 'POST', '/wp/v2/menu-items/{id}' );
+        }
         $to_shift             = $shift ? $this->items_to_shift( $menu_id, $orders, $position ) : array();
 
         $data = $this->rest_request( 'POST', '/wp/v2/menu-items', $params );
@@ -223,7 +226,11 @@ class Create_Menu_Item extends Base_Tool {
         $shifted = array();
         foreach ( $to_shift as $index => $row ) {
             try {
-                $this->rest_request( 'POST', '/wp/v2/menu-items/' . $row['id'], array( 'menu_order' => $row['menu_order'] + 1 ), array( 'id' ) );
+                Menu_Item_Stored_Fields::around(
+                    function () use ( $row ) {
+                        return $this->rest_request( 'POST', '/wp/v2/menu-items/' . $row['id'], array( 'menu_order' => $row['menu_order'] + 1 ), array( 'id' ) );
+                    }
+                );
                 $shifted[] = $row['id'];
             } catch ( \RuntimeException $e ) {
                 return $this->partial_shift_report( $result, $shifted, $row['id'], $e->getMessage(), array_slice( $to_shift, $index + 1 ), $position );

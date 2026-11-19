@@ -270,6 +270,10 @@ final class Router {
             if ( null !== $mask ) {
                 self::stop( $c, 'refuse', 'redacted_value', $mask );
             }
+            $no_key = Meta_Command::no_key_refusal( $name, array_values( array_map( 'strval', $args ) ) );
+            if ( null !== $no_key ) {
+                self::stop( $c, 'refuse', 'meta_no_key', $no_key );
+            }
         }
 
         self::route_call( $c, new Invocation( $name, $valid['args'], $valid['assoc'], $runtime, $leaf, $route, $command ), self::classify_context( $out ) );
@@ -279,7 +283,8 @@ final class Router {
         try {
             $parsed = Argv::parse( Shell_Lexer::split( $command ), Catalog::global_parameters() );
         } catch ( Cli_Parse_Error $e ) {
-            self::stop( $c, 'invalid', 'parse:' . $e->get_reason(), $e->getMessage() );
+            $offset = $e->get_offset();
+            self::stop( $c, 'invalid', 'parse:' . $e->get_reason(), null !== $offset && Redactor::may_be_opaque( $command, $offset ) ? $e->get_plain_message() : $e->getMessage() );
         }
         $runtime = $parsed['runtime'];
         $c->output->set_quiet( array_key_exists( 'quiet', $runtime ) && (bool) $runtime['quiet'] );

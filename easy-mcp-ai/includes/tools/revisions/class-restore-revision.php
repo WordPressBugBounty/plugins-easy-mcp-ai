@@ -7,6 +7,7 @@ use Easy_MCP_AI\Cache\Cache_Purger;
 use Easy_MCP_AI\Cache\Purge_Request;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -21,7 +22,7 @@ class Restore_Revision extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Restores a post to a specific revision. The current post state becomes a new revision (so the restore is itself undoable). Required: `revision_id`. Returns { restored, post_id, revision_id }. Note: WordPress core\'s `wp_restore_post_revision()` returns the parent post ID, not a revision ID. If you need the latest revision ID created as a side effect, call `wp_list_revisions` after this tool. Verifies edit_post capability on the parent post before restoring. On an Elementor page it also clears Elementor\'s CSS and element cache for that page, which would otherwise keep showing the old version for up to a day, and reports it as `elementor_cache`. On a Breakdance page it also puts back the Breakdance layout kept in the revision, through Breakdance\'s own save, and reports it as `layout`; `restored` is false when that layout could not be put back (`layout.note` says why).';
+        return 'Restores a post to a specific revision. The current post state becomes a new revision (so the restore is itself undoable). Required: `revision_id`. Returns { restored, post_id, revision_id, ' . Content_Hash::WRITE_FIELDS . ' }. Note: WordPress core\'s `wp_restore_post_revision()` returns the parent post ID, not a revision ID. If you need the latest revision ID created as a side effect, call `wp_list_revisions` after this tool. Verifies edit_post capability on the parent post before restoring. On an Elementor page it also clears Elementor\'s CSS and element cache for that page, which would otherwise keep showing the old version for up to a day, and reports it as `elementor_cache`. On a Breakdance page it also puts back the Breakdance layout kept in the revision, through Breakdance\'s own save, and reports it as `layout`; `restored` is false when that layout could not be put back (`layout.note` says why).';
     }
 
     public function get_category() {
@@ -65,7 +66,8 @@ class Restore_Revision extends Base_Tool {
         if ( ! $parent_id || ! current_user_can( 'edit_post', $parent_id ) ) {
             throw new \RuntimeException( 'You do not have permission to restore this revision.' );
         }
-        $post    = get_post( $parent_id );
+        $post = get_post( $parent_id );
+        $this->refuse_switched_off_post_update( $post );
         $adapter = is_object( $post ) ? Builder_Registry::for_post( $post ) : null;
         $lock    = null === $adapter ? '' : Layout_Lock::acquire( $parent_id );
         if ( null !== $adapter && '' === $lock ) {
@@ -99,7 +101,7 @@ class Restore_Revision extends Base_Tool {
                 $reply['restored'] = $layout['restored'];
                 $reply['layout']   = $layout;
             }
-            return $reply;
+            return $reply + Content_Hash::of_post( $parent_id, true );
         } finally {
             if ( '' !== $lock ) {
                 Layout_Lock::release( $parent_id, $lock );

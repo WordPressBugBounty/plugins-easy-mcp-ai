@@ -1,9 +1,11 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Drafts\Strict_Ceiling;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
+use Easy_MCP_AI\Tools\Stored_Meta;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -58,7 +60,7 @@ class Duplicate_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Duplicates a post, page or custom post type item into a new one of the same type. Required: `post_id`. Optional: `title` (default: the original\'s title), `status` (draft/pending/private/publish, default draft; Force draft on create applies). Copies the content, excerpt, terms of every taxonomy shown in the REST API, featured image, page template, post format, parent, menu order, comment and ping settings, password and post meta, page-builder layouts such as Elementor\'s included. Not copied: the date, slug (WordPress makes a new one), author (you become the author), sticky flag, comments, child pages and the original\'s editing history. Requires permission to edit the original and, for a custom post type item, the access wp_create_cpt_item needs. Refuses media, revisions, menu items, site editor entities and WooCommerce products. Returns { id, source_id, post_type, title, status, link, copied_meta_keys }, plus `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template` or `skipped_fields` (menu_order, parent) when something was left out, `content_filtered: true` when WordPress filtered HTML from the content because you cannot post unfiltered HTML, and `status_error` when the copy was created but stayed a draft. An error after the copy was created (a meta key WordPress refused) names the draft. To put a reviewed copy live in place of a published original, keeping its URL, use wp_republish_post, never a publish of the copy (`next` says so when it applies).';
+        return 'Duplicates a post, page or custom post type item into a new one of the same type. Required: `post_id`. Optional: `title` (default: the original\'s title), `status` (draft/pending/private/publish, default draft; under Draft mode New content the copy is a draft, under Strict publish and private are refused). Copies the content, excerpt, terms of every taxonomy shown in the REST API, featured image, page template, post format, parent, menu order, comment and ping settings, password and post meta, page-builder layouts such as Elementor\'s included. Not copied: the date, slug (WordPress makes a new one), author (you become the author), sticky flag, comments, child pages and the original\'s editing history. Requires permission to edit the original and, for a custom post type item, the access wp_create_cpt_item needs. Refuses media, revisions, menu items, site editor entities and WooCommerce products. Returns { id, source_id, post_type, title, status, link, copied_meta_keys }, plus `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template` or `skipped_fields` (menu_order, parent) when something was left out, `content_filtered: true` when WordPress filtered HTML from the content because you cannot post unfiltered HTML, and `status_error` when the copy was created but stayed a draft. An error after the copy was created (a meta key WordPress refused) names the draft. To put a reviewed copy live in place of a published original, keeping its URL, use wp_republish_post, never a publish of the copy (`next` says so when it applies).';
     }
 
     public function get_category() {
@@ -167,7 +169,7 @@ class Duplicate_Post extends Base_Tool {
         if ( isset( self::REFUSED_TYPES[ $post->post_type ] ) ) {
             throw new \InvalidArgumentException( sprintf( 'Post %1$d is %2$s, which this tool does not duplicate.', $post_id, self::REFUSED_TYPES[ $post->post_type ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+        if ( ! Strict_Ceiling::user_can( 'edit_post', $post_id ) ) {
             throw new \InvalidArgumentException( sprintf( 'You cannot duplicate post %d: duplicating needs permission to edit the original.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( ! in_array( $post->post_type, array( 'post', 'page' ), true ) && false === $this->caller_may_create_custom_items() ) {
@@ -179,10 +181,17 @@ class Duplicate_Post extends Base_Tool {
             throw new \InvalidArgumentException( sprintf( 'Post %1$d has post type "%2$s", which the REST API does not serve at /wp/v2/%3$s, so this tool cannot create its copy.', $post_id, $post->post_type, $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         self::post_type_route( $rest_base, null, 'POST' );
+        $this->refuse_switched_off_post_type_route( 'POST', $rest_base, false );
         if ( isset( $arguments['title'] ) && '' !== $arguments['title'] ) {
             $this->validate_title_length( (string) $arguments['title'] );
         }
-        return array( $post, $rest_base, self::checked_status( $arguments, get_post_type_object( $post->post_type ) ) );
+        $status = self::checked_status( $arguments, get_post_type_object( $post->post_type ) );
+        $params = array( 'status' => $status );
+        $this->maybe_force_draft( $params );
+        if ( 'draft' !== $params['status'] ) {
+            $this->refuse_switched_off_post_type_route( 'POST', $rest_base, true );
+        }
+        return array( $post, $rest_base, $status );
     }
 
     protected function caller_may_create_custom_items(): ?bool {
@@ -329,6 +338,39 @@ class Duplicate_Post extends Base_Tool {
     }
 
     public static function copy_meta( int $source_id, int $copy_id, array $leave = array() ): array {
+        $result = self::write_meta( $copy_id, self::source_meta( $source_id, $leave ), null );
+        unset( $result['changed'] );
+        return $result;
+    }
+
+    public static function meta_snapshot( int $source_id, int $copy_id, array $leave = array() ): array {
+        $rows = self::stored_rows( $copy_id );
+        if ( null === $rows ) {
+            throw new \RuntimeException( sprintf( 'Could not read the meta of post %d before writing it, so nothing was written.', $copy_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        return self::source_meta( $source_id, $leave ) + array( 'rows' => $rows );
+    }
+
+    public static function copy_meta_or_put_back( int $copy_id, array $snapshot ): array {
+        return self::write_meta( $copy_id, $snapshot, $snapshot['rows'] );
+    }
+
+    public static function put_back_meta( int $copy_id, array $snapshot, array $changed ): array {
+        self::put_back( $copy_id, $snapshot['copied'], $snapshot['rows'] );
+        $written = array_map(
+            static function ( array $change ): array {
+                return array(
+                    'refused'  => '',
+                    'in_place' => $change['in_place'],
+                    'values'   => $change['after'],
+                );
+            },
+            $changed
+        );
+        return self::differing( $copy_id, $snapshot['rows'], $written );
+    }
+
+    private static function source_meta( int $source_id, array $leave ): array {
         $all     = get_post_meta( $source_id );
         $copied  = array();
         $skipped = array();
@@ -344,33 +386,143 @@ class Duplicate_Post extends Base_Tool {
                 $copied[ $key ] = $values;
             }
         }
-        $failed = array();
-        foreach ( $copied as $key => $values ) {
-            $rows = self::exact_meta_ids( $copy_id, (string) $key );
-            if ( 1 === count( $values ) && 1 === count( $rows ) ) {
-                if ( ! self::replace_meta_row( $rows[0], $values[0] ) ) {
-                    $failed[] = (string) $key;
-                }
+        return array(
+            'copied'  => $copied,
+            'skipped' => $skipped,
+        );
+    }
+
+    private static function write_meta( int $copy_id, array $source, ?array $rows ): array {
+        $failed  = array();
+        $written = array();
+        foreach ( $source['copied'] as $key => $values ) {
+            $result          = self::write_meta_key( $copy_id, (string) $key, $values, null !== $rows );
+            $written[ $key ] = $result;
+            if ( '' === $result['refused'] ) {
                 continue;
             }
-            foreach ( $rows as $meta_id ) {
-                delete_metadata_by_mid( 'post', $meta_id );
-            }
-            $refused = 0;
-            foreach ( $values as $value ) {
-                if ( ! add_post_meta( $copy_id, wp_slash( (string) $key ), self::slash_strings( $value ) ) ) {
-                    ++$refused;
-                }
-            }
-            if ( $refused > 0 ) {
-                $failed[] = count( $values ) === $refused ? (string) $key : sprintf( '%1$s (%2$d of %3$d values)', $key, $refused, count( $values ) );
+            $failed[] = $result['refused'];
+            if ( null !== $rows ) {
+                self::put_back( $copy_id, $source['copied'], $rows );
+                return array(
+                    'copied'  => 0,
+                    'skipped' => $source['skipped'],
+                    'failed'  => $failed,
+                    'changed' => self::differing( $copy_id, $rows, $written ),
+                );
             }
         }
         return array(
-            'copied'  => count( $copied ) - count( $failed ),
-            'skipped' => $skipped,
+            'copied'  => count( $source['copied'] ) - count( $failed ),
+            'skipped' => $source['skipped'],
             'failed'  => $failed,
+            'changed' => null === $rows ? array() : self::differing( $copy_id, $rows, $written ),
         );
+    }
+
+    private static function write_meta_key( int $post_id, string $key, array $values, bool $all_or_nothing ): array {
+        $rows = self::exact_meta_ids( $post_id, $key );
+        if ( 1 === count( $values ) && 1 === count( $rows ) ) {
+            $result = self::replace_meta_row( $rows[0], $values[0] );
+            return array(
+                'refused'  => 'refused' === $result['status'] ? $key : '',
+                'in_place' => true,
+                'values'   => array( $result['value'] ),
+            );
+        }
+        $refused = self::replace_rows( $post_id, $key, $rows, $values, $all_or_nothing );
+        if ( 0 === $refused ) {
+            $label = '';
+        } else {
+            $label = count( $values ) === $refused ? $key : sprintf( '%1$s (%2$d of %3$d values)', $key, $refused, count( $values ) );
+        }
+        return array(
+            'refused'  => $label,
+            'in_place' => false,
+            'values'   => $values,
+        );
+    }
+
+    private static function replace_rows( int $post_id, string $key, array $rows, array $values, bool $all_or_nothing ): int {
+        $added   = array();
+        $refused = 0;
+        foreach ( $values as $value ) {
+            $meta_id = add_post_meta( $post_id, wp_slash( $key ), self::slash_strings( $value ) );
+            if ( ! $meta_id ) {
+                ++$refused;
+            } elseif ( is_int( $meta_id ) ) {
+                $added[] = $meta_id;
+            }
+        }
+        $obsolete = $refused > 0 && $all_or_nothing ? array_reverse( $added ) : $rows;
+        foreach ( $obsolete as $meta_id ) {
+            delete_metadata_by_mid( 'post', $meta_id );
+        }
+        return $refused;
+    }
+
+    private static function put_back( int $post_id, array $copied, array $rows ): void {
+        foreach ( array_reverse( array_keys( $copied ) ) as $key ) {
+            $before = $rows[ $key ] ?? array();
+            $now    = self::stored_rows( $post_id, (string) $key );
+            if ( null === $now || ( $now[ $key ] ?? array() ) !== $before ) {
+                self::write_back( $post_id, (string) $key, $before );
+            }
+        }
+    }
+
+    private static function differing( int $post_id, array $rows, array $written ): array {
+        $now     = self::stored_rows( $post_id );
+        $changed = array();
+        foreach ( array_keys( $rows + ( $now ?? array() ) + $written ) as $key ) {
+            $before = $rows[ $key ] ?? array();
+            if ( null !== $now && ( $now[ $key ] ?? array() ) === $before ) {
+                continue;
+            }
+            $changed[ $key ] = array(
+                'before'   => $before,
+                'after'    => isset( $written[ $key ] ) ? $written[ $key ]['values'] : array(),
+                'in_place' => isset( $written[ $key ] ) ? $written[ $key ]['in_place'] : true,
+            );
+        }
+        return $changed;
+    }
+
+    private static function write_back( int $post_id, string $key, array $before ): void {
+        $rows = self::exact_meta_ids( $post_id, $key );
+        $old  = array_map( 'maybe_unserialize', $before );
+        if ( 1 === count( $old ) && 1 === count( $rows ) ) {
+            update_metadata_by_mid( 'post', $rows[0], $old[0] );
+            return;
+        }
+        if ( self::holds_unloadable_object( $old ) ) {
+            return;
+        }
+        self::replace_rows( $post_id, $key, $rows, $old, true );
+    }
+
+    private static function stored_rows( int $post_id, ?string $key = null ): ?array {
+        global $wpdb;
+        if ( null === $key ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the rows as stored, which a put-back restores and checks.
+            $results = $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d ORDER BY meta_id", $post_id ) );
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the rows as stored, which a put-back restores and checks.
+            $results = $wpdb->get_results( $wpdb->prepare( "SELECT meta_id, meta_key, meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key = %s ORDER BY meta_id", $post_id, $key ) );
+        }
+        if ( isset( $wpdb->last_error ) && '' !== (string) $wpdb->last_error ) {
+            return null;
+        }
+        $by_id = array();
+        foreach ( (array) $results as $row ) {
+            $by_id[ (int) $row->meta_id ] = $row;
+        }
+        ksort( $by_id );
+        $rows = array();
+        foreach ( $by_id as $row ) {
+            $rows[ (string) $row->meta_key ][] = null === $row->meta_value ? null : (string) $row->meta_value;
+        }
+        return $rows;
     }
 
     private static function exact_meta_ids( int $post_id, string $key ): array {
@@ -386,16 +538,24 @@ class Duplicate_Post extends Base_Tool {
         return $ids;
     }
 
-    private static function replace_meta_row( int $meta_id, $value ): bool {
+    private static function replace_meta_row( int $meta_id, $value ): array {
         $row = get_metadata_by_mid( 'post', $meta_id );
         if ( ! is_object( $row ) ) {
-            return false;
+            return array(
+                'status' => 'refused',
+                'value'  => $value,
+            );
         }
         $value = sanitize_meta( (string) $row->meta_key, $value, 'post', (string) get_post_type( (int) $row->post_id ) );
-        if ( maybe_serialize( $row->meta_value ) === maybe_serialize( $value ) ) {
-            return true;
+        if ( Stored_Meta::form( $row->meta_value ) === Stored_Meta::form( $value ) ) {
+            $status = 'same';
+        } else {
+            $status = update_metadata_by_mid( 'post', $meta_id, $value ) ? 'written' : 'refused';
         }
-        return (bool) update_metadata_by_mid( 'post', $meta_id, $value );
+        return array(
+            'status' => $status,
+            'value'  => $value,
+        );
     }
 
     private static function holds_unloadable_object( $value ): bool {

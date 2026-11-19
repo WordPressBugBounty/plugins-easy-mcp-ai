@@ -92,6 +92,7 @@ class Create_Term extends Base_Tool {
 
         $namespace = List_Terms::taxonomy_rest_namespace( $tax_obj, $taxonomy );
 
+        $this->refuse_switched_off_term_route( 'POST', $taxonomy, false );
         $data = $this->rest_request( 'POST', '/' . $namespace . '/' . $rest_base, $params );
 
         return array(

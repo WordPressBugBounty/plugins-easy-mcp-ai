@@ -69,16 +69,16 @@ class Run_Report extends Base_Tool {
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'date_ranges', 'metrics' ) );
         if ( ! is_array( $arguments['metrics'] ) ) {
-            throw new \RuntimeException( 'metrics must be an array of metric apiName strings (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
+            throw new \InvalidArgumentException( 'metrics must be an array of metric apiName strings (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
         }
         if ( empty( $arguments['metrics'] ) ) {
-            throw new \RuntimeException( 'metrics must contain at least one metric apiName string (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
+            throw new \InvalidArgumentException( 'metrics must contain at least one metric apiName string (e.g. activeUsers). Call wp_ga_get_metadata for the catalog.' );
         }
         if ( ! is_array( $arguments['date_ranges'] ) ) {
-            throw new \RuntimeException( 'date_ranges must be an array of {start_date, end_date} objects.' );
+            throw new \InvalidArgumentException( 'date_ranges must be an array of {start_date, end_date} objects.' );
         }
         if ( count( $arguments['date_ranges'] ) > 4 ) {
-            throw new \RuntimeException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
+            throw new \InvalidArgumentException( 'date_ranges accepts at most 4 ranges per Google Analytics Data API limit.' );
         }
 
         $property = ! empty( $arguments['property_id'] )
@@ -94,19 +94,19 @@ class Run_Report extends Base_Tool {
         }
         if ( ! empty( $arguments['dimension_filter'] ) ) {
             if ( ! is_array( $arguments['dimension_filter'] ) ) {
-                throw new \RuntimeException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+                throw new \InvalidArgumentException( 'dimension_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
             }
             $body['dimensionFilter'] = $arguments['dimension_filter'];
         }
         if ( ! empty( $arguments['metric_filter'] ) ) {
             if ( ! is_array( $arguments['metric_filter'] ) ) {
-                throw new \RuntimeException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
+                throw new \InvalidArgumentException( 'metric_filter must be a FilterExpression object (array). See GA4 Data API docs.' );
             }
             $body['metricFilter'] = $arguments['metric_filter'];
         }
         if ( ! empty( $arguments['order_bys'] ) ) {
             if ( ! is_array( $arguments['order_bys'] ) ) {
-                throw new \RuntimeException( 'order_bys must be an array of OrderBy objects.' );
+                throw new \InvalidArgumentException( 'order_bys must be an array of OrderBy objects.' );
             }
             $body['orderBys'] = $arguments['order_bys'];
         }
@@ -130,7 +130,7 @@ class Run_Report extends Base_Tool {
         }
         if ( ! empty( $arguments['cohort_spec'] ) ) {
             if ( ! is_array( $arguments['cohort_spec'] ) ) {
-                throw new \RuntimeException( 'cohort_spec must be a CohortSpec object. See GA4 Data API docs.' );
+                throw new \InvalidArgumentException( 'cohort_spec must be a CohortSpec object. See GA4 Data API docs.' );
             }
             $body['cohortSpec'] = $arguments['cohort_spec'];
         }

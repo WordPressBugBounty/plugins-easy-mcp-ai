@@ -55,7 +55,7 @@ class Create_Key_Event extends Base_Tool {
         $event = self::text_arg( $arguments, 'event_name' );
         try {
             $property = GA_Client::write_property( $arguments );
-        } catch ( \RuntimeException $e ) {
+        } catch ( \RuntimeException | \InvalidArgumentException $e ) {
             return self::generic_description( $this, $arguments );
         }
         return sprintf( 'Mark the Google Analytics event "%s" as a key event on %s', $event, $property );
@@ -87,15 +87,15 @@ class Create_Key_Event extends Base_Tool {
     private static function build_body( array $arguments ): array {
         $event = self::text_arg( $arguments, 'event_name' );
         if ( '' === $event ) {
-            throw new \RuntimeException( 'event_name is required.' );
+            throw new \InvalidArgumentException( 'event_name is required.' );
         }
         if ( 1 !== preg_match( '/^\p{L}[\p{L}\p{M}\p{N}_]*\z/u', $event ) || preg_match_all( '/./us', $event ) > 40 ) {
-            throw new \RuntimeException( 'event_name must start with a letter and contain only letters, numbers and underscores, at most 40 characters.' );
+            throw new \InvalidArgumentException( 'event_name must start with a letter and contain only letters, numbers and underscores, at most 40 characters.' );
         }
 
         $method = isset( $arguments['counting_method'] ) && '' !== $arguments['counting_method'] ? $arguments['counting_method'] : 'ONCE_PER_EVENT';
         if ( ! is_string( $method ) || ! in_array( $method, self::COUNTING_METHODS, true ) ) {
-            throw new \RuntimeException( 'counting_method must be ONCE_PER_EVENT or ONCE_PER_SESSION.' );
+            throw new \InvalidArgumentException( 'counting_method must be ONCE_PER_EVENT or ONCE_PER_SESSION.' );
         }
 
         $body = array(
@@ -106,15 +106,15 @@ class Create_Key_Event extends Base_Tool {
         $has_value    = isset( $arguments['default_value'] ) && '' !== $arguments['default_value'];
         $has_currency = isset( $arguments['currency_code'] ) && '' !== $arguments['currency_code'];
         if ( $has_value !== $has_currency ) {
-            throw new \RuntimeException( 'default_value and currency_code must be given together.' );
+            throw new \InvalidArgumentException( 'default_value and currency_code must be given together.' );
         }
         if ( $has_value ) {
             if ( ! is_numeric( $arguments['default_value'] ) ) {
-                throw new \RuntimeException( 'default_value must be a number.' );
+                throw new \InvalidArgumentException( 'default_value must be a number.' );
             }
             $currency = is_string( $arguments['currency_code'] ) ? strtoupper( trim( $arguments['currency_code'] ) ) : '';
             if ( ! preg_match( '/^[A-Z]{3}\z/', $currency ) ) {
-                throw new \RuntimeException( 'currency_code must be a three-letter ISO 4217 code, e.g. "USD".' );
+                throw new \InvalidArgumentException( 'currency_code must be a three-letter ISO 4217 code, e.g. "USD".' );
             }
             $body['defaultValue'] = array(
                 'numericValue' => (float) $arguments['default_value'],

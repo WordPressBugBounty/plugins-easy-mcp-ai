@@ -18,11 +18,17 @@ class Server {
 
     const RATE_WINDOW_SECONDS = 60;
 
+    const RATE_LIMIT_MESSAGE = 'Rate limit exceeded. Please try again later.';
+
+    const PRIVILEGED_RATE_LIMIT_MESSAGE = 'Privileged tool rate limit exceeded. Please try again in a minute.';
+
     const SENSITIVE_ARG_PATTERN = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|download_url|file_id|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/i';
 
     const STEP_UP_MESSAGE = 'Token does not have permission to use this tool. It needs the OAuth scope %s: ask the user to reconnect this app to the site and approve it.';
 
     const KEY_REFUSAL_MESSAGE = 'Token does not have permission to use this tool. This API key does not include it: if the user should have it, an administrator can add it to the key in wp-admin under %s.';
+
+    const RESULT_JSON_FLAGS = JSON_UNESCAPED_SLASHES;
 
     const INSUFFICIENT_PERMISSIONS = 'Insufficient WordPress permissions for this tool';
 
@@ -55,6 +61,9 @@ class Server {
     private $task_manager        = null;
     private $skip_rate_limit     = false;
     private $rate_limit_refusal  = array( 'limit' => 0, 'retry_after' => self::RATE_WINDOW_SECONDS );
+    private $rate_limit_message  = self::RATE_LIMIT_MESSAGE;
+    private $task_call           = false;
+    private $throttle_receipt    = array();
     private $approval_mode       = null;
     private $last_approval       = array( 'kind' => 'run', 'approval_id' => null );
     private $last_audit_id       = null;
@@ -66,6 +75,8 @@ class Server {
     private $feedback_queue      = null;
 
     private static $active_call = null;
+
+    private static $active_listing = null;
 
     public function __construct( Tool_Registry $tool_registry, Resource_Registry $resource_registry, Token_Manager $token_manager ) {
         $this->tool_registry     = $tool_registry;
@@ -289,6 +300,16 @@ class Server {
         }
     }
 
+    public function call_tool_for_task( string $tool_name, array $arguments, $token_id, $allowed_tools ): array {
+        $previous        = $this->task_call;
+        $this->task_call = true;
+        try {
+            return $this->call_tool_internal( 0, $tool_name, $arguments, $token_id, $allowed_tools, false, 'skip' );
+        } finally {
+            $this->task_call = $previous;
+        }
+    }
+
     public function get_last_approval() {
         return $this->last_approval;
     }
@@ -299,6 +320,7 @@ class Server {
         }
         $server                = self::$active_call['server'];
         $server->last_audit_id = null;
+        $server->last_approval = array( 'kind' => 'run', 'approval_id' => null );
         $response              = $server->call_tool_internal(
             'composite-' . $tool_name,
             $tool_name,
@@ -543,21 +565,42 @@ class Server {
 
     const DISABLED_TOOLS_INSTRUCTIONS = 'Switched-off tools, plugin integrations and abilities are not in your tool list: when no tool you have does a task, call wp_list_disabled_tools with a few words of it before saying it cannot be done.';
 
+    const CLI_INSTRUCTIONS = 'wp_cli_run is standard WP-CLI: use the commands you know (`option get`, `option patch`, `post meta`) for what no tool does. A command a tool performs needs that tool on. It refuses PHP, SQL, wp-config and commands added by plugins.';
+
+    const CLI_LOOKUP_INSTRUCTIONS = 'If it is not in your tool list, call wp_list_disabled_tools with "wp_cli_run" and tell the user what it says.';
+
     private function instructions( $token_id, ?array $allowed_tools = null ): string {
         $disabled = $this->sentence_while_available( $token_id, $allowed_tools, 'wp_list_disabled_tools', self::DISABLED_TOOLS_INSTRUCTIONS );
         $cli      = $this->cli_instructions( $token_id, $allowed_tools );
         $parts    = array(
             'disabled' => $disabled,
+            'wp_cli'   => $this->cli_sentence( $token_id, '' !== $disabled ),
             'cli'      => '' === $disabled ? $cli : '',
             'feedback' => $this->sentence_while_available( $token_id, $allowed_tools, 'wp_send_feedback', self::FEEDBACK_INSTRUCTIONS ),
             'waiting'  => $this->feedback_line( $token_id ),
         );
-        $text  = $this->instructions_with( $token_id, $allowed_tools, $parts );
-        if ( '' !== $parts['disabled'] && '' === $cli && strlen( $text ) > self::instructions_limit() ) {
-            $parts['disabled'] = '';
+        $text = $this->instructions_with( $token_id, $allowed_tools, $parts );
+        foreach ( array( 'disabled', 'wp_cli' ) as $part ) {
+            if ( strlen( $text ) <= self::instructions_limit() ) {
+                break;
+            }
+            if ( '' !== $parts[ $part ] ) {
+                $parts[ $part ] = '';
+                $text           = $this->instructions_with( $token_id, $allowed_tools, $parts );
+            }
+        }
+        if ( '' !== $disabled && '' !== $cli && '' === $parts['disabled'] && '' === $parts['wp_cli'] ) {
+            $parts['disabled'] = $disabled;
             $text              = $this->instructions_with( $token_id, $allowed_tools, $parts );
         }
         return $text;
+    }
+
+    private function cli_sentence( $token_id, bool $lookup ): string {
+        if ( null === $token_id || null === $this->tool_registry->get_tool( 'wp_cli_run' ) ) {
+            return '';
+        }
+        return $lookup ? self::CLI_INSTRUCTIONS . ' ' . self::CLI_LOOKUP_INSTRUCTIONS : self::CLI_INSTRUCTIONS;
     }
 
     private function instructions_with( $token_id, ?array $allowed_tools, array $parts ): string {
@@ -776,6 +819,9 @@ class Server {
                 return false;
             }
             if ( ! $tool ) { return ! $require_instance; }
+            if ( null !== self::required_tool_off( $registry, $tool ) ) {
+                return false;
+            }
             $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
             return ! $cap || \current_user_can( $cap );
         } ) );
@@ -792,7 +838,17 @@ class Server {
             return $this->rate_limited( $id );
         }
 
-        $all_tools = $this->tool_registry->get_all_definitions();
+        $listing_before       = self::$active_listing;
+        self::$active_listing = array(
+            'server'        => $this,
+            'token_id'      => $token_id,
+            'allowed_tools' => $allowed_tools,
+        );
+        try {
+            $all_tools = $this->tool_registry->get_all_definitions();
+        } finally {
+            self::$active_listing = $listing_before;
+        }
         $allowed = null !== $allowed_tools ? $allowed_tools : $this->permission_guard->get_allowed_tools( $token_id );
         $step_up   = 'oauth' === $this->request_auth_source
             ? \Easy_MCP_AI\OAuth\Scope_Map::scopes_for_tools( array_column( $all_tools, 'name' ) )
@@ -818,11 +874,23 @@ class Server {
     }
 
     private function handle_tools_call( $id, $params, $token_id, ?array $allowed_tools = null ): array {
+        Inner_Request_Method::open();
+        try {
+            return $this->run_tools_call( $id, $params, $token_id, $allowed_tools );
+        } finally {
+            Inner_Request_Method::close();
+        }
+    }
+
+    private function run_tools_call( $id, $params, $token_id, ?array $allowed_tools = null ): array {
         $tool_name = isset( $params['name'] ) ? $params['name'] : '';
         $arguments = isset( $params['arguments'] ) ? $params['arguments'] : array();
 
         if ( empty( $tool_name ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Missing tool name' );
+        }
+        if ( ! is_string( $tool_name ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Tool name must be a string' );
         }
 
         if ( ! is_array( $arguments ) ) {
@@ -861,11 +929,13 @@ class Server {
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, sprintf( self::KEY_REFUSAL_MESSAGE, \Easy_MCP_AI\Config::brand( Tool_Status::API_TOKENS_PATH ) ) );
         }
 
-        if ( ! $this->skip_rate_limit && ! $this->check_rate_limit( $token_id ) ) {
+        $tool                   = $this->tool_registry->get_tool( $tool_name );
+        $throttle               = null === $tool ? array( 'rules' => array(), 'units' => 1 ) : $this->throttle_plan( $tool_name, $tool, $arguments );
+        $this->throttle_receipt = array();
+        if ( ! $this->skip_rate_limit && ! $this->check_rate_limit( $token_id, $throttle['rules'], $throttle['units'], $tool_name ) ) {
             return $this->rate_limited( $id );
         }
 
-        $tool = $this->tool_registry->get_tool( $tool_name );
         if ( null === $tool ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             $off = self::switched_off_ability( $tool_name );
@@ -876,7 +946,7 @@ class Server {
         }
 
         $required_cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
-        if ( $required_cap && ! \current_user_can( $required_cap ) ) {
+        if ( $required_cap && ! \Easy_MCP_AI\Drafts\Strict_Ceiling::user_can( $required_cap ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             $refusal = self::capability_refusal( $tool, $tool_name, (string) $required_cap );
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, in_array( $refusal['status'], array( 'capability', 'privileged' ), true ) ? self::INSUFFICIENT_PERMISSIONS : 'This tool ' . Tool_Status::predicate( $refusal ) );
@@ -904,8 +974,10 @@ class Server {
                 $this->log_refusal( $token_id, $tool_name, $arguments );
                 return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $refusal );
             }
-            if ( ! $this->check_privileged_rate_limit( $token_id ) ) {
-                return $this->rate_limited( $id, 'Privileged tool rate limit exceeded. Please try again in a minute.' );
+            if ( ! $this->privileged_limit_replaced( $throttle['rules'] ) && ! $this->check_privileged_rate_limit( $token_id ) ) {
+                \Easy_MCP_AI\Throttle\Counters::refund( $this->throttle_receipt );
+                $this->throttle_receipt = array();
+                return $this->rate_limited( $id );
             }
         }
 
@@ -933,6 +1005,10 @@ class Server {
             $this->note_audit_error( $refusal_row_id, $refused );
             self::observe_off_schema( $off_schema, $observed_id, $tool_name, $refusal_row_id );
             return JSON_RPC::success_response( $id, $refused );
+        }
+
+        if ( ! $this->charge_tool_call( $token_id, $tool_name, $throttle['rules'], $throttle['units'] ) ) {
+            return $this->rate_limited( $id );
         }
 
         if ( 'skip' !== $this->approval_mode && method_exists( $tool, 'precheck' ) ) {
@@ -1012,6 +1088,10 @@ class Server {
         $outer_call   = self::$active_call;
         $compat_mark  = class_exists( '\\Easy_MCP_AI\\Compat\\Compat_Registry' ) ? \Easy_MCP_AI\Compat\Compat_Registry::mark() : null;
         $option_guard_armed = false;
+        $strict_armed       = false;
+        $strict_reads       = false;
+        $strict_mark        = 0;
+        $strict_save_mark   = 0;
         $stack_entered      = false;
         $hook_arguments     = array();
         $call_context       = array();
@@ -1031,6 +1111,7 @@ class Server {
                 'approval_id'     => $approval_row ? $approval_row['approval_id'] : null,
                 'privileged'      => null === $privileged_group ? '' : $privileged_group,
                 'own_history'     => method_exists( $tool, 'records_own_history' ) && $tool->records_own_history(),
+                'raw_writes'      => method_exists( $tool, 'records_database_writes' ) && $tool->records_database_writes(),
             ) );
             \do_action( 'easy_mcp_ai_change_context_armed' );
         }
@@ -1048,6 +1129,10 @@ class Server {
             }
             Option_Guard::arm();
             $option_guard_armed = true;
+            $strict_mark      = \Easy_MCP_AI\Drafts\Strict_Ceiling::mark();
+            $strict_save_mark = \Easy_MCP_AI\Drafts\Strict_Ceiling::save_mark();
+            $strict_reads     = self::call_is_read_only( $tool, $arguments );
+            $strict_armed     = \Easy_MCP_AI\Drafts\Strict_Ceiling::arm();
             self::$active_call = array(
                 'server'        => $this,
                 'token_id'      => $token_id,
@@ -1067,9 +1152,24 @@ class Server {
             );
             $call_context['depth'] = Tool_Call_Stack::enter( $tool_name );
             $stack_entered         = true;
-            \do_action( 'easy_mcp_ai_before_tool_call', $tool_name, $hook_arguments, $call_context );
+            $lift = $strict_reads && $strict_armed;
+            $run  = static function ( callable $step ) use ( $lift ) {
+                return $lift ? \Easy_MCP_AI\Drafts\Strict_Ceiling::with_capabilities( $step ) : $step();
+            };
+            $run(
+                static function () use ( $tool_name, $hook_arguments, $call_context ) {
+                    \do_action( 'easy_mcp_ai_before_tool_call', $tool_name, $hook_arguments, $call_context );
+                }
+            );
             $exec_started = microtime( true );
-            $result       = $tool->execute( $arguments );
+            $result       = $run(
+                static function () use ( $tool, $arguments ) {
+                    return $tool->execute( $arguments );
+                }
+            );
+            if ( $strict_armed && ! $composite && \Easy_MCP_AI\Drafts\Strict_Ceiling::save_refused_since( $strict_save_mark ) ) {
+                throw \Easy_MCP_AI\Drafts\Strict_Ceiling::last_save_refusal();
+            }
             $final_status = 'success';
             $file_block   = null;
             if ( $result instanceof File_Result ) {
@@ -1094,7 +1194,7 @@ class Server {
                     'type' => 'text',
                     'text' => is_string( $result )
                         ? $result
-                        : wp_json_encode( $has_structured ? $structured_value : $result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                        : wp_json_encode( $has_structured ? $structured_value : $result, self::RESULT_JSON_FLAGS ),
                 ) ),
             );
             if ( null !== $file_block ) {
@@ -1107,7 +1207,10 @@ class Server {
             return JSON_RPC::success_response( $id, $response );
         } catch ( \Exception $e ) {
             $final_status = 'error';
-            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+            if ( $strict_armed && ! $composite && ! $e instanceof \Easy_MCP_AI\Drafts\Strict_Refusal && \Easy_MCP_AI\Drafts\Strict_Ceiling::refused_since( $strict_mark ) && \Easy_MCP_AI\Drafts\Strict_Refusal::is_permission_refusal( $e ) ) {
+                $e = \Easy_MCP_AI\Drafts\Strict_Refusal::for_answer( $e->getMessage(), \Easy_MCP_AI\Drafts\Strict_Ceiling::last_post() );
+            }
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! self::is_argument_refusal( $e ) ) {
                 error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
             $approval_outcome = self::error_result( $e );
@@ -1125,6 +1228,9 @@ class Server {
         } finally {
             if ( $option_guard_armed ) {
                 Option_Guard::release();
+            }
+            if ( $strict_armed ) {
+                \Easy_MCP_AI\Drafts\Strict_Ceiling::release();
             }
             if ( null !== $compat_mark ) {
                 \Easy_MCP_AI\Compat\Compat_Registry::release( $compat_mark );
@@ -1317,11 +1423,11 @@ class Server {
     private function check_privileged_rate_limit( $token_id ) {
         $limit = \Easy_MCP_AI\Privileged\Privileged_Groups::RATE_LIMIT_PER_MINUTE;
         if ( 'oauth' === $this->request_auth_source ) {
-            $principal = 'o' . substr( hash( 'sha256', (string) $this->request_client_id . '|' . (int) $this->request_wp_user_id ), 0, 32 );
+            $principal = 'o' . $this->oauth_client_user();
         } else {
             $principal = 'k' . (int) $token_id;
         }
-        return $this->within_rate_limit( self::count_rate_hit( 'easy_mcp_ai_priv_rate_' . $principal ), $limit );
+        return $this->within_rate_limit( self::count_rate_hit( 'easy_mcp_ai_priv_rate_' . $principal ), $limit, self::PRIVILEGED_RATE_LIMIT_MESSAGE );
     }
 
     private function note_audit_error( ?int $audit_id, ?array $outcome ): void {
@@ -1387,6 +1493,14 @@ class Server {
         );
     }
 
+    public static function current_caller_may_reach( string $tool_name ): ?bool {
+        $caller = null !== self::$active_listing ? self::$active_listing : self::$active_call;
+        if ( null === $caller ) {
+            return null;
+        }
+        return $caller['server']->token_may_reach( $caller['token_id'], $caller['allowed_tools'], $tool_name );
+    }
+
     public static function current_call_tool_status( string $tool_name ): ?array {
         if ( null === self::$active_call ) {
             return null;
@@ -1396,6 +1510,14 @@ class Server {
             self::$active_call['allowed_tools'],
             $tool_name
         );
+    }
+
+    public static function current_call_switched_off( string $tool_name ): ?array {
+        if ( null === self::$active_call ) {
+            return null;
+        }
+        $tool = self::$active_call['server']->tool_registry->get_tool( $tool_name );
+        return null === $tool ? null : self::site_switch_status( $tool, $tool_name );
     }
 
     private static function precheck_refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments ): ?array {
@@ -1409,10 +1531,17 @@ class Server {
         return null;
     }
 
+    private static function is_argument_refusal( \Exception $e ): bool {
+        return $e instanceof \InvalidArgumentException || ( $e instanceof Detailed_Runtime_Error && $e->is_validation() );
+    }
+
     private static function error_result( \Exception $e ): array {
         $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) );
         if ( ( $e instanceof Detailed_Tool_Error || $e instanceof Detailed_Runtime_Error ) && '' !== trim( $e->get_details() ) ) {
             $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
+        }
+        if ( $e instanceof Detailed_Tool_Error && '' !== $e->get_approve_url() ) {
+            $content[] = array( 'type' => 'text', 'text' => 'Approval link: ' . $e->get_approve_url() );
         }
         return array(
             'content' => $content,
@@ -1435,8 +1564,42 @@ class Server {
         if ( null === $tool ) {
             return false;
         }
-        return array() !== self::available_tools( $this->tool_registry, true, array( $tool->get_definition() ) )
+        return array() !== self::available_tools( $this->tool_registry, true, array( array( 'name' => $tool_name ) ) )
             && null === $this->late_call_refusal( $tool, $tool_name );
+    }
+
+    private static function unregistered_status( string $tool_name ): array {
+        foreach ( \Easy_MCP_AI\Tools\Switched_Off_Inventory::integration_tools() as $entry ) {
+            if ( $entry['name'] !== $tool_name ) {
+                continue;
+            }
+            if ( false === Tool_State::override_of( $tool_name ) ) {
+                return array( 'status' => 'off_locked' );
+            }
+            if ( \Easy_MCP_AI\Config::is_locked( 'easy_mcp_ai_disabled_tools' ) ) {
+                return array(
+                    'status'      => 'integration_off_locked',
+                    'integration' => $entry['group_label'],
+                );
+            }
+            return array(
+                'status'      => 'integration_off',
+                'integration' => $entry['group_label'],
+                'where'       => Tool_Status::switch_path(),
+            );
+        }
+        return array( 'status' => 'not_registered' );
+    }
+
+    private function token_may_reach( $token_id, ?array $allowed_tools, string $tool_name ): bool {
+        if ( $this->token_may_use( $token_id, $allowed_tools, $tool_name ) ) {
+            return true;
+        }
+        if ( null === $allowed_tools || self::is_paused() || ! \Easy_MCP_AI\Config::tool_policy_valid() ) {
+            return false;
+        }
+        return ! $this->permission_guard->can_use_tool_with_scope( $allowed_tools, $tool_name )
+            && null !== $this->step_up_scope( $tool_name );
     }
 
     private function tool_status_for( $token_id, ?array $allowed_tools, string $tool_name ): array {
@@ -1454,20 +1617,43 @@ class Server {
         }
         $tool = $this->tool_registry->get_tool( $tool_name );
         if ( null === $tool ) {
-            return array( 'status' => 'not_registered' );
+            return self::unregistered_status( $tool_name );
         }
         $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
         if ( $cap && ! \current_user_can( $cap ) ) {
             return self::capability_refusal( $tool, $tool_name, (string) $cap );
         }
+        $switched_off = self::site_switch_status( $tool, $tool_name ) ?? self::required_tool_off( $this->tool_registry, $tool );
+        if ( null !== $switched_off ) {
+            return $switched_off;
+        }
+        $refusal = $this->late_call_refusal( $tool, $tool_name );
+        return null !== $refusal ? $refusal : array( 'status' => 'available' );
+    }
+
+    private static function site_switch_status( \Easy_MCP_AI\Tools\Base_Tool $tool, string $tool_name ): ?array {
         if ( ! Tool_State::is_enabled( $tool ) ) {
             return Tool_Status::off( $tool_name, (bool) $tool->is_disabled_by_default() );
         }
         if ( ! self::matches_tool_patterns( $tool_name, (array) \Easy_MCP_AI\Config::get( 'allowed_tool_patterns' ) ) ) {
             return array( 'status' => 'pattern' );
         }
-        $refusal = $this->late_call_refusal( $tool, $tool_name );
-        return null !== $refusal ? $refusal : array( 'status' => 'available' );
+        return null;
+    }
+
+    public static function required_tool_off( Tool_Registry $registry, \Easy_MCP_AI\Tools\Base_Tool $tool ): ?array {
+        foreach ( $tool->get_required_tools() as $required ) {
+            $needed = $registry->get_tool( $required );
+            $status = $needed ? self::site_switch_status( $needed, $required ) : null;
+            if ( null !== $status ) {
+                return array(
+                    'status' => 'needs_tool',
+                    'tool'   => $required,
+                    'cause'  => $status,
+                );
+            }
+        }
+        return null;
     }
 
     private function late_call_refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, string $tool_name ): ?array {
@@ -1572,6 +1758,9 @@ class Server {
         if ( empty( $uri ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Missing resource URI' );
         }
+        if ( ! is_string( $uri ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Resource URI must be a string' );
+        }
         $resource = $this->resource_registry->get_resource( $uri );
         if ( null === $resource ) {
             return JSON_RPC::error_response( $id, Error_Codes::RESOURCE_NOT_FOUND, 'Resource not found' );
@@ -1588,7 +1777,7 @@ class Server {
             $entry   = array(
                 'uri'      => $uri,
                 'mimeType' => $resource->get_mime_type(),
-                'text'     => is_string( $content ) ? $content : wp_json_encode( $content, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ),
+                'text'     => is_string( $content ) ? $content : wp_json_encode( $content, self::RESULT_JSON_FLAGS ),
             );
             if ( method_exists( $resource, 'get_meta' ) ) {
                 $meta = $resource->get_meta();
@@ -1621,19 +1810,195 @@ class Server {
         }
 
         $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE );
-        if ( self::count_rate_hit( 'easy_mcp_ai_reflog_' . (int) $token_id )['count'] > $limit ) {
+        if ( self::count_rate_hit( $this->credential_key( 'easy_mcp_ai_reflog_', $token_id ) )['count'] > $limit ) {
             return;
         }
 
         $this->log_tool_call( $token_id, $tool_name, $arguments, self::STATUS_REFUSED );
     }
 
-    private function check_rate_limit( $token_id ) {
+    private function check_rate_limit( $token_id, array $call_rules = array(), int $units = 1, ?string $tool_name = null ) {
         if ( null === $token_id ) {
             return true;
         }
-        $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE );
-        return $this->within_rate_limit( self::count_rate_hit( 'easy_mcp_ai_rate_' . (int) $token_id ), $limit );
+        $requests = \Easy_MCP_AI\Throttle\Rules::request_rules( \Easy_MCP_AI\Throttle\Rules::configured() );
+        if ( ! $this->admits_readable_rules( array_merge( $requests, $call_rules ) ) ) {
+            return false;
+        }
+        $requests   = \Easy_MCP_AI\Throttle\Rules::readable( $requests );
+        $per_minute = \Easy_MCP_AI\Throttle\Rules::in_window( $call_rules, true );
+        if ( ! \Easy_MCP_AI\Throttle\Rules::replaces_default( array_merge( $requests, $per_minute ) ) ) {
+            $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE );
+            if ( ! $this->within_rate_limit( self::count_rate_hit( 'easy_mcp_ai_rate_' . $this->credential_principal( $token_id ) ), $limit, self::RATE_LIMIT_MESSAGE ) ) {
+                return false;
+            }
+        }
+        $charges = $this->charge_throttle_rules( $token_id, $requests, 1, $tool_name );
+        if ( null === $charges ) {
+            return false;
+        }
+        $minute = $this->charge_throttle_rules( $token_id, $per_minute, $units, $tool_name );
+        if ( null === $minute ) {
+            \Easy_MCP_AI\Throttle\Counters::refund( $charges );
+            return false;
+        }
+        $this->throttle_receipt = array_merge( $charges, $minute );
+        return true;
+    }
+
+    private function charge_tool_call( $token_id, string $tool_name, array $call_rules, int $units ): bool {
+        $receipt                = $this->throttle_receipt;
+        $this->throttle_receipt = array();
+        $requests               = \Easy_MCP_AI\Throttle\Rules::request_rules( \Easy_MCP_AI\Throttle\Rules::configured() );
+        $admitted               = $this->admits_readable_rules( array_merge( $requests, $call_rules ) );
+        if ( $admitted && ! $this->task_call ) {
+            $rules    = $this->skip_rate_limit ? \Easy_MCP_AI\Throttle\Rules::readable( $call_rules ) : \Easy_MCP_AI\Throttle\Rules::in_window( $call_rules, false );
+            $admitted = null !== $this->charge_throttle_rules( $token_id, $rules, $units, $tool_name );
+        }
+        if ( ! $admitted ) {
+            \Easy_MCP_AI\Throttle\Counters::refund( $receipt );
+        }
+        return $admitted;
+    }
+
+    private function privileged_limit_replaced( array $call_rules ): bool {
+        if ( $this->skip_rate_limit ) {
+            return false;
+        }
+        $requests = \Easy_MCP_AI\Throttle\Rules::request_rules( \Easy_MCP_AI\Throttle\Rules::configured() );
+        return \Easy_MCP_AI\Throttle\Rules::replaces_default( array_merge( $requests, $call_rules ) );
+    }
+
+    private function throttle_plan( string $tool_name, \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments ): array {
+        $rules = \Easy_MCP_AI\Throttle\Rules::configured();
+        if ( array() === $rules ) {
+            return array(
+                'rules' => array(),
+                'units' => 1,
+            );
+        }
+        $read  = self::normalize_booleans( $tool, $arguments );
+        $rules = \Easy_MCP_AI\Throttle\Rules::call_rules( $rules, $tool_name, (string) $tool->get_category(), self::call_is_read_only( $tool, $read ), self::call_is_composite( $tool, $read ) );
+        $units    = 1;
+        $required = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
+        if ( array() !== $rules && ( ! $required || \current_user_can( $required ) ) && Tool_State::is_enabled( $tool ) ) {
+            try {
+                $units = max( 1, (int) $tool->throttle_units( $read ) );
+            } catch ( \Throwable $e ) {
+                $units = 1;
+            }
+        }
+        return array(
+            'rules' => $rules,
+            'units' => $units,
+        );
+    }
+
+    private function admits_readable_rules( array $rules ): bool {
+        foreach ( $rules as $rule ) {
+            if ( ! $rule['readable'] ) {
+                return $this->refuse_unreadable_rule( $rule );
+            }
+        }
+        return true;
+    }
+
+    private function charge_throttle_rules( $token_id, array $rules, int $units, ?string $tool_name ): ?array {
+        if ( array() === $rules ) {
+            return array();
+        }
+        $caller  = array(
+            'user'       => (int) $this->request_wp_user_id,
+            'site'       => (int) \get_current_blog_id(),
+            'credential' => $this->credential_principal( $token_id ),
+        );
+        $charged = \Easy_MCP_AI\Throttle\Counters::charge( $rules, $caller, $units );
+        $refusal = $charged['refusal'];
+        if ( null === $refusal ) {
+            return $charged['charges'];
+        }
+        $rule                     = $refusal['rule'];
+        $this->rate_limit_message = self::throttle_message( $rule, $refusal['retry_after'], $units );
+        $this->rate_limit_refusal = array(
+            'limit'       => $refusal['limit'],
+            'retry_after' => $refusal['retry_after'],
+            'rule'        => $rule['entry'],
+            'scope'       => $rule['scope'],
+        );
+        \Easy_MCP_AI\Throttle\Counters::log_once(
+            $rule,
+            $caller,
+            $refusal['ends'],
+            function () use ( $token_id, $rule, $tool_name ): bool {
+                return $this->log_tool_call( $token_id, '_throttle', array_filter( array( 'rule' => $rule['entry'], 'tool' => $tool_name ) ), self::STATUS_REFUSED ) > 0;
+            }
+        );
+        return null;
+    }
+
+    private function refuse_unreadable_rule( array $rule ): bool {
+        $this->rate_limit_message = sprintf(
+            'Rate limit exceeded: the throttle rule "%1$s" in %2$s cannot be read, so every call it names is refused until it is fixed. A rule is written selector=number/window/scope, for example writes=500/hour/user. Nothing was changed.',
+            $rule['entry'],
+            \Easy_MCP_AI\Throttle\Rules::OVERRIDE_NAME
+        );
+        $this->rate_limit_refusal = array(
+            'limit'       => 0,
+            'retry_after' => 0,
+            'rule'        => $rule['entry'],
+            'unreadable'  => true,
+        );
+        return false;
+    }
+
+    private static function throttle_message( array $rule, int $retry_after, int $units ): string {
+        $per     = array(
+            'minute' => 'a minute',
+            'hour'   => 'an hour',
+            'day'    => 'a day',
+        );
+        $for     = array(
+            'user'       => \is_multisite() ? 'per user, across all their connections and every site of this network' : 'per user, across all their connections',
+            'site'       => 'for the whole site',
+            'credential' => 'per connection',
+        );
+        $message = sprintf(
+            'Rate limit exceeded: %1$s %2$s limited to %3$d %4$s %5$s (%6$s). Try again in %7$s.',
+            \Easy_MCP_AI\Throttle\Rules::subject( $rule ),
+            'name' === $rule['kind'] ? 'is' : 'are',
+            $rule['limit'],
+            $per[ $rule['window'] ],
+            $for[ $rule['scope'] ],
+            \Easy_MCP_AI\Throttle\Rules::OVERRIDE_NAME,
+            self::wait_words( $retry_after )
+        );
+        if ( $units > 1 ) {
+            $message .= sprintf( ' This call counts as %d, one for each item it writes; send fewer items at a time.', $units );
+        }
+        return $message;
+    }
+
+    private static function wait_words( int $seconds ): string {
+        if ( $seconds < 60 ) {
+            return 1 === $seconds ? '1 second' : $seconds . ' seconds';
+        }
+        $minutes = (int) ceil( $seconds / 60 );
+        if ( $minutes <= 120 ) {
+            return 1 === $minutes ? '1 minute' : $minutes . ' minutes';
+        }
+        return (int) ceil( $minutes / 60 ) . ' hours';
+    }
+
+    private function credential_principal( $token_id ): string {
+        return 'oauth' === $this->request_auth_source ? 'oauth_' . $this->oauth_client_user() : (string) (int) $token_id;
+    }
+
+    private function oauth_client_user(): string {
+        return substr( hash( 'sha256', (string) $this->request_client_id . '|' . (int) $this->request_wp_user_id ), 0, 32 );
+    }
+
+    private function credential_key( string $prefix, $token_id ): string {
+        return $prefix . ( 'oauth' === $this->request_auth_source ? 'oauth_' : '' ) . (int) $token_id;
     }
 
     private static function count_rate_hit( string $key ): array {
@@ -1653,10 +2018,11 @@ class Server {
         );
     }
 
-    private function within_rate_limit( array $hit, int $limit ): bool {
+    private function within_rate_limit( array $hit, int $limit, string $message ): bool {
         if ( $hit['count'] <= $limit ) {
             return true;
         }
+        $this->rate_limit_message = $message;
         $this->rate_limit_refusal = array(
             'limit'       => $limit,
             'retry_after' => max( 1, $hit['ends'] - time() ),
@@ -1664,8 +2030,8 @@ class Server {
         return false;
     }
 
-    private function rate_limited( $id, string $message = 'Rate limit exceeded. Please try again later.' ): array {
-        return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, $message, $this->rate_limit_refusal );
+    private function rate_limited( $id ): array {
+        return JSON_RPC::error_response( $id, Error_Codes::RATE_LIMITED, $this->rate_limit_message, $this->rate_limit_refusal );
     }
 
     public function log_auth_failure( $ip, $reason, array $identity = array() ) {

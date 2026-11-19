@@ -114,7 +114,7 @@ class Config_Admin {
         $invalid = array();
         foreach ( Config::settings() as $suffix => $spec ) {
             $source = Config::source( $suffix );
-            if ( '' === $source ) {
+            if ( '' === $source || Config::deployed_constant( $suffix ) !== Config::constant_name( $suffix ) ) {
                 continue;
             }
             $name = Config::constant_name( $suffix );

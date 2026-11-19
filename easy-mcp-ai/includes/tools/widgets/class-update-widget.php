@@ -22,7 +22,7 @@ class Update_Widget extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a widget\'s settings, moves it to another widget area, or reorders it. Required: `widget_id` (from wp_list_widgets), plus at least one of: `instance` (settings to change — merged over the current settings, so keys you omit keep their values; e.g. {"content": "<!-- wp:paragraph --><p>New footer text</p><!-- /wp:paragraph -->"} for a block widget, {"title": "Latest"} for recent-posts), `sidebar` (move to this area, from wp_list_sidebars; it is added last unless `position` is given) and `position` (0-based index inside its sidebar; 0 = first). Read the current settings with wp_get_widget first. HTML in block, custom_html and text content is filtered with wp_kses_post unless your user has the unfiltered_html capability, exactly as in Appearance > Widgets. A legacy widget without a REST representation (settings_editable: false) can be moved or reordered but its `instance` is refused (read-only over MCP). Returns { id, id_base, sidebar, settings_editable, settings, rendered, changed } plus { position, sidebar_widgets } when `position` was given; if the other changes were saved but the reorder failed, { position_applied: false, warning } instead. `changed` is false when the call left the widget exactly as it was — same stored settings, same sidebar, same place in it (settings you send are still saved through the widget\'s own update callback, so they are written even then). The change is visible on every page that shows the sidebar. To take a widget off the site use wp_delete_widget. Requires the edit_theme_options capability.';
+        return 'Updates a widget\'s settings, moves it to another widget area, or reorders it. Required: `widget_id` (from wp_list_widgets), plus at least one of: `instance` (settings to change — merged over the current settings, so keys you omit keep their values; e.g. {"content": "<!-- wp:paragraph --><p>New footer text</p><!-- /wp:paragraph -->"} for a block widget, {"title": "Latest"} for recent-posts), `sidebar` (move to this area, from wp_list_sidebars; it is added last unless `position` is given) and `position` (0-based index inside its sidebar; 0 = first). Read the current settings with wp_get_widget first. HTML in block, custom_html and text content is filtered with wp_kses_post unless your user has the unfiltered_html capability, exactly as in Appearance > Widgets. A legacy widget without a REST representation (settings_editable: false) can be moved or reordered but its `instance` is refused (read-only over MCP). Returns { id, id_base, sidebar, settings_editable, settings, rendered, changed } plus { position, sidebar_widgets } when `position` was given; if the other changes were saved but the reorder failed, { position_applied: false, warning } instead. A move to another area is read back from the stored widget areas: if the new area is not then the only one listing the widget (a plugin stopped the write, or the widget was listed twice and WordPress moved one copy), the call is an error naming the areas that still list it and saying whether its new settings were saved. `changed` is false when the call left the widget exactly as it was — same stored settings, same sidebar, same place in it (settings you send are still saved through the widget\'s own update callback, so they are written even then). The change is visible on every page that shows the sidebar. To take a widget off the site use wp_delete_widget. Requires the edit_theme_options capability.';
     }
 
     public function get_category() {
@@ -84,8 +84,11 @@ class Update_Widget extends Base_Tool {
         $settings = $has_instance ? $this->instance_argument( $arguments['instance'] ) : null;
         $sidebar  = $has_sidebar ? $this->validate_rest_route_segment( $arguments['sidebar'], 'sidebar' ) : null;
 
-        $shaped  = $this->current_widget( $widget_id, $has_instance );
-        $result  = $this->save_changes( $widget_id, $shaped, $settings, $sidebar );
+        $shaped = $this->current_widget( $widget_id, $has_instance );
+        $result = $this->save_changes( $widget_id, $shaped, $settings, $sidebar );
+        if ( null !== $sidebar && $sidebar !== $shaped['sidebar'] ) {
+            self::require_moved( $widget_id, $sidebar, $has_instance && self::comparable_settings( $result['settings'] ) !== self::comparable_settings( $shaped['settings'] ) );
+        }
         $changed = self::widget_changed( $shaped, $result, $has_instance );
 
         if ( null !== $position ) {
@@ -125,6 +128,18 @@ class Update_Widget extends Base_Tool {
         }
         $data = $this->rest_request( 'PUT', '/wp/v2/widgets/' . $widget_id, $params, 'id,id_base,sidebar,rendered,instance' );
         return $this->shape_widget( (array) $data, true );
+    }
+
+    private static function require_moved( string $widget_id, string $sidebar, bool $settings_saved ): void {
+        $listed = self::sidebars_listing( $widget_id );
+        if ( array( $sidebar ) === $listed ) {
+            return;
+        }
+        $notes = $settings_saved ? array( 'its new settings were saved' ) : array();
+        if ( 'wp_inactive_widgets' === $sidebar ) {
+            throw self::unfinished( $widget_id, 'moved to the inactive widgets', $sidebar, $listed, $notes );
+        }
+        throw self::unfinished( $widget_id, 'moved', $sidebar, $listed, $notes, 'to ' . $sidebar );
     }
 
     private static function widget_changed( array $before, array $after, bool $has_instance ): bool {

@@ -94,50 +94,50 @@ class Keywords_Search_Volume_Live extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['keywords'] ) || ! is_array( $arguments['keywords'] ) ) {
-			throw new \RuntimeException( 'keywords must be a non-empty array.' );
+			throw new \InvalidArgumentException( 'keywords must be a non-empty array.' );
 		}
 
 		$keywords = $arguments['keywords'];
 
 		if ( empty( $keywords ) ) {
-			throw new \RuntimeException( 'keywords must be a non-empty array.' );
+			throw new \InvalidArgumentException( 'keywords must be a non-empty array.' );
 		}
 
 		if ( count( $keywords ) > 1000 ) {
-			throw new \RuntimeException( 'keywords array must not exceed 1000 entries.' );
+			throw new \InvalidArgumentException( 'keywords array must not exceed 1000 entries.' );
 		}
 
 		foreach ( $keywords as $keyword ) {
 			if ( ! is_string( $keyword ) ) {
-				throw new \RuntimeException( 'Each keyword must be a string of at most 80 characters.' );
+				throw new \InvalidArgumentException( 'Each keyword must be a string of at most 80 characters.' );
 			}
 
 			if ( strlen( $keyword ) > 80 ) {
-				throw new \RuntimeException( 'Each keyword must be a string of at most 80 characters.' );
+				throw new \InvalidArgumentException( 'Each keyword must be a string of at most 80 characters.' );
 			}
 
 			$token_count = count( array_filter( explode( ' ', trim( $keyword ) ) ) );
 			if ( $token_count > 10 ) {
-				throw new \RuntimeException( 'Each keyword must contain at most 10 words.' );
+				throw new \InvalidArgumentException( 'Each keyword must contain at most 10 words.' );
 			}
 		}
 
 		if ( isset( $arguments['date_from'] ) && ! empty( $arguments['date_from'] ) ) {
 			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $arguments['date_from'] ) ) {
-				throw new \RuntimeException( 'date_from and date_to must be in YYYY-MM-DD format.' );
+				throw new \InvalidArgumentException( 'date_from and date_to must be in YYYY-MM-DD format.' );
 			}
 		}
 
 		if ( isset( $arguments['date_to'] ) && ! empty( $arguments['date_to'] ) ) {
 			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $arguments['date_to'] ) ) {
-				throw new \RuntimeException( 'date_from and date_to must be in YYYY-MM-DD format.' );
+				throw new \InvalidArgumentException( 'date_from and date_to must be in YYYY-MM-DD format.' );
 			}
 		}
 
 		if ( isset( $arguments['sort_by'] ) && ! empty( $arguments['sort_by'] ) ) {
 			$valid_sort_values = array( 'relevance', 'search_volume', 'competition_index', 'low_top_of_page_bid', 'high_top_of_page_bid' );
 			if ( ! in_array( $arguments['sort_by'], $valid_sort_values, true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'sort_by must be one of: ' . implode( ', ', $valid_sort_values ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 				);
 			}

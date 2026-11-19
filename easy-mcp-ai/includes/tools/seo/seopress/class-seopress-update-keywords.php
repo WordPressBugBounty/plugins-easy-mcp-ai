@@ -68,10 +68,10 @@ class Seopress_Update_Keywords extends Base_Tool {
 
 		$keywords = $arguments['target_keywords'];
 		if ( is_array( $keywords ) ) {
-			$keywords = array_map( 'sanitize_text_field', $keywords );
+			$keywords = array_map( array( Seo_Text::class, 'clean' ), $keywords );
 			$keywords = implode( ',', $keywords );
 		} else {
-			$keywords = sanitize_text_field( (string) $keywords );
+			$keywords = Seo_Text::clean( (string) $keywords );
 		}
 
 		$body = array( '_seopress_analysis_target_kw' => $keywords );

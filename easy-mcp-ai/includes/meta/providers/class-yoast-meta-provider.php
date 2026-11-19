@@ -3,7 +3,8 @@
 namespace Easy_MCP_AI\Meta\Providers;
 
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
-use Easy_MCP_AI\Tools\SEO\Yoast_Image_Id;
+use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
+use Easy_MCP_AI\Tools\SEO\Yoast_Get_Post_Seo;
 use Easy_MCP_AI\Tools\SEO\Yoast_Update_Post_Seo;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -32,10 +33,19 @@ class Yoast_Meta_Provider extends Meta_Field_Provider {
         return 'wp_yoast_update_post_seo';
     }
 
+    public function read_tool_for( $key ) {
+        foreach ( Yoast_Get_Post_Seo::STORED_FIELDS as $field ) {
+            if ( Yoast_Get_Post_Seo::META_KEYS[ $field ] === (string) $key ) {
+                return 'wp_yoast_get_post_seo';
+            }
+        }
+        return '';
+    }
+
     public function after_write( $post_id, array $keys ) {
         foreach ( Yoast_Update_Post_Seo::IMAGE_URLS as $field => $url_key ) {
             if ( in_array( $url_key, $keys, true ) ) {
-                Yoast_Image_Id::store_for_post( (int) $post_id, Yoast_Update_Post_Seo::IMAGE_IDS[ $field ], (string) get_post_meta( (int) $post_id, $url_key, true ) );
+                Image_Attachment_Id::store_for_post( (int) $post_id, Yoast_Update_Post_Seo::IMAGE_IDS[ $field ], (string) get_post_meta( (int) $post_id, $url_key, true ) );
             }
         }
     }

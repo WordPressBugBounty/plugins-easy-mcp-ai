@@ -67,6 +67,10 @@ class Reply_To_Comment extends Base_Tool {
         $approve_parent = ! empty( $arguments['approve_parent'] ) && rest_sanitize_boolean( $arguments['approve_parent'] );
         $will_approve   = $approve_parent && '0' === (string) $parent->comment_approved;
 
+        if ( $will_approve ) {
+            $this->refuse_switched_off_moderation( 'approve' );
+        }
+
         if ( $will_approve && ! current_user_can( 'edit_comment', (int) $parent->comment_ID ) ) {
             throw new \RuntimeException( sprintf( 'Sorry, you are not allowed to approve comment %d.', $parent_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
@@ -77,6 +81,10 @@ class Reply_To_Comment extends Base_Tool {
             'content' => wp_kses_post( $content ),
         );
 
+        $refusal = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::refusal( array( 'wp_create_comment' ) );
+        if ( null !== $refusal ) {
+            throw \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
         $created  = $this->rest_request( 'POST', '/wp/v2/comments', $params );
         $reply_id = isset( $created['id'] ) ? (int) $created['id'] : 0;
         if ( $reply_id < 1 ) {
@@ -111,7 +119,7 @@ class Reply_To_Comment extends Base_Tool {
             throw new \RuntimeException( sprintf( 'The post of comment %d no longer exists.', $parent_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
-        if ( ! current_user_can( 'edit_post', $post_id ) ) {
+        if ( ! \Easy_MCP_AI\Drafts\Strict_Ceiling::user_can( 'edit_post', $post_id ) ) {
             throw new \RuntimeException( 'Sorry, you are not allowed to reply to comments on this post: replying requires permission to edit the post.' );
         }
 

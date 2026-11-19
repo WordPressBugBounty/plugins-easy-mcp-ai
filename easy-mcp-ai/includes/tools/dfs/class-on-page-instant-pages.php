@@ -118,7 +118,7 @@ class On_Page_Instant_Pages extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['url'] ) || empty( $arguments['url'] ) ) {
-			throw new \RuntimeException( 'url is required.' );
+			throw new \InvalidArgumentException( 'url is required.' );
 		}
 		$url = (string) $arguments['url'];
 

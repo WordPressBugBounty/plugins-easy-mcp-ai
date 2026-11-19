@@ -68,7 +68,7 @@ class Admin_Routes {
             array( \Easy_MCP_AI\Admin\Admin_Page::class, 'batched_cleanup' )
         );
         $activity->register_routes();
-        $oauth = new OAuth_Controller( $wpdb, new \Easy_MCP_AI\Admin\Access_Presets( $this->tool_registry ) );
+        $oauth = new OAuth_Controller( $wpdb, new \Easy_MCP_AI\Admin\Access_Presets( $this->tool_registry ), $this->tool_registry );
         $oauth->register_routes();
 
         ( new Setup_Controller() )->register_routes();
@@ -118,6 +118,7 @@ class Admin_Routes {
                 'offer' => $offer['offer'],
                 'path'  => (string) $offer['path'],
                 'block' => \Easy_MCP_AI\Diagnostics\Htaccess_Auth_Rule::block_text(),
+                'line'  => $offer['line'],
             );
         }
         if ( 'a7' === $result->id() ) {

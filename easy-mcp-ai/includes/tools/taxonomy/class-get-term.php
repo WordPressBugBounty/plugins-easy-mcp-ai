@@ -68,6 +68,8 @@ class Get_Term extends Base_Tool {
             );
         }
 
+        $this->refuse_switched_off_term_action( 'get', $taxonomy );
+        $this->refuse_other_taxonomy( $term_id, $taxonomy, 'get' );
         $term = get_term( $term_id, $taxonomy );
         if ( ! $term || is_wp_error( $term ) ) {
             throw new \InvalidArgumentException( 'Term not found.' );

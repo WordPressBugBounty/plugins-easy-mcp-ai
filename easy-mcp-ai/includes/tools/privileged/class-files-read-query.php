@@ -45,7 +45,7 @@ class Files_Read_Query extends Privileged_Tool {
             . '"read" (`path` to a file, at most 2 MB): numbered lines "N<tab>text"; `offset` is the first line (default 1), `limit` the count (default 500, at most 2000); when `truncated` is true, call again with `offset` set to `next_offset`. Binary files return their size only. '
             . '"search" (`text`, optional `path` to a folder or file, default the active theme): matches with `path`, `line` and an `excerpt`, like grep -rn; `regex` true takes a PCRE pattern without delimiters; case-insensitive unless `case_sensitive`; `extensions` limits file types; `max_results` default 100, at most 500; stops after 20 seconds or 5,000 files with `budget_exhausted` true. '
             . '"list" (optional `path` to a folder, default the active theme; "" is wp-content): entries with `readable`; `recursive` with `max_depth` (default 5, at most 10); `glob` filters names. '
-            . 'Arguments of another action are refused. Paths are relative to wp-content, with / separators. Never read: anything outside wp-content (WordPress core, wp-config.php), dot-files, uploads, mu-plugins, backup and cache folders, this plugin, wp-config copies, and files that are not source or text (logs, SQL dumps, archives, keys); vendor and node_modules are skipped by list and search unless `path` names them. Lines that look like credentials come back as [REDACTED], and lines are redacted before they are searched; that is a second line of defence, not a guarantee.';
+            . 'Arguments of another action are refused. Paths are relative to wp-content, with / separators. Never read: anything outside wp-content (WordPress core, wp-config.php), dot-files, uploads, mu-plugins, backup and cache folders, this plugin, wp-config copies, Composer\'s auth.json, and files that are not source or text (logs, SQL dumps, archives, keys); vendor and node_modules are skipped by list and search unless `path` names them. Lines that look like credentials come back as [REDACTED], and lines are redacted before they are searched; that is a second line of defence, not a guarantee.';
     }
 
     public function get_input_schema() {
@@ -151,6 +151,6 @@ class Files_Read_Query extends Privileged_Tool {
     }
 
     protected function describe_payload( array $arguments ) {
-        return $this->get_name() . ' ' . Action::json( $arguments );
+        return $this->get_name() . ' ' . (string) \wp_json_encode( $arguments, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
     }
 }

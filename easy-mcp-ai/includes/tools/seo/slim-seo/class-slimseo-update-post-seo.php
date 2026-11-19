@@ -96,7 +96,7 @@ class Slimseo_Update_Post_Seo extends Base_Tool {
 		$text_fields = array( 'title', 'description' );
 		foreach ( $text_fields as $field ) {
 			if ( isset( $arguments[ $field ] ) ) {
-				$merged[ $field ] = sanitize_text_field( (string) $arguments[ $field ] );
+				$merged[ $field ] = Seo_Text::clean( (string) $arguments[ $field ] );
 			}
 		}
 

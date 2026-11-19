@@ -14,7 +14,7 @@ class Create_Block extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new reusable block (synced pattern) with the given title and block markup content. Required: `title`, `content`. Optional: `status` (publish/draft — default publish), `slug` (alphanumeric identifier), `meta` (object of meta fields to set). If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. Content must be valid block markup (e.g. <!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->). Plain HTML will be stored but renders as a Classic block.';
+        return 'Creates a new reusable block (synced pattern) with the given title and block markup content. Required: `title`, `content`. Optional: `status` (publish/draft — default publish), `slug` (alphanumeric identifier), `meta` (object of meta fields to set). If **Easy MCP AI → Settings → Draft mode** saves new content as drafts (New content or Strict), `status` is silently overridden to `draft` regardless of the value supplied. Content must be valid block markup (e.g. <!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->). Plain HTML will be stored but renders as a Classic block.';
     }
 
     public function get_category() {
@@ -84,7 +84,11 @@ class Create_Block extends Base_Tool {
 
         $this->maybe_force_draft( $params );
 
-        $data = $this->rest_request( 'POST', '/wp/v2/blocks', $params );
+        $data = \Easy_MCP_AI\Drafts\Strict_Ceiling::with_capabilities(
+            function () use ( $params ) {
+                return $this->rest_request( 'POST', '/wp/v2/blocks', $params );
+            }
+        );
 
         return array(
             'id'             => $data['id'],

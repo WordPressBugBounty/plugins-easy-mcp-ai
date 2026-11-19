@@ -9,6 +9,7 @@ use Easy_MCP_AI\Admin\Tool_Catalogue;
 use Easy_MCP_AI\Approvals\Approval_Gate;
 use Easy_MCP_AI\Auth\Connect_Policy;
 use Easy_MCP_AI\Config;
+use Easy_MCP_AI\Drafts\Draft_Mode;
 use Easy_MCP_AI\Tools\Tool_Policy;
 use Easy_MCP_AI\Tools\Tool_State;
 
@@ -28,7 +29,7 @@ class Settings_Controller extends Admin_Rest_Controller {
         'access'   => array(
             'oauthMinCapability'  => 'oauth_min_capability',
             'connectRoles'        => 'connect_roles',
-            'forceDraftOnCreate'  => 'force_draft_on_create',
+            'draftMode'           => 'draft_mode',
             'selfServiceKeys'     => 'self_service_keys',
             'approvalRequired'    => 'approval_required',
             'approvalAlways'      => 'approval_always',
@@ -131,7 +132,7 @@ class Settings_Controller extends Admin_Rest_Controller {
             'access'   => array(
                 'oauthMinCapability'  => Connect_Policy::stored_floor(),
                 'connectRoles'        => Connect_Policy::ticked_roles(),
-                'forceDraftOnCreate'  => (bool) Config::get( 'easy_mcp_ai_force_draft_on_create', false ),
+                'draftMode'           => Draft_Mode::mode(),
                 'selfServiceKeys'     => true === Config::get( 'self_service_keys' ),
                 'approvalRequired'    => true === Config::get( 'approval_required' ),
                 'approvalAlways'      => array_values( (array) Config::get( 'approval_always' ) ),
@@ -180,9 +181,12 @@ class Settings_Controller extends Admin_Rest_Controller {
         foreach ( self::FIELDS as $fields ) {
             foreach ( $fields as $field => $suffix ) {
                 if ( ! self::is_sdk_field( $suffix ) && Config::is_locked( $suffix ) ) {
-                    $locked[ $field ] = Config::constant_name( $suffix );
+                    $locked[ $field ] = Config::deployed_constant( $suffix );
                 }
             }
+        }
+        if ( '' !== \Easy_MCP_AI\Throttle\Rules::request_limit_replacement( \Easy_MCP_AI\Throttle\Rules::configured() ) ) {
+            $locked['rateLimitPerMinute'] = \Easy_MCP_AI\Throttle\Rules::OVERRIDE_NAME;
         }
         if ( ! isset( $locked['connectRoles'] ) && isset( $locked['oauthMinCapability'] ) ) {
             $locked['connectRoles'] = $locked['oauthMinCapability'];
@@ -331,6 +335,9 @@ class Settings_Controller extends Admin_Rest_Controller {
                 }
             } elseif ( 'disabled_tools' === $suffix ) {
                 $this->write_disabled_tools( $value );
+            } elseif ( 'draft_mode' === $suffix ) {
+                Config::update( 'easy_mcp_ai_draft_mode', $value );
+                Config::update( 'easy_mcp_ai_force_draft_on_create', Draft_Mode::OFF !== $value );
             } elseif ( 'connect_roles' === $suffix ) {
                 Config::update( Connect_Policy::FLOOR_OPTION, $value[0] );
                 Config::update( 'easy_mcp_ai_connect_roles', $value[1] );
@@ -434,7 +441,7 @@ class Settings_Controller extends Admin_Rest_Controller {
             sprintf(
                 /* translators: %s: the wp-config constant name */
                 \__( 'This setting is set by %s in wp-config.php or the environment and cannot be changed here.', 'easy-mcp-ai' ),
-                Config::constant_name( $suffix )
+                Config::deployed_constant( $suffix )
             )
         );
     }
@@ -445,7 +452,11 @@ class Settings_Controller extends Admin_Rest_Controller {
 
     private function validate_field( $field, $raw ) {
         switch ( $field ) {
-            case 'forceDraftOnCreate':
+            case 'draftMode':
+                if ( ! is_string( $raw ) || ! in_array( $raw, Draft_Mode::VALUES, true ) ) {
+                    return $this->invalid( $field, \__( 'Must be Off, New content or Strict.', 'easy-mcp-ai' ) );
+                }
+                return $raw;
             case 'selfServiceKeys':
             case 'approvalRequired':
             case 'auditLogEnabled':

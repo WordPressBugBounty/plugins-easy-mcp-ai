@@ -111,14 +111,7 @@ abstract class Shortcode_Adapter extends Layout_Adapter {
         if ( ! $this->is_present() ) {
             return sprintf( '%s is not active, so this layout can be read but not saved.', $this->label() );
         }
-        $version = $this->version();
-        $tested  = $this->tested_versions();
-        if ( ! in_array( $version, $tested, true ) ) {
-            $last  = (string) array_pop( $tested );
-            $named = array() === $tested ? 'version ' . $last : 'versions ' . implode( ', ', $tested ) . ' and ' . $last;
-            return sprintf( 'Editing %1$s layouts is measured on %2$s; this site runs %3$s, so its layouts can be read but not edited.', $this->label(), $named, '' === $version ? 'an unknown version' : $version );
-        }
-        return $this->builder_access_refusal( $post );
+        return $this->version_refusal( $this->tested_versions() ) ?? $this->builder_access_refusal( $post );
     }
 
     protected function builder_access_refusal( object $post ): ?string {
@@ -174,8 +167,9 @@ abstract class Shortcode_Adapter extends Layout_Adapter {
         $saved = wp_update_post(
             wp_slash(
                 array(
-                    'ID'           => $post_id,
-                    'post_content' => $plan['content'],
+                    'ID'            => $post_id,
+                    'post_content'  => $plan['content'],
+                    'page_template' => null,
                 )
             ),
             true

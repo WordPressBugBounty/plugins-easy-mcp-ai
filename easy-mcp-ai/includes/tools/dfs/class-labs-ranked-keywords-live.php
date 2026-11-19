@@ -114,7 +114,7 @@ class Labs_Ranked_Keywords_Live extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['target'] ) || empty( $arguments['target'] ) ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'target is required.'
 			);
 		}
@@ -123,7 +123,7 @@ class Labs_Ranked_Keywords_Live extends Base_Tool {
 		if ( isset( $arguments['historical_serp_mode'] ) ) {
 			$mode = (string) $arguments['historical_serp_mode'];
 			if ( ! in_array( $mode, array( 'live', 'lost', 'all' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'historical_serp_mode must be one of: live, lost, all.'
 				);
 			}
@@ -131,14 +131,14 @@ class Labs_Ranked_Keywords_Live extends Base_Tool {
 
 		if ( isset( $arguments['item_types'] ) ) {
 			if ( ! is_array( $arguments['item_types'] ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'item_types must be an array.'
 				);
 			}
 			$allowed_types = array( 'organic', 'paid', 'featured_snippet', 'local_pack', 'ai_overview_reference' );
 			foreach ( $arguments['item_types'] as $type ) {
 				if ( ! in_array( $type, $allowed_types, true ) ) {
-					throw new \RuntimeException(
+					throw new \InvalidArgumentException(
 						'item_types contains invalid value: ' . $type . '. Must be one of: organic, paid, featured_snippet, local_pack, ai_overview_reference.' // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 					);
 				}
@@ -148,7 +148,7 @@ class Labs_Ranked_Keywords_Live extends Base_Tool {
 		if ( isset( $arguments['limit'] ) ) {
 			$limit = (int) $arguments['limit'];
 			if ( $limit < 1 || $limit > 1000 ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'limit must be between 1 and 1000.'
 				);
 			}

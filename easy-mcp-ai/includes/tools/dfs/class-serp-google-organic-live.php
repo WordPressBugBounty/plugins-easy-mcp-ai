@@ -112,13 +112,13 @@ class Serp_Google_Organic_Live extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['keyword'] ) || empty( $arguments['keyword'] ) ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'keyword is required and must not exceed 700 characters.'
 			);
 		}
 		$keyword = (string) $arguments['keyword'];
 		if ( strlen( $keyword ) > 700 ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'keyword is required and must not exceed 700 characters.'
 			);
 		}
@@ -126,7 +126,7 @@ class Serp_Google_Organic_Live extends Base_Tool {
 		$has_location_code = isset( $arguments['location_code'] );
 		$has_location_name = isset( $arguments['location_name'] );
 		if ( ( $has_location_code && $has_location_name ) || ( ! $has_location_code && ! $has_location_name ) ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'Exactly one of location_code or location_name is required.'
 			);
 		}
@@ -134,7 +134,7 @@ class Serp_Google_Organic_Live extends Base_Tool {
 		if ( isset( $arguments['depth'] ) ) {
 			$depth = (int) $arguments['depth'];
 			if ( $depth < 1 || $depth > 200 ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'depth must be between 1 and 200.'
 				);
 			}
@@ -143,7 +143,7 @@ class Serp_Google_Organic_Live extends Base_Tool {
 		if ( isset( $arguments['device'] ) ) {
 			$device = (string) $arguments['device'];
 			if ( ! in_array( $device, array( 'desktop', 'mobile' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'device must be desktop or mobile.'
 				);
 			}
@@ -152,7 +152,7 @@ class Serp_Google_Organic_Live extends Base_Tool {
 		if ( isset( $arguments['os'] ) ) {
 			$os = (string) $arguments['os'];
 			if ( ! in_array( $os, array( 'windows', 'macos', 'android', 'ios' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'os must be one of: windows, macos, android, ios.'
 				);
 			}
@@ -161,7 +161,7 @@ class Serp_Google_Organic_Live extends Base_Tool {
 		if ( isset( $arguments['tag'] ) ) {
 			$tag = (string) $arguments['tag'];
 			if ( strlen( $tag ) > 255 ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'tag must not exceed 255 characters.'
 				);
 			}

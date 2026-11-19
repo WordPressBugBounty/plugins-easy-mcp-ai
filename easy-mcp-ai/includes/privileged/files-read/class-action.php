@@ -1,6 +1,8 @@
 <?php
 namespace Easy_MCP_AI\Privileged\Files_Read;
 
+use Easy_MCP_AI\MCP\Server;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -77,7 +79,7 @@ abstract class Action {
     }
 
     public static function json( $value ): string {
-        $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        $flags = Server::RESULT_JSON_FLAGS;
         $json  = function_exists( 'wp_json_encode' ) ? \wp_json_encode( $value, $flags ) : json_encode( $value, $flags ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode
         return is_string( $json ) ? $json : '';
     }

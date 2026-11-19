@@ -36,6 +36,10 @@ class Role_Handler extends Command_Handler {
     const MSG_RESET_KEPT     = "Kept '%s' on the '%s' role: it belongs to the plugin that serves this MCP connection, and WordPress's defaults do not include it.";
     const MSG_CLONE_REFUSED  = "Cloning '%s' refused: %s%s";
     const MSG_RESET_REFUSED  = "Resetting '%s' refused: %s%s";
+    const MSG_NOT_STORED  = 'WordPress did not store the role change: the roles option still holds the roles as they were. A plugin or theme on this site may have stopped the write.';
+    const MSG_PART_STORED = 'WordPress stored only part of the role change: the roles option holds some of it, not all. A plugin or theme on this site may have stopped the rest of the write.';
+    const MSG_NOT_READ    = 'WordPress answered the role change, but a database error stopped the roles option being read back, so whether it was stored is not known.';
+    const MSG_NOT_READ_BEFORE = 'A database error stopped the roles option being read before the change, so wp_cli_run changed nothing: without it, what WordPress stores could not be confirmed.';
 
     public function list_roles( Invocation $inv, Context $ctx ): void {
         $output_roles = array();
@@ -83,10 +87,12 @@ class Role_Handler extends Command_Handler {
 
         $caps = null !== $capabilities ? self::cloned_caps( $capabilities, (string) $clone, $ctx ) : array();
 
-        $role = self::write_role( $roles, (string) $role_key, (string) $role_name, $caps );
+        $before = self::stored_roles_before( $roles, $ctx );
+        $role   = self::write_role( $roles, (string) $role_key, (string) $role_name, $caps );
         if ( ! $role ) {
             $ctx->out->error( "Role couldn't be created." );
         }
+        self::require_stored( $roles, array( (string) $role_key => $roles->roles[ $role_key ] ?? null ), $ctx, $before );
         $ctx->mark_changed();
         if ( ! empty( $caps ) ) {
             $ctx->out->success( "Role with key '{$role_key}' created. Cloned capabilities from '{$clone}'." );
@@ -195,9 +201,11 @@ class Role_Handler extends Command_Handler {
         }
         self::refuse_gate_loss( $ctx, array( (string) $role_key => null ) );
 
+        $before = self::stored_roles_before( $roles, $ctx );
         $roles->remove_role( $role_key );
 
         if ( ! isset( $roles->roles[ $role_key ] ) ) {
+            self::require_stored( $roles, array( (string) $role_key => null ), $ctx, $before );
             $ctx->mark_changed();
             $ctx->out->success( "Role with key '{$role_key}' deleted." );
         } else {
@@ -238,7 +246,9 @@ class Role_Handler extends Command_Handler {
         }
 
         if ( $plan['num_reset'] ) {
+            $before = self::stored_roles_before( $roles, $ctx );
             self::write_roles( $roles, $plan['final'] );
+            self::require_stored( $roles, array_intersect_key( $plan['final'], array_flip( $targets ) ), $ctx, $before );
             $ctx->mark_changed();
         }
 
@@ -557,6 +567,72 @@ class Role_Handler extends Command_Handler {
             $roles->role_objects[ $key ] = new \WP_Role( $key, $role['capabilities'] );
             $roles->role_names[ $key ]   = $role['name'];
         }
+    }
+
+    protected static function stored_roles( object $roles ): ?array {
+        if ( empty( $roles->use_db ) ) {
+            return array();
+        }
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( (string) $roles->role_key );
+        if ( null === $row ) {
+            return null;
+        }
+        return is_array( $row[1] ) ? $row[1] : array();
+    }
+
+    protected static function stored_roles_before( object $roles, Context $ctx ): array {
+        $before = self::stored_roles( $roles );
+        if ( null === $before ) {
+            $ctx->out->error( self::MSG_NOT_READ_BEFORE );
+        }
+        return $before;
+    }
+
+    protected static function require_stored( object $roles, array $expected, Context $ctx, ?array $before = null ): void {
+        if ( empty( $roles->use_db ) ) {
+            return;
+        }
+        $stored = self::stored_roles( $roles );
+        if ( null === $stored ) {
+            $ctx->not_known( self::MSG_NOT_READ );
+        }
+        $held  = true;
+        $moved = false;
+        foreach ( $expected as $key => $role ) {
+            $kept = isset( $stored[ $key ] ) ? $stored[ $key ] : null;
+            if ( ! ( null === $role ? null === $kept : self::same_role( $kept, $role ) ) ) {
+                $held = false;
+            }
+            if ( null !== $before && ! self::same_entry( $kept, isset( $before[ $key ] ) ? $before[ $key ] : null ) ) {
+                $moved = true;
+            }
+        }
+        if ( $held ) {
+            return;
+        }
+        if ( $moved ) {
+            $ctx->mark_changed();
+            $ctx->out->error( self::MSG_PART_STORED );
+        }
+        $ctx->out->error( self::MSG_NOT_STORED );
+    }
+
+    private static function same_entry( $a, $b ): bool {
+        if ( null === $a || null === $b ) {
+            return null === $a && null === $b;
+        }
+        return is_array( $b ) && self::same_role( $a, $b );
+    }
+
+    private static function same_role( $stored, array $role ): bool {
+        if ( ! is_array( $stored ) || (string) ( $stored['name'] ?? '' ) !== (string) ( $role['name'] ?? '' ) ) {
+            return false;
+        }
+        $have = (array) ( $stored['capabilities'] ?? array() );
+        $want = (array) ( $role['capabilities'] ?? array() );
+        ksort( $have );
+        ksort( $want );
+        return $have == $want; // phpcs:ignore Universal.Operators.StrictComparisons.LooseEqual -- grants compared by value, as WP_Role reads them.
     }
 
     protected static function batched( object $roles, callable $fn ): bool {

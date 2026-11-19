@@ -50,7 +50,6 @@ final class Autoloader {
         'easy_mcp_ai\\tools\\seo\\yoast_get_settings'        => 'tools/seo/yoast/class-yoast-get-settings.php',
         'easy_mcp_ai\\tools\\seo\\yoast_site_settings'       => 'tools/seo/yoast/class-yoast-site-settings.php',
         'easy_mcp_ai\\tools\\seo\\yoast_get_term_seo'        => 'tools/seo/yoast/class-yoast-get-term-seo.php',
-        'easy_mcp_ai\\tools\\seo\\yoast_image_id'            => 'tools/seo/yoast/class-yoast-image-id.php',
         'easy_mcp_ai\\tools\\seo\\yoast_update_post_seo'     => 'tools/seo/yoast/class-yoast-update-post-seo.php',
         'easy_mcp_ai\\tools\\seo\\yoast_update_settings'     => 'tools/seo/yoast/class-yoast-update-settings.php',
         'easy_mcp_ai\\tools\\seo\\yoast_update_term_seo'     => 'tools/seo/yoast/class-yoast-update-term-seo.php',

@@ -141,7 +141,7 @@ $headings        = array(
             $this->forms[ $form_id ] = array(
                 'action' => 'easy_mcp_ai_self_revoke_key',
                 'nonce'  => 'easy_mcp_ai_self_revoke_key_' . $token['id'],
-                'key_id' => $token['id'],
+                'fields' => array( 'key_id' => $token['id'] ),
             );
             $expired = ! empty( $token['expires_at'] ) && strtotime( $token['expires_at'] . ' UTC' ) < time();
             if ( ! $token['is_active'] ) {

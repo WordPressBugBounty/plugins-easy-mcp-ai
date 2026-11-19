@@ -75,6 +75,9 @@ final class Jobs {
         if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true ) ) {
             return 'Change history was switched off; privileged work runs only while it is on.';
         }
+        if ( empty( $job['dry_run'] ) && \Easy_MCP_AI\Drafts\Draft_Mode::strict() ) {
+            return 'Draft mode was set to Strict, and a live search-replace does not run under it.';
+        }
         return null;
     }
 

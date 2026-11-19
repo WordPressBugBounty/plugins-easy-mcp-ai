@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\BuddyPress;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Activity extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a BuddyPress activity item from the stream. Required: `id` (the activity item ID — get it from `wp_bp_list_activity`). Deletion is immediate and irreversible. Returns { deleted: true, id }. Requires BuddyPress Activity component enabled.';
+        return 'Permanently deletes a BuddyPress activity item from the stream. Required: `id` (the activity item ID — get it from `wp_bp_list_activity`). Deletion is immediate and irreversible. Returns { deleted: true, id }; if BuddyPress\'s read still finds the item afterwards, or does not answer that it is gone, the call is an error. Requires BuddyPress Activity component enabled.';
     }
 
     public function get_category() {
@@ -58,6 +59,16 @@ class Delete_Activity extends Base_Tool {
 
         $id = $this->parse_required_id( $arguments['id'] ?? null, 'id' );
         $this->rest_request( 'DELETE', '/buddypress/v1/activity/' . $id );
+        $row = Delete_Outcome::read_back(
+            static function () use ( $id ) {
+                $activity = new \BP_Activity_Activity( $id );
+                return empty( $activity->id ) ? null : $activity;
+            },
+            'activity ' . $id
+        );
+        if ( null !== $row ) {
+            throw Delete_Outcome::still_exists( 'activity ' . $id );
+        }
 
         return array(
             'deleted' => true,

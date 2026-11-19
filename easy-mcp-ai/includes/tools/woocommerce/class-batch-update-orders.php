@@ -1,7 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
+use Automattic\WooCommerce\Utilities\OrderUtil;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -9,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Batch_Update_Orders extends Base_Tool {
 
+    use Batch_Reply;
     use Product_Terms;
 
     public function get_name() {
@@ -16,7 +19,7 @@ class Batch_Update_Orders extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns WC\'s response { create, update, delete } with each item\'s `_links` omitted.';
+        return 'Create, update, and/or delete up to 100 WooCommerce orders in a single REST batch call. Provide any combination of `create`, `update` (each item needs `id`), `delete` (integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns { create, update, delete }, one row per item: its `id`, `status`, WooCommerce\'s `error` for an item it refused, and each field the item sent, as WooCommerce saved it (read the whole order with `wp_wc_get_order`); a deleted item is { id, status: "deleted", deleted: true }, and a delete WooCommerce refused { id, deleted: false, error }, and so is a delete WooCommerce answered as done while a plugin kept the order (posts store; with HPOS a delete cannot be stopped that way). ' . Update_Order::REFUNDED_STATUS_NOTE;
     }
 
     public function get_category() {
@@ -69,6 +72,10 @@ class Batch_Update_Orders extends Base_Tool {
         }
     }
 
+    public function throttle_units( array $arguments ) {
+        return self::count_items( $arguments, array( 'create', 'update', 'delete' ) );
+    }
+
     public function execute( array $arguments ) {
         if ( ! class_exists( 'WooCommerce' ) ) {
             throw new \RuntimeException( 'WooCommerce is not active.' );
@@ -106,7 +113,16 @@ class Batch_Update_Orders extends Base_Tool {
             set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
         }
 
-        return $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/orders/batch', $body ) );
+        $reply = self::short_batch_reply( $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/orders/batch', $body ) ), $body );
+        if ( class_exists( OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
+            return $reply;
+        }
+        return self::refuse_kept_deletes(
+            $reply,
+            static function ( int $id ): ?string {
+                return Delete_Outcome::post_kept( $id, 'order ' . $id );
+            }
+        );
     }
 
     private function refuse_unknown_created_lines( array $create ): void {

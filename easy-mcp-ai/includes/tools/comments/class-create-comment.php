@@ -107,7 +107,10 @@ class Create_Comment extends Base_Tool {
 
         $status = self::status_sent( $arguments ) ? (string) $arguments['status'] : null;
         if ( null !== $status ) {
-            $this->comment_status_to_action( $status, array( 'approve', 'unapprove', 'spam', 'trash' ) );
+            $action = $this->comment_status_to_action( $status, array( 'approve', 'unapprove', 'spam', 'trash' ) );
+            if ( 'unapprove' !== $action ) {
+                $this->refuse_switched_off_moderation( $action );
+            }
         }
 
         $post_id = absint( $arguments['post'] );

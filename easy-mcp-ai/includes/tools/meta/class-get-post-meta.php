@@ -64,11 +64,18 @@ class Get_Post_Meta extends Base_Tool {
             ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' )
             : 'posts';
 
+        $key = isset( $arguments['key'] ) ? sanitize_text_field( (string) $arguments['key'] ) : '';
+        if ( '' !== $key && \Easy_MCP_AI\Meta\Meta_Key::reads_every_row( $key ) ) {
+            throw new \InvalidArgumentException( \Easy_MCP_AI\Meta\Meta_Key::READS_EVERY_ROW );
+        }
+
         $data = $this->rest_request( 'GET', self::post_type_route( $post_type, $post_id, 'GET' ), array( 'context' => 'edit' ) );
 
         $meta = isset( $data['meta'] ) ? $data['meta'] : array();
+        if ( is_array( $meta ) ) {
+            unset( $meta['0'] );
+        }
 
-        $key = isset( $arguments['key'] ) ? sanitize_text_field( (string) $arguments['key'] ) : '';
         if ( '' !== $key ) {
             $value = null;
             if ( is_array( $meta ) && array_key_exists( $key, $meta ) ) {

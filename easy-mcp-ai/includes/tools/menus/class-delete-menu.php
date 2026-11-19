@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Menus;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Menu extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress navigation menu and ALL items inside it. Required: `menu_id`. There is no trash for menus — this is irreversible. Theme locations previously assigned to this menu become unassigned (the location remains, just empty). Use `wp_list_menus` to find the menu_id first if you only have the name. Requires WordPress 5.9+.';
+        return 'Permanently deletes a WordPress navigation menu and ALL items inside it. Required: `menu_id`. There is no trash for menus — this is irreversible. Theme locations previously assigned to this menu become unassigned (the location remains, just empty). Use `wp_list_menus` to find the menu_id first if you only have the name. If the menu still exists after WordPress answers, the call is an error. Requires WordPress 5.9+.';
     }
 
     public function get_category() {
@@ -65,6 +66,7 @@ class Delete_Menu extends Base_Tool {
             }
             throw new \RuntimeException( $wp_error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+        Delete_Outcome::require_term_gone( $menu_id, 'nav_menu', 'menu ' . $menu_id );
 
         return array(
             'deleted' => true,

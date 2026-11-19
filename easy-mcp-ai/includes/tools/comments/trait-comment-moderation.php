@@ -30,6 +30,13 @@ trait Comment_Moderation {
         return self::$comment_status_actions[ $key ];
     }
 
+    protected function refuse_switched_off_moderation( string $action ): void {
+        $refusal = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::refusal( array( \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::MODERATION_TOOLS[ $action ] ) );
+        if ( null !== $refusal ) {
+            throw \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+    }
+
     protected function empty_trash_days() {
         return defined( 'EMPTY_TRASH_DAYS' ) ? EMPTY_TRASH_DAYS : 30;
     }

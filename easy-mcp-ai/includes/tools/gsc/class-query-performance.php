@@ -70,17 +70,17 @@ class Query_Performance extends Base_Tool {
         $this->validate_required( $arguments, array( 'start_date', 'end_date' ) );
         foreach ( array( 'start_date', 'end_date' ) as $field ) {
             if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $arguments[ $field ] ) ) {
-                throw new \RuntimeException( "{$field} must be in YYYY-MM-DD format." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                throw new \InvalidArgumentException( "{$field} must be in YYYY-MM-DD format." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
         }
         if ( strcmp( $arguments['end_date'], $arguments['start_date'] ) < 0 ) {
-            throw new \RuntimeException( "end_date ({$arguments['end_date']}) must be on or after start_date ({$arguments['start_date']})." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \InvalidArgumentException( "end_date ({$arguments['end_date']}) must be on or after start_date ({$arguments['start_date']})." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $data_state = $arguments['data_state'] ?? 'final';
         $dimensions = isset( $arguments['dimensions'] ) ? array_map( 'strval', (array) $arguments['dimensions'] ) : array();
         if ( 'hourly_all' === $data_state && ! in_array( 'hour', $dimensions, true ) ) {
-            throw new \RuntimeException( 'data_state=hourly_all requires the "hour" dimension to be included.' );
+            throw new \InvalidArgumentException( 'data_state=hourly_all requires the "hour" dimension to be included.' );
         }
         if ( isset( $arguments['filters'] ) && ! is_array( $arguments['filters'] ) ) {
             throw new \InvalidArgumentException( 'filters must be an array of {dimension, operator, expression} objects, e.g. [{"dimension": "query", "operator": "contains", "expression": "seo"}].' );

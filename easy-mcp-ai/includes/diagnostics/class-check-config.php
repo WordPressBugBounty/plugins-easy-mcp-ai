@@ -20,8 +20,8 @@ class Check_Config {
             self::evaluate_dcr( self::option_bool( 'easy_mcp_ai_oauth_dcr_enabled', true ) ),
             self::evaluate_client_cap( self::count_active_clients(), (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_oauth_max_clients', 5000 ) ),
             self::evaluate_min_capability( self::resolved_min_capability(), self::connect_roles() ),
-            self::evaluate_rate_limit( (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE ) ),
-            self::evaluate_force_draft( self::option_bool( 'easy_mcp_ai_force_draft_on_create', false ) ),
+            self::evaluate_rate_limit( (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE ), self::throttle_state() ),
+            self::evaluate_draft_mode( \Easy_MCP_AI\Drafts\Draft_Mode::mode(), '' !== \Easy_MCP_AI\Config::source( 'draft_mode' ) || \Easy_MCP_AI\Config::stored_draft_mode_valid() ),
             self::evaluate_token_expiry( self::collect_token_expiries() ),
             self::evaluate_auth_presence( self::count_active_tokens(), self::count_active_grants(), self::auth_ever_existed() ),
             self::evaluate_allow_http(
@@ -216,9 +216,61 @@ class Check_Config {
         );
     }
 
-    public static function evaluate_rate_limit( $per_minute ) {
-        $label    = __( 'Per-token rate limit', 'easy-mcp-ai' );
-        $evidence = array( 'rate_limit_per_minute' => (int) $per_minute );
+    private static function throttle_state() {
+        $rules    = \Easy_MCP_AI\Throttle\Rules::configured();
+        $readable = array_column( \Easy_MCP_AI\Throttle\Rules::readable( $rules ), 'entry' );
+        return array(
+            'rules'      => $readable,
+            'unreadable' => array_values( array_diff( array_column( $rules, 'entry' ), $readable ) ),
+            'ignored'    => \Easy_MCP_AI\Throttle\Rules::ignored(),
+            'replaces'   => \Easy_MCP_AI\Throttle\Rules::request_limit_replacement( $rules ),
+        );
+    }
+
+    public static function evaluate_rate_limit( $per_minute, array $throttles = array() ) {
+        $label      = __( 'Per-token rate limit', 'easy-mcp-ai' );
+        $rules      = isset( $throttles['rules'] ) ? (array) $throttles['rules'] : array();
+        $unreadable = isset( $throttles['unreadable'] ) ? (array) $throttles['unreadable'] : array();
+        $ignored    = isset( $throttles['ignored'] ) ? (array) $throttles['ignored'] : array();
+        $replaces   = isset( $throttles['replaces'] ) ? (string) $throttles['replaces'] : '';
+        $evidence   = array( 'rate_limit_per_minute' => (int) $per_minute );
+        if ( array() !== $rules || array() !== $unreadable || array() !== $ignored ) {
+            $evidence['throttles'] = $rules;
+        }
+
+        if ( array() !== $unreadable || array() !== $ignored ) {
+            $evidence['throttles_unreadable'] = $unreadable;
+            $evidence['throttles_ignored']    = $ignored;
+            $parts                            = array();
+            if ( array() !== $unreadable ) {
+                /* translators: %s: comma-separated throttle entries. */
+                $parts[] = sprintf( __( 'every call these name is refused until they are fixed: %s', 'easy-mcp-ai' ), implode( ', ', $unreadable ) );
+            }
+            if ( array() !== $ignored ) {
+                /* translators: %s: comma-separated throttle entries. */
+                $parts[] = sprintf( __( 'these name no tool, so they limit nothing: %s', 'easy-mcp-ai' ), implode( ', ', $ignored ) );
+            }
+            return Diagnostic_Result::warn(
+                'f4',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                /* translators: %s: what is wrong with the entries. */
+                sprintf( __( 'Some EASY_MCP_AI_THROTTLES entries cannot be read; %s.', 'easy-mcp-ai' ), implode( '; ', $parts ) ),
+                __( 'Write each entry as selector=number/window/scope, for example writes=500/hour/user: a tool name, a pattern, category:<slug>, writes, reads or *; a whole number from 1; minute, hour or day; user, site or credential. At most 20 entries.', 'easy-mcp-ai' ),
+                $evidence
+            );
+        }
+
+        if ( '' !== $replaces ) {
+            return Diagnostic_Result::pass(
+                'f4',
+                Diagnostic_Result::TIER_WARNING,
+                $label,
+                /* translators: 1: the throttle entry, 2: the Settings value. */
+                sprintf( __( 'Set by EASY_MCP_AI_THROTTLES (%1$s); the Settings value of %2$d/min does not apply.', 'easy-mcp-ai' ), $replaces, (int) $per_minute ),
+                $evidence
+            );
+        }
 
         if ( 0 === (int) $per_minute ) {
             return Diagnostic_Result::warn(
@@ -254,23 +306,35 @@ class Check_Config {
             );
         }
 
-        return Diagnostic_Result::pass( 'f4', Diagnostic_Result::TIER_WARNING, $label, sprintf( '%d/min', (int) $per_minute ), $evidence );
+        $detail = sprintf( '%d/min', (int) $per_minute );
+        if ( array() !== $rules ) {
+            /* translators: 1: requests per minute, 2: comma-separated throttle entries. */
+            $detail = sprintf( __( '%1$d/min, and these EASY_MCP_AI_THROTTLES rules: %2$s', 'easy-mcp-ai' ), (int) $per_minute, implode( ', ', $rules ) );
+        }
+        return Diagnostic_Result::pass( 'f4', Diagnostic_Result::TIER_WARNING, $label, $detail, $evidence );
     }
 
-    public static function evaluate_force_draft( $enabled ) {
-        $label = __( 'Force draft on create', 'easy-mcp-ai' );
-
-        if ( $enabled ) {
-            return Diagnostic_Result::pass(
+    public static function evaluate_draft_mode( string $mode, bool $stored_valid = true ) {
+        $label    = __( 'Draft mode', 'easy-mcp-ai' );
+        $evidence = array( 'draft_mode' => $mode );
+        if ( ! $stored_valid ) {
+            return Diagnostic_Result::warn(
                 'f6',
-                Diagnostic_Result::TIER_INFO,
+                Diagnostic_Result::TIER_WARNING,
                 $label,
-                __( 'On. Every post or page an AI client creates is saved as a draft, whatever status it asked for.', 'easy-mcp-ai' ),
-                array( 'force_draft' => true )
+                __( 'The stored value is not Off, New content or Strict, so Draft mode reads as Strict.', 'easy-mcp-ai' ),
+                __( 'Choose Draft mode under Settings › Access & safety and save.', 'easy-mcp-ai' ),
+                $evidence + array( 'stored_valid' => false )
             );
         }
-
-        return Diagnostic_Result::pass( 'f6', Diagnostic_Result::TIER_INFO, $label, __( 'Off.', 'easy-mcp-ai' ), array( 'force_draft' => false ) );
+        if ( \Easy_MCP_AI\Drafts\Draft_Mode::NEW_CONTENT === $mode ) {
+            $summary = __( 'New content. Every post, page or other item an AI client creates is saved as a draft, whatever status it asked for. Edits to published content still go live.', 'easy-mcp-ai' );
+        } elseif ( \Easy_MCP_AI\Drafts\Draft_Mode::STRICT === $mode ) {
+            $summary = __( 'Strict. AI clients cannot publish, schedule or change published content, and what they create is saved as a draft. A person publishes.', 'easy-mcp-ai' );
+        } else {
+            $summary = __( 'Off.', 'easy-mcp-ai' );
+        }
+        return Diagnostic_Result::pass( 'f6', Diagnostic_Result::TIER_INFO, $label, $summary, $evidence );
     }
 
     public static function evaluate_token_expiry( $tokens ) {

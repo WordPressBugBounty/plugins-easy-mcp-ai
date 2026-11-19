@@ -53,7 +53,7 @@ class Authorization_Endpoint {
             return $tls_error;
         }
 
-        $rate_error = Token_Endpoint::enforce_rate_limit();
+        $rate_error = self::enforce_rate_limit();
         if ( null !== $rate_error ) {
             return $rate_error;
         }
@@ -201,7 +201,7 @@ class Authorization_Endpoint {
             return $tls_error;
         }
 
-        $rate_error = Token_Endpoint::enforce_rate_limit();
+        $rate_error = self::enforce_rate_limit();
         if ( null !== $rate_error ) {
             return $rate_error;
         }
@@ -378,44 +378,31 @@ class Authorization_Endpoint {
     }
 
     private function log_authorize_failure( $reason, array $params = array(), $detail = '' ) {
-        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) {
-            return;
-        }
-
-        $redirect_host = '';
-        if ( ! empty( $params['redirect_uri'] ) ) {
-            $parsed = wp_parse_url( $params['redirect_uri'] );
-            $redirect_host = ( ! empty( $parsed['scheme'] ) ? $parsed['scheme'] . '://' : '' )
-                           . ( ! empty( $parsed['host'] ) ? $parsed['host'] : '' );
-        }
-
         $details = array(
             'stage'         => 'authorize',
             'reason'        => (string) $reason,
             'client_id'     => ! empty( $params['client_id'] ) ? (string) $params['client_id'] : '',
-            'redirect_host' => $redirect_host,
+            'redirect_host' => self::redirect_host( $params['redirect_uri'] ?? '' ),
             'wp_user_id'    => get_current_user_id(),
         );
         if ( '' !== (string) $detail ) {
             $details['detail'] = (string) $detail;
         }
 
-        global $wpdb;
-        $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Direct insert required for audit logging; mirrors Server::log_auth_failure().
-            $wpdb->prefix . 'easy_mcp_ai_audit_log',
-            array(
-                'token_id'        => 0,
-                'tool_name'       => '_oauth_authorize',
-                'arguments'       => wp_json_encode( $details ),
-                'result_status'   => 'auth_failure',
-                'ip_address'      => class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? \Easy_MCP_AI\Client_IP::get() : '',
-                'auth_source'     => 'oauth',
-                'wp_user_id'      => $details['wp_user_id'] > 0 ? (int) $details['wp_user_id'] : null,
-                'oauth_client_id' => self::column_safe_client_id( Client_Metadata::storage_id( $details['client_id'] ) ),
-                'created_at'      => current_time( 'mysql', true ),
-            ),
-            array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s' )
-        );
+        OAuth_Audit_Log::write( '_oauth_authorize', $details, 'auth_failure', $details['client_id'], (int) $details['wp_user_id'] );
+    }
+
+    public static function enforce_rate_limit(): ?\WP_REST_Response {
+        return Rate_Limit::check( 'authorize', 'easy_mcp_ai_authorize_rl_', 120, 1200 );
+    }
+
+    public static function redirect_host( $redirect_uri ): string {
+        if ( ! is_string( $redirect_uri ) || '' === $redirect_uri ) {
+            return '';
+        }
+        $parsed = wp_parse_url( $redirect_uri );
+        return ( ! empty( $parsed['scheme'] ) ? $parsed['scheme'] . '://' : '' )
+             . ( ! empty( $parsed['host'] ) ? $parsed['host'] : '' );
     }
 
     const AUDIT_CLIENT_ID_MAX_LENGTH = 191;

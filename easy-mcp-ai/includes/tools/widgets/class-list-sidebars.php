@@ -58,7 +58,11 @@ class List_Sidebars extends Base_Tool {
 
         $markup = isset( $arguments['include_markup'] ) && rest_sanitize_boolean( $arguments['include_markup'] );
         $fields = 'id,name,description,status,widgets' . ( $markup ? ',' . implode( ',', self::MARKUP_FIELDS ) : '' );
-        $data   = $this->rest_request( 'GET', '/wp/v2/sidebars', array( 'context' => 'edit' ), $fields );
+        $data   = Sidebars_Widgets_Hold::during(
+            function () use ( $fields ) {
+                return $this->rest_request( 'GET', '/wp/v2/sidebars', array( 'context' => 'edit' ), $fields );
+            }
+        );
 
         $sidebars = array();
         foreach ( (array) $data as $sidebar ) {

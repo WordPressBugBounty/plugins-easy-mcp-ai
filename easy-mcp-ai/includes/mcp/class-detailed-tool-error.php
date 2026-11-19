@@ -13,9 +13,16 @@ class Detailed_Tool_Error extends \InvalidArgumentException {
 
     private $details;
 
-    public function __construct( string $message, string $details = '' ) {
+    private $approve_url;
+
+    public function __construct( string $message, string $details = '', string $approve_url = '' ) {
         parent::__construct( $message );
-        $this->details = $details;
+        $this->details     = $details;
+        $this->approve_url = $approve_url;
+    }
+
+    public function get_approve_url(): string {
+        return $this->approve_url;
     }
 
     public function get_details(): string {

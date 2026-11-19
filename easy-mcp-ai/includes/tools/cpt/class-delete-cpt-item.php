@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\CPT;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
 use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
@@ -16,7 +17,7 @@ class Delete_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a custom post type (CPT) item, also of a type hidden from the REST API but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Optional: `force` — false (default) moves to trash if the CPT supports trashing (most do); true permanently deletes (irreversible). Trashed items can be restored via `wp_update_cpt_item` setting status="draft" or "publish". CPTs registered without trash support (rare) are always permanently deleted regardless of `force`. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
+        return 'Deletes a custom post type (CPT) item, also of a type hidden from the REST API but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Optional: `force` — false (default) moves the item to the Trash; true permanently deletes (irreversible). Trashed items can be restored via `wp_update_cpt_item` setting status="draft" or "publish". When the site has no Trash (EMPTY_TRASH_DAYS is 0) or a plugin turns it off for the type, WordPress refuses force=false with a 501 `rest_trash_not_supported` error and deletes nothing; send force=true to delete the item for good. Returns { deleted: true, status, id }: `status` is "trash" when the item was moved to the Trash and "deleted" when it no longer exists, read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
     }
 
     public function get_category() {
@@ -62,10 +63,19 @@ class Delete_CPT_Item extends Base_Tool {
         Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
-                $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'DELETE' );
+                $this->refuse_switched_off_dedicated_tool( $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'DELETE' ) );
             }
         );
         self::boolean_arg( $arguments, 'force', false, 'Nothing was deleted.' );
+        $item_id = $arguments['item_id'] ?? null;
+        if ( is_int( $item_id ) || ( is_string( $item_id ) && ctype_digit( $item_id ) ) ) {
+            Hidden_Post_Types::run_for(
+                $arguments['rest_base'] ?? null,
+                static function () use ( $arguments, $item_id ): void {
+                    Elementor_Templates::refuse_kit_delete( is_string( $arguments['rest_base'] ?? null ) ? $arguments['rest_base'] : '', (int) $item_id );
+                }
+            );
+        }
     }
 
     public function execute( array $arguments ) {
@@ -81,8 +91,10 @@ class Delete_CPT_Item extends Base_Tool {
         $this->validate_required( $arguments, array( 'rest_base', 'item_id' ) );
 
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+        $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
         $force     = self::boolean_arg( $arguments, 'force', false, 'Nothing was deleted.' );
+        Elementor_Templates::refuse_kit_delete( $rest_base, $item_id );
 
         $request = new \WP_REST_Request( 'DELETE', self::post_type_route( $rest_base, $item_id, 'DELETE' ) );
         if ( isset( $arguments['force'] ) ) {
@@ -96,18 +108,19 @@ class Delete_CPT_Item extends Base_Tool {
             if ( 'rest_no_route' === $wp_error->get_error_code() ) {
                 throw new \RuntimeException( Post_Type_Tool_Hint::no_route( $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
+            Elementor_Templates::refuse_admin_only( $request->get_route(), $wp_error );
             throw new \RuntimeException(
                 sprintf( 'Failed to delete item in "%s": %s', $rest_base, $wp_error->get_error_message() ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
 
-        $data = $response->get_data();
-
-        $id = isset( $data['deleted'] ) ? ( $data['previous']['id'] ?? null ) : ( $data['id'] ?? null );
+        $data    = $response->get_data();
+        $outcome = Delete_Outcome::of_post( is_array( $data ) ? $data : array(), $item_id, 'item ' . $item_id );
 
         return array(
             'deleted' => true,
-            'id'      => $id,
+            'status'  => $outcome['status'],
+            'id'      => $outcome['item']['id'] ?? null,
         );
     }
 }

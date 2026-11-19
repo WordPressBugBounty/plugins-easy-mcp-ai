@@ -187,7 +187,7 @@ class Update_Core extends Base_Tool {
             throw new \RuntimeException( sprintf( 'WordPress was not updated: %s', $this->upgrader_error_text( $result ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( ! is_string( $result ) || '' === $result ) {
-            throw new \RuntimeException( $this->redact_urls( $this->relative_paths( $this->filesystem_failure_message() ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( $this->filesystem_failure_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return null;
     }

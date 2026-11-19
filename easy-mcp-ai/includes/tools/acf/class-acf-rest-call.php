@@ -212,7 +212,7 @@ final class Acf_Rest_Call {
             $parts[] = sprintf( 'ACF did not add its "acf" field to the REST response for this %s, so it did not process the fields. %s', $object, self::missing_acf_cause( $opened, $object ) );
         } else {
             if ( ! empty( $unknown ) ) {
-                $parts[] = sprintf( 'No ACF field has the name or key %s — check the spelling with wp_acf_list_field_groups.', implode( ', ', $unknown ) );
+                $parts[] = sprintf( 'No ACF field has the name or key %s — check the spelling%s.', implode( ', ', $unknown ), \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_acf_list_field_groups' ) ? ' with wp_acf_list_field_groups' : '' );
             }
             if ( ! empty( $nested ) ) {
                 $parts[] = sprintf( '%s belong%s to a Group, Repeater or Flexible Content field — send %s inside that field\'s value instead.', implode( ', ', $nested ), count( $nested ) > 1 ? '' : 's', count( $nested ) > 1 ? 'them' : 'it' );

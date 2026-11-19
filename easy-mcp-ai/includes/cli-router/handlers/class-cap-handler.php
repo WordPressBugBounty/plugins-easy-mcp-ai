@@ -95,15 +95,18 @@ final class Cap_Handler extends Role_Handler {
             self::refuse_gate_loss( $ctx, array( $role => $after ) );
         }
 
-        $count = 0;
+        $count  = 0;
+        $roles  = self::roles();
+        $before = self::stored_roles_before( $roles, $ctx );
         self::batched(
-            self::roles(),
+            $roles,
             static function () use ( $args, $grant, $role_obj, &$count ): bool {
                 $count = self::add_caps( $role_obj, $args, $grant );
                 return $count > 0;
             }
         );
         if ( $count > 0 ) {
+            self::require_stored( $roles, array( $role => $roles->roles[ $role ] ?? null ), $ctx, $before );
             $ctx->mark_changed();
         }
 
@@ -170,8 +173,10 @@ final class Cap_Handler extends Role_Handler {
 
         $count   = 0;
         $not_set = array();
+        $roles   = self::roles();
+        $before  = self::stored_roles_before( $roles, $ctx );
         self::batched(
-            self::roles(),
+            $roles,
             static function () use ( $args, $role_obj, &$count, &$not_set ): bool {
                 foreach ( $args as $cap ) {
                     if ( ! isset( $role_obj->capabilities[ $cap ] ) ) {
@@ -187,6 +192,7 @@ final class Cap_Handler extends Role_Handler {
             }
         );
         if ( $count > 0 ) {
+            self::require_stored( $roles, array( $role => $roles->roles[ $role ] ?? null ), $ctx, $before );
             $ctx->mark_changed();
             if ( $not_set ) {
                 $ctx->note( sprintf( self::NOTE_NOT_SET, $role, "'" . implode( "', '", array_values( array_unique( $not_set ) ) ) . "'" ) );

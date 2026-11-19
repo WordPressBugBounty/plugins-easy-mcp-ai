@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\CPT\List_CPT_Items;
 
@@ -28,12 +29,14 @@ class List_Posts extends Base_Tool {
 
     const REST_FIELDS = 'id,title,status,date,modified,slug,excerpt,author,categories,tags,featured_media,link';
 
+    const AUTO_EXCERPT_WORDS = 20;
+
     public function get_name() {
         return 'wp_list_posts';
     }
 
     public function get_description() {
-        return 'Lists WordPress posts. Optional filters: `status` (publish/draft/pending/private/future/trash — default publish; use "any" to get all statuses), `statuses` (array of statuses, instead of status), `search`, `categories` (array of category IDs), `tags` (array of tag IDs), `author` (user ID), `author_exclude` (array of user IDs to exclude), `include` / `exclude` (arrays of post IDs; exclude and sticky false cannot be combined with include, which WordPress lets override them), `slug` (array of slugs), `sticky` (boolean), `has_password` (boolean), `post_mime_type`, `comment_count` (exact number of comments), `year` / `monthnum` / `day`, `after` / `before` (ISO 8601 date-time range on publish date), `date_query`, `tax_query`, `meta_key` / `meta_value` / `meta_compare`, `meta_query` (WP_Query structures from an allowlist; meta filters only on keys this caller could read: a protected key needs the right to edit every post, a status other than publish needs the right to read other authors\' posts in it, and a caller who cannot edit every post must also leave password-protected posts out: see has_password), `per_page` (max 100, default 10), `page`, `offset`, `orderby` (date/id/title/slug/modified/author/include/parent/menu_order/comment_count/meta_value/meta_value_num/rand — default date), `order` (asc/desc), `context` (view|edit — edit lists only posts you can edit), `raw_columns` (boolean, edit context only: each post also carries `raw`, every database column as stored — raw post_title, post_content and the rest). Returns { posts: [{ id, title, status, date, modified, slug, excerpt, has_excerpt, author, author_name, sticky, categories (array of IDs), tags (array of IDs), featured_media, link }], total, total_pages, page, per_page }. `excerpt` falls back to the start of the content when no excerpt is stored; `has_excerpt` is true only for a stored one. For CPT items use `wp_list_cpt_items`.';
+        return 'Lists WordPress posts. Optional filters: `status` (publish/draft/pending/private/future/trash — default publish; use "any" to get all statuses), `statuses` (array of statuses, instead of status), `search`, `categories` (array of category IDs), `tags` (array of tag IDs), `author` (user ID), `author_exclude` (array of user IDs to exclude), `include` / `exclude` (arrays of post IDs; exclude and sticky false cannot be combined with include, which WordPress lets override them), `slug` (array of slugs), `sticky` (boolean), `has_password` (boolean), `post_mime_type`, `comment_count` (exact number of comments), `year` / `monthnum` / `day`, `after` / `before` (ISO 8601 date-time range on publish date), `date_query`, `tax_query`, `meta_key` / `meta_value` / `meta_compare`, `meta_query` (WP_Query structures from an allowlist; meta filters only on keys this caller could read: a protected key needs the right to edit every post, a status other than publish needs the right to read other authors\' posts in it, and a caller who cannot edit every post must also leave password-protected posts out: see has_password), `per_page` (max 100, default 10), `page`, `offset`, `orderby` (date/id/title/slug/modified/author/include/parent/menu_order/comment_count/meta_value/meta_value_num/rand — default date), `order` (asc/desc), `context` (view|edit — edit lists only posts you can edit), `raw_columns` (boolean, edit context only: each post also carries `raw`, every database column as stored — raw post_title, post_content and the rest). Returns { posts: [{ id, title, status, date, modified, slug, excerpt, has_excerpt, author, author_name, sticky, categories (array of IDs), tags (array of IDs), featured_media, link }], total, total_pages, page, per_page }. `excerpt` is the stored excerpt, whole; without one it is the first ' . self::AUTO_EXCERPT_WORDS . ' words of the excerpt WordPress builds from the content, and `has_excerpt` is false. For CPT items use `wp_list_cpt_items`.';
     }
 
     public function get_category() {
@@ -54,7 +57,7 @@ class List_Posts extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'status'     => array(
@@ -214,6 +217,8 @@ class List_Posts extends Base_Tool {
                 ),
             ),
         );
+        $schema['properties'] += Translation_Read::properties();
+        return $schema;
     }
 
     public function execute( array $arguments ) {
@@ -230,6 +235,8 @@ class List_Posts extends Base_Tool {
 
         $query = array_merge( $query, $this->query_vars( $arguments ) );
         $this->apply_meta_filters( $arguments, $params, $query );
+        $lang  = Translation_Read::requested( $arguments );
+        $query = array_merge( $query, Translation_Read::query_vars( $lang ) );
 
         $request = new \WP_REST_Request( 'GET', '/wp/v2/posts' );
         foreach ( $params as $key => $value ) {
@@ -237,16 +244,24 @@ class List_Posts extends Base_Tool {
         }
         $request->set_param( '_fields', self::REST_FIELDS );
 
-        $response = $this->dispatch( $request, $query );
+        $send     = function () use ( $lang, $request, $query ): \WP_REST_Response {
+            return Translation_Read::run(
+                $lang,
+                function () use ( $request, $query ): \WP_REST_Response {
+                    return $this->dispatch( $request, $query );
+                }
+            );
+        };
+        $response = $send();
 
         if ( $response->is_error() ) {
-            return $this->empty_page_or_refusal( $response, $params );
+            return $this->empty_page_or_refusal( $response, $params, $request, $send );
         }
 
         $posts = $response->get_data();
 
         return array_merge(
-            array( 'posts' => self::post_rows( $posts, $context, $raw_columns ) ),
+            array( 'posts' => Translation_Read::label_rows( self::post_rows( $posts, $context, $raw_columns ) ) ),
             $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $posts ) )
         );
     }
@@ -457,12 +472,12 @@ class List_Posts extends Base_Tool {
         return empty( $statuses ) ? array( 'publish' ) : array_values( array_unique( $statuses ) );
     }
 
-    private function empty_page_or_refusal( \WP_REST_Response $response, array $params ): array {
+    private function empty_page_or_refusal( \WP_REST_Response $response, array $params, \WP_REST_Request $request, callable $send ): array {
         $error = $response->as_error();
         if ( $this->is_invalid_page_error( $error ) ) {
             return array_merge(
                 array( 'posts' => array() ),
-                $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                $this->past_the_end_meta( $request, $send, (int) $params['page'], (int) $params['per_page'] )
             );
         }
         throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -476,15 +491,17 @@ class List_Posts extends Base_Tool {
                 continue;
             }
             $object = get_post( (int) $post['id'] );
-            $item = array(
+            $has_excerpt = is_object( $object ) && '' !== trim( (string) ( $object->post_excerpt ?? '' ) );
+            $excerpt     = wp_strip_all_tags( $post['excerpt']['rendered'] );
+            $item        = array(
                 'id'             => $post['id'],
                 'title'          => wp_strip_all_tags( $post['title']['rendered'] ),
                 'status'         => $post['status'],
                 'date'           => $post['date'],
                 'modified'       => $post['modified'],
                 'slug'           => $post['slug'],
-                'excerpt'        => wp_strip_all_tags( $post['excerpt']['rendered'] ),
-                'has_excerpt'    => is_object( $object ) && '' !== trim( (string) ( $object->post_excerpt ?? '' ) ),
+                'excerpt'        => $has_excerpt ? $excerpt : wp_trim_words( $excerpt, self::AUTO_EXCERPT_WORDS ),
+                'has_excerpt'    => $has_excerpt,
                 'author'         => $post['author'],
                 'author_name'    => $author_names[ (int) $post['author'] ] ?? null,
                 'sticky'         => isset( $post['sticky'] ) ? (bool) $post['sticky'] : is_sticky( (int) $post['id'] ),

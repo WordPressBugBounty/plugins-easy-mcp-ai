@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Get_Post_Blocks extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns the Gutenberg block tree of a post, page or custom post type item as structured data instead of raw markup — read this before editing blocks with `wp_update_post_blocks`. Required: `post_id`. Optional: `post_type` (REST base, default `posts`; e.g. `pages`), `depth` (levels to expand, default 2, max 10), `path` (dot-joined zero-based indexes such as `0.2.1`; returns only that subtree). Paths count addressable blocks only: named blocks and non-empty classic HTML (reported as `core/freeform`); the whitespace gaps between blocks are skipped, so three paragraphs are `0`, `1`, `2`. Returns { post_id, block_count (root blocks), blocks: [{ path, name, attrs, inner_html_preview (first 160 chars of the block\'s own HTML), children_count, children | has_children }] } — `children` is present within `depth`, beyond it `has_children` is set instead. Reads the raw content with edit context, so the same `edit_post` check as the editor applies. For synced patterns (wp_block posts) use `wp_get_block`.';
+        return 'Returns the Gutenberg block tree of a post, page or custom post type item as structured data instead of raw markup — read this before editing blocks with `wp_update_post_blocks`. Required: `post_id`. Optional: `post_type` (REST base, default `posts`; e.g. `pages`), `depth` (levels to expand, default 2, max 10), `path` (dot-joined zero-based indexes such as `0.2.1`; returns only that subtree). Paths count addressable blocks only: named blocks and non-empty classic HTML (reported as `core/freeform`); the whitespace gaps between blocks are skipped, so three paragraphs are `0`, `1`, `2`. Returns { post_id, block_count (root blocks), blocks: [{ path, name, attrs, inner_html_preview (first 160 chars of the block\'s own HTML), children_count, children | has_children }], content_sha256, content_bytes } — `children` is present within `depth`, beyond it `has_children` is set instead. Reads the raw content with edit context, so the same `edit_post` check as the editor applies. For synced patterns (wp_block posts) use `wp_get_block`.' . Content_Hash::DESCRIPTION;
     }
 
     public function get_category() {
@@ -77,6 +78,7 @@ class Get_Post_Blocks extends Base_Tool {
             ? $this->parse_block_path( $arguments['path'] )
             : array();
 
+        $this->refuse_switched_off_post_type_route( 'GET', $post_type, true );
         $data = $this->rest_request( 'GET', self::post_type_route( $post_type, $post_id, 'GET' ), array( 'context' => 'edit' ) );
         if ( ! isset( $data['content']['raw'] ) ) {
             throw new \RuntimeException( 'The post content could not be read in edit context.' );
@@ -109,7 +111,7 @@ class Get_Post_Blocks extends Base_Tool {
             'post_id'     => (int) $data['id'],
             'block_count' => $block_count,
             'blocks'      => $blocks,
-        );
+        ) + Content_Hash::of_post( $post_id, false );
     }
 
     private function rebase_child_paths( array &$item, $prefix ) {

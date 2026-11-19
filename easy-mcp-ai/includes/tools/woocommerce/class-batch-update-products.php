@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -9,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Batch_Update_Products extends Base_Tool {
 
+    use Batch_Reply;
     use Product_Terms;
 
     public function get_name() {
@@ -16,7 +18,7 @@ class Batch_Update_Products extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Create, update, and/or delete up to 100 WooCommerce products in a single REST batch call. Provide any combination of `create` (array of product objects), `update` (array of product objects with `id`), `delete` (array of integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns WC\'s response { create: [...], update: [...], delete: [...] } with each item\'s SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) and `_links` omitted. WC REST permission_callback enforces per-item edit_product cap — partial failures are possible (failed items appear with error key). Each create and update item\'s `categories` must be product categories of this site as `{ id }` objects, and its `tags` product tags of this site as `{ id }` objects, or `{ name }` objects, which WooCommerce assigns, creating a tag that does not exist yet: WooCommerce drops an ID that names nothing and saves the rest, so one refuses the whole call before anything is sent, naming the item. Each item\'s `upsell_ids` and `cross_sell_ids` are checked the same way: every ID must be a product or a variation of this site. If **Easy MCP AI → Settings → Force draft on create** is enabled, every `create` item has its status silently overridden to `draft` regardless of the value supplied; `update` items are unaffected.';
+        return 'Create, update, and/or delete up to 100 WooCommerce products in a single REST batch call. Provide any combination of `create` (array of product objects), `update` (array of product objects with `id`), `delete` (array of integer IDs). Default soft cap is 25 items per branch (raise via `easy_mcp_ai_wc_batch_soft_cap` filter). WooCommerce caps the combined total of create+update+delete at 100 items per request (not per branch) via `woocommerce_rest_batch_items_limit` filter. Returns { create: [...], update: [...], delete: [...] }, one row per item: its `id`, `status`, WooCommerce\'s `error` for an item it refused, and each field the item sent, as WooCommerce saved it (read the whole product with `wp_wc_get_product`); a deleted item is { id, status: "deleted", deleted: true }, and a delete WooCommerce refused { id, deleted: false, error }, and so is a delete WooCommerce answered as done while a plugin kept the product. WC REST permission_callback enforces per-item edit_product cap — partial failures are possible (failed items appear with error key). Each create and update item\'s `categories` must be product categories of this site as `{ id }` objects, and its `tags` product tags of this site as `{ id }` objects, or `{ name }` objects, which WooCommerce assigns, creating a tag that does not exist yet: WooCommerce drops an ID that names nothing and saves the rest, so one refuses the whole call before anything is sent, naming the item. Each item\'s `upsell_ids` and `cross_sell_ids` are checked the same way: every ID must be a product or a variation of this site. If **Easy MCP AI → Settings → Draft mode** saves new content as drafts (New content or Strict), every `create` item has its status silently overridden to `draft` regardless of the value supplied; `update` items are unaffected.';
     }
 
     public function get_category() {
@@ -79,6 +81,10 @@ class Batch_Update_Products extends Base_Tool {
         }
     }
 
+    public function throttle_units( array $arguments ) {
+        return self::count_items( $arguments, array( 'create', 'update', 'delete' ) );
+    }
+
     public function execute( array $arguments ) {
         if ( ! class_exists( 'WooCommerce' ) ) {
             throw new \RuntimeException( 'WooCommerce is not active.' );
@@ -133,7 +139,13 @@ class Batch_Update_Products extends Base_Tool {
             set_time_limit( 300 ); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged
         }
 
-        return $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/products/batch', $body ) );
+        $reply = self::short_batch_reply( $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/products/batch', $body ) ), $body );
+        return self::refuse_kept_deletes(
+            $reply,
+            static function ( int $id ): ?string {
+                return Delete_Outcome::post_kept( $id, 'product ' . $id, 'Its variations or child products may have been changed first.' );
+            }
+        );
     }
 
     private function checked_terms( array $item, string $label ): array {

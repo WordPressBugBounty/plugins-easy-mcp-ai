@@ -29,7 +29,12 @@ final class Elementor_Adapter extends Layout_Adapter {
         'e-paragraph'    => array( 'text' => 'paragraph', 'link' => 'link' ),
         'e-button'       => array( 'text' => 'text', 'link' => 'link' ),
         'e-image'        => array( 'image' => 'image', 'link' => 'link' ),
+        'container'      => array( 'image' => 'background_image' ),
+        'section'        => array( 'image' => 'background_image' ),
+        'column'         => array( 'image' => 'background_image' ),
     );
+
+    const TABS = array( 'content', 'layout', 'style', 'advanced' );
 
     const ALL_FIELDS = '*';
 
@@ -46,13 +51,18 @@ final class Elementor_Adapter extends Layout_Adapter {
         'code'     => 'code',
         'url'      => 'link',
         'media'    => 'image',
-        'gallery'  => 'list',
+        'gallery'  => 'gallery',
         'select'   => 'select',
         'select2'  => 'select',
         'choose'   => 'select',
         'number'   => 'number',
         'slider'   => 'size',
         'switcher' => 'boolean',
+        'popover_toggle' => 'boolean',
+        'dimensions'     => 'spacing',
+        'gaps'           => 'gap',
+        'font'           => 'text',
+        'visual_choice'  => 'select',
         'color'    => 'color',
         'icons'    => 'icon',
         'icon'     => 'icon',
@@ -62,9 +72,15 @@ final class Elementor_Adapter extends Layout_Adapter {
 
     private $documents;
 
-    public function __construct( ?callable $widgets_manager = null, ?callable $documents = null ) {
-        $this->widgets_manager = $widgets_manager;
-        $this->documents       = $documents;
+    private $elements_manager;
+
+    private $devices;
+
+    public function __construct( ?callable $widgets_manager = null, ?callable $documents = null, ?callable $elements_manager = null, ?callable $devices = null ) {
+        $this->widgets_manager  = $widgets_manager;
+        $this->documents        = $documents;
+        $this->elements_manager = $elements_manager;
+        $this->devices          = $devices;
     }
 
     public function id(): string {
@@ -239,13 +255,128 @@ final class Elementor_Adapter extends Layout_Adapter {
     }
 
     public function element_fields( string $type ): ?array {
-        $widget = $this->widget( $type );
-        if ( null === $widget ) {
+        return $this->tab_fields( $type, self::primary_tab( $type ) );
+    }
+
+    public static function primary_tab( string $type ): string {
+        return in_array( $type, Elementor_Editor::CONTAINERS, true ) ? 'layout' : 'content';
+    }
+
+    public function tab_fields( string $type, string $tab ): ?array {
+        $element = $this->element_type( $type );
+        if ( null === $element ) {
             return null;
         }
-        $controls = (array) $widget->get_controls();
+        $controls = (array) $element->get_controls();
         self::refuse_front_end_controls( $controls );
-        return self::content_fields( $controls, true );
+        $devices = $this->active_devices();
+        $fields  = array();
+        foreach ( $controls as $control ) {
+            if ( ! is_array( $control ) || self::is_device_copy( $control, $devices ) ) {
+                continue;
+            }
+            $on = isset( $control['tab'] ) && is_string( $control['tab'] ) ? $control['tab'] : 'content';
+            if ( 'all' !== $tab && $on !== $tab ) {
+                continue;
+            }
+            $field = self::field( $control, true, $devices );
+            if ( null !== $field ) {
+                $field['tab'] = $on;
+                $fields[]     = $field;
+            }
+        }
+        return $fields;
+    }
+
+    public function hidden_fields( string $type, array $settings, array $names ): array {
+        $element = $this->element_type( $type );
+        if ( null === $element || ! method_exists( $element, 'is_control_visible' ) ) {
+            return array();
+        }
+        $controls = (array) $element->get_controls();
+        $hidden   = array();
+        foreach ( $names as $name ) {
+            $control = self::control_of( $controls, $name, $this->active_devices() );
+            if ( null === $control || ( empty( $control['condition'] ) && empty( $control['conditions'] ) ) || self::conditioned_on_itself( $control ) ) {
+                continue;
+            }
+            if ( ! self::control_visible( $element, $control, $controls, $settings ) ) {
+                $hidden[ $name ] = self::condition_text( $control );
+            }
+        }
+        return $hidden;
+    }
+
+    private static function control_of( array $controls, string $name, array $devices ): ?array {
+        $named = array();
+        foreach ( $controls as $control ) {
+            if ( is_array( $control ) && isset( $control['name'] ) && is_string( $control['name'] ) ) {
+                $named[ $control['name'] ] = $control;
+            }
+        }
+        if ( isset( $named[ $name ] ) ) {
+            return $named[ $name ];
+        }
+        foreach ( $devices as $device ) {
+            $suffix = '_' . $device;
+            if ( substr( $name, -strlen( $suffix ) ) === $suffix ) {
+                return $named[ substr( $name, 0, -strlen( $suffix ) ) ] ?? null;
+            }
+        }
+        return null;
+    }
+
+    private static function conditioned_on_itself( array $control ): bool {
+        $own = isset( $control['parent'] ) && is_string( $control['parent'] ) && '' !== $control['parent'] ? $control['parent'] : (string) ( $control['name'] ?? '' );
+        foreach ( array_keys( is_array( $control['condition'] ?? null ) ? $control['condition'] : array() ) as $key ) {
+            if ( 1 === preg_match( '/^([a-z_\-0-9]+)/i', (string) $key, $match ) && in_array( $match[1], array( $own, (string) ( $control['name'] ?? '' ) ), true ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function condition_text( array $control ): string {
+        if ( empty( $control['condition'] ) || ! is_array( $control['condition'] ) ) {
+            return 'only under the conditions `condition` lists for it in wp_list_layout_elements';
+        }
+        $clauses = array();
+        foreach ( $control['condition'] as $key => $value ) {
+            $key     = (string) $key;
+            $not     = '!' === substr( $key, -1 );
+            $name    = $not ? substr( $key, 0, -1 ) : $key;
+            $values  = array_map(
+                static function ( $one ): string {
+                    return '"' . ( is_scalar( $one ) ? (string) $one : (string) wp_json_encode( $one ) ) . '"';
+                },
+                is_array( $value ) ? array_values( $value ) : array( $value )
+            );
+            $verb      = 1 === count( $values ) ? ( $not ? 'is not' : 'is' ) : ( $not ? 'is none of' : 'is one of' );
+            $clauses[] = sprintf( '%s %s %s', $name, $verb, implode( ', ', $values ) );
+        }
+        return 'only while ' . implode( ' and ', $clauses );
+    }
+
+    private static function is_device_copy( array $control, array $devices ): bool {
+        if ( empty( $control['parent'] ) || ! is_string( $control['parent'] ) || empty( $control['name'] ) || ! is_string( $control['name'] ) ) {
+            return false;
+        }
+        foreach ( $devices as $device ) {
+            if ( substr( $control['name'], -strlen( '_' . $device ) ) === '_' . $device ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function active_devices(): array {
+        $devices = null;
+        if ( null !== $this->devices ) {
+            $devices = call_user_func( $this->devices );
+        } elseif ( class_exists( '\\Elementor\\Plugin' ) && isset( \Elementor\Plugin::$instance->breakpoints ) && method_exists( \Elementor\Plugin::$instance->breakpoints, 'get_active_devices_list' ) ) {
+            $devices = \Elementor\Plugin::$instance->breakpoints->get_active_devices_list( array( 'add_desktop' => false ) );
+        }
+        return is_array( $devices ) ? array_values( array_diff( array_map( 'strval', $devices ), array( 'desktop' ) ) ) : array();
     }
 
     private static function refuse_front_end_controls( array $controls ): void {
@@ -260,10 +391,13 @@ final class Elementor_Adapter extends Layout_Adapter {
         }
     }
 
-    private static function content_fields( array $controls, bool $lists ): array {
+    private static function content_fields( array $controls, array $devices ): array {
         $fields = array();
         foreach ( $controls as $control ) {
-            $field = self::content_field( $control, $lists );
+            if ( ! is_array( $control ) || 'content' !== ( $control['tab'] ?? 'content' ) ) {
+                continue;
+            }
+            $field = self::field( $control, false, $devices );
             if ( null !== $field ) {
                 $fields[] = $field;
             }
@@ -271,11 +405,11 @@ final class Elementor_Adapter extends Layout_Adapter {
         return $fields;
     }
 
-    private static function content_field( $control, bool $lists ): ?array {
+    private static function field( $control, bool $lists, array $devices ): ?array {
         if ( ! is_array( $control ) || empty( $control['name'] ) || empty( $control['type'] ) ) {
             return null;
         }
-        if ( in_array( $control['type'], self::UI_CONTROLS, true ) || 'content' !== ( $control['tab'] ?? 'content' ) ) {
+        if ( in_array( $control['type'], self::UI_CONTROLS, true ) ) {
             return null;
         }
         $repeater = self::is_repeater( (string) $control['type'] );
@@ -285,23 +419,42 @@ final class Elementor_Adapter extends Layout_Adapter {
             'label'   => isset( $control['label'] ) && is_string( $control['label'] ) ? $control['label'] : '',
             'control' => (string) $control['type'],
         );
-        if ( ! empty( $control['responsive'] ) ) {
+        if ( ! empty( $control['is_responsive'] ) || is_array( $control['responsive'] ?? null ) || ! empty( $control['responsive'] ) ) {
+            $only                = $control['responsive']['devices'] ?? null;
             $field['responsive'] = true;
+            $field['devices']    = array_values( array_diff( is_array( $only ) ? array_map( 'strval', $only ) : $devices, array( 'desktop' ) ) );
         }
-        if ( ! empty( $control['options'] ) && is_array( $control['options'] ) ) {
-            $field['options'] = array_values( array_map( 'strval', array_keys( $control['options'] ) ) );
+        if ( ! empty( $control['selectors'] ) ) {
+            $field['css'] = true;
+        }
+        if ( ! empty( $control['condition'] ) && is_array( $control['condition'] ) ) {
+            $field['condition'] = $control['condition'];
+        }
+        if ( ! empty( $control['conditions'] ) && is_array( $control['conditions'] ) ) {
+            $field['conditions'] = $control['conditions'];
+        }
+        $options = self::option_keys( $control );
+        if ( array() !== $options ) {
+            $field['options'] = $options;
         }
         if ( 'select2' === $control['type'] && ! empty( $control['multiple'] ) ) {
             $field['multiple'] = true;
         }
-        if ( 'switcher' === $control['type'] && isset( $control['return_value'] ) && is_scalar( $control['return_value'] ) && 'yes' !== (string) $control['return_value'] ) {
+        if ( in_array( $control['type'], array( 'switcher', 'popover_toggle' ), true ) && isset( $control['return_value'] ) && is_scalar( $control['return_value'] ) && 'yes' !== (string) $control['return_value'] ) {
             $field['on_value'] = (string) $control['return_value'];
+        }
+        if ( in_array( $field['kind'], array( 'size', 'spacing', 'gap' ), true ) ) {
+            $field['units'] = ! empty( $control['size_units'] ) && is_array( $control['size_units'] ) ? array_values( array_map( 'strval', $control['size_units'] ) ) : array( 'px' );
+        }
+        if ( ! empty( $control['groupType'] ) && ! empty( $control['groupPrefix'] ) && is_string( $control['groupType'] ) && is_string( $control['groupPrefix'] ) ) {
+            $field['group']        = $control['groupType'];
+            $field['group_prefix'] = $control['groupPrefix'];
         }
         if ( isset( $control['default'] ) && is_scalar( $control['default'] ) && '' !== $control['default'] ) {
             $field['default'] = $control['default'];
         }
         if ( $lists && $repeater && isset( $control['fields'] ) && is_array( $control['fields'] ) ) {
-            $field['item_fields'] = self::content_fields( $control['fields'], false );
+            $field['item_fields'] = self::content_fields( $control['fields'], $devices );
             $min                  = isset( $control['min_items'] ) && is_int( $control['min_items'] ) && $control['min_items'] > 0 ? $control['min_items'] : 0;
             $field['min_items']   = $min > 0 ? $min : ( false === ( $control['prevent_empty'] ?? true ) ? 0 : 1 );
             if ( isset( $control['max_items'] ) && is_int( $control['max_items'] ) && $control['max_items'] > 0 ) {
@@ -309,6 +462,16 @@ final class Elementor_Adapter extends Layout_Adapter {
             }
         }
         return $field;
+    }
+
+    private static function option_keys( array $control ): array {
+        $options = ! empty( $control['options'] ) && is_array( $control['options'] ) ? array_keys( $control['options'] ) : array();
+        foreach ( ! empty( $control['groups'] ) && is_array( $control['groups'] ) ? $control['groups'] : array() as $group ) {
+            if ( is_array( $group ) && ! empty( $group['options'] ) && is_array( $group['options'] ) ) {
+                $options = array_merge( $options, array_keys( $group['options'] ) );
+            }
+        }
+        return array_values( array_unique( array_map( 'strval', $options ) ) );
     }
 
     private static function is_repeater( string $type ): bool {
@@ -324,6 +487,20 @@ final class Elementor_Adapter extends Layout_Adapter {
         return null !== $widget && is_a( $widget, 'Elementor\\Modules\\NestedElements\\Base\\Widget_Nested_Base' );
     }
 
+    private function element_type( string $type ): ?object {
+        if ( ! in_array( $type, Elementor_Editor::CONTAINERS, true ) ) {
+            return $this->widget( $type );
+        }
+        $manager = null;
+        if ( null !== $this->elements_manager ) {
+            $manager = call_user_func( $this->elements_manager );
+        } elseif ( class_exists( '\\Elementor\\Plugin' ) && isset( \Elementor\Plugin::$instance->elements_manager ) ) {
+            $manager = \Elementor\Plugin::$instance->elements_manager;
+        }
+        $element = is_object( $manager ) && method_exists( $manager, 'get_element_types' ) ? $manager->get_element_types( $type ) : null;
+        return is_object( $element ) && method_exists( $element, 'get_controls' ) ? $element : null;
+    }
+
     private function widget( string $type ): ?object {
         $widgets = $this->widgets();
         return isset( $widgets[ $type ] ) && is_object( $widgets[ $type ] ) && method_exists( $widgets[ $type ], 'get_controls' ) ? $widgets[ $type ] : null;
@@ -335,9 +512,13 @@ final class Elementor_Adapter extends Layout_Adapter {
             return array();
         }
         $controls = (array) $widget->get_controls();
+        $devices  = $this->active_devices();
         $lists    = array();
         foreach ( $controls as $control ) {
-            $field = self::content_field( $control, true );
+            if ( ! is_array( $control ) || 'content' !== ( $control['tab'] ?? 'content' ) ) {
+                continue;
+            }
+            $field = self::field( $control, true, $devices );
             if ( null === $field || ! isset( $field['item_fields'] ) ) {
                 continue;
             }
@@ -365,7 +546,7 @@ final class Elementor_Adapter extends Layout_Adapter {
                     );
                 }
             }
-            if ( ! self::list_visible( $widget, $control, $controls, $settings ) ) {
+            if ( ! self::control_visible( $widget, $control, $controls, $settings ) ) {
                 $flags[] = 'hidden';
             }
             if ( array() !== $flags ) {
@@ -394,7 +575,7 @@ final class Elementor_Adapter extends Layout_Adapter {
         return null === $label ? '' : $label;
     }
 
-    private static function list_visible( object $widget, array $control, array $controls, array $settings ): bool {
+    private static function control_visible( object $widget, array $control, array $controls, array $settings ): bool {
         if ( ! method_exists( $widget, 'is_control_visible' ) ) {
             return true;
         }
@@ -437,7 +618,17 @@ final class Elementor_Adapter extends Layout_Adapter {
             throw self::refusal( array( sprintf( 'Elementor cannot open post %d as an Elementor document.', $post_id ) ) );
         }
         $original = array_values( self::tree( $post_id ) );
-        $editor   = new Elementor_Editor( array( $this, 'element_fields' ), array( __CLASS__, 'library_image' ), array( $this, 'is_nested_widget' ), current_user_can( 'unfiltered_html' ), self::containers_active() );
+        $editor   = new Elementor_Editor(
+            function ( string $type ): ?array {
+                return $this->tab_fields( $type, 'all' );
+            },
+            array( __CLASS__, 'library_image' ),
+            array( $this, 'is_nested_widget' ),
+            current_user_can( 'unfiltered_html' ),
+            self::containers_active(),
+            null,
+            array( $this, 'hidden_fields' )
+        );
         $plan     = $editor->plan( $original, $ops );
         if ( array() !== $plan['errors'] ) {
             throw self::refusal( $plan['errors'] );
@@ -452,7 +643,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             throw self::refusal( $problems );
         }
 
-        $warnings = array_merge( $warnings, $this->hidden_list_warnings( $plan['data'], $plan['results'] ) );
+        $warnings = array_merge( $warnings, $plan['warnings'] ?? array(), $this->hidden_list_warnings( $plan['data'], $plan['results'] ), self::shared_css_id_warnings( $plan['data'], $plan['results'] ) );
         $editing  = self::editing_user( $post_id );
         if ( null !== $editing ) {
             $open = sprintf( '%s has post %d open in the editor; their next save there replaces the whole layout, this change included.', $editing, $post_id );
@@ -558,6 +749,38 @@ final class Elementor_Adapter extends Layout_Adapter {
     private static function containers_active(): bool {
         $experiments = class_exists( '\\Elementor\\Plugin' ) && isset( \Elementor\Plugin::$instance->experiments ) ? \Elementor\Plugin::$instance->experiments : null;
         return is_object( $experiments ) && method_exists( $experiments, 'is_feature_active' ) && (bool) $experiments->is_feature_active( 'container' );
+    }
+
+    private static function shared_css_id_warnings( array $data, array $results ): array {
+        $holders = array();
+        $walk    = static function ( array $elements ) use ( &$walk, &$holders ): void {
+            foreach ( $elements as $element ) {
+                if ( ! is_array( $element ) ) {
+                    continue;
+                }
+                $id = $element['settings']['_element_id'] ?? '';
+                if ( is_string( $id ) && '' !== trim( $id ) ) {
+                    $holders[ trim( $id ) ][] = (string) ( $element['id'] ?? '' );
+                }
+                $walk( isset( $element['elements'] ) && is_array( $element['elements'] ) ? $element['elements'] : array() );
+            }
+        };
+        $walk( $data );
+        $written = array();
+        foreach ( $results as $result ) {
+            $after = $result['after'];
+            if ( in_array( $result['op'], array( 'set_fields', 'set_text' ), true ) && ! isset( $result['list'] ) && ( is_array( $after ) ? array_key_exists( '_element_id', $after ) : '_element_id' === $result['field'] ) ) {
+                $written[] = $result['element'];
+            }
+            $written = array_merge( $written, $result['created'] ?? array() );
+        }
+        $warnings = array();
+        foreach ( $holders as $css_id => $elements ) {
+            if ( count( $elements ) > 1 && array() !== array_intersect( $elements, $written ) ) {
+                $warnings[] = sprintf( 'CSS ID "%s" is now on %d elements of this page (%s); an HTML id should be unique.', $css_id, count( $elements ), implode( ', ', $elements ) );
+            }
+        }
+        return $warnings;
     }
 
     private function hidden_list_warnings( array $data, array $results ): array {
@@ -692,7 +915,7 @@ final class Elementor_Adapter extends Layout_Adapter {
         foreach ( $planned as $id => $entry ) {
             if ( ! isset( $kept[ $id ] ) ) {
                 if ( '' === $entry['parent'] || isset( $kept[ $entry['parent'] ] ) ) {
-                    $problems[] = sprintf( 'Element "%s" (%s) needs a plugin that is not active; Elementor\'s save would remove it.', $id, $entry['type'] );
+                    $problems[] = sprintf( 'Element "%s" (%s) needs a plugin that is not active; Elementor\'s save would remove it. Remove it in the same call to save the page without it, or activate the plugin.', $id, $entry['type'] );
                 }
                 continue;
             }

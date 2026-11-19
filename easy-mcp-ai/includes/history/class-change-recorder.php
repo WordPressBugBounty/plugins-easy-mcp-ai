@@ -64,7 +64,8 @@ class Change_Recorder {
         'default_category', 'default_comment_status', 'default_ping_status',
         'posts_per_page', 'date_format', 'time_format', 'start_of_week',
         'timezone_string', 'permalink_structure', 'show_on_front', 'page_on_front', 'page_for_posts',
-        'easy_mcp_ai_force_draft_on_create', 'easy_mcp_ai_disabled_tools', 'easy_mcp_ai_enabled_tools', 'easy_mcp_ai_allowed_tool_patterns',
+        'site_icon', 'site_logo',
+        'easy_mcp_ai_force_draft_on_create', 'easy_mcp_ai_draft_mode', 'easy_mcp_ai_disabled_tools', 'easy_mcp_ai_enabled_tools', 'easy_mcp_ai_allowed_tool_patterns',
     );
 
     private static $option_churn_denylist = array(
@@ -74,8 +75,11 @@ class Change_Recorder {
         'easy_mcp_ai_layout_lock_',
         'easy_mcp_ai_yoast_settings_lock', 'easy_mcp_ai_rank_math_settings_lock',
         'easy_mcp_ai_divi_options_lock',
+        'easy_mcp_ai_cloud_register', 'easy_mcp_ai_cloud_key', 'easy_mcp_ai_cloud_site_id',
         'easy_mcp_ai_tool_policy_lock',
+        'easy_mcp_ai_translation_lock',
         'easy_mcp_ai_media_upload_',
+        'easy_mcp_ai_cloud_ref_',
         'easy_mcp_ai_call_observations',
     );
 
@@ -349,6 +353,9 @@ class Change_Recorder {
             return;
         }
         if ( isset( $post->post_type ) && 'revision' === $post->post_type ) {
+            return;
+        }
+        if ( ! isset( $this->post_before[ $post_id ] ) && Change_Context::consume_refresh_only( 'post', $post_id ) ) {
             return;
         }
         $content_source = $this->post_content_source_before[ $post_id ] ?? null;
@@ -1963,19 +1970,7 @@ class Change_Recorder {
         return isset( $first->ID ) ? (int) $first->ID : null;
     }
 
-    private function write_row( array $partial, ?array $context_override = null ) {
-        $ctx     = null !== $context_override ? $context_override : Change_Context::all();
-        $payload = array_merge( array(
-            'audit_id'        => $ctx['audit_id']        ?? null,
-            'auth_source'     => $ctx['auth_source']     ?? 'legacy',
-            'token_id'        => $ctx['token_id']        ?? 0,
-            'oauth_client_id' => $ctx['oauth_client_id'] ?? null,
-            'wp_user_id'      => $ctx['wp_user_id']      ?? 0,
-            'tool_name'       => $ctx['tool_name']       ?? '',
-            'ip_address'      => $ctx['ip_address']      ?? null,
-            'capture_mode'    => 'hooked',
-        ), $partial );
-
+    public static function stored_values( array $payload ): array {
         $identifier_sensitive = false;
         $object_type          = $payload['object_type'] ?? '';
         $oid                  = (string) ( $payload['object_id'] ?? '' );
@@ -2004,6 +1999,23 @@ class Change_Recorder {
                 }
             }
         }
+        return $payload;
+    }
+
+    private function write_row( array $partial, ?array $context_override = null ) {
+        $ctx     = null !== $context_override ? $context_override : Change_Context::all();
+        $payload = array_merge( array(
+            'audit_id'        => $ctx['audit_id']        ?? null,
+            'auth_source'     => $ctx['auth_source']     ?? 'legacy',
+            'token_id'        => $ctx['token_id']        ?? 0,
+            'oauth_client_id' => $ctx['oauth_client_id'] ?? null,
+            'wp_user_id'      => $ctx['wp_user_id']      ?? 0,
+            'tool_name'       => $ctx['tool_name']       ?? '',
+            'ip_address'      => $ctx['ip_address']      ?? null,
+            'capture_mode'    => 'hooked',
+        ), $partial );
+
+        $payload = self::stored_values( $payload );
 
         if ( ! empty( $payload['object_type'] ) && isset( $payload['object_id'] ) ) {
             $noted_fields = is_array( $partial['changed_fields'] ?? null ) ? $partial['changed_fields'] : array();

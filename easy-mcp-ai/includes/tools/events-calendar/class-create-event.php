@@ -14,7 +14,7 @@ class Create_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new event in The Events Calendar. Required: title, start_date, end_date (YYYY-MM-DD HH:MM:SS format). Optional: description, venue, organizer, all_day, cost, url, status. Requires The Events Calendar plugin active.';
+        return 'Creates a new event in The Events Calendar. Required: title, start_date, end_date (YYYY-MM-DD HH:MM:SS format). Optional: description, venue, organizer, all_day, cost, url, status. Returns { id, title, start_date, end_date, url, status } (`status` as saved: a draft while Draft mode saves new content as drafts). Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -136,6 +136,15 @@ class Create_Event extends Base_Tool {
             'start_date' => $data['start_date'],
             'end_date'   => $data['end_date'],
             'url'        => $data['url'],
-        );
+        ) + self::saved_status( $data );
+    }
+
+    public static function saved_status( array $data ): array {
+        return isset( $data['status'] ) && is_string( $data['status'] ) ? array( 'status' => $data['status'] ) : array();
+    }
+
+    public static function publish_capability(): string {
+        $type = get_post_type_object( 'tribe_events' );
+        return is_object( $type ) && isset( $type->cap->publish_posts ) && is_string( $type->cap->publish_posts ) ? $type->cap->publish_posts : 'publish_tribe_events';
     }
 }

@@ -82,19 +82,19 @@ class Get_Log extends Base_Tool {
         $lines   = isset( $arguments['lines'] ) ? max( 1, min( 1000, (int) $arguments['lines'] ) ) : 100;
 
         if ( '' !== $source && '' !== $file_id ) {
-            throw new \RuntimeException( 'Pass `source` or `file_id`, not both.' );
+            throw new \InvalidArgumentException( 'Pass `source` or `file_id`, not both.' );
         }
         if ( '' === $source && '' === $file_id ) {
-            throw new \RuntimeException( 'Pass `source` (for example "fatal-errors") or a `file_id` from wp_wc_list_logs.' );
+            throw new \InvalidArgumentException( 'Pass `source` (for example "fatal-errors") or a `file_id` from wp_wc_list_logs.' );
         }
         if ( '' !== $date && '' !== $file_id ) {
-            throw new \RuntimeException( '`date` goes with `source`; a `file_id` already names its day.' );
+            throw new \InvalidArgumentException( '`date` goes with `source`; a `file_id` already names its day.' );
         }
         if ( '' !== $date && ! self::is_date( $date ) ) {
-            throw new \RuntimeException( '`date` must be a calendar day as YYYY-MM-DD, for example 2026-10-09.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \InvalidArgumentException( '`date` must be a calendar day as YYYY-MM-DD, for example 2026-10-09.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( '' !== $level && ! isset( WC_Logs::SEVERITY[ $level ] ) ) {
-            throw new \RuntimeException( '`level` must be one of: ' . implode( ', ', array_keys( WC_Logs::SEVERITY ) ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \InvalidArgumentException( '`level` must be one of: ' . implode( ', ', array_keys( WC_Logs::SEVERITY ) ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $storage = WC_Logs::storage();

@@ -27,6 +27,15 @@ final class User_Application_Password_Handler extends Command_Handler {
     const MSG_CANNOT_DELETE     = 'Sorry, you are not allowed to delete this application password.';
     const MSG_CANNOT_DELETE_ALL = 'Sorry, you are not allowed to delete application passwords for this user.';
 
+    const MSG_KEPT       = 'it is still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_UNREAD     = 'a database error stopped the application passwords being read back, so whether it was deleted is not known.';
+    const MSG_ALL_KEPT   = 'WordPress did not delete the application passwords: %d still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_ALL_PART   = 'WordPress deleted only some of the application passwords: %1$d deleted, %2$d still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_NAME_KEPT   = 'WordPress did not store the new name: the application password still holds its old one. A plugin or theme on this site may have stopped the write.';
+    const MSG_NAME_UNREAD = 'WordPress answered that the application password was renamed, but a database error stopped it being read back, so whether it was stored is not known.';
+    const MSG_NAME_UNBASED = "A database error stopped the user's stored application passwords being read, so nothing was written.";
+    const MSG_ALL_UNREAD = 'WordPress answered that the application passwords were deleted, but a database error stopped them being read back, so whether they were deleted is not known.';
+
     const REFUSE_HASH_FILTER = 'it filters on the password hash, which wp_cli_run never prints';
     const REFUSE_UNKNOWN     = 'it is not a field of an application password (uuid, app_id, name, created, last_used, last_ip), and WP-CLI would ignore it';
     const REFUSE_UPDATE      = 'only --name can be changed; WordPress ignores every other field';
@@ -149,14 +158,33 @@ final class User_Application_Password_Handler extends Command_Handler {
         $uuid    = isset( $inv->args[1] ) ? (string) $inv->args[1] : '';
         $ctx->not_captured( self::NOT_CAPTURED );
 
-        $before = \WP_Application_Passwords::get_user_application_password( $user_id, $uuid );
+        $raw  = $inv->assoc['name'] ?? '';
+        $name = ! empty( $raw ) ? \sanitize_text_field( (string) $raw ) : '';
+        $name = ! empty( $name ) ? (string) \wp_unslash( $name ) : null;
+        $before = null;
+        if ( null !== $name ) {
+            $stored = self::stored_passwords( $user_id );
+            if ( null === $stored ) {
+                $ctx->out->error( self::MSG_NAME_UNBASED );
+            }
+            $before = self::password_of( $stored, $uuid );
+        }
         $result = \WP_Application_Passwords::update_application_password( $user_id, $uuid, $inv->assoc );
         if ( $result instanceof \WP_Error ) {
             $ctx->out->error( Db_Object_Command::error_to_string( $result ) );
         }
-        $after = \WP_Application_Passwords::get_user_application_password( $user_id, $uuid );
-        if ( is_array( $before ) && is_array( $after ) && $before['name'] !== $after['name'] ) {
-            $ctx->mark_changed();
+        if ( null !== $name ) {
+            $stored = self::stored_passwords( $user_id );
+            if ( null === $stored ) {
+                $ctx->not_known( self::MSG_NAME_UNREAD );
+            }
+            $after = self::password_of( $stored, $uuid );
+            if ( $after !== $before ) {
+                $ctx->mark_changed();
+            }
+            if ( null === $after || (string) ( $after['name'] ?? '' ) !== $name ) {
+                $ctx->out->error( self::MSG_NAME_KEPT );
+            }
         }
         $ctx->out->success( 'Updated application password.' );
     }
@@ -180,10 +208,43 @@ final class User_Application_Password_Handler extends Command_Handler {
         self::delete_uuids( $user_id, $args, $ctx );
     }
 
+    private static function password_of( array $passwords, string $uuid ): ?array {
+        foreach ( $passwords as $item ) {
+            if ( isset( $item['uuid'] ) && $uuid === $item['uuid'] ) {
+                return $item;
+            }
+        }
+        return null;
+    }
+
+    private static function stored_passwords( int $user_id ): ?array {
+        $row = User_Handler::stored_user_meta( $user_id, '_application_passwords' );
+        if ( null === $row ) {
+            return null;
+        }
+        return is_array( $row[1] ) ? array_values( array_filter( $row[1], 'is_array' ) ) : array();
+    }
+
     private static function delete_all( int $user_id, Context $ctx ): void {
+        $before = self::stored_passwords( $user_id );
         $result = \WP_Application_Passwords::delete_all_application_passwords( $user_id );
         if ( $result instanceof \WP_Error ) {
             $ctx->out->error( Db_Object_Command::error_to_string( $result ) );
+        }
+        $after = self::stored_passwords( $user_id );
+        if ( null === $after ) {
+            if ( (int) $result > 0 ) {
+                $ctx->not_known( self::MSG_ALL_UNREAD );
+            }
+            $ctx->out->error( self::MSG_ALL_UNREAD );
+        }
+        $left = count( $after );
+        if ( $left > 0 ) {
+            if ( null !== $before && $left < count( $before ) ) {
+                $ctx->mark_changed();
+                $ctx->out->error( sprintf( self::MSG_ALL_PART, count( $before ) - $left, $left ) );
+            }
+            $ctx->out->error( sprintf( self::MSG_ALL_KEPT, $left ) );
         }
         if ( (int) $result > 0 ) {
             $ctx->mark_changed();
@@ -204,6 +265,15 @@ final class User_Application_Password_Handler extends Command_Handler {
             $result = \WP_Application_Passwords::delete_application_password( $user_id, (string) $uuid );
             if ( $result instanceof \WP_Error ) {
                 $ctx->out->warning( "Failed to delete UUID {$uuid}: " . $result->get_error_message() );
+                ++$errors;
+                continue;
+            }
+            $stored = self::stored_passwords( $user_id );
+            if ( null === $stored || in_array( (string) $uuid, array_column( $stored, 'uuid' ), true ) ) {
+                if ( null === $stored ) {
+                    $ctx->mark_changed();
+                }
+                $ctx->out->warning( "Failed to delete UUID {$uuid}: " . ( null === $stored ? self::MSG_UNREAD : self::MSG_KEPT ) );
                 ++$errors;
                 continue;
             }

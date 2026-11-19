@@ -11,8 +11,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Scope_Map {
 
     const SCOPE_MAP = array(
-        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full', 'wp_get_post_blocks', 'wp_create_preview_link', 'wp_get_page_layout', 'wp_list_layout_elements' ),
-        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post', 'wp_update_post_blocks', 'wp_duplicate_post', 'wp_republish_post', 'wp_update_page_layout' ),
+        'mcp:posts:read'         => array( 'wp_get_post', 'wp_list_posts', 'wp_get_page', 'wp_list_pages', 'wp_list_revisions', 'wp_get_revision', 'wp_get_post_meta', 'wp_get_post_types', 'wp_get_post_statuses', 'wp_count_posts', 'wp_get_post_full', 'wp_get_post_blocks', 'wp_find_in_post', 'wp_find_in_site', 'wp_create_preview_link', 'wp_get_page_layout', 'wp_list_layout_elements', 'wp_list_languages', 'wp_get_translations', 'blocks_execute', 'blocks_schema_get', 'atomic_wind_context', 'blocks_get', 'blocks_list_posts' ),
+        'mcp:posts:write'        => array( 'wp_create_post', 'wp_update_post', 'wp_delete_post', 'wp_create_page', 'wp_update_page', 'wp_delete_page', 'wp_delete_revision', 'wp_restore_revision', 'wp_update_post_meta', 'wp_delete_post_meta', 'wp_get_post_statuses', 'wp_add_post_terms', 'wp_replace_in_post', 'wp_update_post_blocks', 'wp_duplicate_post', 'wp_republish_post', 'wp_update_page_layout', 'wp_link_translations', 'blocks_publish', 'blocks_edit' ),
         'mcp:cpt:read'           => array( 'wp_list_cpt_items', 'wp_get_cpt_item' ),
         'mcp:cpt:write'          => array( 'wp_create_cpt_item', 'wp_update_cpt_item', 'wp_delete_cpt_item' ),
         'mcp:media:read'         => array( 'wp_get_media', 'wp_list_media', 'wp_count_media' ),
@@ -35,7 +35,7 @@ class Scope_Map {
         'mcp:user_delete:write'  => array( 'wp_delete_user' ),
         'mcp:menus:read'         => array( 'wp_get_menu', 'wp_list_menus', 'wp_list_menu_items' ),
         'mcp:menus:write'        => array( 'wp_create_menu', 'wp_update_menu', 'wp_delete_menu', 'wp_create_menu_item', 'wp_update_menu_item', 'wp_delete_menu_item', 'wp_reorder_menu_items' ),
-        'mcp:blocks:read'        => array( 'wp_get_block', 'wp_list_blocks', 'wp_list_patterns', 'wp_get_template', 'wp_list_templates', 'wp_get_global_styles', 'wp_get_active_theme', 'wp_list_themes', 'wp_list_block_types' ),
+        'mcp:blocks:read'        => array( 'wp_get_block', 'wp_list_blocks', 'wp_list_patterns', 'wp_get_template', 'wp_list_templates', 'wp_get_global_styles', 'wp_get_active_theme', 'wp_list_themes', 'wp_list_block_types', 'blocks_site_styles' ),
         'mcp:blocks:write'       => array( 'wp_create_block', 'wp_update_block', 'wp_delete_block' ),
         'mcp:appearance:read'    => array( 'wp_get_theme_mods', 'wp_get_custom_css' ),
         'mcp:appearance:write'   => array( 'wp_update_template', 'wp_update_global_styles', 'wp_update_theme_mod', 'wp_delete_theme_mod', 'wp_update_custom_css' ),
@@ -67,6 +67,10 @@ class Scope_Map {
         'mcp:divi:write'         => array( 'wp_divi_update_theme_options' ),
         'mcp:cf7:read'           => array( 'wp_cf7_list_forms', 'wp_cf7_get_form' ),
         'mcp:cf7:write'          => array( 'wp_cf7_create_form', 'wp_cf7_update_form', 'wp_cf7_delete_form' ),
+        'mcp:smartslider:read'   => array( 'wp_smartslider_list_sliders', 'wp_smartslider_get_slider', 'wp_smartslider_get_slide' ),
+        'mcp:smartslider:write'  => array( 'wp_smartslider_update_slide', 'wp_smartslider_reorder_slides', 'wp_smartslider_duplicate_slide', 'wp_smartslider_delete_slide' ),
+        'mcp:loco:read'          => array( 'wp_loco_list_files', 'wp_loco_get_translations' ),
+        'mcp:loco:write'         => array( 'wp_loco_update_translations' ),
         'mcp:yoast:read'         => array( 'wp_yoast_get_post_seo', 'wp_yoast_get_head', 'wp_yoast_get_term_seo', 'wp_yoast_get_settings' ),
         'mcp:yoast:write'        => array( 'wp_yoast_update_post_seo', 'wp_yoast_update_term_seo', 'wp_yoast_update_settings' ),
         'mcp:aioseo:read'        => array( 'wp_aioseo_get_post_seo', 'wp_aioseo_get_breadcrumb' ),
@@ -163,6 +167,8 @@ class Scope_Map {
         'sitekit'     => 'Site Kit by Google',
         'divi'        => 'Divi',
         'cf7'         => 'Contact Form 7',
+        'smartslider' => 'Smart Slider 3',
+        'loco'        => 'Loco Translate',
         'yoast'       => 'Yoast SEO',
         'aioseo'      => 'All in One SEO',
         'rankmath'    => 'Rank Math SEO',
@@ -189,6 +195,8 @@ class Scope_Map {
         'sitekit'     => array( 'Google\\Site_Kit\\Plugin' ),
         'divi'        => array(),
         'cf7'         => array( 'WPCF7_ContactForm' ),
+        'smartslider' => array( 'Nextend\\SmartSlider3\\SmartSlider3Info' ),
+        'loco'        => array( 'Loco_package_Plugin' ),
         'yoast'       => array( 'WPSEO_Options' ),
         'aioseo'      => array( 'AIOSEO\\Plugin\\AIOSEO' ),
         'rankmath'    => array( 'RankMath' ),
@@ -588,6 +596,7 @@ class Scope_Map {
 
     public static function get_categories(): array {
         $labels     = self::category_labels();
+        $notes      = self::category_notes();
         $categories = array();
         $seen       = array();
         foreach ( array_keys( self::SCOPE_MAP ) as $leaf ) {
@@ -598,7 +607,7 @@ class Scope_Map {
                 continue;
             }
             $seen[ $slug ] = true;
-            $categories[]  = self::scope_category( $slug, $labels );
+            $categories[]  = self::scope_category( $slug, $labels, $notes );
         }
 
         return array_merge( $categories, self::ability_categories() );
@@ -606,62 +615,99 @@ class Scope_Map {
 
     private static function category_labels(): array {
         return array(
-            'posts'       => __( 'Posts & Pages', 'easy-mcp-ai' ),
-            'cpt'         => __( 'Custom Post Types', 'easy-mcp-ai' ),
-            'media'       => __( 'Media', 'easy-mcp-ai' ),
-            'taxonomies'  => __( 'Taxonomies', 'easy-mcp-ai' ),
-            'comments'    => __( 'Comments', 'easy-mcp-ai' ),
-            'users'       => __( 'Users', 'easy-mcp-ai' ),
-            'menus'       => __( 'Menus', 'easy-mcp-ai' ),
-            'blocks'      => __( 'Blocks & Themes', 'easy-mcp-ai' ),
-            'plugins'     => __( 'Plugins', 'easy-mcp-ai' ),
-            'themes'      => __( 'Themes', 'easy-mcp-ai' ),
-            'settings'    => __( 'Settings', 'easy-mcp-ai' ),
-            'woocommerce' => 'WooCommerce',
-            'acf'         => __( 'Advanced Custom Fields', 'easy-mcp-ai' ),
-            'acf_posts'   => __( 'Advanced Custom Fields — Post, Page & Options Page Fields', 'easy-mcp-ai' ),
-            'buddypress'  => 'BuddyPress',
-            'events'      => __( 'The Events Calendar', 'easy-mcp-ai' ),
-            'redirection' => 'Redirection',
-            'sitekit'     => 'Site Kit by Google',
-            'divi'        => 'Divi',
-            'cf7'         => 'Contact Form 7',
-            'yoast'       => __( 'Yoast SEO', 'easy-mcp-ai' ),
-            'aioseo'      => __( 'All in One SEO', 'easy-mcp-ai' ),
-            'rankmath'    => __( 'Rank Math SEO', 'easy-mcp-ai' ),
-            'gsc'         => __( 'Google Search Console', 'easy-mcp-ai' ),
-            'ga'          => __( 'Google Analytics', 'easy-mcp-ai' ),
-            'dfs'         => __( 'DataforSEO', 'easy-mcp-ai' ),
-            'semrush'     => __( 'Semrush', 'easy-mcp-ai' ),
-            'ahrefs'      => __( 'Ahrefs (DR)', 'easy-mcp-ai' ),
-            'seranking'   => __( 'SE Ranking', 'easy-mcp-ai' ),
-            'seopress'    => __( 'SEOPress', 'easy-mcp-ai' ),
-            'slimseo'     => __( 'Slim SEO', 'easy-mcp-ai' ),
-            'tsf'         => __( 'The SEO Framework', 'easy-mcp-ai' ),
-            'term_meta'   => __( 'Term Meta', 'easy-mcp-ai' ),
-            'user_meta'   => __( 'User Meta', 'easy-mcp-ai' ),
-            'appearance'  => __( 'Site Appearance (templates, global styles, theme mods & CSS)', 'easy-mcp-ai' ),
-            'widgets'     => __( 'Widgets & Sidebars', 'easy-mcp-ai' ),
-            'wc_webhooks' => 'WooCommerce Webhooks',
-            'wc_store'    => __( 'WooCommerce Store Setup (settings, currency, shipping, payment methods, tax)', 'easy-mcp-ai' ),
-            'user_create' => __( 'Users — Create', 'easy-mcp-ai' ),
-            'user_update' => __( 'Users — Update', 'easy-mcp-ai' ),
-            'user_delete' => __( 'Users — Delete', 'easy-mcp-ai' ),
-            'history'     => __( 'Change History (audit log of MCP edits)', 'easy-mcp-ai' ),
-            'audit'       => __( 'Audit Log (every MCP call, all users — admin only)', 'easy-mcp-ai' ),
-            'site_health' => __( 'Site Health, Cron & Error Log', 'easy-mcp-ai' ),
-            'core_update' => __( 'WordPress core update (replaces WordPress itself with a newer release from wordpress.org)', 'easy-mcp-ai' ),
-            'plugin_files' => __( 'Plugin installs and deletions (adds plugins from wordpress.org, or from a ZIP or URL, or removes plugin code)', 'easy-mcp-ai' ),
-            'theme_files' => __( 'Theme installs and deletions (adds themes from wordpress.org, or from a ZIP or URL, or removes theme code)', 'easy-mcp-ai' ),
-            'cli'         => __( 'WP-CLI commands (commands no other tool performs, such as options, roles and sites, need only this permission, limited by your WordPress role)', 'easy-mcp-ai' ),
-            'rest'        => __( 'REST routes of plugins and core (the route checks your permissions)', 'easy-mcp-ai' ),
-            'rest_delete' => __( 'REST routes — Delete', 'easy-mcp-ai' ),
-            'cache'       => __( 'Clear caches (page, asset and CDN caches, through each cache plugin)', 'easy-mcp-ai' ),
-            'mail'        => __( 'Send email to the site\'s users (an address outside them only when a person approves that email)', 'easy-mcp-ai' ),
+            'posts'        => __( 'Posts & pages', 'easy-mcp-ai' ),
+            'cpt'          => __( 'Custom content types', 'easy-mcp-ai' ),
+            'media'        => __( 'Media library', 'easy-mcp-ai' ),
+            'taxonomies'   => __( 'Categories, tags & other taxonomies', 'easy-mcp-ai' ),
+            'comments'     => __( 'Comments', 'easy-mcp-ai' ),
+            'users'        => __( 'User list & profiles', 'easy-mcp-ai' ),
+            'menus'        => __( 'Menus', 'easy-mcp-ai' ),
+            'blocks'       => __( 'Patterns & reusable blocks', 'easy-mcp-ai' ),
+            'plugins'      => __( 'Plugins — turn on, off & update', 'easy-mcp-ai' ),
+            'themes'       => __( 'Themes — switch & update', 'easy-mcp-ai' ),
+            'settings'     => __( 'Site settings', 'easy-mcp-ai' ),
+            'woocommerce'  => 'WooCommerce',
+            'acf'          => __( 'Advanced Custom Fields', 'easy-mcp-ai' ),
+            'acf_posts'    => __( 'Advanced Custom Fields — post & page fields', 'easy-mcp-ai' ),
+            'buddypress'   => 'BuddyPress',
+            'events'       => __( 'The Events Calendar', 'easy-mcp-ai' ),
+            'redirection'  => 'Redirection',
+            'sitekit'      => 'Site Kit by Google',
+            'divi'         => 'Divi',
+            'cf7'          => 'Contact Form 7',
+            'smartslider'  => 'Smart Slider 3',
+            'loco'         => 'Loco Translate',
+            'yoast'        => __( 'Yoast SEO', 'easy-mcp-ai' ),
+            'aioseo'       => __( 'All in One SEO', 'easy-mcp-ai' ),
+            'rankmath'     => __( 'Rank Math SEO', 'easy-mcp-ai' ),
+            'gsc'          => __( 'Google Search Console', 'easy-mcp-ai' ),
+            'ga'           => __( 'Google Analytics', 'easy-mcp-ai' ),
+            'dfs'          => __( 'DataforSEO', 'easy-mcp-ai' ),
+            'semrush'      => __( 'Semrush', 'easy-mcp-ai' ),
+            'ahrefs'       => __( 'Ahrefs domain rating', 'easy-mcp-ai' ),
+            'seranking'    => __( 'SE Ranking', 'easy-mcp-ai' ),
+            'seopress'     => __( 'SEOPress', 'easy-mcp-ai' ),
+            'slimseo'      => __( 'Slim SEO', 'easy-mcp-ai' ),
+            'tsf'          => __( 'The SEO Framework', 'easy-mcp-ai' ),
+            'term_meta'    => __( 'Extra fields on categories, tags & other terms', 'easy-mcp-ai' ),
+            'user_meta'    => __( 'Extra profile fields', 'easy-mcp-ai' ),
+            'appearance'   => __( 'Site appearance', 'easy-mcp-ai' ),
+            'widgets'      => __( 'Widgets & sidebars', 'easy-mcp-ai' ),
+            'wc_webhooks'  => __( 'WooCommerce webhooks', 'easy-mcp-ai' ),
+            'wc_store'     => __( 'WooCommerce store setup', 'easy-mcp-ai' ),
+            'user_create'  => __( 'Users — create', 'easy-mcp-ai' ),
+            'user_update'  => __( 'Users — update', 'easy-mcp-ai' ),
+            'user_delete'  => __( 'Users — delete', 'easy-mcp-ai' ),
+            'history'      => __( 'Change history', 'easy-mcp-ai' ),
+            'audit'        => __( 'Audit log', 'easy-mcp-ai' ),
+            'site_health'  => __( 'Site Health, scheduled tasks & error log', 'easy-mcp-ai' ),
+            'core_update'  => __( 'WordPress core update', 'easy-mcp-ai' ),
+            'plugin_files' => __( 'Plugins — install & delete', 'easy-mcp-ai' ),
+            'theme_files'  => __( 'Themes — install & delete', 'easy-mcp-ai' ),
+            'cli'          => __( 'WP-CLI commands', 'easy-mcp-ai' ),
+            'rest'         => __( 'REST API routes', 'easy-mcp-ai' ),
+            'rest_delete'  => __( 'REST API routes — delete', 'easy-mcp-ai' ),
+            'cache'        => __( 'Clear caches', 'easy-mcp-ai' ),
+            'mail'         => __( 'Send email to site users', 'easy-mcp-ai' ),
         );
     }
 
-    private static function scope_category( string $slug, array $labels ): array {
+    private static function category_notes(): array {
+        return array(
+            'media'        => __( 'Deleting a file can’t be undone', 'easy-mcp-ai' ),
+            'users'        => __( 'Names, emails and roles of site accounts', 'easy-mcp-ai' ),
+            'user_update'  => __( 'Can change email, password and role', 'easy-mcp-ai' ),
+            'user_delete'  => __( 'Account deleted for good; posts move or are deleted', 'easy-mcp-ai' ),
+            'menus'        => __( 'Lists block menus too; edits classic menus only', 'easy-mcp-ai' ),
+            'blocks'       => __( 'Read also covers templates, global styles and the theme list', 'easy-mcp-ai' ),
+            'appearance'   => __( 'Read: Customizer and CSS. Write also: templates and styles', 'easy-mcp-ai' ),
+            'plugin_files' => __( 'Also from a ZIP or URL; can replace code. Deletes are final', 'easy-mcp-ai' ),
+            'theme_files'  => __( 'Also from a ZIP or URL; can replace code. Deletes are final', 'easy-mcp-ai' ),
+            'settings'     => __( 'Title, tagline, dates, language, homepage; reads admin email', 'easy-mcp-ai' ),
+            'woocommerce'  => __( 'Products, orders, customers, coupons; reads store settings', 'easy-mcp-ai' ),
+            'wc_webhooks'  => __( 'Webhooks send store data to outside URLs', 'easy-mcp-ai' ),
+            'wc_store'     => __( 'Address, currency, shipping, payment methods and tax', 'easy-mcp-ai' ),
+            'acf_posts'    => __( 'Includes other content types and options pages', 'easy-mcp-ai' ),
+            'buddypress'   => __( 'Includes your private messages', 'easy-mcp-ai' ),
+            'divi'         => __( 'Divi performance settings and the Theme Builder list', 'easy-mcp-ai' ),
+            'cf7'          => __( 'Write can change where form emails go', 'easy-mcp-ai' ),
+            'smartslider'  => __( 'Write can delete slides; Smart Slider keeps no trash for them', 'easy-mcp-ai' ),
+            'loco'         => __( 'Write changes the text plugins and themes show', 'easy-mcp-ai' ),
+            'yoast'        => __( 'Write also changes site-wide SEO settings', 'easy-mcp-ai' ),
+            'dfs'          => __( 'Paid lookups, billed to your DataForSEO account', 'easy-mcp-ai' ),
+            'semrush'      => __( 'Paid lookups, billed to your Semrush account', 'easy-mcp-ai' ),
+            'seranking'    => __( 'Paid lookups, billed to your SE Ranking account', 'easy-mcp-ai' ),
+            'rest'         => __( 'Any route your role allows, even areas unticked above', 'easy-mcp-ai' ),
+            'rest_delete'  => __( 'Deletes through any route your role allows', 'easy-mcp-ai' ),
+            'history'      => __( 'Write: put back AI changes, if that area also has Write', 'easy-mcp-ai' ),
+            'audit'        => __( 'Every AI call and failed sign-in, all users. Admins only', 'easy-mcp-ai' ),
+            'site_health'  => __( 'Write: run a scheduled task now', 'easy-mcp-ai' ),
+            'mail'         => __( 'Other addresses, except the admin email, need a person’s OK', 'easy-mcp-ai' ),
+            'cli'          => __( 'Can change options, roles, capabilities and permalinks', 'easy-mcp-ai' ),
+        );
+    }
+
+    private static function scope_category( string $slug, array $labels, array $notes ): array {
         $plugin_required = isset( self::PLUGIN_CATEGORIES[ $slug ] ) ? self::PLUGIN_CATEGORIES[ $slug ] : null;
 
         list( $default_read, $default_write ) = self::category_defaults( $slug );
@@ -672,6 +718,7 @@ class Scope_Map {
         return array(
             'slug'            => $slug,
             'label'           => isset( $labels[ $slug ] ) ? $labels[ $slug ] : ucfirst( $slug ),
+            'note'            => isset( $notes[ $slug ] ) ? $notes[ $slug ] : '',
             'read_scope'      => $read_scope,
             'write_scope'     => $write_scope,
             'write_only'      => '' === $read_scope && '' !== $write_scope,
@@ -709,6 +756,9 @@ class Scope_Map {
                 'slug'            => "abilities_{$norm_prefix}",
                 /* translators: %s: ability prefix (e.g. "Core", "Wpforms") */
                 'label'           => sprintf( __( 'Abilities — %s', 'easy-mcp-ai' ), $display_label ),
+                'note'            => 'core' === $norm_prefix
+                    ? __( 'WordPress’s own abilities, and any without a plugin prefix', 'easy-mcp-ai' )
+                    : __( 'Can include abilities that change data', 'easy-mcp-ai' ),
                 'read_scope'      => "mcp:abilities:{$norm_prefix}",
                 'write_scope'     => '',
                 'default_read'    => false,

@@ -35,7 +35,11 @@ final class Wpdb_Database implements Database {
     }
 
     public static function ident( string $name ): string {
-        return '`' . str_replace( '`', '``', $name ) . '`';
+        return '`' . self::inside_backticks( $name ) . '`';
+    }
+
+    private static function inside_backticks( string $name ): string {
+        return str_replace( '`', '``', $name );
     }
 
     public function base_tables(): array {
@@ -121,8 +125,12 @@ final class Wpdb_Database implements Database {
     }
 
     public function update( string $table, string $column, array $key, string $value ): bool {
-        $formats = array_fill( 0, count( $key ), '%s' );
-        $result  = $this->wpdb->update( $table, array( $column => $value ), $key, array( '%s' ), $formats );
+        $where = array();
+        foreach ( $key as $name => $cell ) {
+            $where[ self::inside_backticks( (string) $name ) ] = $cell;
+        }
+        $formats = array_fill( 0, count( $where ), '%s' );
+        $result  = $this->wpdb->update( self::inside_backticks( $table ), array( self::inside_backticks( $column ) => $value ), $where, array( '%s' ), $formats );
         return false !== $result;
     }
 

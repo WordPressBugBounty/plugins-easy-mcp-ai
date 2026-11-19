@@ -12,6 +12,8 @@ abstract class Abstract_Google_Client {
 
     abstract protected static function product_name(): string;
 
+    abstract protected static function admin_access_remedy( string $client_email ): string;
+
     protected static function derive_key_v2(): string {
         return hash_hkdf( 'sha256', SECURE_AUTH_KEY . SECURE_AUTH_SALT, 32, static::HKDF_INFO );
     }
@@ -147,12 +149,181 @@ abstract class Abstract_Google_Client {
         $body = json_decode( \wp_remote_retrieve_body( $response ), true );
         if ( empty( $body['access_token'] ) ) {
             $err = $body['error_description'] ?? $body['error'] ?? 'unknown error';
-            throw new \RuntimeException( "Failed to obtain Google access token: {$err}." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( 'Failed to obtain Google access token: ' . rtrim( (string) $err, '.' ) . '.' ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
         $ttl = max( 60, ( $body['expires_in'] ?? 3600 ) - 60 );
         \set_transient( $transient_key, static::encrypt( $body['access_token'] ), $ttl );
 
         return $body['access_token'];
+    }
+
+    protected static function token_for( string $scope, bool $admin_context ): string {
+        try {
+            return static::get_access_token( $scope );
+        } catch ( \RuntimeException $e ) {
+            if ( $admin_context ) {
+                throw $e;
+            }
+            throw static::refusal( '', static::redact( $e->getMessage() ) ?? 'Google refused the access token. ' . self::WITHHELD );
+        }
+    }
+
+    const GRANT_REMEDY = 'A site administrator can grant access in Easy MCP AI → Tools → Connections → Test connection.';
+
+    const HIDDEN = '[hidden]';
+
+    private const REDACT_LIMIT = 4000;
+
+    private const EMAIL_DOMAIN = '/\A[\p{L}\p{N}](?:[\p{L}\p{N}\p{M}\-]*[\p{L}\p{N}\p{M}])?(?:\.[\p{L}\p{N}](?:[\p{L}\p{N}\p{M}\-]*[\p{L}\p{N}\p{M}])?)++/u';
+
+    private const EMAIL_RUN = '/[\p{L}\p{N}\p{M}.!#$%&\'*+^_`{|}~\-@]++/u';
+
+    private const LOCAL_LEAD = ".!#$%&'*+^`{|}~";
+
+    const WITHHELD = "Google's message is not shown: it could not be checked for account details.";
+
+    protected static function throw_read_refusal( $decoded, bool $admin_context ): void {
+        $access = ! static::is_platform_refusal( $decoded );
+        $prefix = static::product_name() . ' refused the request: ';
+        $reason = static::google_reason( 403, $decoded, $admin_context );
+
+        if ( ! $access ) {
+            throw static::refusal( $prefix, $reason, '', $admin_context );
+        }
+        if ( ! $admin_context ) {
+            throw static::refusal( $prefix, $reason, self::GRANT_REMEDY );
+        }
+        $creds = static::get_credentials();
+        throw static::refusal( $prefix, $reason, static::admin_access_remedy( (string) $creds['client_email'] ), true );
+    }
+
+    protected static function google_reason( int $code, $decoded, bool $admin_context ): string {
+        $google = static::google_message( $decoded );
+        if ( '' === $google ) {
+            return "HTTP {$code}.";
+        }
+        if ( $admin_context ) {
+            return $google;
+        }
+        $reason = static::redact( $google );
+        return null === $reason ? "HTTP {$code}. " . self::WITHHELD : $reason;
+    }
+
+    protected static function refusal( string $prefix, string $reason, string $remedy = '', bool $admin_context = false ): \RuntimeException {
+        if ( $admin_context ) {
+            return new \RuntimeException( rtrim( $prefix . $reason . ' ' . $remedy ) );
+        }
+        if ( \Easy_MCP_AI\MCP\Refusal_Text::fits( $prefix . $reason ) ) {
+            return new \Easy_MCP_AI\MCP\Detailed_Runtime_Error( $prefix . $reason, $remedy );
+        }
+        return new \Easy_MCP_AI\MCP\Detailed_Runtime_Error(
+            \Easy_MCP_AI\MCP\Refusal_Text::fit( $prefix . '%s', array( $reason ) ),
+            \Easy_MCP_AI\MCP\Refusal_Text::fit( rtrim( $prefix . '%s ' . $remedy ), array( $reason ), 0, \Easy_MCP_AI\MCP\Detailed_Tool_Error::MAX_DETAILS )
+        );
+    }
+
+    protected static function quota_refusal( int $code, $decoded, string $fallback, bool $admin_context ): \RuntimeException {
+        if ( '' === static::google_message( $decoded ) ) {
+            return new \RuntimeException( $fallback );
+        }
+        return static::refusal( static::product_name() . ' refused the request: ', static::google_reason( $code, $decoded, $admin_context ), 'Retry after the quota resets.', $admin_context );
+    }
+
+    protected static function google_message( $decoded ): string {
+        if ( is_array( $decoded ) && isset( $decoded['error']['message'] ) && is_string( $decoded['error']['message'] ) ) {
+            return trim( $decoded['error']['message'] );
+        }
+        return '';
+    }
+
+    const ACCESS_REASONS = array( 'forbidden', 'insufficientPermissions' );
+
+    protected static function is_platform_refusal( $decoded ): bool {
+        if ( ! is_array( $decoded ) || ! isset( $decoded['error'] ) || ! is_array( $decoded['error'] ) ) {
+            return false;
+        }
+        foreach ( (array) ( $decoded['error']['details'] ?? array() ) as $detail ) {
+            if ( is_array( $detail )
+                && isset( $detail['@type'], $detail['domain'] )
+                && 'type.googleapis.com/google.rpc.ErrorInfo' === $detail['@type']
+                && 'googleapis.com' === $detail['domain'] ) {
+                return true;
+            }
+        }
+        foreach ( (array) ( $decoded['error']['errors'] ?? array() ) as $error ) {
+            if ( is_array( $error ) && isset( $error['reason'] ) && is_string( $error['reason'] ) && ! in_array( $error['reason'], self::ACCESS_REASONS, true ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    protected static function redact( string $text ): ?string {
+        if ( strlen( $text ) > self::REDACT_LIMIT ) {
+            $space = strrpos( substr( $text, 0, self::REDACT_LIMIT ), ' ' );
+            if ( false === $space ) {
+                return null;
+            }
+            $text = rtrim( substr( $text, 0, $space ) ) . ' …';
+        }
+        $text = static::hide_emails( $text );
+        if ( null === $text ) {
+            return null;
+        }
+        $rules = array(
+            '/\?project=[^\s&#"\'<>?]*+&/i'      => '?',
+            '/[?&]project=[^\s&#"\'<>?]*+/i'      => '',
+            '#\bprojects/(?:[\p{L}\p{N}\-]++(?:\.[\p{L}\p{N}\-]++)++:)?+[\p{L}\p{N}_\-]++#iu' => 'projects/' . self::HIDDEN,
+            '/\b(projects?(?:[\s_-]++(?:number|id))?[\s#:=(\[{"\'`]++)\d{3,}/i' => '${1}' . self::HIDDEN,
+        );
+        try {
+            $creds = static::get_credentials();
+        } catch ( \RuntimeException $e ) {
+            $creds = array();
+        }
+        foreach ( array( 'project_id', 'client_id', 'private_key_id' ) as $field ) {
+            if ( isset( $creds[ $field ] ) && is_string( $creds[ $field ] ) && strlen( $creds[ $field ] ) >= 3 ) {
+                $rules[ '/(?<![\p{L}\p{N}_-])' . preg_quote( $creds[ $field ], '/' ) . '(?![\p{L}\p{N}_-])/iu' ] = self::HIDDEN;
+            }
+        }
+        return preg_replace( array_keys( $rules ), array_values( $rules ), $text );
+    }
+
+    protected static function hide_emails( string $text ): ?string {
+        $failed = false;
+        $text   = preg_replace_callback(
+            self::EMAIL_RUN,
+            static function ( array $run ) use ( &$failed ): string {
+                $parts = explode( '@', $run[0] );
+                $out   = '';
+                $rest  = $parts[0];
+                for ( $i = 1, $n = count( $parts ); $i < $n; $i++ ) {
+                    $local = ltrim( $rest, self::LOCAL_LEAD );
+                    if ( '' === $local ) {
+                        $local = ltrim( $rest, ".'`" );
+                    }
+                    if ( '' === $local && '' !== trim( $rest, '.' ) ) {
+                        $local = ltrim( $rest, '.' );
+                    }
+                    $found = preg_match( self::EMAIL_DOMAIN, $parts[ $i ], $match );
+                    if ( false === $found ) {
+                        $failed = true;
+                        return '';
+                    }
+                    $domain = $found ? $match[0] : '';
+                    if ( '' === $local || '' === $domain ) {
+                        $out .= $rest . '@';
+                        $rest = $parts[ $i ];
+                        continue;
+                    }
+                    $out .= substr( $rest, 0, strlen( $rest ) - strlen( $local ) ) . self::HIDDEN;
+                    $rest = (string) substr( $parts[ $i ], strlen( $domain ) );
+                }
+                return $out . $rest;
+            },
+            $text
+        );
+        return $failed ? null : $text;
     }
 }

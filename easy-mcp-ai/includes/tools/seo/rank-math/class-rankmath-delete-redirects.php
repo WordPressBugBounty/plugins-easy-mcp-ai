@@ -89,6 +89,10 @@ class Rankmath_Delete_Redirects extends Base_Tool {
 		self::boolean_arg( $arguments, 'force', false, 'Nothing was deleted.' );
 	}
 
+	public function throttle_units( array $arguments ) {
+		return count( $this->parse_ids( $arguments['redirect_ids'] ?? null ) );
+	}
+
 	public function execute( array $arguments ) {
 		$this->require_rank_math_redirects();
 

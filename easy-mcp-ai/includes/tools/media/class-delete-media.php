@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Media;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Media extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WordPress media attachment by ID. Required: `media_id`. Optional: `force` (boolean, default true). Media items bypass the trash — deletion is immediate and irreversible. Leave `force` at its default: passing `force=false` asks WordPress to trash the item instead, which fails with a 501 error on a default install, because trashing attachments requires the `MEDIA_TRASH` constant to be enabled in wp-config.php (it is off by default). The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, id }.';
+        return 'Permanently deletes a WordPress media attachment by ID. Required: `media_id`. Optional: `force` (boolean, default true). Media items bypass the trash — deletion is immediate and irreversible. Leave `force` at its default: passing `force=false` asks WordPress to trash the item instead, which fails with a 501 error on a default install, because trashing attachments requires the `MEDIA_TRASH` constant to be enabled in wp-config.php (it is off by default). The physical file on disk is also deleted along with all generated image sizes. Posts that reference this attachment via `featured_media` or inline `<img>` tags will show broken images. Returns { deleted: true, status, id }: `status` is "deleted" when the attachment no longer exists and "trash" when it was moved to the Trash (force=false with MEDIA_TRASH on), read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error.';
     }
 
     public function get_category() {
@@ -76,13 +77,13 @@ class Delete_Media extends Base_Tool {
         $media_id = $this->parse_required_id( $arguments['media_id'], 'media_id' );
         $force    = self::boolean_arg( $arguments, 'force', true, 'Nothing was deleted.' );
 
-        $data = $this->rest_request( 'DELETE', '/wp/v2/media/' . $media_id, array( 'force' => $force ) );
-
-        $id = $data['previous']['id'] ?? null;
+        $data    = $this->rest_request( 'DELETE', '/wp/v2/media/' . $media_id, array( 'force' => $force ) );
+        $outcome = Delete_Outcome::of_post( $data, $media_id, 'media item ' . $media_id );
 
         return array(
             'deleted' => true,
-            'id'      => $id,
+            'status'  => $outcome['status'],
+            'id'      => $outcome['item']['id'] ?? null,
         );
     }
 }

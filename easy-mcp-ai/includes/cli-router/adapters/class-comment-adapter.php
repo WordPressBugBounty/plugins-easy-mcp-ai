@@ -18,14 +18,7 @@ class Comment_Adapter extends Db_Object_Command {
     protected $obj_id_key = 'comment_ID';
     protected $obj_fields = array( 'comment_ID', 'comment_post_ID', 'comment_date', 'comment_approved', 'comment_author', 'comment_author_email' );
 
-    const MODERATION_TOOLS = array(
-        'approve'   => 'wp_approve_comment',
-        'unapprove' => 'wp_unapprove_comment',
-        'spam'      => 'wp_spam_comment',
-        'unspam'    => 'wp_unspam_comment',
-        'trash'     => 'wp_trash_comment',
-        'untrash'   => 'wp_untrash_comment',
-    );
+    const MODERATION_TOOLS = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::MODERATION_TOOLS;
 
     const CALL_TEXT = array(
         'spam'    => array( 'Marked %s as spam.', 'Failed marking %s as spam.' ),
@@ -737,7 +730,7 @@ class Comment_Adapter extends Db_Object_Command {
         if ( null === $number || 0 === $number ) {
             foreach ( array( 'offset' => $offset, 'paged' => $paged ) as $key => $given ) {
                 if ( null !== $given ) {
-                    $ctx->out->error( sprintf( 'wp_cli_run refuses --%s without --number: WP_Comment_Query ignores it then and WP-CLI lists every comment. Add --number.', $key ) );
+                    $ctx->out->error( sprintf( 'wp_cli_run refuses --%s without --number: WP_Comment_Query ignores it then and WP-CLI lists every matching comment. Add --number.', $key ) );
                 }
             }
             $number = null;
@@ -816,7 +809,7 @@ class Comment_Adapter extends Db_Object_Command {
 
     private static function list_type( Context $ctx, array $arguments, string $value ): array {
         if ( 'all' === $value ) {
-            $ctx->out->error( 'wp_cli_run refuses --type=all for comment list: WordPress lists block editor notes for it, which wp_list_comments cannot include. Omit --type for every type but notes, or pass --type=note.' );
+            $ctx->out->error( 'wp_cli_run refuses --type=all for comment list: WordPress lists block editor notes for it, which wp_list_comments cannot include. Omit --type for every type but notes, or pass --type=note. With WooCommerce 9.9 or later, omitting --type also leaves out comments on products and on no post or a deleted post, as in WP-CLI: run --type=comment and --type=review as well.' );
         }
         $arguments['type'] = '' === $value ? 'all' : $value;
         return $arguments;

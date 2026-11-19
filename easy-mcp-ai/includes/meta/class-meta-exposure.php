@@ -126,17 +126,36 @@ final class Meta_Exposure {
                 $refused[ $key ] = $provider->get_label();
             }
         }
-        if ( empty( $refused ) ) {
+        if ( ! empty( $refused ) ) {
+            $parts = array();
+            foreach ( $refused as $key => $label ) {
+                $parts[] = sprintf( '"%s" (%s restricts this field for your role)', $key, $label );
+            }
+            return new \WP_Error(
+                'easy_mcp_ai_meta_forbidden',
+                sprintf( 'You are not allowed to set %s. Nothing was saved.', implode( ', ', $parts ) ),
+                array( 'status' => 403 )
+            );
+        }
+        $invalid = array();
+        foreach ( $meta as $key => $value ) {
+            $key = (string) $key;
+            if ( isset( self::$exposed[ $post_type ][ $key ] ) ) {
+                $invalid[] = (string) self::$exposed[ $post_type ][ $key ]->value_refusal( $key, $value, $post_id );
+            }
+        }
+        $invalid = array_values( array_filter( $invalid ) );
+        if ( empty( $invalid ) ) {
             return $prepared_post;
         }
-        $parts = array();
-        foreach ( $refused as $key => $label ) {
-            $parts[] = sprintf( '"%s" (%s restricts this field for your role)', $key, $label );
-        }
+        $message = implode( ' ', $invalid ) . ' Nothing was saved.';
         return new \WP_Error(
-            'easy_mcp_ai_meta_forbidden',
-            sprintf( 'You are not allowed to set %s. Nothing was saved.', implode( ', ', $parts ) ),
-            array( 'status' => 403 )
+            'rest_invalid_param',
+            $message,
+            array(
+                'status' => 400,
+                'params' => array( 'meta' => $message ),
+            )
         );
     }
 
@@ -165,6 +184,10 @@ final class Meta_Exposure {
             $response->set_data( $data );
         }
         return $response;
+    }
+
+    public static function exposing_provider( $post_type, $key ) {
+        return self::$exposed[ (string) $post_type ][ (string) $key ] ?? null;
     }
 
     public static function exposed_keys() {

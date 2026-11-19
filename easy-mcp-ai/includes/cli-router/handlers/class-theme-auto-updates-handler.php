@@ -19,6 +19,20 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
     const REFUSE_FILE_MODS = 'File modifications are disabled on this site (DISALLOW_FILE_MODS in wp-config.php, or a file_mod_allowed filter), so WordPress updates no theme automatically and offers no auto-update setting, in wp-admin or here.';
     const REFUSE_TYPE_OFF  = 'Automatic updates for themes are turned off on this site (the auto_update_theme filter, or AUTOMATIC_UPDATER_DISABLED, makes wp_is_auto_update_enabled_for_type( \'theme\' ) false), so WordPress offers no auto-update toggle on Appearance › Themes and wp_cli_run does not change the list either (plan Q15).';
 
+    const DISABLE_KEPT = 'Auto-updates were not disabled: the stored auto_update_themes option still lists them. A plugin or theme may have stopped the write. Themes: %s';
+
+    const DISABLE_PART = 'Auto-updates were disabled only in part: auto_update_themes changed but still lists some. A plugin or theme may have stopped the rest. Still listed: %s';
+
+    const DISABLE_UNKNOWN = 'Auto-updates may not have been disabled: a database error stopped the auto_update_themes option being read back, so whether it changed is not known. Themes: %s';
+
+    const ENABLE_KEPT = 'Auto-updates were not enabled: the stored auto_update_themes option does not list them. A plugin or theme may have stopped the write. Themes: %s';
+
+    const ENABLE_PART = 'Auto-updates were enabled only in part: auto_update_themes changed but does not list some. A plugin or theme may have stopped the rest. Not listed: %s';
+
+    const BEFORE_UNREAD = 'Nothing was written: a database error stopped the auto_update_themes option being read before the write, so its state is not known. Themes: %s';
+
+    const ENABLE_UNKNOWN = 'Auto-updates may not have been enabled: a database error stopped the auto_update_themes option being read back, so whether it changed is not known. Themes: %s';
+
     const NOT_CAPTURED_SINGLE  = 'The auto_update_themes option is recorded by change history only while it records every option (not in allowlist mode); wp_history_apply cannot restore it.';
     const NOT_CAPTURED_NETWORK = 'The auto_update_themes network option (wp_sitemeta) is recorded by change history only while its meta capture setting is on (the default), and a deleted network option is recorded without its previous value; wp_history_apply cannot restore it.';
 
@@ -43,7 +57,7 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
         $auto_updates = self::stored_list();
 
         $count     = 0;
-        $successes = 0;
+        $requested = array();
         foreach ( $themes as $theme ) {
             $stylesheet = (string) $theme->get_stylesheet();
             $enabled    = in_array( $stylesheet, $auto_updates, true );
@@ -51,11 +65,11 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
                 continue;
             }
             ++$count;
+            $requested[] = $stylesheet;
             if ( $enabled ) {
                 $ctx->out->warning( "Auto-updates already enabled for theme {$stylesheet}." );
             } else {
                 $auto_updates[] = $stylesheet;
-                ++$successes;
             }
         }
 
@@ -64,7 +78,15 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
         }
 
         $ctx->not_captured( $this->not_captured_phrase() );
-        if ( Theme_Handler::wp( 'update_site_option', array( self::SITE_OPTION, $auto_updates ) ) ) {
+        $before = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::SITE_OPTION, true );
+        if ( null === $before ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::BEFORE_UNREAD, array( implode( ', ', $requested ) ) ) );
+        }
+        Theme_Handler::wp( 'update_site_option', array( self::SITE_OPTION, $auto_updates ) );
+        $after     = self::require_listed( $requested, $before, $ctx );
+        $earlier   = self::listed( $before );
+        $successes = count( array_diff( array_unique( $requested ), $earlier ) );
+        if ( $before !== $after ) {
             $ctx->mark_changed();
         }
 
@@ -84,8 +106,9 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
         $themes       = Fetchers::of( 'theme' )->get_many( $args, $ctx->out );
         $auto_updates = self::stored_list();
 
-        $count     = 0;
-        $successes = 0;
+        $count    = 0;
+        $disabled = array();
+        $not_read = array();
         foreach ( $themes as $theme ) {
             $stylesheet = (string) $theme->get_stylesheet();
             $enabled    = in_array( $stylesheet, $auto_updates, true );
@@ -95,9 +118,10 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
             ++$count;
             if ( ! $enabled ) {
                 $ctx->out->warning( "Auto-updates already disabled for theme {$stylesheet}." );
+                $not_read[] = $stylesheet;
             } else {
                 $auto_updates = array_diff( $auto_updates, array( $stylesheet ) );
-                ++$successes;
+                $disabled[]   = $stylesheet;
             }
         }
 
@@ -106,12 +130,20 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
         }
 
         $ctx->not_captured( $this->not_captured_phrase() );
-        if ( count( $auto_updates ) > 0 ) {
-            $written = Theme_Handler::wp( 'update_site_option', array( self::SITE_OPTION, $auto_updates ) );
-        } else {
-            $written = Theme_Handler::wp( 'delete_site_option', array( self::SITE_OPTION ) );
+        $before = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::SITE_OPTION, true );
+        if ( null === $before ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::BEFORE_UNREAD, array( implode( ', ', array_merge( $disabled, $not_read ) ) ) ) );
         }
-        if ( $written ) {
+        if ( count( $auto_updates ) > 0 ) {
+            Theme_Handler::wp( 'update_site_option', array( self::SITE_OPTION, $auto_updates ) );
+        } else {
+            Theme_Handler::wp( 'delete_site_option', array( self::SITE_OPTION ) );
+        }
+        $earlier   = self::listed( $before );
+        $hidden    = array_values( array_intersect( $not_read, $earlier ) );
+        $after     = self::require_disabled( array_merge( $disabled, $hidden ), $before, $ctx );
+        $successes = count( array_intersect( array_unique( array_merge( $disabled, $not_read ) ), $earlier ) );
+        if ( $before !== $after ) {
             $ctx->mark_changed();
         }
 
@@ -182,6 +214,50 @@ class Theme_Auto_Updates_Handler extends Command_Handler {
             return sprintf( "Theme '%s': auto-updates %s → %s", $name, $on ? 'on' : 'off', $on ? 'on (no change; WP-CLI counts it as a failure)' : 'on' );
         }
         return sprintf( "Theme '%s': auto-updates %s → %s", $name, $on ? 'on' : 'off', $on ? 'off' : 'off (no change; WP-CLI counts it as a failure)' );
+    }
+
+    private static function require_disabled( array $disabled, ?array $before, Context $ctx ): array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::SITE_OPTION, true );
+        if ( null === $row ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::DISABLE_UNKNOWN, array( implode( ', ', $disabled ) ) ) );
+        }
+        $kept = $row[0] && is_array( $row[1] ) ? array_values( array_intersect( $disabled, $row[1] ) ) : array();
+        if ( $kept ) {
+            if ( null !== $before && $before !== $row ) {
+                $ctx->mark_changed();
+                $listed = $before[0] && is_array( $before[1] ) ? $before[1] : array();
+                if ( array_diff( array_intersect( $disabled, $listed ), $kept ) ) {
+                    $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::DISABLE_PART, array( implode( ', ', $kept ) ) ) );
+                }
+            }
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::DISABLE_KEPT, array( implode( ', ', $kept ) ) ) );
+        }
+        return $row;
+    }
+
+    private static function require_listed( array $enabled, ?array $before, Context $ctx ): array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( self::SITE_OPTION, true );
+        if ( null === $row ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ENABLE_UNKNOWN, array( implode( ', ', $enabled ) ) ) );
+        }
+        $listed  = $row[0] && is_array( $row[1] ) ? $row[1] : array();
+        $missing = array_values( array_diff( $enabled, $listed ) );
+        if ( $missing ) {
+            $earlier = null !== $before && $before[0] && is_array( $before[1] ) ? $before[1] : array();
+            if ( null !== $before && array_diff( array_intersect( $enabled, $listed ), $earlier ) ) {
+                $ctx->mark_changed();
+                $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ENABLE_PART, array( implode( ', ', $missing ) ) ) );
+            }
+            if ( null !== $before && $before !== $row ) {
+                $ctx->mark_changed();
+            }
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ENABLE_KEPT, array( implode( ', ', $missing ) ) ) );
+        }
+        return $row;
+    }
+
+    private static function listed( ?array $row ): array {
+        return null !== $row && $row[0] && is_array( $row[1] ) ? array_values( array_map( 'strval', $row[1] ) ) : array();
     }
 
     private static function stored_list(): array {

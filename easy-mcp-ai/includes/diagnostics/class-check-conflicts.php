@@ -206,11 +206,15 @@ class Check_Conflicts {
             );
         }
 
+        $detail = __( 'Nothing was modifying REST authentication at the time this check ran.', 'easy-mcp-ai' );
+        if ( ! \did_action( 'rest_api_init' ) ) {
+            $detail .= ' ' . __( 'A plugin that only hooks in during a REST request would not be visible from the admin screen.', 'easy-mcp-ai' );
+        }
         return Diagnostic_Result::pass(
             'e3',
             Diagnostic_Result::TIER_WARNING,
             $label,
-            __( 'Nothing was modifying REST authentication at the time this check ran. A plugin that only hooks in during a REST request would not be visible from the admin screen.', 'easy-mcp-ai' ),
+            $detail,
             array( 'rest_authentication_hooked' => false )
         );
     }
@@ -743,6 +747,10 @@ class Check_Conflicts {
         'Ai1wm_Rest_Controller',
     );
 
+    const OWN_REST_AUTH_CLASSES = array(
+        'Easy_MCP_AI\\MCP\\Rest_Auth_Override',
+    );
+
     private static function benign_rest_auth_classes() {
         $list = self::BENIGN_REST_AUTH_CLASSES;
         if ( function_exists( 'apply_filters' ) ) {
@@ -754,14 +762,18 @@ class Check_Conflicts {
         return array_map( 'strval', $list );
     }
 
-    private static function is_benign_rest_auth_callback( $name ) {
+    private static function is_own_rest_auth_callback( $name ) {
+        return self::names_class_in( $name, self::OWN_REST_AUTH_CLASSES );
+    }
+
+    private static function names_class_in( $name, array $classes ) {
         $sep = strpos( $name, '::' );
         if ( false === $sep ) {
             return false;
         }
         $class = ltrim( substr( $name, 0, $sep ), '\\' );
-        foreach ( self::benign_rest_auth_classes() as $benign ) {
-            if ( 0 === strcasecmp( $class, ltrim( $benign, '\\' ) ) ) {
+        foreach ( $classes as $candidate ) {
+            if ( 0 === strcasecmp( $class, ltrim( $candidate, '\\' ) ) ) {
                 return true;
             }
         }
@@ -778,7 +790,7 @@ class Check_Conflicts {
             if ( in_array( $name, self::CORE_REST_AUTH_CALLBACKS, true ) ) {
                 continue;
             }
-            if ( self::is_benign_rest_auth_callback( $name ) ) {
+            if ( self::names_class_in( $name, self::benign_rest_auth_classes() ) || self::is_own_rest_auth_callback( $name ) ) {
                 continue;
             }
             if ( self::is_core_defined_function( $name ) ) {
@@ -873,7 +885,14 @@ class Check_Conflicts {
             'code'      => isset( $o['code'] ) ? (string) $o['code'] : '',
             'status'    => ( isset( $o['status'] ) && is_numeric( $o['status'] ) ) ? (int) $o['status'] : null,
             'cleared'   => ! empty( $o['cleared'] ),
-            'callbacks' => array_values( array_map( 'strval', $o['callbacks'] ) ),
+            'callbacks' => array_values(
+                array_filter(
+                    array_map( 'strval', $o['callbacks'] ),
+                    static function ( $identity ) {
+                        return ! self::is_own_rest_auth_callback( $identity );
+                    }
+                )
+            ),
         );
     }
 

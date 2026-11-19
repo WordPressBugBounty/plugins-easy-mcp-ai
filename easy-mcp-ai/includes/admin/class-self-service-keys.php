@@ -130,10 +130,16 @@ class Self_Service_Keys {
     }
 
     public function render_forms() {
-        foreach ( $this->forms as $id => $form ) {
+        self::print_forms( $this->forms );
+    }
+
+    public static function print_forms( array $forms ): void {
+        foreach ( $forms as $id => $form ) {
             echo '<form id="' . \esc_attr( $id ) . '" method="post" action="' . \esc_url( \admin_url( 'admin-post.php' ) ) . '">';
             echo '<input type="hidden" name="action" value="' . \esc_attr( $form['action'] ) . '">';
-            if ( isset( $form['key_id'] ) ) { echo '<input type="hidden" name="key_id" value="' . \esc_attr( $form['key_id'] ) . '">'; }
+            foreach ( $form['fields'] ?? array() as $name => $value ) {
+                echo '<input type="hidden" name="' . \esc_attr( $name ) . '" value="' . \esc_attr( (string) $value ) . '">';
+            }
             \wp_nonce_field( $form['nonce'] );
             echo '</form>';
         }

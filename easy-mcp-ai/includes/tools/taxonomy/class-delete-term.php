@@ -3,6 +3,7 @@ namespace Easy_MCP_AI\Tools\Taxonomy;
 
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -15,7 +16,7 @@ class Delete_Term extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a term from any taxonomy exposed in the REST API (show_in_rest), or a public taxonomy hidden from it that belongs to a hidden post type the CPT tools open (`wp_get_taxonomies` marks it `rest_api: false`); WooCommerce attribute taxonomies (pa_*) are not. Required: `term_id`, `taxonomy`. Returns { deleted: true, term_id, taxonomy }. Capability resolved dynamically via taxonomy cap->delete_terms. Note: deleting a term removes the term-object relationships but does not delete the related posts. Deletes through the taxonomy\'s own REST route, so a taxonomy registered under a custom `rest_namespace` works too.';
+        return 'Deletes a term from any taxonomy exposed in the REST API (show_in_rest), or a public taxonomy hidden from it that belongs to a hidden post type the CPT tools open (`wp_get_taxonomies` marks it `rest_api: false`); WooCommerce attribute taxonomies (pa_*) are not. Required: `term_id`, `taxonomy`. Returns { deleted: true, term_id, taxonomy }. Capability resolved dynamically via taxonomy cap->delete_terms. Note: deleting a term removes the term-object relationships but does not delete the related posts. Deletes through the taxonomy\'s own REST route, so a taxonomy registered under a custom `rest_namespace` works too. If the term still exists after WordPress answers (a plugin or theme answered the request in its place), the call is an error.';
     }
 
     public function get_category() {
@@ -96,6 +97,11 @@ class Delete_Term extends Base_Tool {
         return '/' . $namespace . '/' . $rest_base;
     }
 
+    public function precheck( array $arguments ): void {
+        $this->precheck_other_taxonomy( $arguments, 'term_id', is_string( $arguments['taxonomy'] ?? null ) ? $arguments['taxonomy'] : '', 'delete' );
+        $this->refuse_switched_off_term_route( 'DELETE', $arguments['taxonomy'] ?? null, true );
+    }
+
     public function execute( array $arguments ) {
         return Hidden_Post_Types::run_for_taxonomy(
             $arguments['taxonomy'] ?? null,
@@ -122,7 +128,11 @@ class Delete_Term extends Base_Tool {
 
         $namespace = List_Terms::taxonomy_rest_namespace( $tax_obj, $taxonomy );
 
+        $this->refuse_other_taxonomy( $term_id, $taxonomy, 'delete' );
+
+        $this->refuse_switched_off_term_route( 'DELETE', $taxonomy, true );
         $this->rest_request( 'DELETE', '/' . $namespace . '/' . $rest_base . '/' . $term_id, array( 'force' => true ) );
+        Delete_Outcome::require_term_gone( $term_id, $taxonomy, 'term ' . $term_id );
 
         return array(
             'deleted'  => true,

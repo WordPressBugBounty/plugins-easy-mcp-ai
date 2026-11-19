@@ -35,9 +35,18 @@ class OAuth_Controller extends Admin_Rest_Controller {
 
     private $site_move_rows = false;
 
-    public function __construct( $wpdb, Access_Presets $presets ) {
-        $this->wpdb    = $wpdb;
-        $this->presets = $presets;
+    private $tool_registry;
+
+    private $availability = array();
+
+    private $availability_shared = false;
+
+    private $scope_categories;
+
+    public function __construct( $wpdb, Access_Presets $presets, $tool_registry = null ) {
+        $this->wpdb          = $wpdb;
+        $this->presets       = $presets;
+        $this->tool_registry = $tool_registry instanceof \Easy_MCP_AI\Tools\Tool_Registry ? $tool_registry : null;
     }
 
     public function register_routes() {
@@ -409,11 +418,61 @@ class OAuth_Controller extends Admin_Rest_Controller {
             'fullAccess'   => $full,
             'toolCount'    => $full ? null : count( $tools ),
             'roleLimit'    => self::role_limit_payload( $row['role_limit'] ?? null ),
+            'availability' => $this->availability_payload( $user_id, $row['role_limit'] ?? null, $parts ),
             'grantedAt'    => Dashboard_Controller::iso8601( $row['granted_at'] ?? null ),
             'updatedAt'    => Dashboard_Controller::iso8601( $row['updated_at'] ?? null ),
             'lastUsedAt'   => Dashboard_Controller::iso8601( $row['last_used'] ?? null ),
             'activeTokens' => (int) ( $row['active_tokens'] ?? 0 ),
             'issuedElsewhere' => (bool) $issued_elsewhere,
+        );
+    }
+
+    private function availability_payload( int $user_id, $stored, array $parts ): ?array {
+        if ( $user_id < 1 || ! \get_userdata( $user_id ) ) {
+            return array(
+                'userMissing' => true,
+                'categories'  => array(),
+            );
+        }
+        if ( null === $this->scope_categories ) {
+            $this->scope_categories = (array) Scope_Map::get_categories();
+        }
+        $roles = \Easy_MCP_AI\OAuth\Role_Limit::decode( $stored );
+        $key   = $user_id . '|' . ( null === $roles ? '' : (string) \wp_json_encode( $roles ) );
+        if ( ! array_key_exists( $key, $this->availability ) ) {
+            if ( false === $this->availability_shared ) {
+                $this->availability_shared = \Easy_MCP_AI\OAuth\Scope_Availability::shared( $this->scope_categories, $this->tool_registry );
+            }
+            $this->availability[ $key ] = null === $this->availability_shared
+                ? null
+                : \Easy_MCP_AI\OAuth\Scope_Availability::for_user( $user_id, $roles, $this->scope_categories, $this->tool_registry, $this->availability_shared );
+        }
+        $answer = $this->availability[ $key ];
+        if ( null === $answer ) {
+            return null;
+        }
+        $full = in_array( self::FULL_SCOPE, $parts, true );
+        $out  = array();
+        foreach ( $this->scope_categories as $category ) {
+            $held = array();
+            foreach ( array( 'read_scope', 'write_scope' ) as $field ) {
+                $scope = (string) ( $category[ $field ] ?? '' );
+                if ( '' !== $scope && ( $full || in_array( $scope, $parts, true ) ) ) {
+                    $held[] = $scope;
+                }
+            }
+            $mark = array() === $held ? null : \Easy_MCP_AI\OAuth\Scope_Availability::mark( $category, $held, $answer );
+            if ( null !== $mark ) {
+                $out[] = array(
+                    'key'   => (string) $category['slug'],
+                    'state' => $mark['state'],
+                    'roles' => $mark['roles'],
+                );
+            }
+        }
+        return array(
+            'userMissing' => false,
+            'categories'  => $out,
         );
     }
 
@@ -433,26 +492,47 @@ class OAuth_Controller extends Admin_Rest_Controller {
         return $out;
     }
 
-    private function grant_rows() {
+    public function user_grants( int $user_id, int $page, int $per_page ): array {
+        $rows    = $this->grant_rows( $user_id, $per_page + 1, ( max( 1, $page ) - 1 ) * $per_page );
+        $more    = count( $rows ) > $per_page;
+        $flagged = OAuth_Site_Move::flagged_grants( $this->site_move_rows() );
+        $out     = array();
+        foreach ( array_slice( $rows, 0, $per_page ) as $row ) {
+            $grant                 = $this->shape_grant( $row, array(), isset( $flagged[ $row['client_id'] . ':' . $row['wp_user_id'] ] ) );
+            $document              = (string) ( $row['metadata_url'] ?? '' );
+            $grant['documentHost'] = '' === $document ? null : \Easy_MCP_AI\OAuth\Client_Metadata::host( $document );
+            $out[]                 = $grant;
+        }
+        return array(
+            'grants' => $out,
+            'more'   => $more,
+        );
+    }
+
+    private function grant_rows( int $user_id = 0, int $limit = self::ROWS_LIMIT + 1, int $offset = 0 ): array {
         $consents = $this->wpdb->prefix . 'easy_mcp_ai_oauth_consents';
         $clients  = $this->wpdb->prefix . 'easy_mcp_ai_oauth_clients';
         $tokens   = $this->wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
         $now      = \current_time( 'mysql', true );
         $role     = \Easy_MCP_AI\OAuth\Role_Limit::column_ready() ? 'con.role_limit' : 'NULL AS role_limit';
+        $document = Client_Metadata_Support::schema_ready() ? 'cl.metadata_url' : 'NULL AS metadata_url';
+        $owner    = $user_id > 0 ? $this->wpdb->prepare( 'WHERE con.wp_user_id = %d', $user_id ) : '';
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix.
         $rows = (array) $this->wpdb->get_results(
             $this->wpdb->prepare(
                 "SELECT con.id AS consent_id, con.wp_user_id, con.client_id, con.scope, {$role}, con.granted_at, con.updated_at,
-                        cl.client_name,
+                        cl.client_name, {$document},
                         (SELECT MAX(t.last_used_at) FROM {$tokens} t WHERE t.client_id = con.client_id AND t.wp_user_id = con.wp_user_id) AS last_used,
                         (SELECT COUNT(*) FROM {$tokens} t WHERE t.client_id = con.client_id AND t.wp_user_id = con.wp_user_id AND t.is_active = 1 AND t.expires_at > %s) AS active_tokens
                  FROM {$consents} con
                  INNER JOIN {$clients} cl ON cl.client_id = con.client_id AND cl.is_active = 1
+                 {$owner}
                  ORDER BY con.granted_at DESC, con.id DESC
-                 LIMIT %d",
+                 LIMIT %d OFFSET %d",
                 $now,
-                self::ROWS_LIMIT + 1
+                $limit,
+                $offset
             )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
@@ -481,6 +561,7 @@ class OAuth_Controller extends Admin_Rest_Controller {
             $out[] = array(
                 'key'            => (string) ( $cat['slug'] ?? '' ),
                 'label'          => (string) ( $cat['label'] ?? '' ),
+                'note'           => (string) ( $cat['note'] ?? '' ),
                 'readScope'      => (string) ( $cat['read_scope'] ?? '' ),
                 'writeScope'     => (string) ( $cat['write_scope'] ?? '' ),
                 'pluginRequired' => isset( $cat['plugin_required'] ) && '' !== (string) $cat['plugin_required'] ? (string) $cat['plugin_required'] : null,

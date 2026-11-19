@@ -61,6 +61,46 @@ abstract class Layout_Adapter {
         return sprintf( 'Editing %1$s layouts is not available yet: it has not been checked against a live %1$s site. Read the layout with wp_get_page_layout.', $this->label() );
     }
 
+    public static function writes_on( string $version, array $measured, array $broken ): bool {
+        $line = self::version_line( $version );
+        if ( null === $line ) {
+            return in_array( $version, $measured, true ) && ! in_array( $version, $broken, true );
+        }
+        $writes  = array_fill_keys( $broken, false ) + array_fill_keys( $measured, true );
+        $nearest = null;
+        foreach ( array_keys( $writes ) as $entry ) {
+            $entry = (string) $entry;
+            if ( self::version_line( $entry ) === $line && version_compare( $entry, $version, '<=' )
+                && ( null === $nearest || version_compare( $entry, $nearest, '>' ) ) ) {
+                $nearest = $entry;
+            }
+        }
+        return null !== $nearest && $writes[ $nearest ];
+    }
+
+    protected function broken_versions(): array {
+        return array();
+    }
+
+    protected function version_refusal( array $measured ): ?string {
+        $version = $this->version();
+        if ( self::writes_on( $version, $measured, $this->broken_versions() ) ) {
+            return null;
+        }
+        return sprintf(
+            'Easy MCP AI cannot save %1$s layouts %2$s, so this layout can be read but not changed here. Make the change in %1$s itself, or check for an Easy MCP AI update.',
+            $this->label(),
+            '' === $version ? 'when the builder does not report its version' : 'on version ' . $version . ' yet'
+        );
+    }
+
+    private static function version_line( string $version ): ?string {
+        if ( 1 !== preg_match( '/^(\d+)\.(\d+)(?:\.\d+)*\z/', $version, $parts ) ) {
+            return null;
+        }
+        return (int) $parts[1] . '.' . (int) $parts[2];
+    }
+
     public function restore_refusal( object $post, int $revision_id ): ?string {
         unset( $post, $revision_id );
         return null;

@@ -56,7 +56,11 @@ class List_Widgets extends Base_Tool {
             $params['sidebar'] = $this->validate_rest_route_segment( $arguments['sidebar'], 'sidebar' );
         }
 
-        $data = $this->rest_request( 'GET', '/wp/v2/widgets', $params, 'id,id_base,sidebar,instance' );
+        $data = Sidebars_Widgets_Hold::during(
+            function () use ( $params ) {
+                return $this->rest_request( 'GET', '/wp/v2/widgets', $params, 'id,id_base,sidebar,instance' );
+            }
+        );
 
         $widgets = array();
         $counter = array();

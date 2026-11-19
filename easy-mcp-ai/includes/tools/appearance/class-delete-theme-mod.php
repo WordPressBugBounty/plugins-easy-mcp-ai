@@ -16,7 +16,7 @@ class Delete_Theme_Mod extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Removes theme mods\' stored values so the theme falls back to its defaults: `key` for one, or `keys` for several in one call (the Customizer loads once per request). Accepts and refuses the same keys as wp_update_theme_mod; for `foo[bar]` only that entry is removed. With `include_unregistered: true`, a name that is no Customizer setting is removed from the stored theme mods as it is, as `wp theme mod remove` does, instead of refused. Every key is checked before anything is removed. Returns { key, deleted, previous, value } for `key`, and { removed: [{ key, deleted, previous, value, customizer }], deleted } for `keys`: `deleted` is false when nothing was stored (nothing is written), `value` is what the theme now reads, and `customizer` is false for a name removed as it is.';
+        return 'Removes theme mods\' stored values so the theme falls back to its defaults: `key` for one, or `keys` for several in one call (the Customizer loads once per request). Accepts and refuses the same keys as wp_update_theme_mod; for `foo[bar]` only that entry is removed. With `include_unregistered: true`, a name that is no Customizer setting is removed from the stored theme mods as it is, as `wp theme mod remove` does, instead of refused. Every key is checked before anything is removed. Returns { key, deleted, previous, value } for `key`, and { removed: [{ key, deleted, previous, value, customizer }], deleted } for `keys`: `deleted` is false when nothing was stored (nothing is written), `value` is what the theme now reads, and `customizer` is false for a name removed as it is. If a plugin stops the write and a mod is still stored, the call is an error naming it (mods removed before it in the same call stay removed).';
     }
 
     public function get_category() {
@@ -140,6 +140,7 @@ class Delete_Theme_Mod extends Base_Tool {
             self::unset_path( $root, $data['keys'] );
             set_theme_mod( $data['base'], $root );
         }
+        self::require_gone( (string) $setting->id, (string) $data['base'], (array) $data['keys'] );
 
         return array(
             'key'        => (string) $setting->id,
@@ -156,6 +157,7 @@ class Delete_Theme_Mod extends Base_Tool {
         $previous = get_theme_mod( $name );
         if ( $stored ) {
             remove_theme_mod( $name );
+            self::require_gone( $name, $name, array() );
         }
         return array(
             'key'        => $name,
@@ -164,6 +166,24 @@ class Delete_Theme_Mod extends Base_Tool {
             'value'      => $stored ? get_theme_mod( $name ) : $previous,
             'customizer' => false,
         );
+    }
+
+    private static function stopped( string $key ): \Exception {
+        return \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'WordPress did not remove theme mod %s: it is still stored. A plugin or theme on this site stopped the write.', array( $key ) );
+    }
+
+    private static function require_gone( string $key, string $base, array $keys ): void {
+        $node = \Easy_MCP_AI\Tools\Delete_Outcome::stored_theme_mods();
+        if ( null === $node ) {
+            throw \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'WordPress answered that theme mod %s was removed, but a database error stopped it being read back, so whether it was removed is not known.', array( $key ) );
+        }
+        foreach ( array_merge( array( $base ), $keys ) as $part ) {
+            if ( ! is_array( $node ) || ! array_key_exists( $part, $node ) ) {
+                return;
+            }
+            $node = $node[ $part ];
+        }
+        throw self::stopped( $key );
     }
 
     private static function unset_path( array &$root, array $keys ): void {

@@ -70,10 +70,10 @@ class Seopress_Update_Title_Desc extends Base_Tool {
 
 		$body = array();
 		if ( isset( $arguments['title'] ) ) {
-			$body['title'] = sanitize_text_field( (string) $arguments['title'] );
+			$body['title'] = Seo_Text::clean( (string) $arguments['title'] );
 		}
 		if ( isset( $arguments['description'] ) ) {
-			$body['description'] = sanitize_text_field( (string) $arguments['description'] );
+			$body['description'] = Seo_Text::clean( (string) $arguments['description'] );
 		}
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/title-description-metas', $body );

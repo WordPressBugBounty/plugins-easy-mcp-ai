@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Site_Health;
 
+use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Text_Redactor;
 
@@ -15,9 +16,7 @@ class Get_Error_Log extends Base_Tool {
 
     const RESPONSE_LIMIT = 65536;
 
-    const RESPONSE_JSON_FLAGS = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
-
-    const LINE_OVERHEAD = 10;
+    const LINE_OVERHEAD = 1;
 
     protected static $chunk_size = 65536;
 
@@ -292,7 +291,7 @@ class Get_Error_Log extends Base_Tool {
     }
 
     public static function fit_response( array $result ): array {
-        $json = \wp_json_encode( $result, self::RESPONSE_JSON_FLAGS );
+        $json = \wp_json_encode( $result, Server::RESULT_JSON_FLAGS );
         while ( false !== $json && strlen( $json ) > self::RESPONSE_LIMIT && ! empty( $result['lines'] ) ) {
             $over = strlen( $json ) - self::RESPONSE_LIMIT;
             while ( $over > 0 && ! empty( $result['lines'] ) ) {
@@ -300,7 +299,7 @@ class Get_Error_Log extends Base_Tool {
             }
             $result['returned']  = count( $result['lines'] );
             $result['truncated'] = true;
-            $json                = \wp_json_encode( $result, self::RESPONSE_JSON_FLAGS );
+            $json                = \wp_json_encode( $result, Server::RESULT_JSON_FLAGS );
         }
         return $result;
     }

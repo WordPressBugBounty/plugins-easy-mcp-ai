@@ -9,12 +9,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Update_Order extends Base_Tool {
 
+    const REFUNDED_STATUS_NOTE = 'Setting the status to "refunded" returns no money: WooCommerce records a refund of the remaining total without asking the payment gateway, and restocks nothing. To return money, refund the order from its WooCommerce order screen instead; once this status is set the order has nothing left to refund there, and the money must be returned through the payment gateway separately.';
+
     public function get_name() {
         return 'wp_wc_update_order';
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce order (PATCH semantics). Required: `id`. Optional: `status` (pending/processing/on-hold/completed/cancelled/refunded/failed — changing to "completed" triggers completion hooks including stock reduction and download access), `customer_note` (visible to customer), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (same fields minus email/phone). This tool does not currently support editing order line items (WooCommerce itself allows it via REST, but this tool does not expose those parameters). Returns a summary of the updated order: `id`, `number`, `status`, `total`. Requires WooCommerce active.';
+        return 'Updates a WooCommerce order (PATCH semantics). Required: `id`. Optional: `status` (pending/processing/on-hold/completed/cancelled/refunded/failed — changing to "completed" triggers completion hooks including stock reduction and download access; ' . self::REFUNDED_STATUS_NOTE . '), `customer_note` (visible to customer), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (same fields minus email/phone). This tool does not currently support editing order line items (WooCommerce itself allows it via REST, but this tool does not expose those parameters). Returns a summary of the updated order: `id`, `number`, `status`, `total`, and a `note` when the call set the status to refunded. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -88,11 +90,15 @@ class Update_Order extends Base_Tool {
 
         $data = $this->rest_request( 'PUT', '/wc/v3/orders/' . $id, $params );
 
-        return array(
+        $reply = array(
             'id'     => $data['id'],
             'number' => $data['number'],
             'status' => $data['status'],
             'total'  => $data['total'],
         );
+        if ( isset( $params['status'] ) && 'refunded' === $params['status'] ) {
+            $reply['note'] = self::REFUNDED_STATUS_NOTE;
+        }
+        return $reply;
     }
 }

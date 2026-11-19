@@ -320,26 +320,6 @@ class Device_Authorization {
     }
 
     public static function enforce_rate_limit() {
-        $ip = \Easy_MCP_AI\Client_IP::get();
-
-        $per_ip_key = 'easy_mcp_ai_device_rl_' . md5( $ip );
-        $global_key = 'easy_mcp_ai_device_rl_global';
-
-        if ( \wp_using_ext_object_cache() ) {
-            \wp_cache_add( $per_ip_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $ip_count = \wp_cache_incr( $per_ip_key, 1, 'easy_mcp_ai' );
-
-            \wp_cache_add( $global_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $global_count = \wp_cache_incr( $global_key, 1, 'easy_mcp_ai' );
-        } else {
-            $ip_count     = Token_Endpoint::rl_transient_increment( $per_ip_key );
-            $global_count = Token_Endpoint::rl_transient_increment( $global_key );
-        }
-
-        if ( $ip_count > self::RATE_LIMIT_PER_HOUR || $global_count > self::GLOBAL_RATE_LIMIT_PER_HOUR ) {
-            return new \WP_REST_Response( null, 429 );
-        }
-
-        return null;
+        return Rate_Limit::check( 'device', 'easy_mcp_ai_device_rl_', self::RATE_LIMIT_PER_HOUR, self::GLOBAL_RATE_LIMIT_PER_HOUR );
     }
 }

@@ -51,6 +51,10 @@ class Dynamic_Tool extends Base_Tool {
     public function get_output_schema()        { return $this->output_schema; }
     public function get_task_contract()        { return $this->task_contract; }
 
+    public function get_ability(): ?string {
+        return $this->ability;
+    }
+
     public function accepted_arguments(): ?array {
         return $this->accepted_arguments;
     }

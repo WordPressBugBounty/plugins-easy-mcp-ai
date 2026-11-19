@@ -16,7 +16,7 @@ class Create_Widget extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a widget in a classic theme\'s widget area. Required: `sidebar` (a sidebar id from wp_list_sidebars) and `id_base` (the widget type, from wp_list_widget_types — must have settings_editable: true). Optional: `instance` (the widget\'s settings object; omitted = the type\'s defaults) and `position` (0-based index in the sidebar; 0 = first; omitted or past the end = last). Settings by type: block { "content": "<!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->" } (any block markup — the recommended type for free-form content), custom_html { "title", "content" }, text { "title", "text", "filter": true for automatic paragraphs }, recent-posts { "title", "number", "show_date" }, search { "title" }, nav_menu { "title", "nav_menu": menu id from wp_list_menus }. HTML in block, custom_html and text content is filtered with wp_kses_post unless your user has the unfiltered_html capability, exactly as in Appearance > Widgets. Legacy widget types without a REST representation are refused (read-only over MCP). Returns { id, id_base, sidebar, settings_editable, settings, rendered } plus, when `position` was given, { position, sidebar_widgets }; if the widget was created but could not be moved, { position_applied: false, warning } instead. The change is visible on every page that shows the sidebar. Refused when the theme has no widget areas (a block theme): use wp_update_template instead. Requires the edit_theme_options capability.';
+        return 'Creates a widget in a classic theme\'s widget area. Required: `sidebar` (a sidebar id from wp_list_sidebars) and `id_base` (the widget type, from wp_list_widget_types — must have settings_editable: true). Optional: `instance` (the widget\'s settings object; omitted = the type\'s defaults) and `position` (0-based index in the sidebar; 0 = first; omitted or past the end = last). Settings by type: block { "content": "<!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->" } (any block markup — the recommended type for free-form content), custom_html { "title", "content" }, text { "title", "text", "filter": true for automatic paragraphs }, recent-posts { "title", "number", "show_date" }, search { "title" }, nav_menu { "title", "nav_menu": menu id from wp_list_menus }. HTML in block, custom_html and text content is filtered with wp_kses_post unless your user has the unfiltered_html capability, exactly as in Appearance > Widgets. Legacy widget types without a REST representation are refused (read-only over MCP). Returns { id, id_base, sidebar, settings_editable, settings, rendered } plus, when `position` was given, { position, sidebar_widgets }; if the widget was created but could not be moved, { position_applied: false, warning } instead. The new widget is read back from the stored rows: if a plugin stopped WordPress filing it in the area or storing its settings, the call is an error that says what was stored. The change is visible on every page that shows the sidebar. Refused when the theme has no widget areas (a block theme): use wp_update_template instead. Requires the edit_theme_options capability.';
     }
 
     public function get_category() {
@@ -79,7 +79,10 @@ class Create_Widget extends Base_Tool {
             throw new \InvalidArgumentException( sprintf( 'Unknown widget type "%s". Call wp_list_widget_types for the registered id_base values.', $id_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
-        $this->sidebar_widget_ids( $sidebar );
+        $current = $this->sidebar_widget_ids( $sidebar );
+        if ( null !== $position && $position < count( $current ) ) {
+            $this->refuse_switched_off_route( 'PUT', '/wp/v2/sidebars/{id}' );
+        }
 
         $data = $this->rest_request(
             'POST',
@@ -93,11 +96,23 @@ class Create_Widget extends Base_Tool {
         );
 
         $result = $this->shape_widget( (array) $data, true );
+        if ( '' !== $result['id'] ) {
+            self::require_added( $result['id'], $sidebar );
+        }
 
         if ( null !== $position && '' !== $result['id'] ) {
             $result = $this->with_position_result( $result, $this->apply_widget_position( $result['id'], $result['sidebar'], $position ), 'created' );
         }
 
         return $result;
+    }
+
+    private static function require_added( string $widget_id, string $sidebar ): void {
+        $listed = self::sidebars_listing( $widget_id );
+        $stored = self::settings_remain( $widget_id );
+        if ( array( $sidebar ) === $listed && false !== $stored ) {
+            return;
+        }
+        throw self::unfinished( $widget_id, 'added', $sidebar, $listed, array( false === $stored ? 'its settings are not stored' : 'its settings are stored' ), 'in ' . $sidebar );
     }
 }

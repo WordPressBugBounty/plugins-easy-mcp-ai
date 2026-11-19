@@ -15,6 +15,10 @@ abstract class Base_Tool {
 
     const REST_ERROR_WITHOUT_MESSAGE = 1;
 
+    const MSG_OTHER_TAXONOMY_TOOL = 'Use %1$s for that ID, which is a term of taxonomy "%2$s", not "%3$s": term_id %4$d, taxonomy "%2$s".';
+
+    const MSG_OTHER_TAXONOMY = 'ID %1$d is a term of taxonomy "%2$s", not "%3$s", so %4$s cannot %5$s it.';
+
     const RESPONSE_NOISE_KEYS = array( 'yoast_head', 'yoast_head_json', 'aioseo_head', 'aioseo_head_json', 'aioseo_breadcrumb', 'aioseo_breadcrumb_json', '_links' );
 
     const RESPONSE_NOISE_PROTECTED_KEYS = array( 'id', 'meta', 'meta_data', 'acf', 'aioseo_meta_data' );
@@ -48,6 +52,8 @@ abstract class Base_Tool {
             'wp_sitekit_'  => 'Site Kit',
             'wp_divi_'     => 'Divi',
             'wp_cf7_'      => 'Contact Form 7',
+            'wp_smartslider_' => 'Smart Slider',
+            'wp_loco_'     => 'Loco Translate',
             'wp_yoast_'    => 'Yoast',
             'wp_rm_'       => 'Rank Math',
             'wp_seranking_' => 'SE Ranking',
@@ -114,6 +120,20 @@ abstract class Base_Tool {
         return ! empty( $annotations['readOnlyHint'] );
     }
 
+    public function throttle_units( array $arguments ) {
+        return 1;
+    }
+
+    protected static function count_items( array $arguments, array $keys ) {
+        $items = 0;
+        foreach ( $keys as $key ) {
+            if ( isset( $arguments[ $key ] ) && is_array( $arguments[ $key ] ) ) {
+                $items += count( $arguments[ $key ] );
+            }
+        }
+        return max( 1, $items );
+    }
+
     public function redact_for_record( array $arguments ) {
         return $arguments;
     }
@@ -161,7 +181,11 @@ abstract class Base_Tool {
 
     protected function peek( $route, $fields, array $params = array() ) {
         try {
-            $data = $this->rest_request( 'GET', $route, $params, $fields );
+            $data = Widgets\Sidebars_Widgets_Hold::during(
+                function () use ( $route, $params, $fields ) {
+                    return $this->rest_request( 'GET', $route, $params, $fields );
+                }
+            );
         } catch ( \Throwable $e ) {
             return null;
         }
@@ -355,7 +379,7 @@ abstract class Base_Tool {
     }
 
     protected function maybe_force_draft( array &$params ) {
-        if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ) ) {
+        if ( \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new() ) {
             $params['status'] = 'draft';
         }
     }
@@ -403,7 +427,7 @@ abstract class Base_Tool {
         return $route;
     }
 
-    protected function precheck_post_type_route( array $arguments, string $key, string $default, ?string $id_key, string ...$methods ): void {
+    protected function precheck_post_type_route( array $arguments, string $key, string $default, ?string $id_key, string ...$methods ): ?string {
         $given = '' === $default
             ? isset( $arguments[ $key ] ) && '' !== $arguments[ $key ]
             : ! empty( $arguments[ $key ] );
@@ -412,17 +436,73 @@ abstract class Base_Tool {
         } elseif ( '' !== $default ) {
             $base = $default;
         } else {
-            return;
+            return null;
         }
         $id = null;
         if ( null !== $id_key ) {
-            try {
-                $id = $this->parse_required_id( $arguments[ $id_key ] ?? null, $id_key );
-            } catch ( \InvalidArgumentException $e ) {
-                return;
+            $id = $this->precheck_id( $arguments, $id_key );
+            if ( null === $id ) {
+                return $base;
             }
         }
         self::post_type_route( $base, $id, ...$methods );
+        return $base;
+    }
+
+    protected function refuse_switched_off_dedicated_tool( ?string $rest_base ): void {
+        $this->throw_switched_off( null === $rest_base ? null : \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::cpt_refusal( $this->get_name(), $rest_base ) );
+    }
+
+    public function get_required_tools(): array {
+        return array();
+    }
+
+    protected function refuse_switched_off_route( string $method, string $route ): void {
+        $this->throw_switched_off( \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::route_refusal( $method, $route ) );
+    }
+
+    protected function refuse_switched_off_post_type_route( string $method, string $base, bool $item ): void {
+        $this->refuse_switched_off_route( $method, '/' . Post_Type_Rest_Base::route_namespace( $base ) . '/' . $base . ( $item ? '/{id}' : '' ) );
+    }
+
+    protected function refuse_switched_off_post_update( $post, bool $approved_css = false ): void {
+        if ( $approved_css && is_object( $post ) && isset( $post->post_type ) && in_array( $post->post_type, \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::SITE_CSS_TYPES, true )
+            && 'redeem' === \Easy_MCP_AI\MCP\Server::current_call_approval_kind() ) {
+            return;
+        }
+        $type = is_object( $post ) && isset( $post->post_type ) ? \get_post_type_object( (string) $post->post_type ) : null;
+        $tool = is_object( $type ) ? \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::post_update_tool( (string) $post->post_type, $type ) : null;
+        $this->throw_switched_off( null === $tool ? null : \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::refusal( array( $tool ) ) );
+    }
+
+    protected function refuse_switched_off_term_action( string $action, $taxonomy ): void {
+        $tax_obj = is_string( $taxonomy ) && '' !== $taxonomy && function_exists( 'get_taxonomy' ) ? \get_taxonomy( $taxonomy ) : null;
+        $tool    = is_object( $tax_obj ) ? \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::term_tool( $taxonomy, $tax_obj, $action ) : null;
+        $this->throw_switched_off( null === $tool ? null : \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::refusal( array( $tool ) ) );
+    }
+
+    protected function refuse_switched_off_term_route( string $method, $taxonomy, bool $item ): void {
+        $tax_obj = is_string( $taxonomy ) && '' !== $taxonomy && function_exists( 'get_taxonomy' ) ? \get_taxonomy( $taxonomy ) : null;
+        if ( ! is_object( $tax_obj ) || empty( $tax_obj->show_in_rest ) ) {
+            return;
+        }
+        $namespace = ! empty( $tax_obj->rest_namespace ) && is_string( $tax_obj->rest_namespace ) ? trim( $tax_obj->rest_namespace, '/' ) : 'wp/v2';
+        $base      = ! empty( $tax_obj->rest_base ) && is_string( $tax_obj->rest_base ) ? $tax_obj->rest_base : $taxonomy;
+        $this->refuse_switched_off_route( $method, '/' . $namespace . '/' . $base . ( $item ? '/{id}' : '' ) );
+    }
+
+    private function throw_switched_off( ?string $refusal ): void {
+        if ( null !== $refusal ) {
+            throw \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+    }
+
+    private function precheck_id( array $arguments, string $id_key ): ?int {
+        try {
+            return $this->parse_required_id( $arguments[ $id_key ] ?? null, $id_key );
+        } catch ( \InvalidArgumentException $e ) {
+            return null;
+        }
     }
 
     protected function refuse_other_type( int $post_id, string $expected_type, string $verb ): void {
@@ -437,12 +517,59 @@ abstract class Base_Tool {
     }
 
     protected function precheck_other_type( array $arguments, string $id_key, string $expected_type, string $verb ): void {
-        try {
-            $post_id = $this->parse_required_id( $arguments[ $id_key ] ?? null, $id_key );
-        } catch ( \InvalidArgumentException $e ) {
+        $post_id = $this->precheck_id( $arguments, $id_key );
+        if ( null !== $post_id ) {
+            $this->refuse_other_type( $post_id, $expected_type, $verb );
+        }
+    }
+
+    protected function refuse_other_taxonomy( int $term_id, string $expected, string $verb ): void {
+        $term     = get_term( $term_id );
+        $taxonomy = is_object( $term ) && ! is_wp_error( $term ) ? (string) $term->taxonomy : '';
+        $object   = '' !== $taxonomy && $expected !== $taxonomy ? get_taxonomy( $taxonomy ) : false;
+        if ( ! is_object( $object ) || ! self::rest_shows_term( $term_id, $taxonomy, $object ) ) {
             return;
         }
-        $this->refuse_other_type( $post_id, $expected_type, $verb );
+        $tools = array(
+            'get'    => array( 'wp_get_term', (string) $object->cap->assign_terms ),
+            'update' => array( 'wp_update_term', 'edit_term' ),
+            'delete' => array( 'wp_delete_term', 'delete_term' ),
+        );
+        list( $tool, $capability ) = $tools[ $verb ];
+        if ( Post_Type_Tool_Hint::may_use( $tool ) && current_user_can( $capability, $term_id ) ) {
+            throw new \InvalidArgumentException( sprintf( self::MSG_OTHER_TAXONOMY_TOOL, $tool, $taxonomy, $expected, $term_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        throw new \InvalidArgumentException( sprintf( self::MSG_OTHER_TAXONOMY, $term_id, $taxonomy, $expected, $this->get_name(), Post_Type_Tool_Hint::VERBS[ $verb ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    private static function rest_shows_term( int $term_id, string $taxonomy, object $object ): bool {
+        if ( empty( $object->show_in_rest ) ) {
+            return false;
+        }
+        $base = ! empty( $object->rest_base ) && is_string( $object->rest_base ) ? trim( $object->rest_base, '/' ) : $taxonomy;
+        try {
+            $namespace = Taxonomy\List_Terms::taxonomy_rest_namespace( $object, $taxonomy );
+        } catch ( \RuntimeException $e ) {
+            return false;
+        }
+        if ( ! preg_match( '#^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\z#', $base ) ) {
+            return false;
+        }
+        $request = new \WP_REST_Request( 'GET', sprintf( '/%s/%s/%d', $namespace, $base, $term_id ) );
+        $request->set_param( 'context', 'view' );
+        $response = apply_filters( 'rest_post_dispatch', rest_do_request( $request ), rest_get_server(), $request );
+        if ( ! $response instanceof \WP_REST_Response || $response->is_error() || 200 !== $response->get_status() ) {
+            return false;
+        }
+        $data = $response->get_data();
+        return is_array( $data ) && isset( $data['id'], $data['taxonomy'] ) && (int) $data['id'] === $term_id && $taxonomy === $data['taxonomy'];
+    }
+
+    protected function precheck_other_taxonomy( array $arguments, string $id_key, string $expected, string $verb ): void {
+        $term_id = $this->precheck_id( $arguments, $id_key );
+        if ( null !== $term_id && get_taxonomy( $expected ) ) {
+            $this->refuse_other_taxonomy( $term_id, $expected, $verb );
+        }
     }
 
     protected function refuse_delete_value_read_as_empty( array $arguments ): void {
@@ -450,6 +577,17 @@ abstract class Base_Tool {
         if ( is_string( $value ) && '' !== $value && '' === wp_unslash( $value ) ) {
             throw new \InvalidArgumentException( 'A value of one backslash is refused: WordPress removes the backslash before it matches the value, so it would delete every row of the key. To delete every row, omit value.' );
         }
+    }
+
+    protected function delete_meta_by_value( string $meta_type, int $object_id, string $meta_key, callable $delete, $value ): array {
+        $slashed = wp_slash( $value );
+        if ( $delete( $slashed ) ) {
+            return array( true, $slashed );
+        }
+        if ( $slashed === $value || false !== Delete_Outcome::meta_kept( $meta_type, $object_id, $meta_key, $slashed ) ) {
+            return array( false, $slashed );
+        }
+        return array( (bool) $delete( $value ), $value );
     }
 
     protected function refuse_builder_owned_write( int $post_id, bool $content, array $meta = array() ): void {
@@ -464,10 +602,33 @@ abstract class Base_Tool {
         if ( $content && ! $adapter->renders_post_content( $post ) && ! $adapter->released_by( $meta ) ) {
             throw new \InvalidArgumentException( sprintf( 'Post %d is built with %s, which shows its own layout, not the post content, so this content edit would not appear. Edit the layout with wp_update_page_layout.', $post_id, $adapter->label() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        $layout = array_values( array_intersect( array_map( 'strval', array_keys( $meta ) ), $adapter->layout_meta_keys() ) );
+        $layout = self::split_layout_meta( $meta, $adapter->layout_meta_keys() )[1];
         if ( array() !== $layout ) {
             throw new \InvalidArgumentException( sprintf( 'Post %d is built with %s: writing %s directly leaves the page showing its old layout. Edit the layout with wp_update_page_layout.', $post_id, $adapter->label(), implode( ', ', $layout ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+    }
+
+    protected static function split_layout_meta( array $meta, array $layout_keys ): array {
+        $found = array_values( array_intersect( array_map( 'strval', array_keys( $meta ) ), $layout_keys ) );
+        return array( array_diff_key( $meta, array_flip( $found ) ), $found );
+    }
+
+    protected static function builder_layout_meta_keys( int $post_id ): array {
+        $post    = get_post( $post_id );
+        $adapter = is_object( $post ) ? \Easy_MCP_AI\Builders\Builder_Registry::for_post( $post ) : null;
+        return null === $adapter ? array() : $adapter->layout_meta_keys();
+    }
+
+    protected static function rest_meta_without_layout( int $post_id, array $meta, string $rest_base ): array {
+        list( $kept, $left_out ) = self::split_layout_meta( $meta, self::builder_layout_meta_keys( $post_id ) );
+        if ( array() === $left_out ) {
+            return array( 'meta' => $meta );
+        }
+        return array(
+            'meta'               => $kept,
+            'meta_left_out'      => $left_out,
+            'meta_left_out_note' => sprintf( 'Left out of meta: %1$s, the page builder\'s stored layout. Read the layout with wp_get_page_layout, or the raw value with wp_get_post_meta (key %2$s, post_type %3$s).', implode( ', ', $left_out ), implode( ' or ', $left_out ), $rest_base ),
+        );
     }
 
     protected function refuse_builder_owned_product_writes( array $items ): void {
@@ -817,6 +978,34 @@ abstract class Base_Tool {
         );
     }
 
+    protected function past_the_end_meta( \WP_REST_Request $request, callable $send, int $page, int $per_page ): array {
+        $asked = $request->get_param( 'page' );
+        $request->set_param( 'page', 1 );
+        try {
+            $first = $send();
+        } finally {
+            $request->set_param( 'page', $asked );
+        }
+        if ( $first->is_error() ) {
+            throw self::rest_error_exception( $first->as_error() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        return $this->pagination_meta( $first, $page, $per_page, 0 );
+    }
+
+    protected function search_past_the_end( \WP_REST_Response $response, \WP_REST_Request $request, callable $send, int $page, int $per_page, string $query ): ?array {
+        if ( $response->is_error() && ! $this->is_invalid_page_error( $response->as_error() ) ) {
+            throw new \RuntimeException( $response->as_error()->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        if ( ! $response->is_error() && ( array() !== $response->get_data() || $page <= 1 ) ) {
+            return null;
+        }
+        return array_merge(
+            array( 'results' => array() ),
+            $this->past_the_end_meta( $request, $send, $page, $per_page ),
+            array( 'query' => $query )
+        );
+    }
+
     protected function is_invalid_page_error( $error ) {
         return \is_wp_error( $error ) && false !== strpos( (string) $error->get_error_code(), 'invalid_page_number' );
     }
@@ -881,15 +1070,8 @@ abstract class Base_Tool {
         if ( '' === $search ) {
             return array();
         }
-        preg_match_all( '/".*?("|$)|((?<=[\t ",+])|^)[^\t ",+]+/', $search, $matches );
-        $parser = new class() extends \WP_Query {
-            public function search_terms( array $terms ): array {
-                return $this->parse_search_terms( $terms );
-            }
-        };
-
-        $terms = $parser->search_terms( $matches[0] );
-        if ( empty( $terms ) || count( $terms ) > 9 ) {
+        $terms = self::wp_search_terms( $search );
+        if ( array() === $terms ) {
             $terms = array( $search );
         }
 
@@ -904,6 +1086,18 @@ abstract class Base_Tool {
             array_unshift( $needles, $search );
         }
         return array_values( array_unique( $needles ) );
+    }
+
+    protected static function wp_search_terms( string $search ): array {
+        preg_match_all( '/".*?("|$)|((?<=[\t ",+])|^)[^\t ",+]+/', $search, $matches );
+        $parser = new class() extends \WP_Query {
+            public function search_terms( array $terms ): array {
+                return $this->parse_search_terms( $terms );
+            }
+        };
+
+        $terms = array_values( $parser->search_terms( $matches[0] ) );
+        return count( $terms ) > 9 ? array() : $terms;
     }
 
     private function locate_search_match( string $haystack, array $needles, bool $use_mb ) {
@@ -1149,10 +1343,20 @@ abstract class Base_Tool {
     }
 
     protected function dispatch_post_update( \WP_REST_Request $request, int $post_id, bool $resave ) {
-        $narrow = Narrow_Post_Write::dispatch( $request, $post_id, $resave );
+        $route   = (string) preg_replace( '#/' . $post_id . '/?$#', '/{id}', $request->get_route() );
+        $method  = $request->get_method();
+        $refusal = null;
+        $guard   = static function () use ( $method, $route, &$refusal ): ?\WP_Error {
+            $refusal = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::route_refusal( $method, $route );
+            return null === $refusal ? null : new \WP_Error( 'easy_mcp_ai_tool_switched_off', $refusal, array( 'status' => 403 ) );
+        };
+        $narrow = Narrow_Post_Write::dispatch( $request, $post_id, $resave, $guard );
         if ( null === $narrow ) {
+            $guard();
+            $this->throw_switched_off( $refusal );
             return rest_do_request( $request );
         }
+        $this->throw_switched_off( $refusal );
         if ( $narrow['wrote'] ) {
             $this->clear_page_cache( array( $post_id ) );
         }
@@ -1178,13 +1382,14 @@ abstract class Base_Tool {
         if ( $response->is_error() ) {
             $message = self::rest_error_message_or_empty( $response );
             if ( '' === $message ) {
-                throw new \RuntimeException( self::rest_status_message( $method, $route, $response ), self::REST_ERROR_WITHOUT_MESSAGE ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                $code = self::refusal_code( $response->get_status() );
+                throw new \RuntimeException( self::rest_status_message( $method, $route, $response ), 0 !== $code ? $code : self::REST_ERROR_WITHOUT_MESSAGE ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             $data = $response->get_data();
             if ( is_array( $data ) && isset( $data['code'] ) && 'rest_invalid_param' === $data['code'] ) {
                 throw \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
-            throw new \RuntimeException( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $message, self::refusal_code( $response->get_status() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return $response;
     }
@@ -1225,6 +1430,11 @@ abstract class Base_Tool {
         if ( 'rest_invalid_param' === $error->get_error_code() ) {
             return \Easy_MCP_AI\MCP\Detailed_Runtime_Error::for_validation( $message );
         }
-        return new \RuntimeException( $message ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        return new \RuntimeException( $message, self::refusal_code( $error->get_error_data() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    protected static function refusal_code( $data ): int {
+        $status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : ( is_numeric( $data ) ? (int) $data : 0 );
+        return in_array( $status, array( 401, 403 ), true ) ? $status : 0;
     }
 }

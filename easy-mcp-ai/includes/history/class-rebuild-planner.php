@@ -21,13 +21,17 @@ class Rebuild_Planner {
         'show_on_front'   => 'show_on_front',
         'page_on_front'   => 'page_on_front',
         'page_for_posts'  => 'page_for_posts',
+        'site_icon'       => 'site_icon',
+        'site_logo'       => 'site_logo',
     );
+
+    const IMAGE_SETTINGS = array( 'site_icon', 'site_logo' );
 
     const FRONT_PAGE_OPTIONS = array( 'show_on_front', 'page_on_front', 'page_for_posts' );
 
     const PAGE_OPTIONS = array( 'page_on_front', 'page_for_posts' );
 
-    const INTEGER_SETTINGS = array( 'posts_per_page', 'page_on_front', 'page_for_posts' );
+    const INTEGER_SETTINGS = array( 'posts_per_page', 'page_on_front', 'page_for_posts', 'site_icon', 'site_logo' );
 
     const UNSUPPORTED_POST_TYPES = array(
         'revision', 'nav_menu_item', 'wp_template', 'wp_template_part', 'wp_global_styles',
@@ -135,6 +139,9 @@ class Rebuild_Planner {
             return array( 'status' => 'incidental', 'reason' => $incidental, 'calls' => array(), 'not_restored' => array(), 'restore_fields' => array(), 'new_id_kind' => null );
         }
 
+        if ( 'create' === $action && self::is_image_setting_creation( $row ) ) {
+            return self::plan_image_setting_creation( $row );
+        }
         if ( 'create' === $action ) {
             $delete = self::delete_tool_for( $row );
             return self::skip(
@@ -186,6 +193,24 @@ class Rebuild_Planner {
         }
         /* translators: %s: object type */
         return self::refuse( sprintf( __( 'wp_history_apply does not rebuild %s entries', 'easy-mcp-ai' ), $type ) );
+    }
+
+    public function meta_not_restored( int $post_id, string $key, array $before, array $after ): ?string {
+        $created = array() === $before;
+        $row     = Change_Recorder::stored_values(
+            array(
+                'id'             => 0,
+                'action'         => $created ? 'create' : 'update',
+                'object_type'    => 'meta',
+                'object_id'      => $post_id . ':' . $key,
+                'object_subtype' => 'post',
+                'before_value'   => $created ? null : array( 'value' => reset( $before ) ),
+                'after_value'    => array() === $after ? null : array( 'value' => reset( $after ) ),
+                'changed_fields' => array( 'value' ),
+            )
+        );
+        $plan    = $this->plan( $row );
+        return 'refuse' === $plan['status'] || 'skip' === $plan['status'] ? $plan['reason'] : null;
     }
 
     public static function count_calls( array $plans ) {
@@ -396,8 +421,8 @@ class Rebuild_Planner {
             $not_restored['post_status'] = sprintf( __( 'recreated as a draft: the tool cannot set the status "%s"', 'easy-mcp-ai' ), $status );
             $status                      = 'draft';
         }
-        if ( 'draft' !== $status && \class_exists( '\Easy_MCP_AI\Config' ) && \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ) ) {
-            $not_restored['post_status'] = __( 'the site\'s Force draft on create setting makes the recreated post a draft', 'easy-mcp-ai' );
+        if ( 'draft' !== $status && \class_exists( '\Easy_MCP_AI\Drafts\Draft_Mode' ) && \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new() ) {
+            $not_restored['post_status'] = __( 'the site\'s Draft mode setting makes the recreated post a draft', 'easy-mcp-ai' );
         }
 
         $args = array(
@@ -527,8 +552,12 @@ class Rebuild_Planner {
         }
 
         if ( 'term_meta' === $type ) {
-            $term_id = $this->id( 'term', (int) $parts[0] );
-            return self::restore( array( array( 'tool' => 'wp_update_term_meta', 'arguments' => array( 'term_id' => $term_id, 'key' => $key, 'value' => $value ) ) ), array(), array( 'value' ) );
+            $term_id   = $this->id( 'term', (int) $parts[0] );
+            $arguments = array( 'term_id' => $term_id, 'key' => $key, 'value' => $value );
+            if ( is_string( $value ) ) {
+                $arguments['value_format'] = 'plaintext';
+            }
+            return self::restore( array( array( 'tool' => 'wp_update_term_meta', 'arguments' => $arguments ) ), array(), array( 'value' ) );
         }
         if ( 'user_meta' === $type ) {
             if ( ! is_scalar( $value ) ) {
@@ -573,6 +602,11 @@ class Rebuild_Planner {
                     ? __( 'the key is not registered for the REST API on this post type, so a history restore does not write it; write it with wp_update_post_meta', 'easy-mcp-ai' )
                     : __( 'the key is not registered for the REST API on this post type, so a history restore does not write it', 'easy-mcp-ai' )
             );
+        }
+        $provider = \Easy_MCP_AI\Meta\Meta_Exposure::exposing_provider( $type, $key );
+        $why      = $provider ? (string) $provider->value_refusal( $key, $value, $post_id ) : '';
+        if ( '' !== $why ) {
+            return self::refuse( $why );
         }
         return self::restore(
             array( array(
@@ -896,6 +930,25 @@ class Rebuild_Planner {
         );
     }
 
+    private static function is_image_setting_creation( array $row ): bool {
+        $name = (string) ( $row['object_id'] ?? '' );
+        return 'option' === ( $row['object_type'] ?? '' )
+            && in_array( $name, self::IMAGE_SETTINGS, true )
+            && $name === (string) ( $row['object_subtype'] ?? $name );
+    }
+
+    private static function plan_image_setting_creation( array $row ): array {
+        $name = (string) $row['object_id'];
+        if ( 'site_logo' === $name ) {
+            $theme_logo = (int) ( \get_theme_mods()['custom_logo'] ?? 0 );
+            if ( 0 !== $theme_logo ) {
+                /* translators: %d: attachment id */
+                return self::refuse( sprintf( __( 'site_logo did not exist before this entry, so WordPress showed the theme\'s own custom_logo then; it names attachment %d now, and writing 0 would hide it. wp_update_theme_mod sets custom_logo', 'easy-mcp-ai' ), $theme_logo ) );
+            }
+        }
+        return self::restore( array( array( 'tool' => 'wp_update_site_settings', 'arguments' => array( $name => 0 ) ) ), array(), array( 'value' ) );
+    }
+
     private function plan_front_page( array $row ): array {
         $kept_off = $this->front_page_ids_kept_off();
         $name     = (string) $row['object_id'];
@@ -1027,6 +1080,9 @@ class Rebuild_Planner {
             }
             if ( in_array( $key, \Easy_MCP_AI\Tools\SEO\Yoast_Update_Post_Seo::IMAGE_IDS, true ) ) {
                 return __( 'Yoast\'s attachment id for a social image, which wp_yoast_update_post_seo sets from the image URL each time it writes one; applying the URL\'s entry sets it again, and an id repaired on its own is not put back', 'easy-mcp-ai' );
+            }
+            if ( in_array( $key, array_column( \Easy_MCP_AI\Tools\SEO\Rankmath_Update_Post_Seo::SOCIAL_IMAGES, 'id' ), true ) ) {
+                return __( 'Rank Math\'s attachment id for a social image, which is set from the image URL each time the URL is written; applying the URL\'s entry sets it again', 'easy-mcp-ai' );
             }
             return null;
         }

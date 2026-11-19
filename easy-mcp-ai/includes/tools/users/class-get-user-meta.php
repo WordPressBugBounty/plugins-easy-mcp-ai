@@ -71,6 +71,9 @@ class Get_User_Meta extends Base_Tool {
         $key    = isset( $arguments['key'] ) ? sanitize_text_field( (string) $arguments['key'] ) : '';
         $single = isset( $arguments['single'] ) ? (bool) $arguments['single'] : true;
         if ( '' !== $key ) {
+            if ( \Easy_MCP_AI\Meta\Meta_Key::reads_every_row( $key ) ) {
+                throw new \InvalidArgumentException( \Easy_MCP_AI\Meta\Meta_Key::READS_EVERY_ROW );
+            }
             self::refuse_unreadable_key( $key );
             $value = get_user_meta( $user_id, $key, $single );
             return array( 'user_id' => $user_id, 'key' => $key, 'value' => $value );

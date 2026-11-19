@@ -12,9 +12,15 @@ abstract class Vendor_Abilities {
 
     const VENDOR = '';
 
-    const CLASSES = array( Learnpress_Abilities::class, Elementor_Abilities::class, Breakdance_Abilities::class );
+    const CAPABILITY = '';
+
+    const CLASSES = array( Learnpress_Abilities::class, Elementor_Abilities::class, Breakdance_Abilities::class, Latepoint_Abilities::class );
 
     const TICKS_SETTLED_OPTION = 'easy_mcp_ai_vendor_ability_ticks_settled';
+
+    const TICKS_SETTLED_VERSION = 2;
+
+    const SETTLED_IN = 1;
 
     private static $ours = false;
 
@@ -41,16 +47,22 @@ abstract class Vendor_Abilities {
         return null;
     }
 
+    public static function capability_of( string $slug ): ?string {
+        $class = self::class_of( $slug );
+        return null !== $class && '' !== $class::CAPABILITY ? $class::CAPABILITY : null;
+    }
+
     public static function settle_ticks(): void {
-        if ( \get_option( self::TICKS_SETTLED_OPTION ) ) {
+        $done = self::settled_pass();
+        if ( $done >= self::TICKS_SETTLED_VERSION ) {
             return;
         }
         $enabled = \get_option( 'easy_mcp_ai_enabled_abilities', array() );
-        if ( is_array( $enabled ) && count( self::untick( $enabled ) ) !== count( $enabled ) ) {
+        if ( is_array( $enabled ) && count( self::untick( $enabled, $done ) ) !== count( $enabled ) ) {
             $settled = false;
-            \Easy_MCP_AI\Tools\Tool_Policy::locked( static function () use ( &$settled ) {
+            \Easy_MCP_AI\Tools\Tool_Policy::locked( static function () use ( &$settled, $done ) {
                 $current = \Easy_MCP_AI\Config::read_uncached( 'easy_mcp_ai_enabled_abilities' );
-                $keep    = is_array( $current ) ? self::untick( $current ) : array();
+                $keep    = is_array( $current ) ? self::untick( $current, $done ) : array();
                 if ( ! is_array( $current ) || count( $keep ) === count( $current ) ) {
                     $settled = true;
                     return;
@@ -62,21 +74,29 @@ abstract class Vendor_Abilities {
                 return;
             }
         }
-        \update_option( self::TICKS_SETTLED_OPTION, 1 );
+        \update_option( self::TICKS_SETTLED_OPTION, self::TICKS_SETTLED_VERSION );
     }
 
-    private static function untick( array $enabled ): array {
+    public static function settled_pass(): int {
+        $stored = \get_option( self::TICKS_SETTLED_OPTION );
+        if ( is_int( $stored ) ) {
+            return max( 0, $stored );
+        }
+        return is_string( $stored ) && ctype_digit( $stored ) ? (int) $stored : 0;
+    }
+
+    private static function untick( array $enabled, int $done ): array {
         $keep = array();
         foreach ( $enabled as $slug ) {
             $class = is_string( $slug ) ? self::class_of( $slug ) : null;
-            if ( null === $class || $class::ran_before_switches_dropped() ) {
+            if ( null === $class || $class::SETTLED_IN <= $done || $class::ran_before_switches_dropped( $slug ) ) {
                 $keep[] = $slug;
             }
         }
         return $keep;
     }
 
-    abstract protected static function ran_before_switches_dropped(): bool;
+    abstract protected static function ran_before_switches_dropped( string $slug ): bool;
 
     private static function class_of( string $slug ): ?string {
         foreach ( self::CLASSES as $class ) {

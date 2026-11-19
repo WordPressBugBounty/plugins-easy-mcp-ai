@@ -31,6 +31,7 @@ class Tools_Controller extends Admin_Rest_Controller {
     public function register_routes() {
         $this->register_route( '/tools', \WP_REST_Server::READABLE, array( $this, 'get_tools' ) );
         $this->register_route( '/tools/policy', self::UPDATABLE, array( $this, 'patch_policy' ) );
+        $this->register_route( '/tools/cloud/otter', \WP_REST_Server::CREATABLE, array( $this, 'fix_otter' ) );
     }
 
     public function get_tools( $request ) {
@@ -49,12 +50,18 @@ class Tools_Controller extends Admin_Rest_Controller {
         return \is_wp_error( $result ) ? $result : $this->ok( $this->payload() );
     }
 
+    public function fix_otter( $request ) {
+        $result = \Easy_MCP_AI\Cloud\Otter_Requirement::fix();
+        return \is_wp_error( $result ) ? $result : $this->ok( $this->payload() );
+    }
+
     private function payload() {
         $groups = (array) call_user_func( $this->groups );
         $data   = self::shape( $groups );
         if ( $this->catalogue ) {
             $data = array_merge( $data, $this->catalogue->sections( $groups ) );
         }
+        $data['otter'] = \Easy_MCP_AI\Cloud\Otter_Requirement::state();
         return $data;
     }
 

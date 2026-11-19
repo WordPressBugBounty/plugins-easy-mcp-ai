@@ -66,6 +66,11 @@ final class Self_Protection {
         'recovery_keys'           => 'the keys of the recovery-mode links WordPress emails after a fatal error',
     );
 
+    const CONFIRMATION_OPTIONS = array(
+        'adminhash'          => 'the key and new address of a pending change of the site\'s administration email, which the confirmation link WordPress emails carries',
+        'network_admin_hash' => 'the key and new address of a pending change of the network\'s administration email, which the confirmation link WordPress emails carries',
+    );
+
     const CACHE_GROUPS = array(
         'easy_mcp_ai'    => 'it holds the validated API-key rows of the plugin that serves this MCP connection and its rate-limit and lockout counters. They expire on their own; the plugin\'s Connections and Settings screens in wp-admin change what they hold',
         'options'        => 'it holds every option, this plugin\'s settings and credentials included. Use `option get` and `option update`, which apply their own checks',
@@ -102,6 +107,7 @@ final class Self_Protection {
     const REASON_CORE_WRITE          = "wp_cli_run does not write the '%s' option: %s.";
     const REASON_UPDATE_TRANSIENT    = "wp_cli_run does not write the site transient '%s': %s.";
     const REASON_UPDATE_TRANSIENT_AT = "wp_cli_run does not write '%s', which stores the %s site transient: %s.";
+    const REASON_CONFIRMATION_OPTION = "wp_cli_run never reads or writes '%s': it is %s. Change the administration email under Settings › General in wp-admin (Network Admin › Settings for the network's), which emails the confirmation link to the new address.";
     const REASON_SECRET_OPTION       = "wp_cli_run never prints '%s': it is %s. WP-CLI's config shuffle-salts, which rotates the salts, runs only outside wp_cli_run.";
     const REASON_OPTION_BYTES        = 'wp_cli_run refuses an option or transient name containing a space, a control character or a non-ASCII byte: the options table compares names without regard to case, accents or trailing spaces, so such a name can address a different row, this plugin\'s among them. Pass the name in plain ASCII, as `option list` prints it.';
     const REASON_CACHE_GROUP         = "wp_cli_run does not touch the object-cache group '%s': %s.";
@@ -159,9 +165,17 @@ final class Self_Protection {
         return null;
     }
 
+    public static function refused_before_preview( string $name ): bool {
+        $trimmed = trim( $name );
+        return ( '' !== $trimmed && ! self::is_printable( $trimmed, true ) ) || isset( self::CONFIRMATION_OPTIONS[ strtolower( $trimmed ) ] );
+    }
+
     private static function core_option( string $name, string $lc, bool $write ): ?string {
         if ( in_array( $lc, self::SPECIAL_OPTIONS, true ) ) {
             return self::LABEL . sprintf( self::REASON_SPECIAL_OPTION, $name );
+        }
+        if ( isset( self::CONFIRMATION_OPTIONS[ $lc ] ) ) {
+            return self::LABEL . sprintf( self::REASON_CONFIRMATION_OPTION, $name, self::CONFIRMATION_OPTIONS[ $lc ] );
         }
         if ( $write ) {
             if ( isset( self::CORE_WRITE_OPTIONS[ $lc ] ) ) {

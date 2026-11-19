@@ -495,7 +495,7 @@ class Check_Tool_Visibility {
                 Diagnostic_Result::TIER_INFO,
                 $label,
                 sprintf(
-                    /* translators: 1: number of abilities, 2: comma-separated plugin names (LearnPress, Elementor, Breakdance), 3: comma-separated ability slugs, 4: what to do next. */
+                    /* translators: 1: number of abilities, 2: comma-separated plugin names (LearnPress, Elementor, Breakdance, LatePoint), 3: comma-separated ability slugs, 4: what to do next. */
                     \_n(
                         '%1$d ability from %2$s is switched on but could not be checked here, because it is registered only on requests this plugin serves: %3$s. %4$s',
                         '%1$d abilities from %2$s are switched on but could not be checked here, because they are registered only on requests this plugin serves: %3$s. %4$s',

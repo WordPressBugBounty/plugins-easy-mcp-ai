@@ -90,10 +90,10 @@ trait Lifecycle_Guard {
 
     protected function interpret_upgrade_result( $result, \WP_Ajax_Upgrader_Skin $skin, $upgrader, $key, $failed ) {
         if ( is_wp_error( $skin->result ) ) {
-            throw new \RuntimeException( $this->redact_urls( $skin->result->get_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( $skin->result->get_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( $skin->get_errors()->has_errors() ) {
-            throw new \RuntimeException( $this->redact_urls( (string) $skin->get_error_messages() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( (string) $skin->get_error_messages() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( is_array( $result ) && ! empty( $result[ $key ] ) ) {
             if ( true === $result[ $key ] ) {
@@ -103,9 +103,62 @@ trait Lifecycle_Guard {
             return $result[ $key ];
         }
         if ( false === $result ) {
-            throw new \RuntimeException( $this->redact_urls( $this->filesystem_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( $this->safe_message( $this->filesystem_error_message() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         throw new \RuntimeException( $failed ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    protected function safe_message( string $text ): string {
+        return $this->relative_paths( $this->redact_urls( $text ) );
+    }
+
+    protected function relative_paths( string $text ): string {
+        return self::paths_relative_to(
+            $text,
+            (string) ABSPATH,
+            array(
+                'wp-content/' => defined( 'WP_CONTENT_DIR' ) ? (string) WP_CONTENT_DIR : '',
+                '[temp]/'     => function_exists( 'get_temp_dir' ) ? (string) get_temp_dir() : '',
+            )
+        );
+    }
+
+    protected static function paths_relative_to( string $text, string $root, array $outer ): string {
+        $slashed = static function ( string $dir ): string {
+            return rtrim( str_replace( '\\', '/', $dir ), '/' ) . '/';
+        };
+        $root    = $slashed( $root );
+        $folders = array( $root => '' );
+        foreach ( $outer as $as => $dir ) {
+            $dir = $slashed( $dir );
+            if ( 0 !== strpos( $dir, $root ) ) {
+                $folders[ $dir ] = $as;
+            }
+        }
+        unset( $folders['/'] );
+        uksort(
+            $folders,
+            static function ( string $a, string $b ): int {
+                return strlen( $b ) - strlen( $a );
+            }
+        );
+        foreach ( $folders as $dir => $as ) {
+            if ( '[temp]/' !== $as ) {
+                $text = str_replace( array( $dir, str_replace( '/', '\\', $dir ) ), $as, $text );
+                continue;
+            }
+            $parts = array_map(
+                static function ( string $part ): string {
+                    return preg_quote( $part, '#' );
+                },
+                explode( '/', rtrim( $dir, '/' ) )
+            );
+            $text  = preg_replace( '#(?<![^\s"\'`])' . implode( '[\\\\/]', $parts ) . '[\\\\/]#', $as, $text );
+            if ( null === $text ) {
+                return '[message withheld: it could not be checked for server paths]';
+            }
+        }
+        return $text;
     }
 
     private function filesystem_error_message() {
@@ -133,7 +186,7 @@ trait Lifecycle_Guard {
         $messages = method_exists( $skin, 'get_upgrade_messages' ) ? (array) $skin->get_upgrade_messages() : array();
         $out      = array();
         foreach ( array_slice( $messages, -20 ) as $message ) {
-            $line = trim( $this->redact_urls( wp_strip_all_tags( (string) $message ) ) );
+            $line = trim( $this->safe_message( wp_strip_all_tags( (string) $message ) ) );
             if ( '' === $line ) {
                 continue;
             }

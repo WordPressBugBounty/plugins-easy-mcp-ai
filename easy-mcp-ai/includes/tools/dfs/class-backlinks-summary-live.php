@@ -89,7 +89,7 @@ class Backlinks_Summary_Live extends Base_Tool {
 
 	public function execute( array $arguments ) {
 		if ( ! isset( $arguments['target'] ) || empty( $arguments['target'] ) ) {
-			throw new \RuntimeException(
+			throw new \InvalidArgumentException(
 				'target is required and must not be empty.'
 			);
 		}
@@ -97,7 +97,7 @@ class Backlinks_Summary_Live extends Base_Tool {
 		if ( isset( $arguments['backlinks_status_type'] ) ) {
 			$backlinks_status_type = (string) $arguments['backlinks_status_type'];
 			if ( ! in_array( $backlinks_status_type, array( 'all', 'live', 'lost' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'backlinks_status_type must be one of: all, live, lost.'
 				);
 			}
@@ -106,7 +106,7 @@ class Backlinks_Summary_Live extends Base_Tool {
 		if ( isset( $arguments['internal_list_limit'] ) ) {
 			$internal_list_limit = (int) $arguments['internal_list_limit'];
 			if ( $internal_list_limit < 1 || $internal_list_limit > 1000 ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'internal_list_limit must be between 1 and 1000.'
 				);
 			}
@@ -115,7 +115,7 @@ class Backlinks_Summary_Live extends Base_Tool {
 		if ( isset( $arguments['rank_scale'] ) ) {
 			$rank_scale = (string) $arguments['rank_scale'];
 			if ( ! in_array( $rank_scale, array( 'one_hundred', 'one_thousand' ), true ) ) {
-				throw new \RuntimeException(
+				throw new \InvalidArgumentException(
 					'rank_scale must be one of: one_hundred, one_thousand.'
 				);
 			}

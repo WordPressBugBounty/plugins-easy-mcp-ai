@@ -94,7 +94,7 @@ class Seopress_Update_Social extends Base_Tool {
 		);
 		foreach ( $text_map as $arg => $key ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				$body[ $key ] = sanitize_text_field( (string) $arguments[ $arg ] );
+				$body[ $key ] = Seo_Text::clean( (string) $arguments[ $arg ] );
 			}
 		}
 

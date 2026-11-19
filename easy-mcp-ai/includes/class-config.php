@@ -33,7 +33,10 @@ class Config {
         'skills_sync',
         'api_key_header_only',
         'oauth_cimd',
+        'draft_mode',
     );
+
+    const SUCCEEDS = array( 'draft_mode' => 'force_draft_on_create' );
 
     const BUCKET_PATTERN = '/^(?:easy_mcp_ai_)?disabled_(ga|gsc|dfs|semrush|ahrefs|seranking|plugin)_tools$/';
 
@@ -41,6 +44,7 @@ class Config {
         return array(
             'rate_limit_per_minute' => array( self::RATE_LIMIT_PER_MINUTE, 'integer', 1, 1000 ),
             'force_draft_on_create' => array( false, 'boolean' ),
+            'draft_mode' => array( 'off', 'draft_mode' ),
             'max_title_length' => array( 0, 'integer', 0, 2000 ),
             'audit_log_enabled' => array( true, 'boolean' ),
             'audit_log_retention' => array( 30, 'integer', 1, 365 ),
@@ -105,10 +109,27 @@ class Config {
     }
 
     public static function source( $option ) {
-        if ( ! isset( self::settings()[ self::suffix( $option ) ] ) ) {
+        $suffix = self::suffix( $option );
+        if ( ! isset( self::settings()[ $suffix ] ) ) {
             return '';
         }
-        $name = self::constant_name( $option );
+        $own = self::own_source( $suffix );
+        if ( '' === $own && isset( self::SUCCEEDS[ $suffix ] ) ) {
+            return self::own_source( self::SUCCEEDS[ $suffix ] );
+        }
+        return $own;
+    }
+
+    public static function deployed_constant( $option ) {
+        $suffix = self::suffix( $option );
+        if ( isset( self::SUCCEEDS[ $suffix ] ) && '' === self::own_source( $suffix ) && '' !== self::own_source( self::SUCCEEDS[ $suffix ] ) ) {
+            return self::constant_name( self::SUCCEEDS[ $suffix ] );
+        }
+        return self::constant_name( $suffix );
+    }
+
+    private static function own_source( $suffix ) {
+        $name = self::constant_name( $suffix );
         if ( defined( $name ) ) {
             return 'constant';
         }
@@ -135,6 +156,9 @@ class Config {
         if ( null === $spec ) {
             return \get_option( $option, $default );
         }
+        if ( 'draft_mode' === $suffix && '' === self::own_source( $suffix ) ) {
+            return '' === self::source( 'force_draft_on_create' ) ? self::stored_draft_mode() : self::draft_mode_of( self::get( 'force_draft_on_create' ) );
+        }
         $source = self::source( $suffix );
         if ( '' === $source ) {
             return self::stored( $suffix, \get_option( 'easy_mcp_ai_' . $suffix, func_num_args() > 1 ? $default : $spec[0] ) );
@@ -146,6 +170,29 @@ class Config {
 
     private static function stored( $suffix, $stored ) {
         return in_array( $suffix, self::VALIDATE_STORED, true ) ? self::validate_stored( $suffix, $stored ) : $stored;
+    }
+
+    private static function stored_draft_mode() {
+        $absent = new \stdClass();
+        $stored = \get_option( 'easy_mcp_ai_draft_mode', $absent );
+        if ( $absent === $stored ) {
+            return self::draft_mode_of( \get_option( 'easy_mcp_ai_force_draft_on_create', false ) );
+        }
+        return self::stored( 'draft_mode', $stored );
+    }
+
+    public static function stored_draft_mode_valid() {
+        $absent = new \stdClass();
+        $stored = \get_option( 'easy_mcp_ai_draft_mode', $absent );
+        if ( $absent === $stored ) {
+            return true;
+        }
+        self::validate( 'draft_mode', $stored, $valid );
+        return (bool) $valid;
+    }
+
+    private static function draft_mode_of( $force_draft ) {
+        return $force_draft ? 'new_content' : 'off';
     }
 
     private static function validate_stored( $suffix, $stored ) {
@@ -218,6 +265,12 @@ class Config {
                     return $raw;
                 }
                 break;
+            case 'draft_mode':
+                if ( in_array( $raw, array( 'off', 'new_content', 'strict' ), true ) ) {
+                    return $raw;
+                }
+                $valid = false;
+                return 'strict';
             case 'fallback_mode':
                 if ( in_array( $raw, array( 'auto', 'on', 'off' ), true ) ) {
                     return $raw;
@@ -344,7 +397,7 @@ class Config {
         $result = array();
         foreach ( self::settings() as $suffix => $spec ) {
             if ( self::is_locked( $suffix ) ) {
-                $result[ self::constant_name( $suffix ) ] = self::source( $suffix );
+                $result[ self::deployed_constant( $suffix ) ] = self::source( $suffix );
             }
         }
         return $result;
@@ -353,7 +406,7 @@ class Config {
     public static function export() {
         $lines = array();
         foreach ( self::settings() as $suffix => $spec ) {
-            $stored = self::stored( $suffix, \get_option( 'easy_mcp_ai_' . $suffix, $spec[0] ) );
+            $stored = 'draft_mode' === $suffix ? self::stored_draft_mode() : self::stored( $suffix, \get_option( 'easy_mcp_ai_' . $suffix, $spec[0] ) );
             if ( 'boolean' === $spec[1] || 'opt_out' === $spec[1] ) {
                 $stored = (bool) $stored;
             }

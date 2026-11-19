@@ -9,6 +9,8 @@ class Token_Manager {
 
     const TOKEN_PREFIX = 'wpmcp_';
 
+    const CREATED_EVENT = '_api_key_created';
+
     const ERROR_SITE_MISMATCH = 'site_mismatch';
 
     private $last_validation_error = null;
@@ -20,6 +22,7 @@ class Token_Manager {
         $token_pfx   = substr( $raw_token, 0, 14 );
         $table = esc_sql( $wpdb->prefix . 'easy_mcp_ai_tokens' );
         $site_host_hash = \Easy_MCP_AI\Site_Host::current_hash();
+        $expires        = $expires_at ? $this->normalize_expires_at( sanitize_text_field( $expires_at ) ) : null;
         $result = $wpdb->insert( $table, array( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct DB required; table name is plugin-controlled, not user input.
             'name'          => sanitize_text_field( $name ),
             'token_hash'    => $token_hash,
@@ -28,7 +31,7 @@ class Token_Manager {
             'wp_user_id'    => absint( $wp_user_id ),
             'created_by'    => \get_current_user_id() ?: null,
             'site_host_hash' => '' !== $site_host_hash ? $site_host_hash : null,
-            'expires_at'    => $expires_at ? $this->normalize_expires_at( sanitize_text_field( $expires_at ) ) : null,
+            'expires_at'    => $expires,
             'is_active'     => 1,
             'created_at'    => current_time( 'mysql', true ),
             'updated_at'    => current_time( 'mysql', true ),
@@ -36,7 +39,43 @@ class Token_Manager {
         if ( false === $result ) {
             return new \WP_Error( 'token_create_failed', __( 'Failed to create token.', 'easy-mcp-ai' ) );
         }
-        return array( 'id' => $wpdb->insert_id, 'raw_token' => $raw_token, 'prefix' => $token_pfx );
+        $token_id = (int) $wpdb->insert_id;
+        self::log_creation( $token_id, $name, absint( $wp_user_id ), $allowed_tools, $expires );
+        return array( 'id' => $token_id, 'raw_token' => $raw_token, 'prefix' => $token_pfx );
+    }
+
+    private static function redact_name( $name ): string {
+        $text = \Easy_MCP_AI\Text_Redactor::redact( sanitize_text_field( $name ) );
+        return (string) preg_replace( '/' . preg_quote( self::TOKEN_PREFIX, '/' ) . '[A-Za-z0-9_]+/', '[REDACTED]', $text );
+    }
+
+    private static function log_creation( int $token_id, $name, int $owner_id, $allowed_tools, ?string $expires_at ): void {
+        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) {
+            return;
+        }
+        global $wpdb;
+        $actor = \get_current_user_id();
+        $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Direct insert required for audit logging; mirrors Server::log_auth_failure().
+            $wpdb->prefix . 'easy_mcp_ai_audit_log',
+            array(
+                'token_id'      => $token_id,
+                'tool_name'     => self::CREATED_EVENT,
+                'arguments'     => wp_json_encode(
+                    array(
+                        'name'          => self::redact_name( $name ),
+                        'owner_user_id' => $owner_id,
+                        'allowed_tools' => $allowed_tools,
+                        'expires_at'    => $expires_at,
+                    )
+                ),
+                'result_status' => 'success',
+                'ip_address'    => \Easy_MCP_AI\Client_IP::get(),
+                'auth_source'   => 'legacy',
+                'wp_user_id'    => $actor > 0 ? $actor : null,
+                'created_at'    => current_time( 'mysql', true ),
+            ),
+            array( '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s' )
+        );
     }
 
     public function create_self_service_token( $name, $user_id, array $tools, $expires_at, $limit ) {

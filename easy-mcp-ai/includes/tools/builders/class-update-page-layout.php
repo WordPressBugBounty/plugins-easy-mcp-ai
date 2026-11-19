@@ -20,7 +20,7 @@ class Update_Page_Layout extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with wp_get_page_layout first: required `post_id`, `version` (from that read; refused if stale) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default field: the element\'s main text; HTML where the field is HTML); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. `element` is the address from wp_get_page_layout: an Elementor id, a Breakdance id ("102"), or a path such as "0.1.2" for the other builders. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: widgets and containers, never sections or columns). Addresses mean the layout as read, even after earlier ops moved or removed elements; `ref` names a new element for later ops. Any op may carry `expect` (its required element type). `dry_run: true` saves nothing. Returns { changed, saved, version (send it with the next edit), results (one per op and per field written), parents?, revision_id?, warnings? }. Elementor V4 elements (flag `atomic`) are edited with Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities insert, move and remove elements. Breakdance, WPBakery, Flatsome and Divi are edited only on measured versions; the read says `editable` and why not. Requires edit access to the item.';
+        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with wp_get_page_layout first: required `post_id`, `version` (from that read; refused if stale) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default field: the element\'s main text; HTML where the field is HTML); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. `element` is the address from wp_get_page_layout: an Elementor id, a Breakdance id ("102"), or a path such as "0.1.2" for the other builders. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: sections and columns too, sized as its editor sizes them). Addresses mean the layout as read, even after earlier ops moved or removed elements; `ref` names a new element for later ops. Any op may carry `expect` (its required element type). `dry_run: true` saves nothing. Returns { changed, saved, version (send it with the next edit), results (one per op and per field written), parents?, revision_id?, warnings? }. Elementor V4 elements (flag `atomic`) are edited with Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities insert, move and remove elements. Breakdance, WPBakery, Flatsome and Divi are edited only on supported versions; the read says `editable` and why not. Requires edit access to the item.';
     }
 
     public function get_category() {
@@ -76,7 +76,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'element_type'  => array(
                                 'type'        => 'string',
-                                'description' => 'insert: the new element\'s type, from wp_list_layout_elements (e.g. "heading", "ux_banner", "et_pb_button", "divi/button"), or "container" on Elementor.',
+                                'description' => 'insert: the new element\'s type, from wp_list_layout_elements (e.g. "heading", "ux_banner", "et_pb_button", "divi/button"), or "container", "section" or "column" on Elementor.',
                             ),
                             'before'        => array(
                                 'type'        => 'string',
@@ -88,7 +88,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'parent'        => array(
                                 'type'        => 'string',
-                                'description' => 'insert, move (and duplicate on Elementor): the element (or `ref`) it goes into, with `index`. Flatsome and Divi: "" for the page itself. Elementor: a container or column; `index` alone, without `parent`, places it at the top level.',
+                                'description' => 'insert, move (and duplicate on Elementor): the element (or `ref`) it goes into, with `index`. Flatsome and Divi: "" for the page itself. Elementor: a container, section (for a column) or column; `index` alone, without `parent`, places it at the top level.',
                             ),
                             'index'         => array(
                                 'type'        => 'integer',
@@ -101,8 +101,16 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'children'      => array(
                                 'type'        => 'array',
-                                'description' => 'Elementor, insert of a container: elements to insert inside it, each { element_type, fields?, children?, ref? }.',
+                                'description' => 'Elementor, insert of a container, section or column: elements to insert inside it, each { element_type, fields?, children?, ref? }; a section\'s are its columns.',
                                 'items'       => array( 'type' => 'object' ),
+                            ),
+                            'columns'       => array(
+                                'type'        => 'integer',
+                                'description' => 'Elementor, insert of a section without `children`: how many empty columns, 1 to 10 (default 1, and 2 for a section inside a column).',
+                            ),
+                            'structure'     => array(
+                                'type'        => 'string',
+                                'description' => 'Elementor, insert of a section: one of Elementor\'s column presets, "<columns><preset>" ("21" is 33/66, "22" 66/33, "31" 25/25/50, "32" 50/25/25, "33" 25/50/25, "34" 16/66/16); default equal widths.',
                             ),
                             'ref'           => array(
                                 'type'        => 'string',
@@ -134,7 +142,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'fields'        => array(
                                 'type'        => 'object',
-                                'description' => 'set_fields, add_item, insert: field name to new value, for fields wp_list_layout_elements lists for the element type, or in `item_fields` for a list item (a select takes one of its options, or a list of them where wp_list_layout_elements marks it `multiple`, a true/false field a boolean, a colour a value such as "#1a2b3c", a code field (an Elementor HTML widget\'s `html`) its HTML or script, saved as sent and only for an account that may post unfiltered HTML; for WPBakery and Flatsome "" removes the field so the builder\'s default applies). On a Flatsome or Divi insert, an image field takes an attachment ID and a link field a URL.',
+                                'description' => 'set_fields, add_item, insert: field name to new value, for fields wp_list_layout_elements lists for the element type, or in `item_fields` for a list item (a select takes one of its options, or a list of them where wp_list_layout_elements marks it `multiple`, a true/false field a boolean, a colour a value such as "#1a2b3c", a code field (an Elementor HTML widget\'s `html`) its HTML or script, saved as sent and only for an account that may post unfiltered HTML; for WPBakery and Flatsome "" removes the field so the builder\'s default applies). On a Flatsome or Divi insert, an image field takes an attachment ID and a link field a URL. Elementor: fields of every panel tab (Content, Layout, Style, Advanced; wp_list_layout_elements `tab`), on widgets and on containers, sections and columns: `hide_mobile`, `_css_classes` (`css_classes` on a container, section or column), `_element_id` (without "#"), `flex_direction`, `background_image` (`set_image` on a container, section or column writes it by default; set_text, set_link and set_image without `field` pick from the first tab only); a field with `devices` takes `<name>_<device>`; a field with a `condition` needs those other fields set first, in the same call. A size takes a number or { size, unit }; spacing { top?, right?, bottom?, left?, unit? } and a gap { column?, row?, unit? } keep the sides not sent. A gallery (a slideshow background, a carousel) takes a list of image attachment IDs, set whole.',
                             ),
                             'expect'        => array(
                                 'type'        => 'string',

@@ -18,6 +18,9 @@ class Cron_Handler extends Command_Handler {
 
     const ROW_CAP = 1000;
 
+    const DELETE_FAILED = 'WordPress did not unschedule %1$d of %2$d cron events: a plugin may have stopped it, the cron option was not saved, or it still holds them. Deleted: %3$d.';
+    const DELETE_UNREAD = "A database error stopped the cron option being read back, so whether the cron event '%s' was unscheduled is not known.";
+
     const LIST_FILTERS = array( 'hook', 'next_run_gmt', 'next_run_relative', 'recurrence' );
 
     const TIME_FORMAT = 'Y-m-d H:i:s';
@@ -213,16 +216,18 @@ class Cron_Handler extends Command_Handler {
 
         $ctx->not_captured( self::NOT_RECORDED );
         $deleted = 0;
+        $failed  = 0;
         $batch   = new Batch( $inv, $ctx, 'cron event', 'delete' );
         $batch->run(
             $events,
-            function ( $event ) use ( $ctx, &$deleted ) {
+            function ( $event ) use ( $ctx, &$deleted, &$failed ) {
                 $result = $this->delete_event( $event, $ctx );
                 if ( $result ) {
                     ++$deleted;
                     return Batch::SUCCESS;
                 }
                 $ctx->out->warning( sprintf( "Failed to the delete the cron event '%s'.", $event->hook ) );
+                ++$failed;
                 return Batch::FAILURE;
             },
             static function ( $event ) {
@@ -230,6 +235,9 @@ class Cron_Handler extends Command_Handler {
             }
         );
 
+        if ( $failed > 0 ) {
+            $ctx->out->error( sprintf( self::DELETE_FAILED, $failed, $deleted + $failed, $deleted ) );
+        }
         $message = sprintf( 'Deleted a total of %d %s.', $deleted, self::pluralize( 'cron event', $deleted ) );
         $ctx->out->success( sprintf( $message, $deleted ) );
     }
@@ -616,13 +624,26 @@ class Cron_Handler extends Command_Handler {
     }
 
     protected function unschedule_event( $timestamp, string $hook, $args ): bool {
-        return (bool) $this->seam(
-            'wp_unschedule_event',
-            array( $timestamp, $hook, $args ),
-            static function ( $timestamp, $hook, $args ) {
-                return \wp_unschedule_event( $timestamp, $hook, $args );
+        $this->replaced = false;
+        $depth          = \Easy_MCP_AI\Tools\Delete_Outcome::hook_depth() + 1;
+        $observer       = function ( $pre ) use ( $depth ) {
+            if ( \Easy_MCP_AI\Tools\Delete_Outcome::hook_depth() === $depth ) {
+                $this->replaced = null !== $pre;
             }
-        );
+            return $pre;
+        };
+        \add_filter( 'pre_unschedule_event', $observer, PHP_INT_MAX, 1 );
+        try {
+            return true === $this->seam(
+                'wp_unschedule_event',
+                array( $timestamp, $hook, $args ),
+                static function ( $timestamp, $hook, $args ) {
+                    return \wp_unschedule_event( $timestamp, $hook, $args );
+                }
+            );
+        } finally {
+            \remove_filter( 'pre_unschedule_event', $observer, PHP_INT_MAX );
+        }
     }
 
     protected function clock(): array {
@@ -662,11 +683,35 @@ class Cron_Handler extends Command_Handler {
         }
 
         $before = serialize( $crons );
-        $this->unschedule_event( $event->time, (string) $event->hook, $event->args );
-        if ( serialize( $this->cron_array() ) !== $before ) {
+        $result = $this->unschedule_event( $event->time, (string) $event->hook, $event->args );
+        $after  = $this->cron_array();
+        if ( serialize( $after ) !== $before ) {
             $ctx->mark_changed();
         }
-        return true;
+        if ( ! $result || $this->cron_replaced() ) {
+            return $result;
+        }
+        $stored = $this->stored_crons( is_array( $after ) ? $after : array() );
+        if ( null === $stored ) {
+            $ctx->mark_changed();
+            $ctx->out->warning( sprintf( self::DELETE_UNREAD, $event->hook ) );
+            return false;
+        }
+        return ! isset( $stored[ $event->time ][ $event->hook ][ $event->sig ] );
+    }
+
+    private $replaced = false;
+
+    protected function cron_replaced(): bool {
+        return $this->replaced;
+    }
+
+    protected function stored_crons( array $read ): ?array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'cron' );
+        if ( null === $row ) {
+            return null;
+        }
+        return $row[0] && is_array( $row[1] ) ? $row[1] : array();
     }
 
     private static function format_event( object $event, array $schedules, array $clock ): void {

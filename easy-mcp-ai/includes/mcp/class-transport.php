@@ -131,7 +131,7 @@ class Transport {
                 break;
             }
         }
-        if ( $identity && $this->refusal_log_budget_allows( 'easy_mcp_ai_urlkeyreflog_', 'legacy', $identity['token_id'] ) ) {
+        if ( $identity && $this->refusal_log_budget_allows( 'easy_mcp_ai_urlkeyreflog_', 'legacy_' . (int) $identity['token_id'] ) ) {
             $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' )
                 ? (string) \Easy_MCP_AI\Client_IP::get()
                 : ( isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
@@ -209,6 +209,10 @@ class Transport {
         $this->server->set_request_client_caps( null );
         $this->oauth_scope          = null;
         $this->last_scope_challenge = null;
+        $ip_refusal = $this->refuse_if_ip_forbidden();
+        if ( $ip_refusal ) {
+            return $ip_refusal;
+        }
         $url_key_refusal = $this->refuse_url_key( $request );
         if ( $url_key_refusal ) {
             return $url_key_refusal;
@@ -317,11 +321,6 @@ class Transport {
 
         if ( null === $token_id ) {
             return $this->make_unauthorized_response( null, 401, 'invalid_token' );
-        }
-
-        $ip_refusal = $this->refuse_if_ip_forbidden( $token_id, $auth_source_for_request, $wp_user_id, $oauth_client_id );
-        if ( $ip_refusal ) {
-            return $ip_refusal;
         }
 
         $wire = json_decode( $request->get_body() );
@@ -703,6 +702,10 @@ class Transport {
 
     public function handle_get( \WP_REST_Request $request ) {
         self::mark_mcp_request();
+        $ip_refusal = $this->refuse_if_ip_forbidden();
+        if ( $ip_refusal ) {
+            return $ip_refusal;
+        }
         $url_key_refusal = $this->refuse_url_key( $request );
         if ( $url_key_refusal ) {
             return $url_key_refusal;
@@ -727,6 +730,10 @@ class Transport {
 
     public function handle_delete( \WP_REST_Request $request ) {
         self::mark_mcp_request();
+        $ip_refusal = $this->refuse_if_ip_forbidden();
+        if ( $ip_refusal ) {
+            return $ip_refusal;
+        }
         $url_key_refusal = $this->refuse_url_key( $request );
         if ( $url_key_refusal ) {
             return $url_key_refusal;
@@ -739,40 +746,32 @@ class Transport {
             return $origin_error;
         }
 
-        $token_id          = null;
-        $auth_source       = null;
-        $delete_wp_user_id = 0;
-        $delete_client_id  = null;
+        $token_id    = null;
+        $auth_source = null;
         if ( $this->is_oauth_available() ) {
             $oauth_tm        = new OAuth_Token_Manager();
             $oauth_validator = new OAuth_Token_Validator( $oauth_tm );
             $oauth_result    = $oauth_validator->authenticate( $request );
             if ( ! \is_wp_error( $oauth_result ) ) {
-                $token_id          = $oauth_result['token_id'];
-                $auth_source       = 'oauth';
-                $delete_wp_user_id = isset( $oauth_result['wp_user_id'] ) ? (int) $oauth_result['wp_user_id'] : 0;
-                $delete_client_id  = isset( $oauth_result['client_id'] ) ? $oauth_result['client_id'] : null;
+                $token_id    = $oauth_result['token_id'];
+                $auth_source = 'oauth';
             }
         }
         if ( null === $token_id ) {
             $auth        = new Token_Auth( $this->token_manager );
             $legacy_result = $auth->authenticate( $request );
             if ( ! \is_wp_error( $legacy_result ) ) {
-                $token_id          = $legacy_result['token_id'];
-                $auth_source       = 'legacy';
-                $delete_wp_user_id = isset( $legacy_result['wp_user_id'] ) ? (int) $legacy_result['wp_user_id'] : 0;
-            } elseif ( $this->is_site_mismatch( $legacy_result ) ) {
-                $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? (string) \Easy_MCP_AI\Client_IP::get() : '';
-                $this->server->log_auth_failure( $ip, Token_Manager::ERROR_SITE_MISMATCH, $this->site_mismatch_identity( $legacy_result ) );
-                return $this->make_unauthorized_response( null, 401, 'invalid_token', self::SITE_MISMATCH_DESCRIPTION );
+                $token_id    = $legacy_result['token_id'];
+                $auth_source = 'legacy';
             }
+        }
+        if ( null === $token_id && isset( $legacy_result ) && $this->is_site_mismatch( $legacy_result ) ) {
+            $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' ) ? (string) \Easy_MCP_AI\Client_IP::get() : '';
+            $this->server->log_auth_failure( $ip, Token_Manager::ERROR_SITE_MISMATCH, $this->site_mismatch_identity( $legacy_result ) );
+            return $this->make_unauthorized_response( null, 401, 'invalid_token', self::SITE_MISMATCH_DESCRIPTION );
         }
         if ( null === $token_id ) {
             return $this->make_unauthorized_response( array( 'error' => 'Authentication required' ) );
-        }
-        $ip_refusal = $this->refuse_if_ip_forbidden( $token_id, $auth_source, $delete_wp_user_id, $delete_client_id );
-        if ( $ip_refusal ) {
-            return $ip_refusal;
         }
 
         if ( Server::PROTOCOL_VERSION === $request->get_header( 'mcp-protocol-version' ) ) {
@@ -1012,7 +1011,7 @@ class Transport {
         return true;
     }
 
-    private function refuse_if_ip_forbidden( $token_id, $auth_source, $wp_user_id, $client_id ) {
+    private function refuse_if_ip_forbidden() {
         $auth = new Token_Auth( $this->token_manager );
         if ( $auth->check_ip_allowed() ) {
             return null;
@@ -1020,28 +1019,23 @@ class Transport {
         $ip = class_exists( '\\Easy_MCP_AI\\Client_IP' )
             ? (string) \Easy_MCP_AI\Client_IP::get()
             : ( isset( $_SERVER['REMOTE_ADDR'] ) ? \sanitize_text_field( \wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
-        if ( $this->refusal_log_budget_allows( 'easy_mcp_ai_ipreflog_', $auth_source, $token_id ) ) {
-            $this->server->log_auth_failure( $ip, 'ip_forbidden', array(
-                'token_id'        => (int) $token_id,
-                'auth_source'     => $auth_source,
-                'wp_user_id'      => (int) $wp_user_id,
-                'oauth_client_id' => $client_id,
-            ) );
+        if ( $this->refusal_log_budget_allows( 'easy_mcp_ai_ipreflog_', md5( $ip ) ) ) {
+            $this->server->log_auth_failure( $ip, 'ip_forbidden' );
         }
         $response = new \WP_REST_Response( array(
             'error'             => 'ip_forbidden',
-            'error_description' => 'This credential is valid but requests from your IP address are not permitted by the site\'s IP whitelist.',
+            'error_description' => 'Requests from your IP address are not permitted by the site\'s IP whitelist.',
         ), 403 );
         $this->add_cors_headers( $response );
         return $response;
     }
 
-    private function refusal_log_budget_allows( string $family, ?string $auth_source, int $token_id ): bool {
+    private function refusal_log_budget_allows( string $family, string $subject ): bool {
         $limit = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_rate_limit_per_minute', \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE );
         if ( $limit < 1 ) {
             $limit = \Easy_MCP_AI\Config::RATE_LIMIT_PER_MINUTE;
         }
-        $key = $family . ( 'oauth' === $auth_source ? 'oauth' : 'legacy' ) . '_' . (int) $token_id;
+        $key = $family . $subject;
 
         if ( \wp_using_ext_object_cache() ) {
             \wp_cache_add( $key, 0, 'easy_mcp_ai', 60 );
@@ -1092,9 +1086,9 @@ class Transport {
 
     public static function resource_metadata_urls(): array {
         return array(
-            'root'     => \home_url( '/.well-known/oauth-protected-resource' ),
-            'dot_free' => \rest_url( self::NAMESPACE_V1 . '/discovery/oauth-protected-resource' ),
-            'mcp_url'  => \rest_url( self::NAMESPACE_V1 . '/mcp/.well-known/oauth-protected-resource' ),
+            'root'       => \home_url( '/.well-known/oauth-protected-resource' ),
+            'dot_free'   => \rest_url( self::NAMESPACE_V1 . '/discovery/oauth-protected-resource' ),
+            'mcp_issuer' => \rest_url( self::NAMESPACE_V1 . '/discovery/resource/oauth-protected-resource' ),
         );
     }
 
@@ -1104,16 +1098,16 @@ class Transport {
     }
 
     public static function resource_metadata_url(): string {
-        $urls           = self::resource_metadata_urls();
-        $prefer_mcp_url = 'auto' === self::discovery_pointer_mode()
+        $urls              = self::resource_metadata_urls();
+        $prefer_mcp_issuer = 'auto' === self::discovery_pointer_mode()
             && null !== \Easy_MCP_AI\OAuth\Discovery::issuer( \Easy_MCP_AI\OAuth\Discovery::ISSUER_RESOURCE );
 
         if ( ! \Easy_MCP_AI\OAuth\Root_Fallback::is_armed() ) {
-            return $prefer_mcp_url ? $urls['mcp_url'] : $urls['root'];
+            return $prefer_mcp_issuer ? $urls['mcp_issuer'] : $urls['root'];
         }
         if ( \Easy_MCP_AI\OAuth\Root_Fallback::mcp_path_discovery_reachable()
-            || ( $prefer_mcp_url && true !== \Easy_MCP_AI\OAuth\Root_Fallback::root_discovery_blocked() ) ) {
-            return $urls['mcp_url'];
+            || ( $prefer_mcp_issuer && true !== \Easy_MCP_AI\OAuth\Root_Fallback::root_discovery_blocked() ) ) {
+            return $urls['mcp_issuer'];
         }
         return $urls['dot_free'];
     }

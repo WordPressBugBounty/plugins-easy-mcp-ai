@@ -30,9 +30,19 @@ class Option_Handler extends Command_Handler {
         'time_format'     => 'time_format',
         'posts_per_page'  => 'posts_per_page',
         'WPLANG'          => 'language',
+        'show_on_front'   => 'show_on_front',
+        'page_on_front'   => 'page_on_front',
+        'page_for_posts'  => 'page_for_posts',
+        'site_icon'       => 'site_icon',
+        'site_logo'       => 'site_logo',
     );
 
     const UNTRAILING = array( 'siteurl', 'home', 'category_base', 'tag_base' );
+
+    const DEPRECATED_KEYS = array(
+        'blacklist_keys'    => 'disallowed_keys',
+        'comment_whitelist' => 'comment_previously_approved',
+    );
 
     const SETTINGS_SCREENS = array(
         'general'    => array( 'blogname', 'blogdescription', 'site_icon', 'gmt_offset', 'date_format', 'time_format', 'start_of_week', 'timezone_string', 'WPLANG', 'new_admin_email' ),
@@ -53,6 +63,22 @@ class Option_Handler extends Command_Handler {
     const NOTE_FALSE    = "WP-CLI exits 1 without output here: the option '%s' does not exist (or holds false).";
     const NOTE_NO_PATH  = "WP-CLI exits 1 without output here: the option '%s' has no value at that key path.";
     const AUTOLOAD_NOT_WRITTEN = "The autoload value of '%s' option was not written: no row was updated (the option was deleted meanwhile, or the database refused the write).";
+
+    const WRITE_UNBASED  = 'Nothing was written: a database error stopped the %1$s being read before the write, so its outcome could not be confirmed. %2$s';
+    const WRITE_UNREAD   = 'WordPress answered that the %1$s was written, but a database error stopped its row being read back, so whether it was is not known. %2$s';
+    const WRITE_STOPPED  = 'WordPress did not store the change: the %1$s still holds what it held before. A plugin or theme on this site may have stopped the write. %2$s';
+    const WRITE_MISSING  = 'WordPress did not store the %1$s: it has no row. A plugin or theme on this site may have stopped the write. %2$s';
+    const WRITE_FILTERED = 'WordPress stored another value than the one sent: a plugin or theme on this site changed the %1$s as it was written. %2$s';
+    const PATH_KEPT      = 'WordPress did not remove the key path: the %1$s still holds it. A plugin or theme on this site may have stopped the write. %2$s';
+    const PATH_OTHER     = 'WordPress did not store the value at the key path: the %1$s holds another one there. A plugin or theme on this site may have changed it. %2$s';
+    const WRITE_AUTOLOAD = 'WordPress stored the value but not the autoload setting asked for: a plugin or theme on this site may have changed the %1$s as it was written. %2$s';
+    const WRITE_TIMEOUT  = 'WordPress stored the value but not the expiry asked for: the %1$s has no expiry row or another time in it. A plugin or theme on this site may have changed it. %2$s';
+    const DELETE_KEPT    = 'WordPress answered that the %1$s was deleted, but its row is still stored. A plugin or theme on this site may have stored it again. %2$s';
+    const DELETE_UNREAD  = 'WordPress answered that the %1$s was deleted, but a database error stopped its row being read back, so whether it was is not known. %2$s';
+    const DELETE_LEFT    = 'Failed to confirm %1$d of the %2$d options named were deleted: their rows are still stored or could not be read. A plugin or theme may have stored them again. Not confirmed: %3$s.';
+    const READ_DIFFERS   = 'Nothing was written: WordPress already reads the %1$s as this value, but its row holds another (a filter on its reads, or an old cached copy). %2$s';
+    const FALSE_CHANGED  = 'WordPress answered that the %1$s was not written, but its stored row changed during the call: a plugin or theme on this site may have written it. %2$s';
+    const FALSE_UNREAD   = 'WordPress answered that the %1$s was not written, but a database error stopped its row being read back, so whether it changed is not known. %2$s';
 
     const NOT_RECORDED = "Option '%s': change history does not record this option under the site's capture settings.";
     const RAW_SQL      = 'Raw SQL: change history records this database write only while database capture is on.';
@@ -114,9 +140,15 @@ class Option_Handler extends Command_Handler {
         }
 
         $this->note_recording( $key, $ctx );
+        $named  = "Option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key, 'option', $named );
         if ( ! $this->add_option( $key, $value, $autoload ) ) {
+            $this->refuse_false_write( $ctx, $key, $before, 'option', $named );
             $ctx->out->error( "Could not add option '{$key}'. Does it already exist?" );
         } else {
+            $row = $this->stored_row( $key );
+            self::refuse_unstored( $ctx, self::write_refusal( $row, $before, $this->sanitize_option( self::written_key( $key ), $value ) ), 'option', $named );
+            self::refuse_unstored( $ctx, $this->autoload_refusal( $row, $key, $autoload ), 'option', $named );
             $ctx->mark_changed();
             $ctx->out->success( "Added '{$key}' option." );
         }
@@ -139,15 +171,27 @@ class Option_Handler extends Command_Handler {
         if ( in_array( $key, self::UNTRAILING, true ) && is_string( $value ) ) {
             $value = rtrim( $value, '/\\' );
         }
-        $old_value = $this->sanitize_option( $key, $this->get_option( $key ) );
+        $current   = $this->get_option( $key );
+        $old_value = $this->sanitize_option( $key, $current );
 
         $this->note_recording( $key, $ctx );
+        $named  = "Option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key, 'option', $named );
         if ( $value === $old_value && null === $autoload ) {
+            $this->note_unless_row_holds( $ctx, $before, $key, $value, 'option', $named );
             $ctx->out->success( "Value passed for '{$key}' option is unchanged." );
-        } elseif ( $this->update_option( $key, $value, $autoload ) ) {
+            return;
+        }
+        if ( $this->update_option( $key, $value, $autoload ) ) {
+            $row = $this->stored_row( $key );
+            self::refuse_unstored( $ctx, self::write_refusal( $row, $before, $this->written_value( $key, $value, $current ) ), 'option', $named );
+            if ( null !== $autoload ) {
+                self::refuse_unstored( $ctx, $this->autoload_refusal( $row, $key, $autoload ), 'option', $named );
+            }
             $ctx->mark_changed();
             $ctx->out->success( "Updated '{$key}' option." );
         } else {
+            $this->refuse_false_write( $ctx, $key, $before, 'option', $named );
             $ctx->out->error( "Could not update option '{$key}'." );
         }
     }
@@ -172,7 +216,8 @@ class Option_Handler extends Command_Handler {
             }
         }
 
-        $old_value     = $this->sanitize_option( $key, $this->get_option( $key ) );
+        $current       = $this->get_option( $key );
+        $old_value     = $this->sanitize_option( $key, $current );
         $current_value = $old_value;
         if ( is_object( $current_value ) ) {
             $old_value = clone $current_value;
@@ -188,18 +233,27 @@ class Option_Handler extends Command_Handler {
         $patched_value = $this->sanitize_option( $key, $patched );
 
         $this->note_recording( $key, $ctx );
+        $named  = "Option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key, 'option', $named );
         if ( $patched_value === $old_value ) {
+            $this->note_unless_row_holds( $ctx, $before, $key, $patched_value, 'option', $named );
             $ctx->out->success( "Value passed for '{$key}' option is unchanged." );
-        } elseif ( $this->update_option( $key, $patched_value, null ) ) {
+            return;
+        }
+        if ( $this->update_option( $key, $patched_value, null ) ) {
+            self::refuse_unstored( $ctx, self::path_refusal( $this->stored_row( $key ), $before, $action, $key_path, $this->written_value( $key, $patched_value, $current ) ), 'option', $named );
             $ctx->mark_changed();
             $ctx->out->success( "Updated '{$key}' option." );
         } else {
+            $this->refuse_false_write( $ctx, $key, $before, 'option', $named );
             $ctx->out->error( "Could not update option '{$key}'." );
         }
     }
 
     public function delete( Invocation $inv, Context $ctx ): void {
         $missing = array();
+        $kept    = array();
+        $last    = '';
         foreach ( array_values( $inv->args ) as $arg ) {
             $arg = (string) $arg;
             $this->guard( $arg, true, $ctx );
@@ -210,16 +264,35 @@ class Option_Handler extends Command_Handler {
             if ( ! $this->delete_option( $arg ) ) {
                 $ctx->out->warning( "Could not delete '{$arg}' option. Does it exist?" );
                 $missing[] = $arg;
-            } else {
-                $ctx->mark_changed();
-                $ctx->out->success( "Deleted '{$arg}' option." );
+                continue;
             }
+            $ctx->mark_changed();
+            $refusal = self::delete_refusal( $this->named_row( trim( $arg ) ) );
+            if ( null !== $refusal ) {
+                $last = sprintf( $refusal, 'option', "Option: {$arg}" );
+                $ctx->out->warning( $last );
+                $kept[] = $arg;
+                continue;
+            }
+            $ctx->out->success( "Deleted '{$arg}' option." );
         }
         if ( 1 === count( $missing ) ) {
             $ctx->fail_missing_target( "Could not delete '{$missing[0]}' option. Does it exist?" );
         } elseif ( $missing ) {
             $ctx->fail_missing_target( sprintf( 'Could not delete %d of the %d options named; they do not appear to exist: %s.', count( $missing ), count( $inv->args ), self::quoted_list( $missing ) ) );
         }
+        if ( 1 === count( $kept ) ) {
+            $ctx->out->error( $last );
+        } elseif ( $kept ) {
+            $ctx->out->error( sprintf( self::DELETE_LEFT, count( $kept ), count( $inv->args ), self::quoted_list( $kept ) ) );
+        }
+    }
+
+    public static function delete_refusal( ?array $row ): ?string {
+        if ( null === $row ) {
+            return self::DELETE_UNREAD;
+        }
+        return $row[0] ? self::DELETE_KEPT : null;
     }
 
     public function get_autoload( Invocation $inv, Context $ctx ): void {
@@ -553,7 +626,7 @@ class Option_Handler extends Command_Handler {
             return 'bytes';
         }
         $lc = strtolower( $trimmed );
-        if ( isset( Self_Protection::SECRET_OPTIONS[ $lc ] ) ) {
+        if ( isset( Self_Protection::SECRET_OPTIONS[ $lc ] ) || isset( Self_Protection::CONFIRMATION_OPTIONS[ $lc ] ) ) {
             return 'secret';
         }
         foreach ( Self_Protection::TRANSIENT_STORAGE_PREFIXES as $prefix ) {
@@ -590,7 +663,7 @@ class Option_Handler extends Command_Handler {
     public static function omission_summary( array $omitted ): string {
         $labels = array(
             'plugin' => array( '%d of the plugin that serves this MCP connection (its settings, state, MCP sessions and rate-limit counters)', null ),
-            'secret' => array( "%d of WordPress's secret keys and salts", null ),
+            'secret' => array( "%d of WordPress's secret keys, salts and email confirmation keys", null ),
             'update' => array( '%d update offers WordPress fetches from WordPress.org (`plugin list`, `theme list` and `core check-update` refresh them)', '%d update offer WordPress fetches from WordPress.org (`plugin list`, `theme list` and `core check-update` refresh it)' ),
             'bytes'  => array( '%d whose names are not plain ASCII', '%d whose name is not plain ASCII' ),
         );
@@ -640,6 +713,171 @@ class Option_Handler extends Command_Handler {
 
     protected function sanitize_option( string $key, $value ) {
         return \sanitize_option( $key, $value );
+    }
+
+    protected function stored_row( string $key ): ?array {
+        return $this->named_row( self::written_key( $key ) );
+    }
+
+    public static function raw_row( $db, string $name, bool $sitemeta, int $network_id ): ?array {
+        if ( isset( $db->last_error ) ) {
+            $db->last_error = '';
+        }
+        if ( $sitemeta ) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the stored row is the answer; the table name is $wpdb's.
+            $column = $db->get_col( $db->prepare( "SELECT meta_value FROM `{$db->sitemeta}` WHERE meta_key = %s AND site_id = %d", $name, $network_id ) );
+        } else {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the stored row is the answer; the table name is $wpdb's.
+            $column = $db->get_col( $db->prepare( "SELECT option_value FROM `{$db->options}` WHERE option_name = %s", $name ) );
+        }
+        if ( '' !== (string) ( $db->last_error ?? '' ) ) {
+            return null;
+        }
+        $column = is_array( $column ) ? array_values( $column ) : array();
+        return $column ? array( true, (string) $column[0] ) : array( false, '' );
+    }
+
+    protected function named_row( string $name ): ?array {
+        $db = $this->db();
+        if ( isset( $db->last_error ) ) {
+            $db->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the stored row is the answer; the table name is $wpdb's.
+        $rows = $db->get_results( $db->prepare( "SELECT option_value, autoload FROM `{$db->options}` WHERE option_name = %s", $name ), ARRAY_N );
+        if ( '' !== (string) ( $db->last_error ?? '' ) ) {
+            return null;
+        }
+        $rows = is_array( $rows ) ? array_values( $rows ) : array();
+        if ( ! $rows ) {
+            return array( false, '', null );
+        }
+        $row = array_values( (array) $rows[0] );
+        return array( true, (string) $row[0], isset( $row[1] ) ? (string) $row[1] : null );
+    }
+
+    public static function written_key( string $key ): string {
+        $key = trim( $key );
+        if ( isset( self::DEPRECATED_KEYS[ $key ] ) && ! ( function_exists( 'wp_installing' ) && \wp_installing() ) ) {
+            return self::DEPRECATED_KEYS[ $key ];
+        }
+        return $key;
+    }
+
+    private function written_value( string $key, $passed, $current ) {
+        $key   = self::written_key( $key );
+        $value = $this->sanitize_option( $key, $passed );
+        return $this->default_option( $key ) === $current ? $this->sanitize_option( $key, $value ) : $value;
+    }
+
+    protected function default_option( string $key ) {
+        return \apply_filters( "default_option_{$key}", false, $key, false ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- core's own filter, read as update_option() reads it.
+    }
+
+    protected function autoload_as_stored( string $key, string $autoload ): string {
+        if ( function_exists( 'wp_determine_option_autoload_value' ) ) {
+            return (string) \wp_determine_option_autoload_value( self::written_key( $key ), null, '', $autoload );
+        }
+        return 'no' === $autoload ? 'no' : 'yes';
+    }
+
+    private function autoload_refusal( ?array $row, string $key, string $autoload ): ?array {
+        if ( null === $row || ( $row[2] ?? null ) === $this->autoload_as_stored( $key, $autoload ) ) {
+            return null;
+        }
+        return array( self::WRITE_AUTOLOAD, true );
+    }
+
+    private function note_unless_row_holds( Context $ctx, array $before, string $key, $value, string $noun, string $named ): void {
+        $stored = $this->sanitize_option( $key, $before[0] ? \maybe_unserialize( $before[1] ) : false );
+        self::note_unless_held( $ctx, $value, $stored, $noun, $named );
+    }
+
+    public static function note_unless_held( Context $ctx, $value, $stored, string $noun, string $named ): void {
+        if ( serialize( $value ) !== serialize( $stored ) ) { // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize
+            $ctx->note( sprintf( self::READ_DIFFERS, $noun, $named ) );
+        }
+    }
+
+    private function refuse_false_write( Context $ctx, string $key, array $before, string $noun, string $named ): void {
+        self::refuse_changed_after_false( $ctx, $this->stored_row( $key ), $before, $noun, $named );
+    }
+
+    public static function refuse_changed_after_false( Context $ctx, ?array $after, array $before, string $noun, string $named ): void {
+        if ( null === $after ) {
+            $ctx->not_known( sprintf( self::FALSE_UNREAD, $noun, $named ) );
+        }
+        if ( $after !== $before ) {
+            $ctx->mark_changed();
+            $ctx->out->error( sprintf( self::FALSE_CHANGED, $noun, $named ) );
+        }
+    }
+
+    private function stored_row_before( Context $ctx, string $key, string $noun, string $named ): array {
+        $before = $this->stored_row( $key );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( self::WRITE_UNBASED, $noun, $named ) );
+        }
+        return $before;
+    }
+
+    public static function stored_text( $value ): string {
+        return (string) \maybe_serialize( $value );
+    }
+
+    public static function write_refusal( ?array $row, array $before, $expected ): ?array {
+        if ( null === $row ) {
+            return array( self::WRITE_UNREAD, true );
+        }
+        if ( $row[0] && self::stored_text( $expected ) === $row[1] ) {
+            return null;
+        }
+        if ( ! $row[0] ) {
+            return array( self::WRITE_MISSING, $before[0] );
+        }
+        if ( $before === $row ) {
+            return array( self::WRITE_STOPPED, false );
+        }
+        return array( self::WRITE_FILTERED, true );
+    }
+
+    public static function path_refusal( ?array $row, array $before, string $action, array $key_path, $patched ): ?array {
+        if ( null === $row ) {
+            return array( self::WRITE_UNREAD, true );
+        }
+        if ( $row[0] && self::stored_text( $patched ) === $row[1] ) {
+            return null;
+        }
+        $stored  = $row[0] ? \maybe_unserialize( $row[1] ) : false;
+        $changed = $before !== $row;
+        try {
+            $node  = Meta_Command::pluck_value( $stored, $key_path );
+            $found = true;
+        } catch ( \OutOfBoundsException $e ) {
+            $node  = null;
+            $found = false;
+        }
+        if ( 'delete' === $action ) {
+            return $found ? array( $changed ? self::PATH_KEPT : self::WRITE_STOPPED, $changed ) : null;
+        }
+        try {
+            $sent = Meta_Command::pluck_value( $patched, $key_path );
+        } catch ( \OutOfBoundsException $e ) {
+            return null;
+        }
+        if ( $found && serialize( $sent ) === serialize( $node ) ) { // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.serialize_serialize -- a strict comparison of two values, never stored.
+            return null;
+        }
+        return array( $changed ? self::PATH_OTHER : self::WRITE_STOPPED, $changed );
+    }
+
+    public static function refuse_unstored( Context $ctx, ?array $refusal, string $noun, string $named ): void {
+        if ( null === $refusal ) {
+            return;
+        }
+        if ( $refusal[1] ) {
+            $ctx->mark_changed();
+        }
+        $ctx->out->error( sprintf( $refusal[0], $noun, $named ) );
     }
 
     protected function db(): object {

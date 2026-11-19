@@ -48,6 +48,11 @@ class Dynamic_Tool_Registrar {
                 $description .= ' ' . $policy_note;
             }
 
+            $overlap_note = Ability_Notes::describe( $slug );
+            if ( '' !== $overlap_note ) {
+                $description .= ' ' . $overlap_note;
+            }
+
             $raw_input_schema  = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
             $raw_input_schema  = Ability_Input_Policy::strip_schema( $slug, $raw_input_schema );
             $input_needs_wrap  = self::schema_needs_value_wrapper( $raw_input_schema );
@@ -110,7 +115,7 @@ class Dynamic_Tool_Registrar {
     }
 
     public static function required_capability( string $slug ): string {
-        return 0 === strpos( $slug, \Easy_MCP_AI\Compat\Breakdance_Abilities::PREFIX ) ? \Easy_MCP_AI\Compat\Breakdance_Abilities::CAPABILITY : 'read';
+        return \Easy_MCP_AI\Compat\Vendor_Abilities::capability_of( $slug ) ?? 'read';
     }
 
     private static function current_ability( string $slug, object $captured ): object {

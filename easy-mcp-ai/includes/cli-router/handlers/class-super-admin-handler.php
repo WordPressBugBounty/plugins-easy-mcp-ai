@@ -20,6 +20,12 @@ final class Super_Admin_Handler extends Command_Handler {
     const MSG_GLOBAL         = 'wp_cli_run does not change super admins here: the $super_admins global overrides the site_admins option, so the change would have no effect. Edit $super_admins where it is set.';
     const MSG_SELF           = 'wp_cli_run never revokes the super-admin capabilities of your own user (user %d): you would lose this command and Network Admin. Ask another super admin.';
     const MSG_LAST           = 'wp_cli_run never leaves the network without a super admin: no login left in site_admins would belong to an existing user.';
+    const MSG_NOT_STORED_ADD    = 'WordPress did not store the super-admin change: site_admins lists none of the users granted. A plugin or theme on this site may have stopped the write.';
+    const MSG_PART_STORED_ADD   = 'WordPress stored only part of the super-admin change: site_admins lists %d of the %d users granted. A plugin or theme on this site may have stopped the rest.';
+    const MSG_NOT_STORED_REMOVE = 'WordPress did not store the super-admin change: site_admins still lists every user revoked. A plugin or theme on this site may have stopped the write.';
+    const MSG_PART_STORED_REMOVE = 'WordPress stored only part of the super-admin change: site_admins still lists %d of the %d users revoked. A plugin or theme on this site may have stopped the rest.';
+    const MSG_NOT_READ          = 'WordPress answered the super-admin change, but a database error stopped site_admins being read back, so whether it was stored is not known.';
+    const MSG_NOT_READ_BEFORE   = 'A database error stopped the stored site_admins being read, so nothing was written.';
     const NOTE_STALE_LOGIN   = "The super-admin list names '%s', which matches no user, so its id is empty in this output; WP-CLI also prints PHP's \"Attempt to read property\" warning here.";
     const NOTE_GLOBAL_LIST   = 'The $super_admins global overrides this list on this network: WP-CLI, and this command, print the site_admins network option, which WordPress does not read while the global is set.';
 
@@ -114,7 +120,8 @@ final class Super_Admin_Handler extends Command_Handler {
             $errors = count( $args ) - count( $users );
         }
 
-        $super_admins     = self::get_admins();
+        $before           = self::stored_row_logins( $ctx );
+        $super_admins     = null === $before ? array( 'admin' ) : $before;
         $num_super_admins = count( $super_admins );
 
         $new_super_admins = array();
@@ -138,20 +145,45 @@ final class Super_Admin_Handler extends Command_Handler {
             } else {
                 $ctx->out->success( 'Super admins remain unchanged.' );
             }
-        } elseif ( \update_site_option( 'site_admins', $super_admins ) ) {
+            return;
+        }
+        $written = \update_site_option( 'site_admins', $super_admins );
+
+        $stored = self::stored_admins( $ctx );
+        if ( self::moved( $before, $stored ) ) {
             $ctx->mark_changed();
-            if ( $errors ) {
-                $user_count = count( $args );
-                $ctx->out->error( "Only granted super-admin capabilities to {$successes} of {$user_count} users." );
-            } else {
-                $message = $successes > 1 ? 'users' : 'user';
-                $ctx->out->success( "Granted super-admin capabilities to {$successes} {$message}." );
-            }
-        } else {
+        }
+        if ( ! $written ) {
             $ctx->out->error( 'Site options update failed.' );
         }
+        $new = array();
+        foreach ( $users as $user ) {
+            if ( in_array( (int) $user->ID, $new_super_admins, true ) ) {
+                $new[ (int) $user->ID ] = (string) $user->user_login;
+            }
+        }
+        $granted = array_keys( array_intersect( $new, $stored ) );
+        $requested = array_values( array_unique( self::pluck_logins( $users ) ) );
+        $listed    = array_values( array_intersect( $requested, $stored ) );
+        if ( ! $granted ) {
+            $ctx->out->error( self::MSG_NOT_STORED_ADD );
+        }
+        if ( count( $listed ) < count( $requested ) ) {
+            self::fire_granted( $granted );
+            $ctx->out->error( sprintf( self::MSG_PART_STORED_ADD, count( $listed ), count( $requested ) ) );
+        }
+        $successes = count( $granted );
+        if ( $errors ) {
+            $user_count = count( $args );
+            $ctx->out->error( "Only granted super-admin capabilities to {$successes} of {$user_count} users." );
+        }
+        $message = $successes > 1 ? 'users' : 'user';
+        $ctx->out->success( "Granted super-admin capabilities to {$successes} {$message}." );
+        self::fire_granted( $granted );
+    }
 
-        foreach ( $new_super_admins as $user_id ) {
+    private static function fire_granted( array $user_ids ): void {
+        foreach ( $user_ids as $user_id ) {
             \do_action( 'granted_super_admin', (int) $user_id ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's hook, fired where WP-CLI fires it.
         }
     }
@@ -188,7 +220,8 @@ final class Super_Admin_Handler extends Command_Handler {
             \do_action( 'revoke_super_admin', (int) $user->ID ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core's hook, fired where WP-CLI fires it.
         }
 
-        $super_admins = self::get_admins();
+        $before       = self::stored_row_logins( $ctx );
+        $super_admins = null === $before ? array( 'admin' ) : $before;
         if ( ! $super_admins ) {
             $ctx->out->error( 'No super admins to revoke super-admin privileges from.' );
         }
@@ -206,15 +239,50 @@ final class Super_Admin_Handler extends Command_Handler {
             $ctx->out->error( $user_logins_count > 1 ? 'None of the given users is a super admin.' : 'The given user is not a super admin.' );
         }
 
-        if ( ! \update_site_option( 'site_admins', $update_super_admins ) ) {
+        $written = \update_site_option( 'site_admins', $update_super_admins );
+        $stored  = self::stored_admins( $ctx );
+        if ( self::moved( $before, $stored ) ) {
+            $ctx->mark_changed();
+        }
+        if ( ! $written ) {
             $ctx->out->error( 'Site options update failed.' );
         }
-        $ctx->mark_changed();
+        $targets = array_values( array_unique( array_intersect( $user_logins, $super_admins ) ) );
+        $revoked = array_values( array_diff( $targets, $stored ) );
+        $kept = array_values( array_intersect( array_values( array_unique( $user_logins ) ), $stored ) );
+        if ( ! $revoked ) {
+            $ctx->out->error( self::MSG_NOT_STORED_REMOVE );
+        }
+        self::fire_revoked( $revoked, $user_ids );
+        if ( $kept ) {
+            $ctx->out->error( sprintf( self::MSG_PART_STORED_REMOVE, count( $kept ), count( array_unique( $user_logins ) ) ) );
+        }
 
-        $successes = count( $super_admins ) - count( $update_super_admins );
-        $ctx->out->success( self::revoked_message( $successes, $user_logins_count, empty( $update_super_admins ) ) );
+        $successes = count( array_intersect( $super_admins, $revoked ) );
+        $ctx->out->success( self::revoked_message( $successes, $user_logins_count, empty( $stored ) ) );
+    }
 
-        self::fire_revoked( array_intersect( $user_logins, $super_admins ), $user_ids );
+    private static function stored_admins( Context $ctx ): array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'site_admins', true );
+        if ( null === $row ) {
+            $ctx->not_known( self::MSG_NOT_READ );
+        }
+        return $row[0] && is_array( $row[1] ) ? array_values( array_map( 'strval', $row[1] ) ) : array();
+    }
+
+    private static function stored_row_logins( Context $ctx ): ?array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'site_admins', true );
+        if ( null === $row ) {
+            $ctx->out->error( self::MSG_NOT_READ_BEFORE );
+        }
+        if ( ! $row[0] ) {
+            return null;
+        }
+        return array_values( array_map( 'strval', (array) $row[1] ) );
+    }
+
+    private static function moved( ?array $before, array $after ): bool {
+        return ( null === $before ? array() : $before ) !== $after;
     }
 
     private static function refuse_lockout( array $users, array $args, array $user_logins, Context $ctx ): array {

@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Menus;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -18,7 +19,7 @@ class Delete_Menu_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a single menu item from a navigation menu. Required: `item_id` (the menu_item id, NOT the linked post/term id — get it from `wp_list_menu_items`). Deletion is always permanent — WordPress has no trash for menu items, so this is irreversible. By default the item\'s children keep pointing at the deleted id as their parent (`reparent_children` false), and `wp_list_menu_items` still reports that id as their `parent`. WordPress then shows them only where the menu is displayed at every level (a nested menu puts them after its other items, with their own children flattened beside them); a menu limited to a depth, such as a one-level header menu, leaves them out, and converting the menu to a block Navigation menu drops them. With `reparent_children: true` each child is moved to the deleted item\'s own parent (0 = top level), as the Menus screen does, and as WP-CLI does whenever that parent is not 0; the children are checked before the delete, and the call is refused with nothing deleted if one of them cannot be saved or you may not edit it. Returns { deleted, id }, plus `reparented` (child ids moved) when reparent_children was used. Does NOT delete the linked post or term — only the menu entry.';
+        return 'Deletes a single menu item from a navigation menu. Required: `item_id` (the menu_item id, NOT the linked post/term id — get it from `wp_list_menu_items`). Deletion is always permanent — WordPress has no trash for menu items, so this is irreversible. By default the item\'s children keep pointing at the deleted id as their parent (`reparent_children` false), and `wp_list_menu_items` still reports that id as their `parent`. WordPress then shows them only where the menu is displayed at every level (a nested menu puts them after its other items, with their own children flattened beside them); a menu limited to a depth, such as a one-level header menu, leaves them out, and converting the menu to a block Navigation menu drops them. With `reparent_children: true` each child is moved to the deleted item\'s own parent (0 = top level), as the Menus screen does, and as WP-CLI does whenever that parent is not 0; the children are checked before the delete, and the call is refused with nothing deleted if one of them cannot be saved or you may not edit it. Returns { deleted, id }, plus `reparented` (child ids moved) when reparent_children was used; if a plugin stops the delete, the call is an error and no child is moved. Does NOT delete the linked post or term — only the menu entry.';
     }
 
     public function get_category() {
@@ -63,6 +64,9 @@ class Delete_Menu_Item extends Base_Tool {
         $reparent = isset( $arguments['reparent_children'] ) && rest_sanitize_boolean( $arguments['reparent_children'] );
 
         $plan = $reparent ? $this->plan_reparent( $item_id ) : null;
+        if ( null !== $plan && array() !== $plan['children'] ) {
+            $this->refuse_switched_off_route( 'POST', '/wp/v2/menu-items/{id}' );
+        }
 
         $request = new \WP_REST_Request( 'DELETE', '/wp/v2/menu-items/' . $item_id );
         $request->set_param( 'force', true );
@@ -72,6 +76,7 @@ class Delete_Menu_Item extends Base_Tool {
         if ( $response->is_error() ) {
             self::throw_rest_error( $response );
         }
+        Delete_Outcome::require_post_gone( $item_id, 'menu item ' . $item_id );
 
         $result = array(
             'deleted' => true,
@@ -84,7 +89,11 @@ class Delete_Menu_Item extends Base_Tool {
         $moved = array();
         foreach ( $plan['children'] as $index => $child ) {
             try {
-                $this->rest_request( 'POST', '/wp/v2/menu-items/' . $child, array( 'parent' => $plan['parent'] ), array( 'id' ) );
+                Menu_Item_Stored_Fields::around(
+                    function () use ( $child, $plan ) {
+                        return $this->rest_request( 'POST', '/wp/v2/menu-items/' . $child, array( 'parent' => $plan['parent'] ), array( 'id' ) );
+                    }
+                );
                 $moved[] = $child;
             } catch ( \RuntimeException $e ) {
                 return array_merge(

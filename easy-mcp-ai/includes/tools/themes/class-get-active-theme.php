@@ -42,6 +42,7 @@ class Get_Active_Theme extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
+        $this->refuse_switched_off_route( 'GET', '/wp/v2/themes' );
         $data = $this->rest_request( 'GET', '/wp/v2/themes', array( 'status' => 'active' ) );
 
         if ( empty( $data ) ) {

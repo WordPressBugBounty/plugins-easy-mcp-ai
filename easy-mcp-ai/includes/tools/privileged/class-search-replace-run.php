@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Privileged;
 
+use Easy_MCP_AI\Drafts\Draft_Mode;
 use Easy_MCP_AI\Tools\Privileged_Tool;
 use Easy_MCP_AI\Privileged\Search_Replace\Jobs;
 use Easy_MCP_AI\Privileged\Search_Replace\Job_Store;
@@ -151,6 +152,10 @@ class Search_Replace_Run extends Privileged_Tool {
     }
 
     public function approval_refusal( array $arguments ): ?string {
+        $strict = self::strict_refusal( $arguments );
+        if ( null !== $strict ) {
+            return $strict;
+        }
         $length = \Easy_MCP_AI\Approvals\Approval_Gate::preview_overflow( (string) $this->describe( $arguments ) );
         if ( null === $length ) {
             return null;
@@ -215,9 +220,20 @@ class Search_Replace_Run extends Privileged_Tool {
         $args   = self::normalise( $arguments );
         $runner = $this->runner();
         if ( ! $args['dry_run'] ) {
+            $strict = self::strict_refusal( $args );
+            if ( null !== $strict ) {
+                throw new \InvalidArgumentException( $strict ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
             self::refuse_held_live_run( $store );
         }
         return $runner->summary( $this->start_job( $args, $store, $runner ), true );
+    }
+
+    private static function strict_refusal( array $arguments ): ?string {
+        if ( isset( $arguments['job_id'] ) || ! array_key_exists( 'dry_run', $arguments ) || self::flag( $arguments['dry_run'] ) || ! Draft_Mode::strict() ) {
+            return null;
+        }
+        return 'Draft mode is Strict on this site, so a live search-replace is refused: it rewrites content in the database directly. Run it with dry_run true; a person runs the live replace.';
     }
 
     private static function refuse_held_live_run( Job_Store $store ): void {

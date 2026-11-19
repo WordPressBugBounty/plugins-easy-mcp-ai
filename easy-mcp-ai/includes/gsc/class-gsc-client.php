@@ -20,6 +20,10 @@ class GSC_Client extends Abstract_Google_Client {
         return 'Google Search Console';
     }
 
+    protected static function admin_access_remedy( string $client_email ): string {
+        return "Add the service account ({$client_email}) as a user in Search Console → Settings → Users & permissions.";
+    }
+
     public static function validate_site_url( string $value ): string {
         $trimmed = trim( $value );
         if ( '' === $trimmed ) {
@@ -43,7 +47,7 @@ class GSC_Client extends Abstract_Google_Client {
             throw new \RuntimeException( 'GSC client: refusing to attach bearer token to non-Google host.' );
         }
 
-        $token = self::get_access_token();
+        $token = self::token_for( '', $admin_context );
 
         $args = array(
             'method'              => strtoupper( $method ),
@@ -71,30 +75,23 @@ class GSC_Client extends Abstract_Google_Client {
         $decoded = json_decode( $raw, true );
 
         if ( 403 === $code ) {
-            if ( $admin_context ) {
-                $creds = self::get_credentials();
-                throw new \RuntimeException(
-                    "Access denied. Add the service account ({$creds['client_email']}) as a user in Search Console → Settings → Users & permissions." // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-                );
-            }
-            throw new \Easy_MCP_AI\MCP\Detailed_Runtime_Error(
-                'Access denied by Google Search Console. The configured service account does not have access to this property.',
-                'A site administrator can grant access in Easy MCP AI → Tools → Connections → Test connection.'
-            );
+            self::throw_read_refusal( $decoded, $admin_context );
         }
         if ( 404 === $code ) {
-            throw new \RuntimeException(
-                'Site not found in Search Console. Verify the site_url matches a verified property in your Google Search Console account, and that the service account has been granted access.'
+            throw self::refusal(
+                'Google Search Console refused the request: ',
+                self::google_reason( $code, $decoded, $admin_context ),
+                preg_match( '#/sitemaps/[^/?]+#', (string) \wp_parse_url( $url, PHP_URL_PATH ) )
+                    ? 'Check the sitemap URL: wp_gsc_list_sitemaps lists the sitemaps submitted for this site.'
+                    : 'Verify the site_url matches a verified property in your Google Search Console account, and that the service account has been granted access.',
+                $admin_context
             );
         }
         if ( 429 === $code ) {
-            throw new \RuntimeException(
-                'Google API quota exceeded. searchAnalytics: 1,200 req/min. URL Inspection: 2,000 req/day, 600 req/min.'
-            );
+            throw self::quota_refusal( $code, $decoded, 'Google API quota exceeded. searchAnalytics: 1,200 req/min. URL Inspection: 2,000 req/day, 600 req/min.', $admin_context );
         }
         if ( $code < 200 || $code >= 300 ) {
-            $err = $decoded['error']['message'] ?? "HTTP {$code}";
-            throw new \RuntimeException( "GSC API error: {$err}" ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw self::refusal( 'GSC API error: ', self::google_reason( $code, $decoded, $admin_context ), '', $admin_context );
         }
 
         return is_array( $decoded ) ? $decoded : array();

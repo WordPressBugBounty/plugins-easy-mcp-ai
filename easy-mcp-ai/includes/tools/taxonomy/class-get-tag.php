@@ -51,7 +51,8 @@ class Get_Tag extends Base_Tool {
         $this->validate_required( $arguments, array( 'tag_id' ) );
 
         $tag_id = $this->parse_required_id( $arguments['tag_id'], 'tag_id' );
-        $data   = $this->rest_request( 'GET', '/wp/v2/tags/' . $tag_id );
+        $this->refuse_other_taxonomy( $tag_id, 'post_tag', 'get' );
+        $data = $this->rest_request( 'GET', '/wp/v2/tags/' . $tag_id );
 
         return array(
             'id'          => $data['id'],

@@ -59,10 +59,15 @@ class Update_Tag extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        $this->precheck_other_taxonomy( $arguments, 'tag_id', 'post_tag', 'update' );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'tag_id' ) );
 
         $tag_id = $this->parse_required_id( $arguments['tag_id'], 'tag_id' );
+        $this->refuse_other_taxonomy( $tag_id, 'post_tag', 'update' );
         $params = array();
 
         if ( isset( $arguments['name'] ) ) {

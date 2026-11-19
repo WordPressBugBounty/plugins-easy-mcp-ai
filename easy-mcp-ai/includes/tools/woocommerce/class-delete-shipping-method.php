@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Shipping_Method extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently removes a shipping method from a WooCommerce shipping zone, with its settings. Required: `zone_id` and `instance_id` (wp_wc_list_shipping_methods; zone 0 is "Rest of the world"). To stop offering it but keep its settings, use wp_wc_update_shipping_method with enabled=false instead. Returns { deleted: true, zone_id, instance_id, method_id, title }. Requires WooCommerce active.';
+        return 'Permanently removes a shipping method from a WooCommerce shipping zone, with its settings. Required: `zone_id` and `instance_id` (wp_wc_list_shipping_methods; zone 0 is "Rest of the world"). To stop offering it but keep its settings, use wp_wc_update_shipping_method with enabled=false instead. Returns { deleted: true, zone_id, instance_id, method_id, title }; if WooCommerce\'s read still finds the method afterwards, or does not answer that it is gone, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -80,6 +81,7 @@ class Delete_Shipping_Method extends Base_Tool {
         $instance_id = $this->parse_required_id( $arguments['instance_id'], 'instance_id' );
 
         $method = $this->rest_request( 'DELETE', '/wc/v3/shipping/zones/' . $zone_id . '/methods/' . $instance_id, array( 'force' => true ) );
+        Delete_Outcome::require_route_gone( '/wc/v3/shipping/zones/' . $zone_id . '/methods/' . $instance_id, 'shipping method ' . $instance_id, 'woocommerce_rest_shipping_zone_method_invalid', 'WooCommerce may already have removed its settings.' );
 
         return array(
             'deleted'     => true,

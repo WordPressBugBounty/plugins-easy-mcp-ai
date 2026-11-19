@@ -13,17 +13,25 @@ final class Narrow_Post_Write {
 
     const BEFORE_META = array( 'format', 'featured_media', 'sticky', 'template' );
 
-    public static function dispatch( \WP_REST_Request $request, int $post_id, bool $resave = false ): ?array {
+    public static function dispatch( \WP_REST_Request $request, int $post_id, bool $resave = false, ?callable $before_full_save = null ): ?array {
         $controller = self::controller( $request, $post_id );
         if ( null === $controller ) {
             return null;
         }
         $post_type = (string) get_post_type( $post_id );
-        $writer    = $resave ? null : self::writer( $controller, $post_type );
+        $writer    = $resave || ! self::served_by( $request, $controller ) ? null : self::writer( $controller, $post_type );
+        $refusal = null === $writer && null !== $before_full_save ? $before_full_save() : null;
+        if ( $refusal instanceof \WP_Error ) {
+            return array( 'response' => new \WP_REST_Response( array( 'code' => $refusal->get_error_code(), 'message' => $refusal->get_error_message() ), 403 ), 'wrote' => false );
+        }
 
         $matched = false;
         $stopped = false;
-        $stop    = static function ( $prepared, $current ) use ( $request, $post_id, $post_type, $controller, $writer, &$matched, &$stopped ) {
+        $full    = static function ( $prepared ) use ( $before_full_save ) {
+            $refusal = null === $before_full_save ? null : $before_full_save();
+            return $refusal instanceof \WP_Error ? $refusal : $prepared;
+        };
+        $stop    = static function ( $prepared, $current ) use ( $request, $post_id, $post_type, $controller, $writer, $full, &$matched, &$stopped ) {
             if ( $matched || $current !== $request ) {
                 return $prepared;
             }
@@ -31,7 +39,7 @@ final class Narrow_Post_Write {
             $given = array_merge( (array) $request->get_query_params(), (array) $request->get_body_params(), (array) $request->get_json_params() );
             $sent  = array_values( array_diff( array_keys( $given ), self::NOT_FIELDS ) );
             if ( ! self::changes_no_column( $prepared, $post_id ) ) {
-                return $prepared;
+                return $full( $prepared );
             }
             $before_meta = array_merge( self::BEFORE_META, self::taxonomy_fields( $post_type ) );
             $refusal     = array() === array_intersect( $sent, $before_meta ) ? self::meta_refusal( $controller, $request, $post_id ) : null;
@@ -39,7 +47,7 @@ final class Narrow_Post_Write {
                 return $refusal;
             }
             if ( null === $writer || ! $writer->writes_only_beside( $sent ) ) {
-                return $prepared;
+                return $full( $prepared );
             }
             $stopped = true;
             return new \WP_Error( self::STOPPED, 'Stopped before the post save.' );
@@ -61,6 +69,20 @@ final class Narrow_Post_Write {
             return array( 'response' => rest_convert_error_to_response( $written ), 'wrote' => true );
         }
         return array( 'response' => $writer->respond( $request, $post_id ), 'wrote' => true );
+    }
+
+    private static function served_by( \WP_REST_Request $request, \WP_REST_Posts_Controller $controller ): bool {
+        $server = function_exists( 'rest_get_server' ) ? rest_get_server() : null;
+        if ( ! is_object( $server ) ) {
+            return false;
+        }
+        try {
+            $handler = \Easy_MCP_AI\Rest_Routes\Route_Gate::resolve( $server, $request->get_method(), untrailingslashit( $request->get_route() ) )['handler'];
+        } catch ( \RuntimeException $e ) {
+            return false;
+        }
+        $callback = $handler['callback'] ?? null;
+        return is_array( $callback ) && isset( $callback[0], $callback[1] ) && is_object( $callback[0] ) && get_class( $callback[0] ) === get_class( $controller ) && 'update_item' === $callback[1];
     }
 
     private static function meta_refusal( \WP_REST_Posts_Controller $controller, \WP_REST_Request $request, int $post_id ): ?\WP_Error {

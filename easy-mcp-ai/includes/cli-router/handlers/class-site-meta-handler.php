@@ -93,6 +93,18 @@ class Site_Meta_Handler extends Meta_Command {
         return (bool) \delete_site_meta( (int) $object_id, $meta_key, $meta_value );
     }
 
+    protected function meta_kept( $object_id, string $meta_key, string $meta_value = '' ): ?bool {
+        return $this->table_meta_kept( $object_id, $meta_key, $meta_value );
+    }
+
+    protected function stored_keys( $object_id ) {
+        return $this->table_keys( $object_id );
+    }
+
+    protected function stored_values( $object_id, string $meta_key ) {
+        return $this->table_values( $object_id, $meta_key );
+    }
+
     protected function is_multisite(): bool {
         return function_exists( 'is_multisite' ) && \is_multisite();
     }

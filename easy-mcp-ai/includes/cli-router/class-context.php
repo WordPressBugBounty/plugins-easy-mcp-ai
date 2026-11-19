@@ -169,6 +169,11 @@ final class Context {
         $this->changed = true;
     }
 
+    public function not_known( string $message ): void {
+        $this->mark_changed();
+        $this->out->error( $message );
+    }
+
     public function changed(): bool {
         return $this->changed;
     }

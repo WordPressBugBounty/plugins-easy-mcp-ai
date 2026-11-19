@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
+use Easy_MCP_AI\Drafts\Strict_Ceiling;
 use Easy_MCP_AI\Tools\Base_Tool;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -294,7 +295,11 @@ class Create_Product extends Base_Tool {
 
         $this->maybe_force_draft( $params );
 
-        $data = $this->rest_request( 'POST', '/wc/v3/products', $params );
+        $data = Strict_Ceiling::with_capabilities(
+            function () use ( $params ) {
+                return $this->rest_request( 'POST', '/wc/v3/products', $params );
+            }
+        );
 
         $reply = array(
             'id'        => $data['id'],

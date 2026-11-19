@@ -15,6 +15,16 @@ final class Menu_Handler extends Command_Handler {
 
     const LOCATION_FIELDS = array( 'location', 'description' );
 
+    const REMOVE_STOPPED = "WordPress did not remove the menu from the location: its theme mod still holds it. A plugin or theme on this site may have stopped the write. Location: %s";
+
+    const REMOVE_UNREAD = "The menu may not have been removed from the location: a database error stopped the theme mods being read back, so whether it changed is not known. Location: %s";
+
+    const ASSIGN_STOPPED = "WordPress did not assign the menu to the location: its theme mod does not hold it. A plugin or theme on this site may have stopped the write. Location: %s";
+
+    const ASSIGN_UNREAD = "The menu may not have been assigned to the location: a database error stopped the theme mods being read back, so whether it changed is not known. Location: %s";
+
+    const ASSIGN_BEFORE_UNREAD = "Nothing was written: a database error stopped the theme mods being read before the write, so the location's state is not known. Location: %s";
+
     const NOT_RECORDED = "Menu locations are stored in the active theme's theme_mods option, which change history's option mode on this site does not record.";
 
     public function location_list( Invocation $inv, Context $ctx ): void {
@@ -57,9 +67,24 @@ final class Menu_Handler extends Command_Handler {
 
         $locations = self::locations();
         $before    = array_key_exists( $location, $locations ) ? $locations[ $location ] : null;
-        if ( $before !== $menu['term_id'] ) {
+        $stored_before = self::stored_locations();
+        if ( null === $stored_before ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ASSIGN_BEFORE_UNREAD, array( $location ) ) );
+        }
+        $held_before = self::location_in( $stored_before, $location );
+        if ( $before !== $menu['term_id'] || $held_before !== (int) $menu['term_id'] ) {
             $locations[ $location ] = $menu['term_id'];
             Menu_Adapter::wp( 'set_locations', array( $locations ), array( __CLASS__, 'live_set_locations' ) );
+            $stored_after = self::stored_locations();
+            if ( null === $stored_after ) {
+                $ctx->not_known( sprintf( self::ASSIGN_UNREAD, $location ) );
+            }
+            if ( self::location_in( $stored_after, $location ) !== (int) $menu['term_id'] ) {
+                if ( $stored_after !== $stored_before ) {
+                    $ctx->mark_changed();
+                }
+                $ctx->out->error( sprintf( self::ASSIGN_STOPPED, $location ) );
+            }
             $ctx->mark_changed();
             $this->history( $ctx );
         }
@@ -83,6 +108,13 @@ final class Menu_Handler extends Command_Handler {
         $this->protect( $ctx );
         $locations[ $location ] = 0;
         Menu_Adapter::wp( 'set_locations', array( $locations ), array( __CLASS__, 'live_set_locations' ) );
+        $held = self::stored_location( $location );
+        if ( null === $held ) {
+            $ctx->not_known( sprintf( self::REMOVE_UNREAD, $location ) );
+        }
+        if ( (int) $held === (int) $menu['term_id'] ) {
+            $ctx->out->error( sprintf( self::REMOVE_STOPPED, $location ) );
+        }
         $ctx->mark_changed();
         $this->history( $ctx );
         $ctx->out->success( 'Removed location from menu.' );
@@ -130,6 +162,24 @@ final class Menu_Handler extends Command_Handler {
 
     public static function live_set_locations( array $locations ): bool {
         return (bool) \set_theme_mod( 'nav_menu_locations', $locations );
+    }
+
+    private static function stored_location( string $location ): ?int {
+        $locations = self::stored_locations();
+        return null === $locations ? null : self::location_in( $locations, $location );
+    }
+
+    private static function stored_locations(): ?array {
+        $mods = \Easy_MCP_AI\Tools\Delete_Outcome::stored_theme_mods();
+        if ( null === $mods ) {
+            return null;
+        }
+        return isset( $mods['nav_menu_locations'] ) && is_array( $mods['nav_menu_locations'] ) ? $mods['nav_menu_locations'] : array();
+    }
+
+    private static function location_in( array $locations, string $location ): int {
+        $held = $locations[ $location ] ?? 0;
+        return is_numeric( $held ) ? (int) $held : 0;
     }
 
     public static function live_theme_mods_option(): string {

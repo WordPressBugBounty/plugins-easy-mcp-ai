@@ -14,7 +14,7 @@ class List_Product_Variations extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists variations for a WooCommerce variable product, paginated (default per_page 10). Returns { variations, product_id, total, total_pages, page, per_page }: total and total_pages count every variation of the product, so page through them with `page` until it reaches total_pages. Each variation carries its id, sku, price, stock_status, stock_quantity, and attributes; `_links` is omitted.';
+        return 'Lists variations for a WooCommerce variable product, paginated (default per_page 10). Returns { variations, product_id, total, total_pages, page, per_page }: total and total_pages count every variation of the product, so page through them with `page` until it reaches total_pages. Each variation carries its id, sku, price, stock_status, stock_quantity, and attributes; `_links` is omitted. Variations are read in WooCommerce\'s edit context, the one the variation write tools reply in: `image` is the variation\'s own image and null when it has none (the store then shows the parent product\'s image), `tax_class` reads "parent" when the variation uses the parent\'s tax class, and `downloads` lists its files even when the variation is not downloadable.';
     }
 
     public function get_category() {
@@ -73,6 +73,7 @@ class List_Product_Variations extends Base_Tool {
         $params = array(
             'per_page' => isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10,
             'page'     => isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1,
+            'context'  => 'edit',
         );
 
         $response = $this->rest_response( 'GET', '/wc/v3/products/' . $product_id . '/variations', $params );

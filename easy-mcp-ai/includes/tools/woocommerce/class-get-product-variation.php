@@ -14,7 +14,7 @@ class Get_Product_Variation extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single WooCommerce product variation by parent product ID and variation ID. Required: `product_id`, `id`. Returns the full WC REST API v3 variation object — key fields: id, sku, regular_price, sale_price, price, on_sale, status, stock_status, stock_quantity, manage_stock, weight, dimensions, attributes (array of {id,name,option}), image (or null), gallery_image_ids (WooCommerce 11.1+), description, downloadable, virtual, meta_data. Requires WooCommerce active.';
+        return 'Gets a single WooCommerce product variation by parent product ID and variation ID. Required: `product_id`, `id`. Returns the full WC REST API v3 variation object — key fields: id, sku, regular_price, sale_price, price, on_sale, status, stock_status, stock_quantity, manage_stock, weight, dimensions, attributes (array of {id,name,option}), image (or null), gallery_image_ids (WooCommerce 11.1+), description, downloadable, virtual, meta_data. The variation is read in WooCommerce\'s edit context, the one the variation write tools reply in: `image` is the variation\'s own image and null when it has none (the store then shows the parent product\'s image), `tax_class` reads "parent" when the variation uses the parent\'s tax class, and `downloads` lists its files even when the variation is not downloadable. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -60,6 +60,6 @@ class Get_Product_Variation extends Base_Tool {
         $product_id = $this->parse_required_id( $arguments['product_id'], 'product_id' );
         $id         = $this->parse_required_id( $arguments['id'], 'id' );
 
-        return $this->rest_request( 'GET', '/wc/v3/products/' . $product_id . '/variations/' . $id );
+        return $this->rest_request( 'GET', '/wc/v3/products/' . $product_id . '/variations/' . $id, array( 'context' => 'edit' ) );
     }
 }

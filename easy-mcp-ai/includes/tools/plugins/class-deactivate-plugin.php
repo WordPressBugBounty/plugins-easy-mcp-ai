@@ -17,7 +17,7 @@ class Deactivate_Plugin extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deactivates an active plugin, exactly as the Deactivate link on Plugins → Installed Plugins does (deactivation hooks run; nothing is deleted). Required: `plugin` (e.g. "hello-dolly/hello.php" — the `plugin` field from wp_list_plugins). Optional: `network_wide` (boolean, default false; multisite only, deactivates a network-active plugin for every site and requires a super admin with manage_network_plugins). Returns { plugin, name, status ("inactive"), changed (false when it was already inactive), network_wide }. Refused when the plugin is not installed, when your WordPress user may not deactivate that plugin, when a network-active plugin is deactivated for a single site (a super admin must use network_wide: true), and always for Easy MCP AI itself — deactivating it would cut off this connection. Use wp_activate_plugin to reverse it.';
+        return 'Deactivates an active plugin, exactly as the Deactivate link on Plugins → Installed Plugins does (deactivation hooks run; nothing is deleted). Required: `plugin` (e.g. "hello-dolly/hello.php" — the `plugin` field from wp_list_plugins). Optional: `network_wide` (boolean, default false; multisite only, deactivates a network-active plugin for every site and requires a super admin with manage_network_plugins). Returns { plugin, name, status ("inactive"), changed (false when it was already inactive), network_wide }. Refused when the plugin is not installed, when your WordPress user may not deactivate that plugin, when a network-active plugin is deactivated for a single site (a super admin must use network_wide: true), and always for Easy MCP AI itself — deactivating it would cut off this connection. Use wp_activate_plugin to reverse it. If the plugin is still active afterwards (a plugin or theme stopped the write), the call is an error.';
     }
 
     public function get_category() {
@@ -85,6 +85,14 @@ class Deactivate_Plugin extends Base_Tool {
         }
 
         deactivate_plugins( $plugin, false, $network_wide );
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( $network_wide ? 'active_sitewide_plugins' : 'active_plugins', $network_wide );
+        if ( null === $row ) {
+            throw \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'WordPress answered that plugin "%s" was deactivated, but a database error stopped the list of active plugins being read back, so whether it was is not known.', array( $plugin ) );
+        }
+        $active = $row[0] && is_array( $row[1] ) ? $row[1] : array();
+        if ( $network_wide ? array_key_exists( $plugin, $active ) : in_array( $plugin, $active, true ) ) {
+            throw \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'WordPress did not deactivate plugin "%s": it is still active. A plugin or theme on this site stopped the write.', array( $plugin ) );
+        }
 
         if ( $network_wide ) {
             update_site_option( 'recently_activated', array( $plugin => time() ) + (array) get_site_option( 'recently_activated' ) );

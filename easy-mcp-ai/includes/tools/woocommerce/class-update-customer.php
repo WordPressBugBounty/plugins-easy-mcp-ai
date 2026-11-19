@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Users\Update_User;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Update_Customer extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates a WooCommerce customer account (PATCH semantics). Required: `id`. Optional: `email`, `first_name`, `last_name`, `username`, `password` (hashed on save, not returned), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country). Returns a summary of the updated customer: `id`, `email`, `first_name`, `last_name`. Requires WooCommerce active.';
+        return 'Updates a WooCommerce customer account (PATCH semantics). Required: `id`. Optional: `email`, `first_name`, `last_name`, `username`, `password` (hashed on save, not returned), `billing` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country, email, phone), `shipping` (object: first_name, last_name, company, address_1, address_2, city, state, postcode, country). Returns a summary of the updated customer: `id`, `email`, `first_name`, `last_name`. Setting a password or changing the email address is the kind of call the site\'s approval switch pauses (when it is on and nothing in the approval settings exempts it), as for `wp_update_user`. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -32,6 +33,13 @@ class Update_Customer extends Base_Tool {
             'destructiveHint' => false,
             'openWorldHint'   => false,
         );
+    }
+
+    public function get_approval_policy( array $arguments ) {
+        if ( Update_User::sets_password( $arguments ) || Update_User::changes_email( $arguments['id'] ?? null, $arguments['email'] ?? null ) ) {
+            return 'always';
+        }
+        return 'inherit';
     }
 
     public function get_input_schema() {

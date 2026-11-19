@@ -3,6 +3,7 @@
 namespace Easy_MCP_AI\Tools;
 
 use Easy_MCP_AI\Approvals\Preview_Values;
+use Easy_MCP_AI\MCP\Detailed_Runtime_Error;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Rest_Routes\Dedicated_Tools;
 use Easy_MCP_AI\Rest_Routes\Namespace_State;
@@ -214,6 +215,12 @@ abstract class Rest_Route_Tool extends Base_Tool {
         if ( null === $refusal ) {
             $refusal = $this->namespace_refusal( $resolved['namespace'] );
         }
+        if ( null === $refusal ) {
+            $switched_off = self::switched_off_tool_refusal( $method, $resolved, self::params_as_read( $query, $body ) );
+            if ( null !== $switched_off ) {
+                throw Detailed_Runtime_Error::for_validation( $switched_off ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+        }
         if ( null !== $refusal ) {
             throw new \RuntimeException( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
@@ -245,6 +252,22 @@ abstract class Rest_Route_Tool extends Base_Tool {
             return;
         }
         $this->refuse_builder_owned_write( (int) $post->ID, array_key_exists( 'content', $sent ), isset( $sent['meta'] ) && is_array( $sent['meta'] ) ? $sent['meta'] : array() );
+    }
+
+    private static function switched_off_tool_refusal( string $method, array $resolved, array $params ): ?string {
+        return Dedicated_Tools::refusal( Dedicated_Tools::tools_for_action( $method, $resolved['route'], $params, $resolved['url_params'] ) );
+    }
+
+    private static function params_as_read( array $query, array $body ): array {
+        $params = array();
+        foreach ( array( $query, $body ) as $part ) {
+            foreach ( $part as $name => $value ) {
+                if ( null !== $value ) {
+                    $params[ $name ] = $value;
+                }
+            }
+        }
+        return $params;
     }
 
     protected function namespace_refusal( string $namespace ): ?string {

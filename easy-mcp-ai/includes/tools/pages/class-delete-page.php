@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Pages;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a WordPress page by ID. Required: `page_id`. Optional: `force` (default false) — false moves to trash (recoverable); true permanently deletes the page and its meta/revisions (irreversible). Child pages are NOT deleted when a parent is deleted. On a permanent delete (force=true), children are re-parented to the deleted page\'s own parent (not necessarily top-level). When the page is merely trashed (the default, force=false), children are left untouched. Returns { deleted, id, title }. For CPT items use `wp_delete_cpt_item` instead.';
+        return 'Deletes a WordPress page by ID. Required: `page_id`. Optional: `force` (default false) — false moves to trash (recoverable); true permanently deletes the page and its meta/revisions (irreversible). Child pages are NOT deleted when a parent is deleted. On a permanent delete (force=true), children are re-parented to the deleted page\'s own parent (not necessarily top-level). When the page is merely trashed (the default, force=false), children are left untouched. Returns { deleted: true, status, id, title }: `status` is "trash" when the page was moved to the Trash and "deleted" when it no longer exists, read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error. For CPT items use `wp_delete_cpt_item` instead.';
     }
 
     public function get_category() {
@@ -89,12 +90,13 @@ class Delete_Page extends Base_Tool {
             $params['force'] = $force;
         }
 
-        $data = $this->rest_request( 'DELETE', '/wp/v2/pages/' . $page_id, $params );
-
-        $page = $force ? ( $data['previous'] ?? array() ) : $data;
+        $data    = $this->rest_request( 'DELETE', '/wp/v2/pages/' . $page_id, $params );
+        $outcome = Delete_Outcome::of_post( $data, $page_id, 'page ' . $page_id );
+        $page    = $outcome['item'];
 
         return array(
             'deleted' => true,
+            'status'  => $outcome['status'],
             'id'      => $page['id'] ?? null,
             'title'   => $page['title']['raw'] ?? ( $page['title']['rendered'] ?? '' ),
         );

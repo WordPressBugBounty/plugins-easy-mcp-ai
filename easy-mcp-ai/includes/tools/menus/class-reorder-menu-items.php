@@ -93,18 +93,25 @@ class Reorder_Menu_Items extends Base_Tool {
 
         $writes = $this->changed_rows( $this->plan( $menu_id, $entries, $current, $strict ), $current );
         $this->assert_writable( $writes, $current );
+        if ( array() !== $writes ) {
+            $this->refuse_switched_off_route( 'POST', '/wp/v2/menu-items/{id}' );
+        }
 
         $applied = array();
         foreach ( $writes as $index => $row ) {
             try {
-                $this->rest_request(
-                    'POST',
-                    '/wp/v2/menu-items/' . $row['id'],
-                    array(
-                        'parent'     => $row['parent'],
-                        'menu_order' => $row['menu_order'],
-                    ),
-                    array( 'id' )
+                Menu_Item_Stored_Fields::around(
+                    function () use ( $row ) {
+                        return $this->rest_request(
+                            'POST',
+                            '/wp/v2/menu-items/' . $row['id'],
+                            array(
+                                'parent'     => $row['parent'],
+                                'menu_order' => $row['menu_order'],
+                            ),
+                            array( 'id' )
+                        );
+                    }
                 );
                 $applied[] = $row['id'];
             } catch ( \RuntimeException $e ) {

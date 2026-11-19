@@ -14,7 +14,7 @@ class Rest_Delete extends Rest_Route_Tool {
     }
 
     public function get_description() {
-        return 'Sends a DELETE request to any WordPress REST route a plugin or WordPress core registers, in-process, as this key\'s user: the route\'s own permission check decides. Find routes with wp_rest_routes. Required: `route` (e.g. "/wc/v3/shipping/zones/3"). Optional: `query` (object, e.g. {"force": true} — without it, core content routes move items to the trash), `body` (JSON object), `fields`. Returns { status, route, namespace, data, changes_recorded?, dedicated_tool? }; `changes_recorded` 0 with a note means change history saw no change.';
+        return 'Sends a DELETE request to any WordPress REST route a plugin or WordPress core registers, in-process, as this key\'s user: the route\'s own permission check decides. Find routes with wp_rest_routes. Required: `route` (e.g. "/wc/v3/shipping/zones/3"). Optional: `query` (object, e.g. {"force": true} — without it, core content routes move items to the trash), `body` (JSON object), `fields`. Returns { status, route, namespace, data, changes_recorded?, dedicated_tool? }; `changes_recorded` 0 with a note means change history saw no change. A route a dedicated tool covers is refused while the site has that tool switched off, naming the tool.';
     }
 
     public function get_annotations() {

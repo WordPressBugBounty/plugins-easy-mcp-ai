@@ -61,6 +61,10 @@ class Bulk_Moderate_Comments extends Base_Tool {
         );
     }
 
+    public function throttle_units( array $arguments ) {
+        return count( $this->parse_comment_ids( $arguments['comment_ids'] ?? null ) );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'comment_ids', 'action' ) );
 
@@ -70,6 +74,7 @@ class Bulk_Moderate_Comments extends Base_Tool {
         }
 
         $ids = $this->parse_comment_ids( $arguments['comment_ids'] );
+        $this->refuse_switched_off_moderation( $action );
 
         if ( 'trash' === $action ) {
             $this->refuse_trash_when_disabled();

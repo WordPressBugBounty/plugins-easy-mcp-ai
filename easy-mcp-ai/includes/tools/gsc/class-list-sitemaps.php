@@ -49,7 +49,7 @@ class List_Sitemaps extends Base_Tool {
         $index        = ! empty( $arguments['sitemap_index'] ) ? trim( (string) $arguments['sitemap_index'] ) : '';
         if ( '' !== $index ) {
             if ( ! preg_match( '#^https?://\S+$#i', $index ) ) {
-                throw new \RuntimeException( 'sitemap_index must be an absolute http(s) URL, e.g. https://example.com/sitemap-index.xml.' );
+                throw new \InvalidArgumentException( 'sitemap_index must be an absolute http(s) URL, e.g. https://example.com/sitemap-index.xml.' );
             }
             $url .= '?sitemapIndex=' . rawurlencode( $index );
         }

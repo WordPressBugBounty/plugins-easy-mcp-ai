@@ -109,7 +109,7 @@ class Seopress_Update_Robots extends Base_Tool {
 			$body['_seopress_robots_primary_cat'] = sanitize_text_field( (string) $arguments['primary_cat'] );
 		}
 		if ( isset( $arguments['breadcrumbs'] ) ) {
-			$body['_seopress_robots_breadcrumbs'] = sanitize_text_field( (string) $arguments['breadcrumbs'] );
+			$body['_seopress_robots_breadcrumbs'] = Seo_Text::clean( (string) $arguments['breadcrumbs'] );
 		}
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/meta-robot-settings', $body );

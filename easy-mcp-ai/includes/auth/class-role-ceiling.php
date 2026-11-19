@@ -55,6 +55,10 @@ final class Role_Ceiling {
         return ! isset( self::$allowed[ $user_id ] ) || isset( self::$allowed[ $user_id ][ $cap ] );
     }
 
+    public static function is_limited( int $user_id ): bool {
+        return isset( self::$allowed[ $user_id ] );
+    }
+
     public static function filter( $caps, $cap, $user_id, $args = array() ) {
         $user_id = (int) $user_id;
         if ( ! isset( self::$allowed[ $user_id ] ) || ! is_array( $caps ) ) {

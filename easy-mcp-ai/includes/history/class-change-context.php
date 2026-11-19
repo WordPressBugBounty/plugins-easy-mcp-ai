@@ -70,16 +70,25 @@ class Change_Context {
         return (int) ( self::$data['_rows_written'] ?? 0 );
     }
 
-    public static function expect_refresh_only( $type, $id ) {
+    public static function expect_refresh_only( $type, $id, ?string $hook = null ) {
         if ( ! self::$active ) {
             return;
         }
-        self::$data['_refresh_only'][ (string) $type . ':' . (string) $id ] = true;
+        self::$data['_refresh_only'][ (string) $type . ':' . (string) $id ] = null === $hook ? true : array( $hook, self::hook_depth( $hook ) );
+    }
+
+    public static function hook_depth( string $hook ): int {
+        $running = isset( $GLOBALS['wp_current_filter'] ) && is_array( $GLOBALS['wp_current_filter'] ) ? $GLOBALS['wp_current_filter'] : array();
+        return count( array_keys( $running, $hook, true ) );
     }
 
     public static function consume_refresh_only( $type, $id ) {
         $key = (string) $type . ':' . (string) $id;
-        if ( empty( self::$data['_refresh_only'][ $key ] ) ) {
+        if ( ! isset( self::$data['_refresh_only'][ $key ] ) ) {
+            return false;
+        }
+        $mark = self::$data['_refresh_only'][ $key ];
+        if ( true !== $mark && self::hook_depth( $mark[0] ) !== $mark[1] ) {
             return false;
         }
         unset( self::$data['_refresh_only'][ $key ] );

@@ -24,6 +24,8 @@ final class Option_Guard {
 
     private static $suspended = 0;
 
+    private static $after_release = array();
+
     public static function arm(): void {
         if ( 0 === self::$depth++ ) {
             foreach ( self::HOOKS as $hook ) {
@@ -37,7 +39,24 @@ final class Option_Guard {
             foreach ( self::HOOKS as $hook ) {
                 \remove_action( $hook, array( self::class, 'refuse_protected' ), PHP_INT_MIN );
             }
+            $writes              = self::$after_release;
+            self::$after_release = array();
+            foreach ( $writes as $write ) {
+                try {
+                    $write();
+                } catch ( \Throwable $e ) {
+                    unset( $e );
+                }
+            }
         }
+    }
+
+    public static function after_release( callable $write ): void {
+        if ( 0 === self::$depth ) {
+            $write();
+            return;
+        }
+        self::$after_release[] = $write;
     }
 
     public static function while_suspended( callable $write ) {

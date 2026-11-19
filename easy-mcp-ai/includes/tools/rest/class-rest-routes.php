@@ -23,12 +23,16 @@ class Rest_Routes extends Rest_Route_Tool {
         '/wp/v2/themes'  => array( 'wp_install_theme', 'wp_delete_theme' ),
     );
 
+    const HINT_CLOSEST = 'No route contains every word. `closest` lists the routes that contain the most of them; search one word at a time to see each word\'s routes.';
+
+    const HINT_NO_WORD = 'No route this key can use contains any of these words in its path, arguments or descriptions. Try another word, or call wp_rest_routes with no arguments to list the namespaces.';
+
     public function get_name() {
         return 'wp_rest_routes';
     }
 
     public function get_description() {
-        return 'Lists the WordPress REST routes plugins and core register, for wp_rest_read, wp_rest_write and wp_rest_delete. No arguments: every namespace (e.g. "redirection/v1", "wc/v3", "contact-form-7/v1") with its route count and the tools this key can use on it. `namespace`: that namespace\'s routes and methods. `route` (e.g. "/redirection/v1/redirect" or "/wp/v2/posts/{id}"): that route\'s arguments per method; add `include_fields: true` for the fields its responses carry. `search` (e.g. "redirect"): routes whose path, arguments or descriptions contain every word, at most 25.';
+        return 'Lists the WordPress REST routes plugins and core register, for wp_rest_read, wp_rest_write and wp_rest_delete. No arguments: every namespace (e.g. "redirection/v1", "wc/v3", "contact-form-7/v1") with its route count and the tools this key can use on it. `namespace`: that namespace\'s routes and methods. `route` (e.g. "/redirection/v1/redirect" or "/wp/v2/posts/{id}"): that route\'s arguments per method; add `include_fields: true` for the fields its responses carry. `search` (e.g. "redirect"): routes whose path, arguments or descriptions contain every word, at most 25; when none does, `closest` lists up to 5 routes with the most of the words, each with its `matched_words`.';
     }
 
     public function get_annotations() {
@@ -84,7 +88,10 @@ class Rest_Routes extends Rest_Route_Tool {
                 }
             }
             $result = array( 'search' => trim( $arguments['search'] ) ) + Route_Catalogue::search( $server, $arguments['search'], $usable );
-            $note   = self::switched_off_note( $result['matches'] );
+            if ( isset( $result['closest'] ) ) {
+                $result['hint'] = array() === $result['closest'] ? self::HINT_NO_WORD : self::HINT_CLOSEST;
+            }
+            $note = self::switched_off_note( $result['matches'] );
             return '' === $note ? $result : $result + array( 'note' => $note );
         }
         if ( isset( $arguments['namespace'] ) && is_string( $arguments['namespace'] ) && '' !== trim( $arguments['namespace'] ) ) {

@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Events_Calendar;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Event extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Moves an event to the Trash in The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). This calls wp_trash_post() — the event is trashed, not permanently erased, so it can be restored from the WordPress Trash. Returns { deleted: true, id }. To hide an event temporarily, use `wp_tec_update_event` to set status="draft" on the event instead — `wp_update_post` cannot be used because it is hardwired to the `/wp/v2/posts` REST endpoint, which rejects any post whose type is not `post` (a `tribe_events` post ID returns a 404 Invalid post ID). Requires The Events Calendar plugin active.';
+        return 'Moves an event to the Trash in The Events Calendar. Required: `id` (the event post ID — get it from `wp_tec_list_events`). This calls wp_trash_post() — the event is trashed, not permanently erased, so it can be restored from the WordPress Trash; on a site with no Trash (EMPTY_TRASH_DAYS is 0) WordPress deletes it for good instead. Returns { deleted: true, status, id }: `status` is "trash" when the event is in the Trash and "deleted" when it no longer exists, read from the event after the call; if a plugin stops the trash, the call is an error. To hide an event temporarily, use `wp_tec_update_event` to set status="draft" on the event instead — `wp_update_post` cannot be used because it is hardwired to the `/wp/v2/posts` REST endpoint, which rejects any post whose type is not `post` (a `tribe_events` post ID returns a 404 Invalid post ID). Requires The Events Calendar plugin active.';
     }
 
     public function get_category() {
@@ -53,11 +54,23 @@ class Delete_Event extends Base_Tool {
         }
 
         $this->validate_required( $arguments, array( 'id' ) );
-        $id = $this->parse_required_id( $arguments['id'], 'id' );
-        $this->rest_request( 'DELETE', '/tribe/events/v1/events/' . $id, array() );
+        $id     = $this->parse_required_id( $arguments['id'], 'id' );
+        try {
+            $before = Delete_Outcome::stored_post_status( $id );
+        } catch ( \RuntimeException $e ) {
+            $before = null;
+        }
+        try {
+            $this->rest_request( 'DELETE', '/tribe/events/v1/events/' . $id, array() );
+        } catch ( \RuntimeException $e ) {
+            if ( null === $before || null !== Delete_Outcome::stored_post_status( $id ) ) {
+                throw $e;
+            }
+        }
 
         return array(
             'deleted' => true,
+            'status'  => Delete_Outcome::of_post( array(), $id, 'event ' . $id )['status'],
             'id'      => $id,
         );
     }

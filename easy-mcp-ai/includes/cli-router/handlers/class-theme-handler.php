@@ -45,6 +45,16 @@ class Theme_Handler extends Command_Handler {
     const NOTE_ENABLE_NOOP  = "Nothing changed: '%s' was already enabled %s. WP-CLI prints the same Success line.";
     const NOTE_DISABLE_NOOP = "Nothing changed: '%s' was not enabled %s. WP-CLI prints the same Success line.";
 
+    const DISABLE_KEPT = 'The theme was not disabled %2$s: the stored allowedthemes option still allows it. A plugin or theme may have stopped the write. Theme: %1$s';
+
+    const DISABLE_UNKNOWN = 'The theme may not have been disabled %2$s: a database error stopped the allowedthemes option being read back, so whether it changed is not known. Theme: %1$s';
+
+    const ENABLE_KEPT = 'The theme was not enabled %2$s: the stored allowedthemes option does not allow it. A plugin or theme may have stopped the write. Theme: %1$s';
+
+    const BEFORE_UNREAD = 'Nothing was written: a database error stopped the allowedthemes option being read before the write %2$s, so its state is not known. Theme: %1$s';
+
+    const ENABLE_UNKNOWN = 'The theme may not have been enabled %2$s: a database error stopped the allowedthemes option being read back, so whether it changed is not known. Theme: %1$s';
+
     const REFUSE_ESCAPE        = "wp_cli_run refuses the theme name '%s': it climbs out of the themes folder ('..' or an absolute path), and WordPress would answer whether that directory exists elsewhere on the server, which wp_cli_run never reads. Pass a theme folder name as `theme list` prints it.";
     const REFUSE_FILE_MODS     = 'File modifications are disabled on this site (DISALLOW_FILE_MODS in wp-config.php, or a file_mod_allowed filter), so WordPress offers no theme installs to search for, in wp-admin or here.';
     const HIDDEN_UPDATES       = 'Update markers are hidden: %s.';
@@ -337,11 +347,28 @@ class Theme_Handler extends Command_Handler {
         $scope   = $network ? 'for the network' : 'for this site';
         $ctx->not_captured( $network ? self::NOT_CAPTURED_NETWORK_ALLOWED : self::NOT_CAPTURED_SITE_ALLOWED );
 
-        $allowed_themes = self::allowed_after( self::wp( $read, array( 'allowedthemes' ) ), $data['stylesheet'], $enable );
-        if ( self::wp( $write, array( 'allowedthemes', $allowed_themes ) ) ) {
-            $ctx->mark_changed();
+        $stored         = self::wp( $read, array( 'allowedthemes' ) );
+        $before_row     = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'allowedthemes', $network );
+        if ( null === $before_row ) {
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::BEFORE_UNREAD, array( $data['stylesheet'], $scope ) ) );
+        }
+        $row_allowed    = $before_row[0] && self::allows( $before_row[1], $data['stylesheet'] );
+        $allowed_themes = self::allowed_after( $stored, $data['stylesheet'], $enable );
+        $written        = self::wp( $write, array( 'allowedthemes', $allowed_themes ) );
+        if ( $enable ) {
+            self::require_allowed( $data['stylesheet'], $network, $scope, $before_row, $ctx );
+            if ( $written || ! $row_allowed ) {
+                $ctx->mark_changed();
+            } else {
+                $ctx->note( sprintf( self::NOTE_ENABLE_NOOP, $data['stylesheet'], $scope ) );
+            }
         } else {
-            $ctx->note( sprintf( $enable ? self::NOTE_ENABLE_NOOP : self::NOTE_DISABLE_NOOP, $data['stylesheet'], $scope ) );
+            self::require_disallowed( $data['stylesheet'], $network, $scope, $before_row, $ctx );
+            if ( $written || $row_allowed || self::allows( $stored, $data['stylesheet'] ) ) {
+                $ctx->mark_changed();
+            } else {
+                $ctx->note( sprintf( self::NOTE_DISABLE_NOOP, $data['stylesheet'], $scope ) );
+            }
         }
 
         $ctx->out->success( self::allowed_success( $network, $enable, $name ) );
@@ -357,6 +384,38 @@ class Theme_Handler extends Command_Handler {
             unset( $allowed_themes[ $stylesheet ] );
         }
         return $allowed_themes;
+    }
+
+    private static function require_disallowed( string $stylesheet, bool $network, string $scope, ?array $before_row, Context $ctx ): void {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'allowedthemes', $network );
+        if ( null === $row ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::DISABLE_UNKNOWN, array( $stylesheet, $scope ) ) );
+        }
+        if ( $row[0] && self::allows( $row[1], $stylesheet ) ) {
+            self::mark_if_moved( $before_row, $row, $ctx );
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::DISABLE_KEPT, array( $stylesheet, $scope ) ) );
+        }
+    }
+
+    private static function require_allowed( string $stylesheet, bool $network, string $scope, ?array $before_row, Context $ctx ): void {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'allowedthemes', $network );
+        if ( null === $row ) {
+            $ctx->not_known( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ENABLE_UNKNOWN, array( $stylesheet, $scope ) ) );
+        }
+        if ( ! $row[0] || ! self::allows( $row[1], $stylesheet ) ) {
+            self::mark_if_moved( $before_row, $row, $ctx );
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::ENABLE_KEPT, array( $stylesheet, $scope ) ) );
+        }
+    }
+
+    private static function mark_if_moved( ?array $before, array $after, Context $ctx ): void {
+        if ( null !== $before && $before !== $after ) {
+            $ctx->mark_changed();
+        }
+    }
+
+    private static function allows( $allowed_themes, string $stylesheet ): bool {
+        return is_array( $allowed_themes ) && ! empty( $allowed_themes[ $stylesheet ] );
     }
 
     private static function allowed_success( bool $network, bool $enable, string $name ): string {
@@ -732,13 +791,22 @@ class Theme_Handler extends Command_Handler {
         return is_array( $mods ) ? $mods : array();
     }
 
-    public static function live_remove_theme_mod( string $name ): bool {
+    const MODS_UNREAD = 'unknown';
+
+    public static function live_remove_theme_mod( string $name ) {
         $before = \get_theme_mods();
         \remove_theme_mod( $name );
-        return is_array( $before ) && isset( $before[ $name ] );
+        if ( ! is_array( $before ) || ! isset( $before[ $name ] ) ) {
+            return false;
+        }
+        $mods = \Easy_MCP_AI\Tools\Delete_Outcome::stored_theme_mods();
+        if ( null === $mods ) {
+            return self::MODS_UNREAD;
+        }
+        return array_key_exists( $name, $mods ) ? null : true;
     }
 
-    public static function live_remove_theme_mods(): bool {
+    public static function live_remove_theme_mods() {
         $current = \get_option( 'stylesheet' );
         $name    = \get_option( 'current_theme' );
         if ( false === $name ) {
@@ -746,7 +814,19 @@ class Theme_Handler extends Command_Handler {
         }
         $existed = false !== \get_option( 'theme_mods_' . $current ) || false !== \get_option( 'mods_' . $name );
         \remove_theme_mods();
-        return $existed;
+        if ( ! $existed ) {
+            return false;
+        }
+        foreach ( array( 'theme_mods_' . $current, 'mods_' . $name ) as $option ) {
+            $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( $option );
+            if ( null === $row ) {
+                return self::MODS_UNREAD;
+            }
+            if ( $row[0] ) {
+                return null;
+            }
+        }
+        return true;
     }
 
     public static function live_theme_mods_options(): array {

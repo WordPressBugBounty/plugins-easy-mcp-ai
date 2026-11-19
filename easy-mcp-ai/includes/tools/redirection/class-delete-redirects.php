@@ -67,6 +67,10 @@ class Delete_Redirects extends Base_Tool {
         );
     }
 
+    public function throttle_units( array $arguments ) {
+        return count( $this->parse_ids( $arguments ) );
+    }
+
     public function execute( array $arguments ) {
         $this->require_redirection();
         $ids   = $this->parse_ids( $arguments );

@@ -204,36 +204,25 @@ final class Shell_Lexer {
     }
 
     private static function refusal( string $code, string $feature, string $line, int $byte ): Cli_Parse_Error {
-        return new Cli_Parse_Error(
-            $code,
-            'wp_cli_run does not run a shell: ' . $feature . ' at character ' . self::char_index( $line, $byte )
-            . ' (' . self::excerpt( $line, $byte ) . '). Quote it if it is part of a value.'
-        );
+        return self::error( $code, 'wp_cli_run does not run a shell: ' . $feature, $line, $byte, '. Quote it if it is part of a value.' );
     }
 
     private static function nul_byte( string $line, int $byte ): Cli_Parse_Error {
-        return new Cli_Parse_Error(
-            'nul_byte',
-            'wp_cli_run does not run a shell: NUL byte at character ' . self::char_index( $line, $byte )
-            . ' (' . self::excerpt( $line, $byte ) . '). A NUL byte cannot be passed, quoted or not.'
-        );
+        return self::error( 'nul_byte', 'wp_cli_run does not run a shell: NUL byte', $line, $byte, '. A NUL byte cannot be passed, quoted or not.' );
     }
 
     private static function unterminated( string $line, int $byte, string $kind ): Cli_Parse_Error {
         $quote = 'single' === $kind ? "'" : '"';
-        return new Cli_Parse_Error(
-            'unterminated_quote',
-            'wp_cli_run could not parse the command: the ' . $kind . ' quote (' . $quote . ') at character '
-            . self::char_index( $line, $byte ) . ' (' . self::excerpt( $line, $byte ) . ') is never closed.'
-        );
+        return self::error( 'unterminated_quote', 'wp_cli_run could not parse the command: the ' . $kind . ' quote (' . $quote . ')', $line, $byte, ' is never closed.' );
     }
 
     private static function dangling_escape( string $line, int $byte ): Cli_Parse_Error {
-        return new Cli_Parse_Error(
-            'dangling_escape',
-            'wp_cli_run could not parse the command: the backslash at character ' . self::char_index( $line, $byte )
-            . ' (' . self::excerpt( $line, $byte ) . ') ends the command and escapes nothing. Remove it, or quote it as \'\\\'.'
-        );
+        return self::error( 'dangling_escape', 'wp_cli_run could not parse the command: the backslash', $line, $byte, ' ends the command and escapes nothing. Remove it, or quote it as \'\\\'.' );
+    }
+
+    private static function error( string $code, string $what, string $line, int $byte, string $tail ): Cli_Parse_Error {
+        $at = $what . ' at character ' . self::char_index( $line, $byte );
+        return new Cli_Parse_Error( $code, $at . ' (' . self::excerpt( $line, $byte ) . ')' . $tail, $at . $tail, $byte );
     }
 
     private static function char_index( string $line, int $byte ): int {

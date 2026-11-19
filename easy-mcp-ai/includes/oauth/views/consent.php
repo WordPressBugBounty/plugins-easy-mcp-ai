@@ -94,7 +94,7 @@ if ( ! defined( 'ABSPATH' ) ) {
             ),
             'read'   => array(
                 __( 'Read-only', 'easy-mcp-ai' ),
-                __( 'The AI can view content, settings and the user list. It cannot create, change or delete anything.', 'easy-mcp-ai' ),
+                __( 'The AI can view content, users, settings, plugins, logs, store orders and private messages, and any REST route your role can read. It cannot change your content or settings, but it can make draft preview links anyone can open and run paid SEO lookups.', 'easy-mcp-ai' ),
             ),
             'custom' => array(
                 __( 'Custom', 'easy-mcp-ai' ),
@@ -261,27 +261,31 @@ if ( ! defined( 'ABSPATH' ) ) {
                         </th>
                     </tr>
                 </thead>
-                <tbody>
+                <?php
+                $has_ability_row  = false;
+                $visible_rows     = array();
+                $unavailable_rows = array();
+
+                $included_mark = static function () {
+                    ?>
+                    <span class="emcp-included" title="<?php echo esc_attr__( 'Included with Write', 'easy-mcp-ai' ); ?>"><span aria-hidden="true">&#10003;</span><span class="emcp-sr"><?php echo esc_html__( 'Included with Write', 'easy-mcp-ai' ); ?></span></span>
                     <?php
-                    $has_ability_row  = false;
-                    $unavailable_rows = array();
+                };
 
-                    $included_mark = static function () {
-                        ?>
-                        <span class="emcp-included" title="<?php echo esc_attr__( 'Included with Write', 'easy-mcp-ai' ); ?>"><span aria-hidden="true">&#10003;</span><span class="emcp-sr"><?php echo esc_html__( 'Included with Write', 'easy-mcp-ai' ); ?></span></span>
-                        <?php
-                    };
-
-                    $render_category_row = static function ( array $category, string $note ) use ( $tick_all, $checked_scopes, $ceiling_all, $ceiling, $new_scopes, $included_mark ) {
-                        $label   = isset( $category['label'] ) ? $category['label'] : '';
-                        $row_new = in_array( isset( $category['read_scope'] ) ? (string) $category['read_scope'] : '', $new_scopes, true )
-                            || in_array( isset( $category['write_scope'] ) ? (string) $category['write_scope'] : '', $new_scopes, true );
-                        ?>
+                $render_category_row = static function ( array $category, string $availability_note ) use ( $tick_all, $checked_scopes, $ceiling_all, $ceiling, $new_scopes, $included_mark ) {
+                    $label   = isset( $category['label'] ) ? $category['label'] : '';
+                    $note    = isset( $category['note'] ) ? (string) $category['note'] : '';
+                    $row_new = in_array( isset( $category['read_scope'] ) ? (string) $category['read_scope'] : '', $new_scopes, true )
+                        || in_array( isset( $category['write_scope'] ) ? (string) $category['write_scope'] : '', $new_scopes, true );
+                    ?>
                     <tr<?php echo $row_new ? ' class="emcp-table__row--new"' : ''; ?>>
                         <td>
                             <?php echo esc_html( $label ); ?>
                             <?php if ( '' !== $note ) : ?>
-                            <span class="emcp-text emcp-text--small emcp-text--muted emcp-row-note" data-availability-note><?php echo esc_html( $note ); ?></span>
+                            <span class="emcp-text emcp-text--small emcp-text--muted emcp-row-note" data-row-note><?php echo esc_html( $note ); ?></span>
+                            <?php endif; ?>
+                            <?php if ( '' !== $availability_note ) : ?>
+                            <span class="emcp-text emcp-text--small emcp-text--muted emcp-row-note" data-availability-note><?php echo esc_html( $availability_note ); ?></span>
                             <?php endif; ?>
                         </td>
                         <?php
@@ -308,38 +312,12 @@ if ( ! defined( 'ABSPATH' ) ) {
                         </td>
                         <?php endforeach; ?>
                     </tr>
-                        <?php
-                    };
-
-                    foreach ( $categories as $category ) :
-                        if ( ! empty( $category['plugin_required'] ) && ! \Easy_MCP_AI\OAuth\Scope_Map::is_plugin_category_active( $category['slug'] ) ) {
-                            continue;
-                        }
-                        if ( ! empty( $category['is_ability'] ) ) {
-                            $has_ability_row = true;
-                        }
-                        $row_availability = isset( $availability[ $category['slug'] ] ) ? $availability[ $category['slug'] ] : null;
-                        if ( null !== $row_availability && \Easy_MCP_AI\OAuth\Scope_Availability::NONE === $row_availability['state'] ) {
-                            $unavailable_rows[] = $category;
-                            continue;
-                        }
-                        $render_category_row(
-                            $category,
-                            null === $row_availability ? '' : sprintf(
-                                /* translators: %s: comma-separated role names, e.g. "Administrator, Shop manager". */
-                                __( 'Partly available to your account. The rest needs: %s.', 'easy-mcp-ai' ),
-                                implode( ', ', $row_availability['roles'] )
-                            )
-                        );
-                    endforeach;
-                    ?>
                     <?php
-                    foreach ( $privileged_rows as $privileged_row ) :
-                        $box_scope = $privileged_row['scope'];
-                        if ( ! $ceiling_all && ! in_array( $box_scope, $ceiling, true ) ) {
-                            continue;
-                        }
-                        ?>
+                };
+
+                $render_privileged_row = static function ( array $privileged_row ) use ( $tick_all, $checked_scopes, $new_scopes, $included_mark ) {
+                    $box_scope = $privileged_row['scope'];
+                    ?>
                     <tr data-privileged-row<?php echo in_array( $box_scope, $new_scopes, true ) ? ' class="emcp-table__row--new"' : ''; ?>>
                         <td>
                             <?php echo esc_html( $privileged_row['label'] ); ?>
@@ -364,7 +342,73 @@ if ( ! defined( 'ABSPATH' ) ) {
                         </td>
                         <?php endforeach; ?>
                     </tr>
-                    <?php endforeach; ?>
+                    <?php
+                };
+
+                $render_sections = static function ( array $sections, array $privileged, callable $availability_note ) use ( $render_category_row, $render_privileged_row ) {
+                    foreach ( $sections as $section ) :
+                        ?>
+                <tbody data-section="<?php echo esc_attr( $section['key'] ); ?>">
+                        <?php if ( '' !== $section['heading'] ) : ?>
+                    <tr class="emcp-table__section">
+                        <th scope="rowgroup" colspan="3"><?php echo esc_html( $section['heading'] ); ?></th>
+                    </tr>
+                        <?php endif; ?>
+                        <?php
+                        foreach ( $section['categories'] as $category ) {
+                            $render_category_row( $category, $availability_note( $category ) );
+                        }
+                        if ( \Easy_MCP_AI\OAuth\Consent_Sections::PRIVILEGED_SECTION === $section['key'] ) {
+                            foreach ( $privileged as $privileged_row ) {
+                                $render_privileged_row( $privileged_row );
+                            }
+                        }
+                        ?>
+                </tbody>
+                        <?php
+                    endforeach;
+                };
+
+                foreach ( $categories as $category ) {
+                    if ( ! empty( $category['plugin_required'] ) && ! \Easy_MCP_AI\OAuth\Scope_Map::is_plugin_category_active( $category['slug'] ) ) {
+                        continue;
+                    }
+                    if ( ! empty( $category['is_ability'] ) ) {
+                        $has_ability_row = true;
+                    }
+                    if ( isset( $availability[ $category['slug'] ] ) && \Easy_MCP_AI\OAuth\Scope_Availability::NONE === $availability[ $category['slug'] ]['state'] ) {
+                        $unavailable_rows[] = $category;
+                    } else {
+                        $visible_rows[] = $category;
+                    }
+                }
+
+                $privileged_shown = array_values(
+                    array_filter(
+                        $privileged_rows,
+                        static function ( array $privileged_row ) use ( $ceiling_all, $ceiling ): bool {
+                            return $ceiling_all || in_array( $privileged_row['scope'], $ceiling, true );
+                        }
+                    )
+                );
+
+                $render_sections(
+                    \Easy_MCP_AI\OAuth\Consent_Sections::group( $visible_rows, count( $privileged_shown ) ),
+                    $privileged_shown,
+                    static function ( array $category ) use ( $availability ): string {
+                        if ( ! isset( $availability[ $category['slug'] ] ) ) {
+                            return '';
+                        }
+                        return sprintf(
+                            /* translators: %s: comma-separated role names, e.g. "Administrator, Shop manager". */
+                            __( 'Partly available to your account. The rest needs: %s.', 'easy-mcp-ai' ),
+                            implode( ', ', $availability[ $category['slug'] ]['roles'] )
+                        );
+                    }
+                );
+                ?>
+                <?php if ( ! empty( $carried_rows ) ) : ?>
+                <tbody data-carried-rows>
                     <?php
                     foreach ( $carried_rows as $carried_row ) :
                         if ( 'mcp:abilities' === $carried_row['write'] ) {
@@ -396,6 +440,7 @@ if ( ! defined( 'ABSPATH' ) ) {
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
+                <?php endif; ?>
             </table>
 
             <?php if ( array() !== $unavailable_rows ) : ?>
@@ -415,20 +460,19 @@ if ( ! defined( 'ABSPATH' ) ) {
                             <th class="emcp-table__toggle"><?php echo esc_html__( 'Write', 'easy-mcp-ai' ); ?></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <?php
-                        foreach ( $unavailable_rows as $category ) {
-                            $render_category_row(
-                                $category,
-                                sprintf(
-                                    /* translators: %s: comma-separated role names, e.g. "Administrator, Shop manager". */
-                                    __( 'Needs: %s.', 'easy-mcp-ai' ),
-                                    implode( ', ', $availability[ $category['slug'] ]['roles'] )
-                                )
+                    <?php
+                    $render_sections(
+                        \Easy_MCP_AI\OAuth\Consent_Sections::group( $unavailable_rows ),
+                        array(),
+                        static function ( array $category ) use ( $availability ): string {
+                            return sprintf(
+                                /* translators: %s: comma-separated role names, e.g. "Administrator, Shop manager". */
+                                __( 'Needs: %s.', 'easy-mcp-ai' ),
+                                implode( ', ', $availability[ $category['slug'] ]['roles'] )
                             );
                         }
-                        ?>
-                    </tbody>
+                    );
+                    ?>
                 </table>
             </details>
             <?php endif; ?>
@@ -449,7 +493,7 @@ if ( ! defined( 'ABSPATH' ) ) {
         </details>
 
         <p class="emcp-text emcp-text--small emcp-text--muted">
-            <?php echo esc_html__( 'Approving lets this app act on your site within the access above. Check your AI client’s auto-run settings for each tool. Post and page edits can be undone via WordPress revisions.', 'easy-mcp-ai' ); ?>
+            <?php echo esc_html__( 'Approving lets this app act on your site within the access above. Your AI client decides which actions run without asking you, unless this site asks for approval. While Change history is on, most AI edits are recorded there; an AI given Change history Write can put many of them back.', 'easy-mcp-ai' ); ?>
         </p>
 
     </div>

@@ -9,6 +9,51 @@ final class Redactor {
 
     const MASK = '[REDACTED]';
 
+    const OPAQUE_COMMANDS = array( 'db query', 'db cli', 'db export', 'db import', 'eval', 'eval-file', 'shell' );
+
+    public static function may_be_opaque( string $command, int $offset ): bool {
+        $before = (string) substr( $command, 0, $offset );
+        try {
+            $words = Shell_Lexer::split( $before );
+            if ( $words && count( Shell_Lexer::split( $before . 'x' ) ) === count( $words ) ) {
+                array_pop( $words );
+            }
+            $typed = self::typed_command_word( $words );
+            if ( null === $typed || self::starts_opaque( $typed ) ) {
+                return true;
+            }
+            $positional = Argv::parse( $words, Catalog::global_parameters() )['positional'];
+        } catch ( Cli_Parse_Error $e ) {
+            return true;
+        } catch ( \RuntimeException $e ) {
+            return true;
+        }
+        $positional = array_values( array_filter( array_map( 'strval', $positional ), static function ( string $word ): bool {
+            return 'help' !== $word;
+        } ) );
+        return ! isset( $positional[0] ) || self::starts_opaque( $positional[0] );
+    }
+
+    private static function typed_command_word( array $words ): ?string {
+        foreach ( $words as $i => $word ) {
+            if ( ( 0 === $i && 'wp' === $word ) || 'help' === $word || 0 === strpos( $word, '-' ) ) {
+                continue;
+            }
+            return 1 === preg_match( '/^[a-z][a-z0-9-]*\z/', $word ) ? $word : null;
+        }
+        return null;
+    }
+
+    private static function starts_opaque( string $word ): bool {
+        $word = Argv::TOP_LEVEL_ALIASES[ $word ] ?? $word;
+        foreach ( self::OPAQUE_COMMANDS as $opaque ) {
+            if ( strtok( $opaque, ' ' ) === $word ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     const SECRET_POSITIONALS = array(
         'user check-password'  => array( 1 ),
         'user session destroy' => array( 1 ),
@@ -70,12 +115,17 @@ final class Redactor {
             return self::fail_closed( $command );
         }
 
-        $names = array();
         try {
-            $replace = self::positional_replacements( $words, $names );
+            $found = self::find_leaf( $words );
         } catch ( Cli_Parse_Error $e ) {
             return self::fail_closed_refused( $words );
         }
+        if ( null !== $found && in_array( (string) $found['leaf']['command'], self::OPAQUE_COMMANDS, true ) ) {
+            return self::opaque( $words, $found );
+        }
+
+        $names   = array();
+        $replace = self::positional_replacements( $found, $names );
 
         $out = array();
         foreach ( $words as $word ) {
@@ -112,8 +162,21 @@ final class Redactor {
         return self::quote( $word );
     }
 
-    private static function positional_replacements( array $words, array &$names ): array {
-        $found = self::find_leaf( $words );
+    private static function opaque( array $words, array $found ): array {
+        $parsed = Argv::parse( $words, Catalog::global_parameters() );
+        $helps  = 0;
+        while ( isset( $parsed['positional'][ $helps ] ) && 'help' === $parsed['positional'][ $helps ] ) {
+            ++$helps;
+        }
+        $path = implode( ' ', $found['path'] );
+        $kept = ( isset( $words[0] ) && 'wp' === $words[0] ? 'wp ' : '' ) . str_repeat( 'help ', $helps ) . $path;
+        if ( array() === $found['rest'] && array() === $parsed['assoc'] ) {
+            return array( $kept, array() );
+        }
+        return array( $kept . ' ' . self::MASK, array( 'arguments of ' . $path ) );
+    }
+
+    private static function positional_replacements( ?array $found, array &$names ): array {
         if ( null === $found ) {
             return array();
         }
@@ -135,7 +198,7 @@ final class Redactor {
         }
         $parsed     = Argv::parse( $words, $globals );
         $positional = array_map( 'strval', $parsed['positional'] );
-        if ( count( $positional ) > 1 && 'help' === $positional[0] ) {
+        while ( count( $positional ) > 1 && 'help' === $positional[0] ) {
             array_shift( $positional );
         }
         try {

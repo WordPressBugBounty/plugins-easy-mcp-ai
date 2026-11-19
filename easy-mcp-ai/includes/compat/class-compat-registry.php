@@ -16,6 +16,7 @@ final class Compat_Registry {
         'astra-customizer-loader'     => 'Easy_MCP_AI\\Compat\\Shims\\Astra_Customizer_Loader',
         'sitekit-user-binding'        => 'Easy_MCP_AI\\Compat\\Shims\\Sitekit_User_Binding',
         'elementor-frontend-controls' => 'Easy_MCP_AI\\Compat\\Shims\\Elementor_Frontend_Controls',
+        'latepoint-abilities-switch'  => 'Easy_MCP_AI\\Compat\\Shims\\Latepoint_Abilities_Switch',
     );
 
     private static $shims = null;

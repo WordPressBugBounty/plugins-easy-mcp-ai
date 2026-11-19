@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Block extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a reusable block (synced pattern) by ID. Required: `block_id`. Optional: `force` (default false) — false moves to trash; true permanently deletes. Posts that embed this block will show an error placeholder after deletion. Returns { deleted, id }. Use `wp_list_blocks` to find the ID.';
+        return 'Deletes a reusable block (synced pattern) by ID. Required: `block_id`. Optional: `force` (default false) — false moves to trash; true permanently deletes. Posts that embed this block will show an error placeholder after deletion. Returns { deleted: true, status, id }: `status` is "trash" when the block was moved to the Trash and "deleted" when it no longer exists, read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error. Use `wp_list_blocks` to find the ID.';
     }
 
     public function get_category() {
@@ -67,13 +68,13 @@ class Delete_Block extends Base_Tool {
             $params['force'] = $force;
         }
 
-        $data = $this->rest_request( 'DELETE', '/wp/v2/blocks/' . $block_id, $params );
-
-        $returned_id = $force ? ( $data['previous']['id'] ?? null ) : $data['id'];
+        $data    = $this->rest_request( 'DELETE', '/wp/v2/blocks/' . $block_id, $params );
+        $outcome = Delete_Outcome::of_post( $data, $block_id, 'block ' . $block_id );
 
         return array(
             'deleted' => true,
-            'id'      => $returned_id,
+            'status'  => $outcome['status'],
+            'id'      => $outcome['item']['id'] ?? null,
         );
     }
 }

@@ -104,13 +104,14 @@ final class Argv {
         return array( $args, $assoc_args );
     }
 
+    const TOP_LEVEL_ALIASES = array(
+        'sql'  => 'db',
+        'blog' => 'site',
+    );
+
     private static function convert_top_level_alias( array $args ): array {
-        $top_level_aliases = array(
-            'sql'  => 'db',
-            'blog' => 'site',
-        );
         if ( count( $args ) > 0 ) {
-            foreach ( $top_level_aliases as $old => $new ) {
+            foreach ( self::TOP_LEVEL_ALIASES as $old => $new ) {
                 if ( $old === $args[0] ) {
                     $args[0] = $new;
                     break;

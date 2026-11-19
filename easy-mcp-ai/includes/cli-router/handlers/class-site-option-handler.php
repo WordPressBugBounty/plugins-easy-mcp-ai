@@ -35,6 +35,7 @@ class Site_Option_Handler extends Command_Handler {
         if ( ! $this->is_multisite() ) {
             $ctx->out->error( self::NOT_MULTISITE );
         }
+        $this->refuse_before_preview( $inv, $ctx, 'patch' === ( $inv->leaf['name'] ?? '' ) ? 1 : 0, array( Self_Protection::class, 'option' ) );
     }
 
     public function get( Invocation $inv, Context $ctx ): void {
@@ -64,9 +65,13 @@ class Site_Option_Handler extends Command_Handler {
         $value = Read_Value::read( $ctx->out, $value, $inv->assoc );
 
         $ctx->not_captured( self::NOT_CAPTURED );
+        $named  = "Site option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key );
         if ( ! $this->add_site_option( $key, $value ) ) {
+            Option_Handler::refuse_changed_after_false( $ctx, $this->stored_row( $key ), $before, 'site option', $named );
             $ctx->out->error( "Could not add site option '{$key}'. Does it already exist?" );
         } else {
+            Option_Handler::refuse_unstored( $ctx, Option_Handler::write_refusal( $this->stored_row( $key ), $before, $this->written_value( $key, $value ) ), 'site option', $named );
             $ctx->mark_changed();
             $ctx->out->success( "Added '{$key}' site option." );
         }
@@ -84,12 +89,19 @@ class Site_Option_Handler extends Command_Handler {
         $old_value = $this->sanitize_option( $key, $this->get_site_option( $key ) );
 
         $ctx->not_captured( self::NOT_CAPTURED );
+        $named  = "Site option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key );
         if ( $value === $old_value ) {
+            Option_Handler::note_unless_held( $ctx, $value, $this->row_value( $key, $before ), 'site option', $named );
             $ctx->out->success( "Value passed for '{$key}' site option is unchanged." );
-        } elseif ( $this->update_site_option( $key, $value ) ) {
+            return;
+        }
+        if ( $this->update_site_option( $key, $value ) ) {
+            Option_Handler::refuse_unstored( $ctx, Option_Handler::write_refusal( $this->stored_row( $key ), $before, $this->written_value( $key, $value ) ), 'site option', $named );
             $ctx->mark_changed();
             $ctx->out->success( "Updated '{$key}' site option." );
         } else {
+            Option_Handler::refuse_changed_after_false( $ctx, $this->stored_row( $key ), $before, 'site option', $named );
             $ctx->out->error( "Could not update site option '{$key}'." );
         }
     }
@@ -105,6 +117,10 @@ class Site_Option_Handler extends Command_Handler {
             $ctx->out->error( "Could not delete '{$key}' site option. Does it exist?" );
         } else {
             $ctx->mark_changed();
+            $refusal = Option_Handler::delete_refusal( $this->stored_row( $key ) );
+            if ( null !== $refusal ) {
+                $ctx->out->error( sprintf( $refusal, 'site option', "Site option: {$key}" ) );
+            }
             $ctx->out->success( "Deleted '{$key}' site option." );
         }
     }
@@ -169,12 +185,19 @@ class Site_Option_Handler extends Command_Handler {
         $patched_value = $this->sanitize_option( $key, $patched );
 
         $ctx->not_captured( self::NOT_CAPTURED );
+        $named  = "Site option: {$key}";
+        $before = $this->stored_row_before( $ctx, $key );
         if ( $patched_value === $old_value ) {
+            Option_Handler::note_unless_held( $ctx, $patched_value, $this->row_value( $key, $before ), 'site option', $named );
             $ctx->out->success( "Value passed for '{$key}' site option is unchanged." );
-        } elseif ( $this->update_site_option( $key, $patched_value ) ) {
+            return;
+        }
+        if ( $this->update_site_option( $key, $patched_value ) ) {
+            Option_Handler::refuse_unstored( $ctx, Option_Handler::path_refusal( $this->stored_row( $key ), $before, $action, $key_path, $this->written_value( $key, $patched_value ) ), 'site option', $named );
             $ctx->mark_changed();
             $ctx->out->success( "Updated '{$key}' site option." );
         } else {
+            Option_Handler::refuse_changed_after_false( $ctx, $this->stored_row( $key ), $before, 'site option', $named );
             $ctx->out->error( "Could not update site option '{$key}'." );
         }
     }
@@ -325,6 +348,28 @@ class Site_Option_Handler extends Command_Handler {
 
     protected function delete_site_option( string $key ): bool {
         return (bool) \delete_site_option( $key );
+    }
+
+    protected function stored_row( string $key ): ?array {
+        global $wpdb;
+        $network = $this->is_multisite();
+        return Option_Handler::raw_row( $wpdb, $network ? $key : Option_Handler::written_key( $key ), $network, $network ? $this->current_network_id() : 0 );
+    }
+
+    private function written_value( string $key, $passed ) {
+        return $this->sanitize_option( $this->is_multisite() ? $key : Option_Handler::written_key( $key ), $passed );
+    }
+
+    private function row_value( string $key, array $row ) {
+        return $this->sanitize_option( $key, $row[0] ? \maybe_unserialize( $row[1] ) : false );
+    }
+
+    private function stored_row_before( Context $ctx, string $key ): array {
+        $before = $this->stored_row( $key );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( Option_Handler::WRITE_UNBASED, 'site option', "Site option: {$key}" ) );
+        }
+        return $before;
     }
 
     protected function sanitize_option( string $key, $value ) {

@@ -64,6 +64,9 @@ class Get_Term_Meta extends Base_Tool {
         $single = $this->single_arg( $arguments, $key );
 
         if ( '' !== $key ) {
+            if ( \Easy_MCP_AI\Meta\Meta_Key::reads_every_row( $key ) ) {
+                throw new \InvalidArgumentException( \Easy_MCP_AI\Meta\Meta_Key::READS_EVERY_ROW );
+            }
             if ( is_protected_meta( $key, 'term' ) && ! current_user_can( 'manage_options' ) ) {
                 throw new \RuntimeException( 'Protected meta keys require administrator privileges.' );
             }

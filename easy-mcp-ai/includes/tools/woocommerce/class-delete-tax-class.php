@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Tax_Class extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce tax class AND every tax rate in it. Required: `slug` (wp_wc_list_tax_classes). The "standard" class cannot be deleted. There is no trash and no undo. Returns { deleted: true, slug, name, rates_deleted }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce tax class AND every tax rate in it. Required: `slug` (wp_wc_list_tax_classes). The "standard" class cannot be deleted. There is no trash and no undo. Returns { deleted: true, slug, name, rates_deleted }; if WooCommerce\'s read still finds the class afterwards, or does not answer that it is gone, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -69,6 +70,7 @@ class Delete_Tax_Class extends Base_Tool {
         $rates = $this->count_rates( $slug );
 
         $class = $this->rest_request( 'DELETE', '/wc/v3/taxes/classes/' . rawurlencode( $slug ), array( 'force' => true ) );
+        Delete_Outcome::require_route_gone( '/wc/v3/taxes/classes/' . rawurlencode( $slug ), 'tax class ' . $slug, 'woocommerce_rest_tax_class_invalid_slug' );
 
         return array(
             'deleted'       => true,

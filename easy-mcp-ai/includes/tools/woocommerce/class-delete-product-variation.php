@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Product_Variation extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce product variation by parent product ID and variation ID. Required: `product_id`, `id`. Deletion is immediate and irreversible (force=true). Orders that included this variation are preserved. Returns { deleted: true, id, product_id }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce product variation by parent product ID and variation ID. Required: `product_id`, `id`. Deletion is immediate and irreversible (force=true). Orders that included this variation are preserved. Returns { deleted: true, id, product_id }; if a plugin stops the delete, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -61,6 +62,7 @@ class Delete_Product_Variation extends Base_Tool {
         $id         = $this->parse_required_id( $arguments['id'], 'id' );
 
         $this->rest_request( 'DELETE', '/wc/v3/products/' . $product_id . '/variations/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_post_gone( $id, 'variation ' . $id );
 
         return array(
             'deleted'    => true,

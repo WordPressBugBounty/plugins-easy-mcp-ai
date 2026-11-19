@@ -9,9 +9,23 @@ final class Cli_Parse_Error extends \Exception {
 
     private $reason;
 
-    public function __construct( string $reason, string $message ) {
+    private $plain_message;
+
+    private $offset;
+
+    public function __construct( string $reason, string $message, ?string $plain_message = null, ?int $offset = null ) {
         parent::__construct( $message );
-        $this->reason = $reason;
+        $this->reason        = $reason;
+        $this->plain_message = $plain_message ?? $message;
+        $this->offset        = $offset;
+    }
+
+    public function get_offset(): ?int {
+        return $this->offset;
+    }
+
+    public function get_plain_message(): string {
+        return $this->plain_message;
     }
 
     public function get_reason(): string {

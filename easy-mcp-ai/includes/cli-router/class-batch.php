@@ -16,6 +16,8 @@ final class Batch {
         'Privileged tool rate limit exceeded. Please try again in a minute.',
     );
 
+    const THROTTLE_PREFIX = 'Rate limit exceeded: ';
+
     const OVER_CAP = "wp_cli_run runs at most %d items in one 'wp %s' command, and this one has %d. Run it in smaller groups.";
 
     private $inv;
@@ -50,7 +52,11 @@ final class Batch {
     }
 
     public static function is_rate_limited( array $delegated ): bool {
-        return empty( $delegated['ok'] ) && isset( $delegated['error'] ) && in_array( (string) $delegated['error'], self::RATE_LIMIT_MESSAGES, true );
+        if ( ! empty( $delegated['ok'] ) || ! isset( $delegated['error'] ) ) {
+            return false;
+        }
+        $error = (string) $delegated['error'];
+        return in_array( $error, self::RATE_LIMIT_MESSAGES, true ) || 0 === strpos( $error, self::THROTTLE_PREFIX );
     }
 
     public function run( array $items, callable $each, ?callable $label = null ): array {

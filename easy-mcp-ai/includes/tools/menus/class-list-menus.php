@@ -99,6 +99,10 @@ class List_Menus extends Base_Tool {
     }
 
     private static function navigation_menus( string $route ): array {
+        $refusal = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::route_refusal( 'GET', $route );
+        if ( null !== $refusal ) {
+            throw new \RuntimeException( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
         $request = new \WP_REST_Request( 'GET', $route );
         $request->set_param( 'per_page', self::PER_PAGE );
         $request->set_param( 'status', array( 'publish', 'future', 'draft', 'pending', 'private' ) );

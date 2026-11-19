@@ -51,10 +51,15 @@ class Delete_Category extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        $this->precheck_other_taxonomy( $arguments, 'category_id', 'category', 'delete' );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'category_id' ) );
 
         $category_id = $this->parse_required_id( $arguments['category_id'], 'category_id' );
+        $this->refuse_other_taxonomy( $category_id, 'category', 'delete' );
 
         $default_category_id = get_option( 'default_category' );
         if ( (int) $category_id === (int) $default_category_id ) {

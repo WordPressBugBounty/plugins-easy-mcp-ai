@@ -61,6 +61,12 @@ class Site_Handler extends Command_Handler {
     const OVER_ROW_CAP       = "wp_cli_run lists at most %1\$d sites in one 'site list', and %2\$d match. Narrow it with --site__in, --site_user or a --<field>=<value> filter (blog_id, domain, path, public, archived, …), or ask for --format=count.";
     const STATUS_REFUSED     = 'Site %s was not updated: WordPress refused the change.';
     const TRUNCATE_FAILED    = 'site empty stopped at %1$s: %2$d tables were emptied before it and nothing after it was changed, because the database refused TRUNCATE TABLE: %3$s';
+    const DELETE_STOPPED     = 'WordPress did not delete site %d: it still exists and is not marked as deleted. A plugin or theme on this site may have stopped it. Its users may already have been removed from it.';
+    const DROP_STOPPED       = 'WordPress did not delete site %d: it and its tables are still there. A plugin or theme on this site may have stopped it (a wp_validate_site_deletion callback).';
+    const DROP_PART          = 'WordPress did not finish deleting site %d: its tables were dropped and its users removed, but its row is still in wp_blogs (the row delete failed). Check it under Network Admin.';
+    const DROP_UNKNOWN       = 'WordPress did not delete site %d: its row is still there, and its tables could not be compared before and after, so whether its content was removed is not known.';
+    const DELETE_UNKNOWN     = 'WordPress was asked to delete site %d, but a database error stopped the site being read back, so whether it was deleted is not known. Check it under Network Admin > Sites.';
+    const STATUS_UNKNOWN     = 'Site %s was updated, but a database error stopped its status being read back, so whether the change was stored is not known.';
     const TABLES_KEPT        = "WordPress kept site %d's tables: it marked the site as deleted and removed its users instead (wpmu_delete_blog() never drops a site's tables while ms_files_rewriting is on and upload_path is empty). WP-CLI prints the same Success line.";
 
     const NOT_CAPTURED_STATUS = "Site status flags in the network's sites table (wp_blogs): change history does not record them.";
@@ -190,6 +196,14 @@ class Site_Handler extends Command_Handler {
             }
 
             if ( false === $this->update_blog_status( (int) $site->blog_id, $pref, $value ) ) {
+                $ctx->out->warning( sprintf( self::STATUS_REFUSED, $site->blog_id ) );
+                continue;
+            }
+            $stored = $this->stored_site( (int) $site->blog_id );
+            if ( null === $stored ) {
+                $ctx->not_known( sprintf( self::STATUS_UNKNOWN, $site->blog_id ) );
+            }
+            if ( ! $stored[0] || ! isset( $stored[1]->{$pref} ) || (string) $value !== (string) $stored[1]->{$pref} ) {
                 $ctx->out->warning( sprintf( self::STATUS_REFUSED, $site->blog_id ) );
                 continue;
             }
@@ -535,11 +549,35 @@ class Site_Handler extends Command_Handler {
         Confirm::ask( $inv, $ctx, "Are you sure you want to delete the '{$site_url}' site?" );
 
         $ctx->not_captured( self::NOT_CAPTURED_DELETE );
-        $drop = ! Read_Value::flag( $inv->assoc, 'keep-tables' );
-        $this->wpmu_delete_blog( (int) $blog->blog_id, $drop );
+        $blog_id = (int) $blog->blog_id;
+        $drop    = ! Read_Value::flag( $inv->assoc, 'keep-tables' );
+        $drops = $drop && ! $this->drop_falls_back( $blog_id, $blog );
+        $tables_before = $drops ? $this->site_tables_remain( $blog_id ) : null;
+        $this->wpmu_delete_blog( $blog_id, $drop );
+        $stored = $this->stored_site( $blog_id );
+        if ( null === $stored ) {
+            $ctx->not_known( sprintf( self::DELETE_UNKNOWN, $blog_id ) );
+        }
+        if ( $stored[0] && $drops ) {
+            $remain = $this->site_tables_remain( $blog_id );
+            if ( true === $tables_before && false === $remain ) {
+                $ctx->mark_changed();
+                $ctx->out->error( sprintf( self::DROP_PART, $blog_id ) );
+            }
+            if ( true === $tables_before && true === $remain ) {
+                $ctx->out->error( sprintf( self::DROP_STOPPED, $blog_id ) );
+            }
+            $ctx->not_known( sprintf( self::DROP_UNKNOWN, $blog_id ) );
+        }
+        if ( ! $drops ) {
+            $ctx->mark_changed();
+        }
+        if ( $stored[0] && '1' !== (string) ( $stored[1]->deleted ?? '' ) ) {
+            $ctx->out->error( sprintf( self::DELETE_STOPPED, $blog_id ) );
+        }
         $ctx->mark_changed();
-        if ( $drop && $this->get_site( (int) $blog->blog_id ) ) {
-            $ctx->note( sprintf( self::TABLES_KEPT, (int) $blog->blog_id ) );
+        if ( $drop && $stored[0] ) {
+            $ctx->note( sprintf( self::TABLES_KEPT, $blog_id ) );
         }
 
         $ctx->out->success( "The site at '{$site_url}' was deleted." );
@@ -911,6 +949,56 @@ class Site_Handler extends Command_Handler {
 
     protected function get_site( int $blog_id ): ?object {
         return \get_site( $blog_id );
+    }
+
+    protected function stored_site( int $blog_id ): ?array {
+        global $wpdb;
+        if ( isset( $wpdb->last_error ) ) {
+            $wpdb->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the stored row is the answer; the sites cache can be stale.
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$wpdb->blogs} WHERE blog_id = %d LIMIT 1", $blog_id ) );
+        if ( '' !== (string) ( $wpdb->last_error ?? '' ) ) {
+            return null;
+        }
+        return is_object( $row ) ? array( true, $row ) : array( false, null );
+    }
+
+    protected function drop_falls_back( int $blog_id, object $blog ): bool {
+        $network = $this->current_network();
+        if ( 1 === $blog_id || $this->is_main_site( $blog_id )
+            || ( $network && (string) ( $blog->path ?? '' ) === (string) $network->path && (string) ( $blog->domain ?? '' ) === (string) $network->domain ) ) {
+            return true;
+        }
+        $upload_path = trim( $this->upload_path_of( $blog_id ) );
+        return \get_site_option( 'ms_files_rewriting' ) && empty( $upload_path );
+    }
+
+    protected function upload_path_of( int $blog_id ): string {
+        $switch = \get_current_blog_id() !== $blog_id;
+        if ( $switch ) {
+            \switch_to_blog( $blog_id );
+        }
+        try {
+            return (string) \get_option( 'upload_path' );
+        } finally {
+            if ( $switch ) {
+                \restore_current_blog();
+            }
+        }
+    }
+
+    protected function site_tables_remain( int $blog_id ): ?bool {
+        global $wpdb;
+        if ( isset( $wpdb->last_error ) ) {
+            $wpdb->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- whether the table exists now is the answer.
+        $table = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $wpdb->get_blog_prefix( $blog_id ) . 'posts' ) ) );
+        if ( '' !== (string) ( $wpdb->last_error ?? '' ) ) {
+            return null;
+        }
+        return null !== $table;
     }
 
     protected function get_home_url( int $blog_id ): string {

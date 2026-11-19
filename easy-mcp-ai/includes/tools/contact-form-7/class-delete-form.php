@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Contact_Form_7;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Form extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a contact form of the Contact Form 7 plugin (there is no trash). Pages that place it with its shortcode show a "not found" notice instead. Required: `id` (from wp_cf7_list_forms). Returns { deleted: true, form: { id, title } }. Requires the Contact Form 7 plugin active.';
+        return 'Permanently deletes a contact form of the Contact Form 7 plugin (there is no trash). Pages that place it with its shortcode show a "not found" notice instead. Required: `id` (from wp_cf7_list_forms). Returns { deleted: true, form: { id, title } }; if a plugin stops the delete, the call is an error. Requires the Contact Form 7 plugin active.';
     }
 
     public function get_required_capability() {
@@ -68,6 +69,7 @@ class Delete_Form extends Base_Tool {
         if ( ! is_array( $data ) || empty( $data['deleted'] ) ) {
             throw new \RuntimeException( sprintf( 'Contact Form 7 did not confirm deleting form %d. Check it under Contact › Contact Forms.', $id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+        Delete_Outcome::require_post_gone( $id, 'form ' . $id );
         return array(
             'deleted' => true,
             'form'    => array(

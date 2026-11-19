@@ -22,6 +22,12 @@ final class User_Session_Handler extends Command_Handler {
 
     const MSG_CANNOT_EDIT = 'Sorry, you are not allowed to edit this user.';
 
+    const MSG_SESSION_KEPT     = 'WordPress did not destroy the session: it is still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_SESSIONS_KEPT    = 'WordPress did not destroy every session: %d still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_SESSIONS_PART    = 'WordPress destroyed only some of the sessions: %1$d destroyed, %2$d still stored. A plugin or theme on this site may have stopped the write.';
+    const MSG_SESSION_UNREAD   = 'WordPress answered that the session was destroyed, but a database error stopped the sessions being read back, so whether it was destroyed is not known.';
+    const MSG_SESSIONS_UNREAD  = 'WordPress answered that the sessions were destroyed, but a database error stopped them being read back, so whether they were destroyed is not known.';
+
     public function list_( Invocation $inv, Context $ctx ): void {
         list( , $manager ) = $this->manager( $inv, $ctx );
         $assoc_args        = $inv->assoc;
@@ -71,6 +77,13 @@ final class User_Session_Handler extends Command_Handler {
         }
 
         self::destroy_session( $manager, (string) $token );
+        $stored = self::stored_sessions( (int) $user->ID, $manager );
+        if ( null === $stored ) {
+            $ctx->not_known( self::MSG_SESSION_UNREAD );
+        }
+        if ( isset( $stored[ $token ] ) ) {
+            $ctx->out->error( self::MSG_SESSION_KEPT );
+        }
         $ctx->mark_changed();
         $remaining = count( $manager->get_all() );
 
@@ -78,13 +91,39 @@ final class User_Session_Handler extends Command_Handler {
     }
 
     private static function destroy_all( int $user_id, \WP_Session_Tokens $manager, Context $ctx ): void {
-        $before = self::stored( $user_id );
-        $count  = count( $manager->get_all() );
+        $count = count( $manager->get_all() );
+        $held  = self::stored_sessions( $user_id, $manager );
+        $core      = 'WP_User_Meta_Session_Tokens' === get_class( $manager );
+        $row_held  = $core ? User_Handler::stored_user_meta( $user_id, 'session_tokens' ) : null;
         $manager->destroy_all();
-        if ( $count > 0 || self::stored( $user_id ) !== $before ) {
+        $after     = self::stored_sessions( $user_id, $manager );
+        $row_after = $core ? User_Handler::stored_user_meta( $user_id, 'session_tokens' ) : null;
+        if ( null === $after || ( $core && null === $row_after ) ) {
+            $ctx->not_known( self::MSG_SESSIONS_UNREAD );
+        }
+        $left = count( $after );
+        if ( $left > 0 ) {
+            if ( null !== $held && $left < count( $held ) ) {
+                $ctx->mark_changed();
+                $ctx->out->error( sprintf( self::MSG_SESSIONS_PART, count( $held ) - $left, $left ) );
+            }
+            $ctx->out->error( sprintf( self::MSG_SESSIONS_KEPT, $left ) );
+        }
+        if ( null !== $row_held && null !== $row_after ? $row_held !== $row_after : ( null === $held ? $count > 0 : $held !== $after ) ) {
             $ctx->mark_changed();
         }
         $ctx->out->success( 'Destroyed all sessions.' );
+    }
+
+    private static function stored_sessions( int $user_id, \WP_Session_Tokens $manager ): ?array {
+        if ( 'WP_User_Meta_Session_Tokens' !== get_class( $manager ) ) {
+            return (array) self::protected_method( $manager, 'get_sessions' )->invoke( $manager );
+        }
+        $row = User_Handler::stored_user_meta( $user_id, 'session_tokens' );
+        if ( null === $row ) {
+            return null;
+        }
+        return is_array( $row[1] ) ? $row[1] : array();
     }
 
     private static function latest_token( array $sessions, Context $ctx ): ?string {
@@ -167,9 +206,5 @@ final class User_Session_Handler extends Command_Handler {
             $method->setAccessible( true );
         }
         return $method;
-    }
-
-    private static function stored( int $user_id ) {
-        return function_exists( 'get_user_meta' ) ? \get_user_meta( $user_id, 'session_tokens', true ) : null;
     }
 }

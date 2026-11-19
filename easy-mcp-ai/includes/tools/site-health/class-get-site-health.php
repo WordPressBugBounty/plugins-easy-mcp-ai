@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Site_Health;
 
+use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Text_Redactor;
 
@@ -12,14 +13,12 @@ class Get_Site_Health extends Base_Tool {
 
     const INFO_LIMIT = 65536;
 
-    const RESPONSE_JSON_FLAGS = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES;
-
     public function get_name() {
         return 'wp_get_site_health';
     }
 
     public function get_description() {
-        return 'Get the WordPress Site Health report: runs core\'s Site Health status tests and returns the Site Health Info data. Optional: `include_async` (default false; also runs the slower tests that contact WordPress.org, make loopback requests and check HTTPS and page cache — can take several seconds), `include_info` (default true). Returns { counts: { good, recommended, critical }, tests: [{ test, label, status (good | recommended | critical | error), badge, description, actions }], skipped: [{ test, label, reason }], info: { <section>: { label, fields: { <name>: { label, value } } } }, info_truncated, info_omitted }. Text is plain (HTML stripped). Info leaves out every field core marks private — the same set core\'s "Copy site info to clipboard" leaves out (database credentials, table prefix, home/site URLs, ABSPATH) — and redacts secret-shaped values; directory sizes are not computed. Requires the view_site_health_checks capability (administrators; on multisite, super admins only).';
+        return 'Get the WordPress Site Health report: runs core\'s Site Health status tests and, with include_info, returns the Site Health Info data. Optional: `include_async` (default false; also runs the slower tests that contact WordPress.org, make loopback requests and check HTTPS and page cache — can take several seconds), `include_info` (default false; adds the Info data). Returns { counts: { good, recommended, critical }, tests: [{ test, label, status (good | recommended | critical | error), badge, description, actions }], skipped: [{ test, label, reason }], info: { <section>: { label, fields: { <name>: { label, value } } } }, info_truncated, info_omitted }; a passed test (status good) is only { test, label, status }, and info and its two flags come only with include_info true. Text is plain (HTML stripped). Info leaves out every field core marks private — the same set core\'s "Copy site info to clipboard" leaves out (database credentials, table prefix, home/site URLs, ABSPATH) — and redacts secret-shaped values; directory sizes are not computed. Requires the view_site_health_checks capability (administrators; on multisite, super admins only).';
     }
 
     public function get_category() {
@@ -50,8 +49,8 @@ class Get_Site_Health extends Base_Tool {
                 ),
                 'include_info'  => array(
                     'type'        => 'boolean',
-                    'default'     => true,
-                    'description' => 'Include the Site Health Info data (versions, server, database, constants, plugins, themes).',
+                    'default'     => false,
+                    'description' => 'Include the Site Health Info data (versions, server, database, constants, plugins, themes). Default false.',
                 ),
             ),
         );
@@ -59,7 +58,7 @@ class Get_Site_Health extends Base_Tool {
 
     public function execute( array $arguments ) {
         $include_async = Site_Health_Guard::flag( $arguments, 'include_async', false );
-        $include_info  = Site_Health_Guard::flag( $arguments, 'include_info', true );
+        $include_info  = Site_Health_Guard::flag( $arguments, 'include_info', false );
 
         $this->load_core( $include_info );
 
@@ -176,10 +175,15 @@ class Get_Site_Health extends Base_Tool {
             $r = array();
         }
         $status = isset( $r['status'] ) && in_array( $r['status'], array( 'good', 'recommended', 'critical' ), true ) ? $r['status'] : 'error';
-        return array(
-            'test'        => isset( $r['test'] ) && is_string( $r['test'] ) ? $r['test'] : $name,
-            'label'       => self::text( isset( $r['label'] ) ? $r['label'] : $label ),
-            'status'      => $status,
+        $row    = array(
+            'test'   => isset( $r['test'] ) && is_string( $r['test'] ) ? $r['test'] : $name,
+            'label'  => self::text( isset( $r['label'] ) ? $r['label'] : $label ),
+            'status' => $status,
+        );
+        if ( 'good' === $status ) {
+            return $row;
+        }
+        return $row + array(
             'badge'       => isset( $r['badge']['label'] ) ? self::text( $r['badge']['label'] ) : null,
             'description' => self::text( isset( $r['description'] ) ? $r['description'] : '' ),
             'actions'     => self::text( isset( $r['actions'] ) ? $r['actions'] : '' ),
@@ -219,7 +223,7 @@ class Get_Site_Health extends Base_Tool {
                 'label'  => self::text( isset( $details['label'] ) ? $details['label'] : $section ),
                 'fields' => $fields,
             );
-            $size = strlen( (string) wp_json_encode( $block ) );
+            $size = strlen( (string) wp_json_encode( $block, Server::RESULT_JSON_FLAGS ) );
             if ( $used + $size > self::INFO_LIMIT ) {
                 $omitted[] = (string) $section;
                 continue;
@@ -250,7 +254,7 @@ class Get_Site_Health extends Base_Tool {
     }
 
     private static function fit_info( array $result, array $order ): array {
-        $json = \wp_json_encode( $result, self::RESPONSE_JSON_FLAGS );
+        $json = \wp_json_encode( $result, Server::RESULT_JSON_FLAGS );
         while ( false !== $json && strlen( $json ) > self::INFO_LIMIT && ! empty( $result['info'] ) ) {
             end( $result['info'] );
             $last = (string) key( $result['info'] );
@@ -258,7 +262,7 @@ class Get_Site_Health extends Base_Tool {
             $omitted                  = array_merge( $result['info_omitted'], array( $last ) );
             $result['info_omitted']   = array_values( array_intersect( $order, $omitted ) );
             $result['info_truncated'] = true;
-            $json                     = \wp_json_encode( $result, self::RESPONSE_JSON_FLAGS );
+            $json                     = \wp_json_encode( $result, Server::RESULT_JSON_FLAGS );
         }
         return $result;
     }

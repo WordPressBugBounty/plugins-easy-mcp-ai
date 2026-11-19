@@ -21,6 +21,10 @@ class GA_Client extends Abstract_Google_Client {
         return 'Google Analytics';
     }
 
+    protected static function admin_access_remedy( string $client_email ): string {
+        return "Add the service account ({$client_email}) as a Viewer in GA4 → Admin → Property access management.";
+    }
+
     public static function request( string $method, string $url, ?array $body = null, bool $admin_context = false, bool $edit = false ): array {
         $scheme = \wp_parse_url( $url, PHP_URL_SCHEME );
         $host   = \wp_parse_url( $url, PHP_URL_HOST );
@@ -33,7 +37,7 @@ class GA_Client extends Abstract_Google_Client {
             throw new \RuntimeException( 'GA client: refusing to attach bearer token to non-Google host.' );
         }
 
-        $token = self::get_access_token( $edit ? self::SCOPE_EDIT : '' );
+        $token = self::token_for( $edit ? self::SCOPE_EDIT : '', $admin_context );
 
         $args = array(
             'method'              => strtoupper( $method ),
@@ -64,59 +68,47 @@ class GA_Client extends Abstract_Google_Client {
             self::throw_edit_error( $code, $decoded );
         }
         if ( 403 === $code ) {
-            if ( $admin_context ) {
-                $creds = self::get_credentials();
-                throw new \RuntimeException(
-                    "Access denied. Add the service account ({$creds['client_email']}) as a Viewer in GA4 → Admin → Property access management, and enable both the Analytics Data API and Analytics Admin API in your Google Cloud project." // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-                );
-            }
-            throw new \Easy_MCP_AI\MCP\Detailed_Runtime_Error(
-                'Access denied by Google Analytics. The configured service account does not have access to this property.',
-                'A site administrator can grant access in Easy MCP AI → Tools → Connections → Test connection.'
-            );
+            self::throw_read_refusal( $decoded, $admin_context );
         }
         if ( 404 === $code ) {
-            throw new \RuntimeException(
-                'Property not found. Check the numeric property ID (found in GA4 Admin → Property details).'
+            throw self::refusal(
+                'Google Analytics refused the request: ',
+                self::google_reason( $code, $decoded, $admin_context ),
+                'Check the numeric property ID (found in GA4 Admin → Property details).',
+                $admin_context
             );
         }
         if ( 429 === $code ) {
-            throw new \RuntimeException(
-                'Google Analytics Data API quota exceeded. Core reporting: 1,250 tokens/hour per property. Realtime: 10,000 requests/day per property. Retry after quota reset.'
-            );
+            throw self::quota_refusal( $code, $decoded, 'Google Analytics Data API quota exceeded. Core reporting: 1,250 tokens/hour per property. Realtime: 10,000 requests/day per property. Retry after quota reset.', $admin_context );
         }
         if ( $code < 200 || $code >= 300 ) {
-            $err = $decoded['error']['message'] ?? "HTTP {$code}";
-            throw new \RuntimeException( "GA API error: {$err}" ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw self::refusal( 'GA API error: ', self::google_reason( $code, $decoded, $admin_context ), '', $admin_context );
         }
 
         return is_array( $decoded ) ? $decoded : array();
     }
 
     private static function throw_edit_error( int $code, $decoded ): void {
-        $detail = is_array( $decoded ) && isset( $decoded['error']['message'] ) && is_string( $decoded['error']['message'] )
-            ? $decoded['error']['message']
-            : "HTTP {$code}";
+        $detail = self::google_reason( $code, $decoded, false );
         if ( 401 === $code || 403 === $code ) {
-            $refusal = "Google Analytics refused the change: {$detail}";
-            $remedy  = 'Changing a property needs the service account to hold the Editor role on it (GA4 → Admin → Property access management); Viewer is enough only for reading.';
-            if ( \Easy_MCP_AI\MCP\Refusal_Text::fits( $refusal ) ) {
-                throw new \Easy_MCP_AI\MCP\Detailed_Runtime_Error( $refusal, $remedy ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-            }
-            $shortened = \Easy_MCP_AI\MCP\Refusal_Text::fit( 'Google Analytics refused the change: %s', array( $detail ) );
-            throw new \Easy_MCP_AI\MCP\Detailed_Runtime_Error( $shortened, $refusal . ' ' . $remedy ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw self::refusal(
+                'Google Analytics refused the change: ',
+                $detail,
+                403 !== $code || self::is_platform_refusal( $decoded ) ? '' : 'Changing a property needs the service account to hold the Editor role on it (GA4 → Admin → Property access management); Viewer is enough only for reading.'
+            );
         }
         if ( 404 === $code ) {
-            throw new \RuntimeException(
-                "Google Analytics found nothing to change: {$detail} Check the property ID and, for a key event, that it still exists." // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-            );
+            throw self::refusal( 'Google Analytics found nothing to change: ', $detail, 'Check the property ID and, for a key event, that it still exists.' );
         }
         if ( 429 === $code ) {
-            throw new \RuntimeException(
-                'Google Analytics Admin API quota exceeded. Nothing was changed; retry later.'
-            );
+            if ( '' === self::google_message( $decoded ) ) {
+                throw new \RuntimeException(
+                    'Google Analytics Admin API quota exceeded. Nothing was changed; retry later.'
+                );
+            }
+            throw self::refusal( 'Google Analytics refused the change: ', $detail, 'Nothing was changed; retry after the quota resets.' );
         }
-        throw new \RuntimeException( "Google Analytics refused the change: {$detail}" ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        throw self::refusal( 'Google Analytics refused the change: ', $detail );
     }
 
     public static function get( string $url, bool $admin_context = false ): array {
@@ -165,7 +157,11 @@ class GA_Client extends Abstract_Google_Client {
                 'No property_id provided and no default property configured. Set one in Easy MCP AI → Tools → Connections, or define EASY_MCP_AI_GA_DEFAULT_PROPERTY_ID in wp-config.php.'
             );
         }
-        return self::normalize_property( (string) $id );
+        try {
+            return self::normalize_property( (string) $id );
+        } catch ( \InvalidArgumentException $e ) {
+            throw new \RuntimeException( $e->getMessage() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
     }
 
     public static function write_property( array $arguments ): string {
@@ -182,15 +178,15 @@ class GA_Client extends Abstract_Google_Client {
         }
         $refusal = 'Invalid property_id; expected a numeric GA4 property ID, or omit property_id to use the default property. Nothing was changed.';
         if ( ! is_string( $value ) ) {
-            throw new \RuntimeException( $refusal );
+            throw new \InvalidArgumentException( $refusal );
         }
         try {
             $property = self::normalize_property( $value );
-        } catch ( \RuntimeException $e ) {
-            throw new \RuntimeException( $refusal );
+        } catch ( \InvalidArgumentException $e ) {
+            throw new \InvalidArgumentException( $refusal );
         }
         if ( 1 === preg_match( '#^properties/0+\z#', $property ) ) {
-            throw new \RuntimeException( $refusal );
+            throw new \InvalidArgumentException( $refusal );
         }
         return $property;
     }
@@ -198,7 +194,7 @@ class GA_Client extends Abstract_Google_Client {
     public static function normalize_property( string $input ): string {
         $trimmed = trim( $input );
         if ( '' === $trimmed ) {
-            throw new \RuntimeException( 'Invalid property_id; expected numeric GA4 property ID.' );
+            throw new \InvalidArgumentException( 'Invalid property_id; expected numeric GA4 property ID.' );
         }
         if ( 'universal' === $trimmed ) {
             return 'properties/0';
@@ -207,30 +203,30 @@ class GA_Client extends Abstract_Google_Client {
             $trimmed = substr( $trimmed, strlen( 'properties/' ) );
         }
         if ( ! preg_match( '/^\d+$/', $trimmed ) ) {
-            throw new \RuntimeException( 'Invalid property_id; expected numeric GA4 property ID.' );
+            throw new \InvalidArgumentException( 'Invalid property_id; expected numeric GA4 property ID.' );
         }
         return 'properties/' . $trimmed;
     }
 
     public static function build_date_ranges( array $input ): array {
         if ( empty( $input ) ) {
-            throw new \RuntimeException( 'date_ranges is required and must be a non-empty array.' );
+            throw new \InvalidArgumentException( 'date_ranges is required and must be a non-empty array.' );
         }
         $out = array();
         foreach ( $input as $i => $range ) {
             if ( ! is_array( $range ) ) {
-                throw new \RuntimeException( "date_ranges[{$i}] must be an object with start_date and end_date." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                throw new \InvalidArgumentException( "date_ranges[{$i}] must be an object with start_date and end_date." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             foreach ( array( 'start_date', 'end_date' ) as $field ) {
                 $value = $range[ $field ] ?? '';
                 if ( ! is_string( $value ) || '' === $value ) {
-                    throw new \RuntimeException( "date_ranges[{$i}].{$field} is required." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    throw new \InvalidArgumentException( "date_ranges[{$i}].{$field} is required." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
                 $is_iso   = (bool) preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value );
                 $is_magic = in_array( $value, array( 'today', 'yesterday' ), true )
                     || (bool) preg_match( '/^\d+daysAgo$/', $value );
                 if ( ! $is_iso && ! $is_magic ) {
-                    throw new \RuntimeException( "date_ranges[{$i}].{$field} must be YYYY-MM-DD, NdaysAgo, yesterday, or today." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    throw new \InvalidArgumentException( "date_ranges[{$i}].{$field} must be YYYY-MM-DD, NdaysAgo, yesterday, or today." ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
             }
             $entry = array(

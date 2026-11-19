@@ -126,7 +126,7 @@ class Support_Text {
         $set_audit_retention  = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_retention', 30 );
         $set_change_enabled   = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true );
         $set_change_retention = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_retention', 30 );
-        $set_force_draft      = (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false );
+        $set_draft_mode       = \Easy_MCP_AI\Drafts\Draft_Mode::mode();
         $set_max_title        = (int) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_max_title_length', 0 );
         $set_admin_language   = (string) \get_option( 'easy_mcp_ai_admin_language', '' );
         $set_disabled_tools   = count( (array) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_disabled_tools', array() ) );
@@ -233,7 +233,7 @@ class Support_Text {
             'Rate Limit (per min):  ' . $set_rate_limit,
             'Audit Log:             ' . ( $set_audit_enabled ? 'Enabled (' . $set_audit_retention . '-day retention)' : 'Disabled' ),
             'Change History:        ' . ( $set_change_enabled ? 'Enabled (' . $set_change_retention . '-day retention)' : 'Disabled' ),
-            'Force Draft on Create: ' . ( $set_force_draft ? 'Yes' : 'No' ),
+            'Draft Mode:            ' . $set_draft_mode,
             'Max Title Length:      ' . ( 0 === $set_max_title ? '0 (unlimited)' : $set_max_title ),
             'Admin Language:        ' . ( '' === $set_admin_language ? 'Site default' : $set_admin_language ),
             'Disabled Tools:        ' . $set_disabled_tools,

@@ -364,28 +364,7 @@ class Client_Registry {
     }
 
     private function check_rate_limit() {
-        $ip = \Easy_MCP_AI\Client_IP::get();
-
-        $per_ip_key  = 'easy_mcp_ai_dcr_rl_' . md5( $ip );
-        $global_key  = 'easy_mcp_ai_dcr_rl_global';
-        $global_cap  = self::GLOBAL_RATE_LIMIT_PER_HOUR;
-
-        if ( \wp_using_ext_object_cache() ) {
-            \wp_cache_add( $per_ip_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $new_count = \wp_cache_incr( $per_ip_key, 1, 'easy_mcp_ai' );
-
-            \wp_cache_add( $global_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $new_global = \wp_cache_incr( $global_key, 1, 'easy_mcp_ai' );
-        } else {
-            $new_count  = Token_Endpoint::rl_transient_increment( $per_ip_key );
-            $new_global = Token_Endpoint::rl_transient_increment( $global_key );
-        }
-
-        if ( $new_count > self::RATE_LIMIT_PER_HOUR || $new_global > $global_cap ) {
-            return new \WP_REST_Response( null, 429 );
-        }
-
-        return null;
+        return Rate_Limit::check( 'register', 'easy_mcp_ai_dcr_rl_', self::RATE_LIMIT_PER_HOUR, self::GLOBAL_RATE_LIMIT_PER_HOUR );
     }
 
     private function check_client_cap() {

@@ -40,7 +40,19 @@ abstract class Meta_Field_Provider {
         return '';
     }
 
+    public function read_tool_for( $key ) {
+        return '';
+    }
+
     public function after_write( $post_id, array $keys ) {
+    }
+
+    public function value_refusal( $key, $value, $post_id ) {
+        return '';
+    }
+
+    public function reads_alike( $key, $stored, $other ) {
+        return $stored === $other;
     }
 
     public function get_post_types() {

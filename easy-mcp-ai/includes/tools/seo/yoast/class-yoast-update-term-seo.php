@@ -132,7 +132,7 @@ class Yoast_Update_Term_Seo extends Base_Tool {
 	}
 
 	private function attachment_id_for( $url ) {
-		$id = Yoast_Image_Id::for_url( (string) $url );
+		$id = Image_Attachment_Id::for_url( (string) $url );
 		return $id > 0 ? (string) $id : '';
 	}
 

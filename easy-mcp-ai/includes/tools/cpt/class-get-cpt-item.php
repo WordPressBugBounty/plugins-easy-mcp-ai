@@ -1,7 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Tools\CPT;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
 use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
@@ -16,7 +18,7 @@ class Get_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Gets a single custom post type (CPT) item by REST base + item ID, also of a type hidden from the REST API but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug — `wp_get_post_types` lists both; a hidden type by its slug) and `item_id`. Returns a fixed set of fields: { id, title, content, excerpt, status, date, modified, slug, link }. It does NOT include custom `register_rest_field` extensions (e.g. ACF fields) — those are silently discarded. For built-in post types use `wp_get_post` / `wp_get_page` instead — those have richer schemas. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces edit-level access on the underlying REST request (some CPTs require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error on specific CPTs even though the tool itself is visible.';
+        return 'Gets a single custom post type (CPT) item by REST base + item ID, also of a type hidden from the REST API but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug — `wp_get_post_types` lists both; a hidden type by its slug) and `item_id`. Returns a fixed set of fields: { id, title, content, excerpt, status, date, modified, slug, link, content_sha256, content_bytes }. It does NOT include custom `register_rest_field` extensions (e.g. ACF fields) — those are silently discarded. For built-in post types use `wp_get_post` / `wp_get_page` instead — those have richer schemas. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces edit-level access on the underlying REST request (some CPTs require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error on specific CPTs even though the tool itself is visible.' . ' While WPML or Polylang is active the reply also carries `language` and `translations` ({ code: post ID }, only translations you can read).' . Content_Hash::DESCRIPTION;
     }
 
     public function get_category() {
@@ -66,6 +68,7 @@ class Get_CPT_Item extends Base_Tool {
         $this->validate_required( $arguments, array( 'rest_base', 'item_id' ) );
 
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+        $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
 
         $request = new \WP_REST_Request( 'GET', self::post_type_route( $rest_base, $item_id, 'GET' ) );
@@ -77,6 +80,7 @@ class Get_CPT_Item extends Base_Tool {
             if ( 'rest_no_route' === $wp_error->get_error_code() ) {
                 throw new \RuntimeException( Post_Type_Tool_Hint::no_route( $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
+            Elementor_Templates::refuse_admin_only( $request->get_route(), $wp_error );
             throw new \RuntimeException(
                 sprintf( 'Failed to retrieve item in "%s": %s', $rest_base, $wp_error->get_error_message() ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
@@ -94,6 +98,6 @@ class Get_CPT_Item extends Base_Tool {
             'modified' => $data['modified'] ?? '',
             'slug'     => $data['slug'] ?? '',
             'link'     => $data['link'] ?? '',
-        );
+        ) + Translation_Read::fields_for( $item_id ) + Content_Hash::of_post( $item_id, false );
     }
 }

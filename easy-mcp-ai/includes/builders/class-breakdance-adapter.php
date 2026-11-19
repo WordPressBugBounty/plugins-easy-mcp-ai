@@ -10,7 +10,7 @@ class Breakdance_Adapter extends Layout_Adapter {
 
     const DATA_KEY = '_breakdance_data';
 
-    const TESTED_VERSIONS = array( '3.0.0', '3.0.1' );
+    const TESTED_VERSIONS = array( '3.0.0', '3.0.1', '3.0.2' );
 
     const RESTORABLE_KINDS = array( 'text', 'html', 'select', 'number', 'boolean', 'color', 'link', 'image' );
 
@@ -112,8 +112,9 @@ class Breakdance_Adapter extends Layout_Adapter {
         if ( ! $this->is_present() ) {
             return 'Breakdance is not active, so this layout can be read but not saved.';
         }
-        if ( ! in_array( $this->version(), self::TESTED_VERSIONS, true ) ) {
-            return sprintf( 'Editing Breakdance layouts was checked on Breakdance %s; this site runs %s, so this layout can be read but not saved.', implode( ' and ', self::TESTED_VERSIONS ), '' === $this->version() ? 'an unknown version' : $this->version() );
+        $refusal = $this->version_refusal( self::TESTED_VERSIONS );
+        if ( null !== $refusal ) {
+            return $refusal;
         }
         if ( ! $this->can_edit( $post ) ) {
             return 'Breakdance does not let this account edit this item: its builder access (Breakdance › Settings › User Access) gives this role no access, or the item is a Breakdance template, header, footer, global block or popup, which only Full Interface users may edit.';

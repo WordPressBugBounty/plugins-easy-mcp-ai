@@ -27,6 +27,8 @@ final class Resolver {
 
     const DENIED_TOP_LEVEL_PREFIXES = array( 'backups-dup-', 'backup-migration-' );
 
+    const CREDENTIAL_FILES = array( 'auth.json' );
+
     const NOISE_DIRS = array( 'vendor', 'node_modules' );
 
     const EXTENSIONS_FILTER = 'easy_mcp_ai_files_read_extensions';
@@ -99,7 +101,7 @@ final class Resolver {
             throw Refusal::for_path( $path );
         }
         $rel = $this->display_path( $real );
-        if ( null === $rel || $this->denied( $rel, $real ) ) {
+        if ( null === $rel || $this->denied( $rel, $real ) || self::is_credential_file( basename( $path ), $real ) ) {
             throw Refusal::for_path( $path );
         }
         if ( $want_dir ? ! is_dir( $real ) : ! $this->readable_file( $real ) ) {
@@ -199,7 +201,7 @@ final class Resolver {
             }
         }
         $last = end( $segments );
-        if ( false !== $last && 0 === strpos( $last, 'wp-config' ) ) {
+        if ( false !== $last && ( 0 === strpos( $last, 'wp-config' ) || self::is_credential_file( $last, $real ) ) ) {
             return true;
         }
         $real = strtolower( rtrim( $real, '/' ) . '/' );
@@ -209,6 +211,10 @@ final class Resolver {
             }
         }
         return false;
+    }
+
+    private static function is_credential_file( string $name, string $real ): bool {
+        return in_array( strtolower( $name ), self::CREDENTIAL_FILES, true ) && ! is_dir( $real );
     }
 
     public function extensions(): array {

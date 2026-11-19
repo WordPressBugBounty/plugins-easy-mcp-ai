@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Shipping_Class extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce shipping class. Required: `id` (wp_wc_list_shipping_classes). Its products are left with no shipping class. There is no trash and no undo. Returns { deleted: true, id, name, slug }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce shipping class. Required: `id` (wp_wc_list_shipping_classes). Its products are left with no shipping class. There is no trash and no undo. Returns { deleted: true, id, name, slug }; if the class still exists after WooCommerce answers, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -70,6 +71,7 @@ class Delete_Shipping_Class extends Base_Tool {
         $id = $this->parse_required_id( $arguments['id'], 'id' );
 
         $class = $this->rest_request( 'DELETE', '/wc/v3/products/shipping_classes/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_term_gone( $id, 'product_shipping_class', 'shipping class ' . $id );
 
         return array(
             'deleted' => true,

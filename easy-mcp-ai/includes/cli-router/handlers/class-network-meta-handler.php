@@ -24,6 +24,8 @@ class Network_Meta_Handler extends Meta_Command {
         if ( ! $this->is_multisite() ) {
             $ctx->out->error( self::NOT_MULTISITE );
         }
+        $this->begin( $inv, $ctx );
+        $this->refuse_before_preview( $inv, $ctx, 'patch' === ( $inv->leaf['name'] ?? '' ) ? 2 : 1, \Closure::fromCallable( array( $this, 'protect_key' ) ) );
     }
 
     public function add( Invocation $inv, Context $ctx ): void {
@@ -76,6 +78,18 @@ class Network_Meta_Handler extends Meta_Command {
 
     protected function delete_metadata( $object_id, string $meta_key, $meta_value = '' ): bool {
         return (bool) \delete_metadata( $this->meta_type, $object_id, $meta_key, $meta_value, false );
+    }
+
+    protected function meta_kept( $object_id, string $meta_key, string $meta_value = '' ): ?bool {
+        return $this->table_meta_kept( $object_id, $meta_key, $meta_value );
+    }
+
+    protected function stored_keys( $object_id ) {
+        return $this->table_keys( $object_id );
+    }
+
+    protected function stored_values( $object_id, string $meta_key ) {
+        return $this->table_values( $object_id, $meta_key );
     }
 
     protected function is_multisite(): bool {

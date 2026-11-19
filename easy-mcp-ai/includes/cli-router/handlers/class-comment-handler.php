@@ -18,6 +18,7 @@ class Comment_Handler extends Command_Handler {
     const NOT_EDITABLE = 'Sorry, you are not allowed to recount the comments of post %s: recounting updates the post, which needs permission to edit it. Nothing was recounted.';
 
     const MISSING = "Post %s doesn't exist.";
+    const RECOUNT_UNREAD = 'A database error stopped post %d being read back after its comment count was written, so whether it changed is not known.';
 
     public function preflight_count( Invocation $inv, Context $ctx ): void {
         if ( isset( $inv->args[0] ) ) {
@@ -59,8 +60,18 @@ class Comment_Handler extends Command_Handler {
             }
             $old = null !== $before ? (string) $before->comment_count : null;
             if ( null !== $before && $this->update_count( $id ) ) {
-                $post = $this->post( (int) $id );
+                try {
+                    $post = \Easy_MCP_AI\Tools\Delete_Outcome::read_back(
+                        function () use ( $id ) {
+                            return $this->post( (int) $id );
+                        },
+                        'post ' . (int) $id
+                    );
+                } catch ( \RuntimeException $e ) {
+                    $ctx->not_known( sprintf( self::RECOUNT_UNREAD, (int) $id ) );
+                }
                 if ( null === $post ) {
+                    $ctx->mark_changed();
                     $ctx->out->warning( sprintf( self::MISSING, $id ) );
                     $ctx->fail_missing_target( sprintf( self::MISSING, $id ) );
                     continue;

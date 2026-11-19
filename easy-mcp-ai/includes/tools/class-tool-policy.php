@@ -90,6 +90,18 @@ final class Tool_Policy {
         if ( ! $changed || ! $persist ) {
             return $state;
         }
+        if ( \Easy_MCP_AI\MCP\Option_Guard::is_armed() ) {
+            if ( ! $baseline ) {
+                self::$memo['state'] = $state;
+            }
+            \Easy_MCP_AI\MCP\Option_Guard::after_release(
+                static function () use ( $categories ): void {
+                    self::$memo = array( 'set' => false, 'raw' => null, 'state' => array() );
+                    self::synchronize( $categories );
+                }
+            );
+            return $state;
+        }
         $stored = false;
         self::locked( static function () use ( $categories, &$state, &$baseline, &$stored ) {
             list( $state, $changed, $baseline, $retire_patterns ) = self::synchronized( self::fresh(), $categories );

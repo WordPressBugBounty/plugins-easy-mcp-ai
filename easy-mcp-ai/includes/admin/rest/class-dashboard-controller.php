@@ -93,7 +93,8 @@ class Dashboard_Controller extends Admin_Rest_Controller {
             'changesByType' => self::changes_by_type( $change_rows ),
             'attention'     => $attention,
             'access'        => array(
-                'draftMode'    => (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ),
+                'draftMode'      => \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new(),
+                'draftModeValue' => \Easy_MCP_AI\Drafts\Draft_Mode::mode(),
                 'tokens'       => (int) $this->token_manager->count_tokens(),
                 'grants'       => $this->count_grants(),
                 'toolsEnabled' => $tools,

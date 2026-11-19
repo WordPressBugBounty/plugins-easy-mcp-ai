@@ -22,6 +22,7 @@ class Transient_Handler extends Command_Handler {
     const OVER_ROW_CAP   = "wp_cli_run lists at most %1\$d transients in one 'transient list', and %2\$d match. Narrow it with --search or --exclude (wildcards * and ?), or ask for --format=count.";
     const KEY_WITH_BULK  = "wp_cli_run refuses <key> together with --%s: WP-CLI would ignore '%s' and delete every %stransient. Run `transient delete <key>` or `transient delete --%s` on its own.";
     const ALL_AND_EXPIRED = 'wp_cli_run refuses --all together with --expired: WP-CLI would ignore --expired and delete every transient. Run one of them.';
+    const TIMEOUT_UNKNOWN = 'WordPress stored the value, but which expiry its filter gave this write is not known: a plugin left the hook stack unbalanced, so the %1$s expiry row could not be checked. %2$s';
     const SKIPPED        = 'Self-protection: wp_cli_run left out %1$d %2$s it never deletes: %3$s.';
     const NOTE_NO_PATH   = "WP-CLI exits 1 without output here: the transient '%s' has no value at that key path.";
 
@@ -85,14 +86,16 @@ class Transient_Handler extends Command_Handler {
         $this->guard( $key, true, $ctx );
 
         $ctx->not_captured( self::NOT_RECORDED );
-        $before = $this->timeout_row( $key, $network );
-        if ( $this->set_transient( $key, $value, $expiration, $network ) ) {
+        $stored  = $this->stored_before( $ctx, $key, $network );
+        $timeout = $this->timeout_before( $ctx, $key, $network );
+        $from    = $this->now();
+        if ( $this->set_observed( $key, $value, $expiration, $network ) ) {
+            Option_Handler::refuse_unstored( $ctx, Option_Handler::write_refusal( $this->stored_value( $key, $network ), $stored, $value ), 'transient', "Transient: {$key}" );
+            $this->refuse_unstored_timeout( $ctx, $key, $network, (int) $expiration, $from, $value );
             $ctx->mark_changed();
             $ctx->out->success( 'Transient added.' );
         } else {
-            if ( $this->timeout_row( $key, $network ) !== $before ) {
-                $ctx->mark_changed();
-            }
+            $this->refuse_false_write( $ctx, $key, $network, $stored, $timeout );
             $ctx->out->error( 'Transient could not be set.' );
         }
     }
@@ -122,6 +125,10 @@ class Transient_Handler extends Command_Handler {
         $ctx->not_captured( self::NOT_RECORDED );
         if ( $this->delete_transient( $key, $network ) ) {
             $ctx->mark_changed();
+            $refusal = Option_Handler::delete_refusal( $this->stored_value( $key, $network ) );
+            if ( null !== $refusal ) {
+                $ctx->out->error( sprintf( $refusal, 'transient', "Transient: {$key}" ) );
+            }
             $ctx->out->success( 'Transient deleted.' );
         } elseif ( $this->get_transient( $key, $network ) ) {
             $ctx->out->error( 'Transient was not deleted even though the transient appears to exist.' );
@@ -289,14 +296,22 @@ class Transient_Handler extends Command_Handler {
         }
 
         $ctx->not_captured( self::NOT_RECORDED );
+        $named  = "Transient: {$key}";
+        $stored = $this->stored_before( $ctx, $key, $network );
         if ( $patched_value === $old_value ) {
+            Option_Handler::note_unless_held( $ctx, $patched_value, $stored[0] ? \maybe_unserialize( $stored[1] ) : false, 'transient', $named );
             $ctx->out->success( "Value passed for transient '$key' is unchanged." );
         } else {
-            $success = $this->set_transient( $key, $patched_value, $expiration, $network );
+            $timeout = $this->timeout_before( $ctx, $key, $network );
+            $from    = $this->now();
+            $success = $this->set_observed( $key, $patched_value, $expiration, $network );
             if ( $success ) {
+                Option_Handler::refuse_unstored( $ctx, Option_Handler::path_refusal( $this->stored_value( $key, $network ), $stored, $action, $key_path, $patched_value ), 'transient', $named );
+                $this->refuse_unstored_timeout( $ctx, $key, $network, $expiration, $from, $patched_value );
                 $ctx->mark_changed();
                 $ctx->out->success( "Updated transient '$key'." );
             } else {
+                $this->refuse_false_write( $ctx, $key, $network, $stored, $timeout );
                 $ctx->out->error( "Could not update transient '$key'." );
             }
         }
@@ -359,6 +374,38 @@ class Transient_Handler extends Command_Handler {
         return $network ? \get_site_transient( $key ) : \get_transient( $key );
     }
 
+    private function set_observed( string $key, $value, $expiration, bool $network ): bool {
+        $hook             = $network ? "expiration_of_site_transient_{$key}" : "expiration_of_transient_{$key}";
+        $this->applied    = null;
+        $this->observed   = false;
+        $depth            = \Easy_MCP_AI\Tools\Delete_Outcome::hook_depth() + 1;
+        $this->filtered   = false;
+        $observer         = function ( $applied ) use ( $depth ) {
+            $this->filtered = true;
+            if ( ! $this->observed && \Easy_MCP_AI\Tools\Delete_Outcome::hook_depth() === $depth ) {
+                $this->observed = true;
+                $this->applied  = $applied;
+            }
+            return $applied;
+        };
+        \add_filter( $hook, $observer, PHP_INT_MAX, 1 ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- core's own filter, watched.
+        try {
+            return $this->set_transient( $key, $value, $expiration, $network );
+        } finally {
+            \remove_filter( $hook, $observer, PHP_INT_MAX );
+        }
+    }
+
+    private $applied = null;
+
+    private $observed = false;
+
+    private $filtered = false;
+
+    protected function effective_expiration( string $key, $value, int $expiration, bool $network ): int {
+        return (int) \apply_filters( $network ? "expiration_of_site_transient_{$key}" : "expiration_of_transient_{$key}", $expiration, $value, $key ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.DynamicHooknameFound -- core's own filter, read as set_transient() reads it.
+    }
+
     protected function set_transient( string $key, $value, $expiration, bool $network ): bool {
         return (bool) ( $network ? \set_site_transient( $key, $value, $expiration ) : \set_transient( $key, $value, $expiration ) );
     }
@@ -381,6 +428,12 @@ class Transient_Handler extends Command_Handler {
 
     protected function cache_get( string $key, string $group ) {
         return \wp_cache_get( $key, $group );
+    }
+
+    protected function cache_read( string $key, string $group ): array {
+        $found = false;
+        $value = \wp_cache_get( $key, $group, true, $found );
+        return array( (bool) $found, $value );
     }
 
     protected function db(): object {
@@ -444,16 +497,71 @@ class Transient_Handler extends Command_Handler {
         return $this->time_diff( $now, $expiration );
     }
 
-    private function timeout_row( string $key, bool $network ) {
+    protected function stored_value( string $key, bool $network ): ?array {
         if ( $this->ext_object_cache() ) {
-            return null;
+            list( $found, $value ) = $this->cache_read( $key, $network ? 'site-transient' : 'transient' );
+            return $found ? array( true, Option_Handler::stored_text( $value ) ) : array( false, '' );
         }
-        if ( $network ) {
-            $value = \is_multisite() ? $this->get_site_option( '_site_transient_timeout_' . $key ) : $this->get_option( '_site_transient_timeout_' . $key );
-        } else {
-            $value = $this->get_option( '_transient_timeout_' . $key );
+        return $this->stored_row( ( $network ? '_site_transient_' : '_transient_' ) . $key, $network );
+    }
+
+    protected function stored_timeout( string $key, bool $network ): ?array {
+        if ( $this->ext_object_cache() ) {
+            return array( false, '' );
         }
-        return false === $value ? null : $value;
+        return $this->stored_row( ( $network ? '_site_transient_timeout_' : '_transient_timeout_' ) . $key, $network );
+    }
+
+    private function stored_row( string $name, bool $network ): ?array {
+        $sitemeta = $network && \is_multisite();
+        return Option_Handler::raw_row( $this->db(), $name, $sitemeta, $sitemeta ? $this->current_network_id() : 0 );
+    }
+
+    private function stored_before( Context $ctx, string $key, bool $network ): array {
+        $before = $this->stored_value( $key, $network );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( Option_Handler::WRITE_UNBASED, 'transient', "Transient: {$key}" ) );
+        }
+        return $before;
+    }
+
+    private function timeout_before( Context $ctx, string $key, bool $network ): array {
+        $before = $this->stored_timeout( $key, $network );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( Option_Handler::WRITE_UNBASED, 'transient', "Transient: {$key}" ) );
+        }
+        return $before;
+    }
+
+    private function refuse_unstored_timeout( Context $ctx, string $key, bool $network, int $expiration, int $from, $value ): void {
+        if ( ! $this->observed && $this->filtered ) {
+            Option_Handler::refuse_unstored( $ctx, array( self::TIMEOUT_UNKNOWN, true ), 'transient', "Transient: {$key}" );
+        }
+        $expiration = $this->observed ? (int) $this->applied : $this->effective_expiration( $key, $value, $expiration, $network );
+        if ( 0 === $expiration || $this->ext_object_cache() ) {
+            return;
+        }
+        $row = $this->stored_timeout( $key, $network );
+        if ( null === $row ) {
+            Option_Handler::refuse_unstored( $ctx, array( Option_Handler::WRITE_UNREAD, true ), 'transient', "Transient: {$key}" );
+        }
+        $to = $this->now();
+        if ( $row[0] && 1 === preg_match( '/^-?\d+$/', $row[1] ) && (int) $row[1] >= $from + $expiration && (int) $row[1] <= $to + $expiration ) {
+            return;
+        }
+        Option_Handler::refuse_unstored( $ctx, array( Option_Handler::WRITE_TIMEOUT, true ), 'transient', "Transient: {$key}" );
+    }
+
+    private function refuse_false_write( Context $ctx, string $key, bool $network, array $stored, array $timeout ): void {
+        $named = "Transient: {$key}";
+        Option_Handler::refuse_changed_after_false( $ctx, $this->stored_value( $key, $network ), $stored, 'transient', $named );
+        $after = $this->stored_timeout( $key, $network );
+        if ( null === $after ) {
+            $ctx->not_known( sprintf( Option_Handler::FALSE_UNREAD, 'transient', $named ) );
+        }
+        if ( $after !== $timeout ) {
+            $ctx->mark_changed();
+        }
     }
 
     private function preview_current( string $key, bool $network ): string {

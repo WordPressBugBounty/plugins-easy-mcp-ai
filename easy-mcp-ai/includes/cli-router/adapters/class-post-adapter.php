@@ -121,6 +121,19 @@ final class Post_Adapter extends Db_Object_Command {
         'ignore_sticky_posts' => array( 'post', 'page', 'cpt', 'media' ),
     );
 
+    const DATE_QUERY_KEYS = array(
+        'year'     => 'year',
+        'monthnum' => 'month',
+        'day'      => 'day',
+    );
+
+    const TAX_QUERY_TERMS = array(
+        'cat'          => array( 'category', false ),
+        'category__in' => array( 'category', true ),
+        'tag_id'       => array( 'post_tag', false ),
+        'tag__in'      => array( 'post_tag', false ),
+    );
+
     const LIST_ID_LISTS = array(
         'author__not_in'      => 'author_exclude',
         'post__in'            => 'include',
@@ -204,7 +217,7 @@ final class Post_Adapter extends Db_Object_Command {
 
     const MSG_UPDATE_FILE = "<file> is not available through wp_cli_run: WP-CLI reads '%s' from the server's disk. Pass the content with --post_content.";
 
-    const MSG_FORCE_DRAFT = "The site's \"Force draft on create\" setting saved post %d with status '%s', not '%s'.";
+    const MSG_FORCE_DRAFT = "The site's Draft mode setting saved post %d with status '%s', not '%s'.";
 
     const MSG_META_DROPPED = 'Post %d was saved, but %s did not store these meta keys: %s.';
 
@@ -213,6 +226,14 @@ final class Post_Adapter extends Db_Object_Command {
     const MSG_LIST_VAR = 'it is not a WP_Query variable %s maps';
 
     const MSG_LIST_KIND = "%s takes no %s for post type '%s'";
+
+    const MSG_CLAUSE_QUERY = "; filter with --%s='%s' instead";
+
+    const MSG_META_KEY_UNREGISTERED = "; its --meta_query takes only meta keys registered with show_in_rest for post type '%s', and '%s' is not one";
+
+    const MSG_META_KEY_INTEGRATION = "; '%s' belongs to the %s integration, and no list tool filters on a key an integration owns";
+
+    const MSG_META_KEY_READ = '; %s reads it for one post at a time';
 
     const MSG_MEDIA_SEARCH = "wp_list_media also matches file names, which WP-CLI's search does not, so the rows would differ. Search with wp_list_media itself, or list by --post__in";
 
@@ -898,7 +919,7 @@ final class Post_Adapter extends Db_Object_Command {
     }
 
     private static function force_draft_on(): bool {
-        return class_exists( '\\Easy_MCP_AI\\Config' ) && (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false );
+        return class_exists( '\\Easy_MCP_AI\\Drafts\\Draft_Mode' ) && \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new();
     }
 
     private static function update_ids( Context $ctx, array $args ): array {
@@ -1045,8 +1066,10 @@ final class Post_Adapter extends Db_Object_Command {
         if ( array_key_exists( 'name', $query ) ) {
             return self::MSG_LIST_SINGLE;
         }
-        $type   = isset( $query['post_type'] ) && is_string( $query['post_type'] ) ? $query['post_type'] : 'post';
-        $errors = array();
+        $type      = isset( $query['post_type'] ) && is_string( $query['post_type'] ) ? $query['post_type'] : 'post';
+        $errors    = array();
+        $date_hint = in_array( $kind, self::LIST_VARS['date_query'], true ) ? self::date_alternative( $query ) : '';
+        $tax_hint  = in_array( $kind, self::LIST_VARS['tax_query'], true ) ? self::tax_alternative( $query, $type ) : '';
         foreach ( array_keys( $query ) as $key ) {
             $key = (string) $key;
             if ( ! isset( self::LIST_VARS[ $key ] ) ) {
@@ -1054,10 +1077,94 @@ final class Post_Adapter extends Db_Object_Command {
             } elseif ( 'media' === $kind && 's' === $key ) {
                 $errors[] = sprintf( self::MSG_PARAM, $key, self::MSG_MEDIA_SEARCH );
             } elseif ( ! in_array( $kind, self::LIST_VARS[ $key ], true ) ) {
-                $errors[] = sprintf( self::MSG_PARAM, $key, sprintf( self::MSG_LIST_KIND, $tool, $key, $type ) );
+                $why = sprintf( self::MSG_LIST_KIND, $tool, $key, $type );
+                if ( 'meta_key' === $key && in_array( $kind, self::LIST_VARS['meta_query'], true ) ) {
+                    $why .= self::meta_key_alternative( $query, $type );
+                } elseif ( isset( self::DATE_QUERY_KEYS[ $key ] ) ) {
+                    $why      .= $date_hint;
+                    $date_hint = '';
+                } elseif ( isset( self::TAX_QUERY_TERMS[ $key ] ) ) {
+                    $why     .= $tax_hint;
+                    $tax_hint = '';
+                }
+                $errors[] = sprintf( self::MSG_PARAM, $key, $why );
             }
         }
         return $errors ? sprintf( self::MSG_PARAM_FRAME, implode( "\n", $errors ) ) : null;
+    }
+
+    private static function meta_key_alternative( array $query, string $type ): string {
+        $key = $query['meta_key'];
+        if ( ! is_string( $key ) || '' === $key ) {
+            return '';
+        }
+        $provider = \Easy_MCP_AI\Meta\Meta_Exposure::provider_for_key( $key );
+        if ( null !== $provider ) {
+            $why  = sprintf( self::MSG_META_KEY_INTEGRATION, $key, $provider->get_label() );
+            $tool = (string) $provider->read_tool_for( $key );
+            return '' !== $tool && self::caller_may_use( $tool ) ? $why . sprintf( self::MSG_META_KEY_READ, $tool ) : $why;
+        }
+        if ( ! in_array( $key, \Easy_MCP_AI\Tools\CPT\List_CPT_Items::filterable_meta_keys( $type ), true ) ) {
+            return sprintf( self::MSG_META_KEY_UNREGISTERED, $type, $key );
+        }
+        if ( array_key_exists( 'meta_query', $query ) ) {
+            return '';
+        }
+        $clause = array( 'key' => $key );
+        foreach ( array( 'meta_value' => 'value', 'meta_compare' => 'compare' ) as $var => $field ) {
+            if ( isset( $query[ $var ] ) && is_string( $query[ $var ] ) ) {
+                $clause[ $field ] = $query[ $var ];
+            }
+        }
+        return self::clause_hint( 'meta_query', array( $clause ) );
+    }
+
+    private static function date_alternative( array $query ): string {
+        if ( array_key_exists( 'date_query', $query ) ) {
+            return '';
+        }
+        $clause = array();
+        foreach ( self::DATE_QUERY_KEYS as $var => $key ) {
+            if ( ! array_key_exists( $var, $query ) ) {
+                continue;
+            }
+            if ( ! is_string( $query[ $var ] ) || ! preg_match( '/^[0-9]+\z/', $query[ $var ] ) ) {
+                return '';
+            }
+            if ( (int) $query[ $var ] > 0 ) {
+                $clause[ $key ] = (int) $query[ $var ];
+            }
+        }
+        return array() === $clause ? '' : self::clause_hint( 'date_query', array( $clause ) );
+    }
+
+    private static function tax_alternative( array $query, string $type ): string {
+        if ( array_key_exists( 'tax_query', $query ) ) {
+            return '';
+        }
+        $clauses = array();
+        foreach ( self::TAX_QUERY_TERMS as $var => list( $taxonomy, $no_children ) ) {
+            if ( ! array_key_exists( $var, $query ) ) {
+                continue;
+            }
+            $ids = self::id_list( $query[ $var ] );
+            if ( null === $ids || ( 'tag_id' === $var && 1 !== count( $ids ) ) || ! in_array( $taxonomy, \Easy_MCP_AI\Tools\CPT\List_CPT_Items::rest_taxonomy_names( $type ), true ) ) {
+                return '';
+            }
+            $clause = array(
+                'taxonomy' => $taxonomy,
+                'terms'    => $ids,
+            );
+            if ( $no_children ) {
+                $clause['include_children'] = false;
+            }
+            $clauses[] = $clause;
+        }
+        return array() === $clauses ? '' : self::clause_hint( 'tax_query', $clauses );
+    }
+
+    private static function clause_hint( string $var, array $clauses ): string {
+        return sprintf( self::MSG_CLAUSE_QUERY, $var, (string) json_encode( $clauses, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS ) );
     }
 
     private static function list_filter_arguments( array $query, array $target ) {

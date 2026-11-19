@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\ACF;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,11 @@ class List_Field_Groups extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists all registered ACF field groups with their field keys, labels, and types, and the ACF options pages you can open (`options_pages`: slug, title and the keys of the field groups on each). Use this to discover which fields are available before calling wp_acf_get_fields or wp_acf_update_fields; pass an options page\'s slug to them as `options_page`.';
+        $next = array_values( array_filter( array( 'wp_acf_get_fields', 'wp_acf_update_fields' ), array( Post_Type_Tool_Hint::class, 'may_describe' ) ) );
+        $use  = array() === $next
+            ? ' Use this to discover which fields are available.'
+            : sprintf( ' Use this to discover which fields are available before calling %1$s; pass an options page\'s slug to %2$s as `options_page`.', implode( ' or ', $next ), 1 === count( $next ) ? 'it' : 'them' );
+        return 'Lists all registered ACF field groups with their field keys, labels, and types, and the ACF options pages you can open (`options_pages`: slug, title and the keys of the field groups on each).' . $use;
     }
 
     public function get_category() {

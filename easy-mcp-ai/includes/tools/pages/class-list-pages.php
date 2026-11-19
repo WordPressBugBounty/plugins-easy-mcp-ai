@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Pages;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\CPT\List_CPT_Items;
 
@@ -38,7 +39,7 @@ class List_Pages extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'status'   => array(
@@ -103,6 +104,8 @@ class List_Pages extends Base_Tool {
                 ),
             ) + List_CPT_Items::shared_filter_schema( true ),
         );
+        $schema['properties'] += Translation_Read::properties();
+        return $schema;
     }
 
     public function execute( array $arguments ) {
@@ -114,7 +117,8 @@ class List_Pages extends Base_Tool {
         if ( 'edit' === $context ) {
             $params['context'] = 'edit';
         }
-        $vars = List_CPT_Items::query_vars( 'page', $arguments );
+        $lang = Translation_Read::requested( $arguments );
+        $vars = array_merge( List_CPT_Items::query_vars( 'page', $arguments ), Translation_Read::query_vars( $lang ) );
 
         $request = new \WP_REST_Request( 'GET', '/wp/v2/pages' );
         foreach ( $params as $key => $value ) {
@@ -122,10 +126,18 @@ class List_Pages extends Base_Tool {
         }
         $request->set_param( '_fields', self::REST_FIELDS );
 
-        $response = List_CPT_Items::dispatch( $request, 'page', $vars );
+        $send     = static function () use ( $lang, $request, $vars ): \WP_REST_Response {
+            return Translation_Read::run(
+                $lang,
+                static function () use ( $request, $vars ): \WP_REST_Response {
+                    return List_CPT_Items::dispatch( $request, 'page', $vars );
+                }
+            );
+        };
+        $response = $send();
 
         if ( $response->is_error() ) {
-            return $this->empty_page_or_refusal( $response, $params );
+            return $this->empty_page_or_refusal( $response, $params, $request, $send );
         }
 
         $pages = $response->get_data();
@@ -139,7 +151,7 @@ class List_Pages extends Base_Tool {
         }
 
         return array_merge(
-            array( 'pages' => $result ),
+            array( 'pages' => Translation_Read::label_rows( $result ) ),
             $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $pages ) )
         );
     }
@@ -203,12 +215,12 @@ class List_Pages extends Base_Tool {
         return $params;
     }
 
-    private function empty_page_or_refusal( \WP_REST_Response $response, array $params ): array {
+    private function empty_page_or_refusal( \WP_REST_Response $response, array $params, \WP_REST_Request $request, callable $send ): array {
         $error = $response->as_error();
         if ( $this->is_invalid_page_error( $error ) ) {
             return array_merge(
                 array( 'pages' => array() ),
-                $this->pagination_meta( null, $params['page'], $params['per_page'], 0 )
+                $this->past_the_end_meta( $request, $send, (int) $params['page'], (int) $params['per_page'] )
             );
         }
         throw self::rest_error_exception( $error ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped

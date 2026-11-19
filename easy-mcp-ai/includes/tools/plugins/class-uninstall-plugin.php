@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\Plugins;
 
+use Easy_MCP_AI\Tools\Delete_Outcome;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Lifecycle_Guard;
 use Easy_MCP_AI\Tools\Package_Guard;
@@ -134,16 +135,31 @@ class Uninstall_Plugin extends Base_Tool {
     }
 
     private function deactivate_first( string $plugin, string $label ): string {
-        list( $still_active, $printed ) = $this->without_output(
-            function () use ( $plugin ): bool {
+        list( $active, $printed ) = $this->without_output(
+            function () use ( $plugin ): ?array {
                 deactivate_plugins( $plugin, false, false );
-                return is_plugin_active( $plugin );
+                return self::stored_activation( $plugin );
             }
         );
-        if ( $still_active ) {
-            throw new \RuntimeException( sprintf( 'Plugin "%s" could not be deactivated, so it was not uninstalled.', $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        if ( null === $active ) {
+            throw Delete_Outcome::refusal( 'A database error stopped the active plugins being read back after the deactivation, so the plugin was not uninstalled. Plugin: %s', array( $label ) );
+        }
+        if ( $active['site'] || $active['network'] ) {
+            throw Delete_Outcome::refusal( 'The plugin could not be deactivated, so it was not uninstalled: WordPress still lists it as active. Plugin: %s', array( $label ) );
         }
         return $printed;
+    }
+
+    private static function stored_activation( string $plugin ): ?array {
+        $site    = Delete_Outcome::stored_option( 'active_plugins' );
+        $network = is_multisite() ? Delete_Outcome::stored_option( 'active_sitewide_plugins', true ) : array( false, null );
+        if ( null === $site || null === $network ) {
+            return null;
+        }
+        return array(
+            'site'    => $site[0] && is_array( $site[1] ) && in_array( $plugin, $site[1], true ),
+            'network' => $network[0] && is_array( $network[1] ) && array_key_exists( $plugin, $network[1] ),
+        );
     }
 
     private function delete_files( string $plugin, string $label, string $routine, bool $deactivated ): string {
@@ -165,10 +181,14 @@ class Uninstall_Plugin extends Base_Tool {
     }
 
     private function refuse_active( string $plugin, string $label, bool $deactivate ): bool {
-        if ( is_plugin_active_for_network( $plugin ) ) {
+        $active = self::stored_activation( $plugin );
+        if ( null === $active ) {
+            throw Delete_Outcome::refusal( 'A database error stopped the active plugins being read, so nothing was uninstalled. Plugin: %s', array( $label ) );
+        }
+        if ( $active['network'] ) {
             throw new \RuntimeException( sprintf( 'Plugin "%s" is network-active. A super admin must deactivate it network-wide first (wp_deactivate_plugin with network_wide: true).', $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        if ( ! is_plugin_active( $plugin ) ) {
+        if ( ! $active['site'] ) {
             return false;
         }
         if ( ! $deactivate ) {

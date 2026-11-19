@@ -4,7 +4,7 @@ Tags: mcp, claude, chatgpt, wordpress-mcp, connector
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.4.1
+Stable tag: 2.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -96,6 +96,24 @@ Pull data from Google Analytics, Search Console, Semrush, SE Ranking, DataForSEO
 
 Easy MCP AI calls a provider in three cases: when you save or test the credentials, when the External data tab loads account details, and when an AI client runs one of that provider's tools.
 
+= EasyMCP Cloud block tools =
+
+Three block tools build with EasyMCP Cloud, a free service at mcp.easymcpai.com that needs no account: `blocks_execute`, `blocks_schema_get` and `atomic_wind_context`. The other five (`blocks_publish`, `blocks_edit`, `blocks_get`, `blocks_list_posts` and `blocks_site_styles`) work only on your site and send nothing to it.
+
+Easy MCP AI never contacts EasyMCP Cloud on activation or when tools are listed. The first time an AI client uses one of the three tools, the plugin registers your site: it sends the site URL, the URL of a check route on your site, the plugin version and the WordPress version, and stores the site ID and key that come back in your database. After that it contacts EasyMCP Cloud each time one of these tools needs it, and sends the key with every request:
+
+* **blocks_execute**: every use. It sends the builder code the AI client wrote, the site URL, the check-route URL and the plugin version.
+* **blocks_schema_get**: it sends the action and the block names asked for. The answer is kept for a day, so the same request within a day sends nothing.
+* **atomic_wind_context**: it sends nothing but the key. The answer is kept for a day.
+
+Each request also carries the user agent `EasyMCP-Plugin/` and the plugin version, and EasyMCP Cloud sees your server's IP address as any web server would. If EasyMCP Cloud no longer accepts the key, the plugin registers again with the same details as above.
+
+EasyMCP Cloud also calls back to your site. To check that the site holds its key, it requests the public REST route `/wp-json/easy-mcp-ai/v1/cloud-proof` with a code it chooses, and the site answers with a hash of that code made with its key, which does not reveal the key.
+
+To turn this off, switch off the **Cloud tools** group under **Easy MCP AI → Tools**. With every tool in the group off, the plugin sends nothing to EasyMCP Cloud and the check route answers 404.
+
+Using these tools is covered by the EasyMCP Cloud [terms of service](https://easymcpai.com/terms) and [privacy policy](https://easymcpai.com/privacy).
+
 = ACF, The Events Calendar & BuddyPress =
 
 * **Advanced Custom Fields (ACF)**: 6 tools to read and update ACF fields on posts, users and terms, and list field groups
@@ -120,7 +138,7 @@ Giving an AI client access to your site is a serious step. This MCP server runs 
 * **Least privilege**: choose which tools each API token or OAuth grant can use, including read-only access
 * **Hashed tokens, encrypted credentials**: token records are SHA-256 hashes, and external data credentials use AES-256-GCM encryption
 * **Rate limits and IP allowlist**: 120 requests per minute per token by default, plus an optional IP allowlist for API tokens
-* **Force Draft on Create** (off by default): Easy MCP's own create tools save new posts, pages, custom post type items, products and events as drafts. Plugin abilities and later edits are not covered
+* **Draft mode** (off by default): with New content, Easy MCP's own create tools save new posts, pages, custom post type items, products and events as drafts. Plugin abilities and later edits are not covered. With Strict, nothing goes live through an AI client: publishing and changes to published content are refused, and a person publishes
 * **HTTPS**: OAuth requires HTTPS on live sites (local loopback addresses are exempt), and API tokens should use HTTPS too
 
 == Installation ==
@@ -170,7 +188,7 @@ Most WordPress AI plugins embed one AI provider inside wp-admin and bill you for
 
 = Are my AI requests private, and do they pass through your servers? =
 
-No. Requests and tool results travel between your AI client and your own site, with no hosted relay or third-party server. If you are comparing with a hosted MCP service such as WPVibe, the difference is where the server runs: a hosted service proxies every request through the vendor's servers, while Easy MCP AI runs inside your own WordPress install. The connection depends only on your site and your AI client, so it keeps working even if our service is down. The plugin is free, all 280+ tools are included, and there is no vendor quota, only rate limits you set yourself, 120 requests per minute per token by default. The plugin sends nothing to us. The optional outside reachability check is a link that opens easymcpai.com in your browser, and it uses only your site address.
+No. Requests and tool results travel between your AI client and your own site, with no hosted relay or third-party server. If you are comparing with a hosted MCP service such as WPVibe, the difference is where the server runs: a hosted service proxies every request through the vendor's servers, while Easy MCP AI runs inside your own WordPress install. The connection depends only on your site and your AI client, so it keeps working even if our service is down. The plugin is free, all 280+ tools are included, and there is no vendor quota, only rate limits you set yourself, 120 requests per minute per token by default. The plugin sends nothing to us, with one exception: the three EasyMCP Cloud block tools, which are off until you turn them on. The section "EasyMCP Cloud block tools" above lists what they send. The optional outside reachability check is a link that opens easymcpai.com in your browser, and it uses only your site address.
 
 Once an AI client has connected, the plugin downloads signed skills (step-by-step instructions for common WordPress tasks) once a day from skills.easymcpai.com. The request carries only the plugin version. To turn it off, add `define( 'EASY_MCP_AI_SKILLS_SYNC', false );` to wp-config.php.
 
@@ -192,7 +210,7 @@ Yes. Post tools accept any registered custom post type. ACF tools read and write
 
 = Can I control what the AI is allowed to do? =
 
-Yes. Choose the tools for each token or OAuth grant. Bind each token or grant to a WordPress user whose capabilities fit the job, since permissions follow those capabilities. Note that you cannot restrict access to individual posts. For review before publishing, give the AI read-only or draft-only tools. Turn on **Force Draft on Create**, which is off by default.
+Yes. Choose the tools for each token or OAuth grant. Bind each token or grant to a WordPress user whose capabilities fit the job, since permissions follow those capabilities. Note that you cannot restrict access to individual posts. For review before publishing, give the AI read-only or draft-only tools. Set **Draft mode** to New content or Strict; it is off by default.
 
 = Where can I see what the AI did? =
 
@@ -223,29 +241,74 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 6. Plugin integrations: ready-made tools for WooCommerce, ACF, The Events Calendar, Yoast, Rank Math and more
 7. Abilities: plugins that register WordPress 6.9+ Abilities appear here, and each ability you enable becomes its own AI tool
 8. External data: connect Google Analytics 4, Search Console, Semrush, Ahrefs, and more
-9. Access and safety: a per-minute rate limit, Force Draft on Create, and self-service API keys for your users
+9. Access and safety: a per-minute rate limit, Draft mode, and self-service API keys for your users
 
 == Changelog ==
 
-= 2.4.1 =
-- Fixed tools reading no and off as on for yes-or-no settings.
-- Fixed tools accepting values of the wrong type or outside their allowed list.
-- Fixed user tools misreading text sent for roles and user IDs.
-- Fixed post, term, product, order and menu edits accepting missing IDs and invalid values.
-- Fixed missing items reporting no permission or an empty list instead of not found.
-- Fixed SEO plugin tools saving some fields before refusing others.
-- Fixed error messages losing allowed values or the suggested fix, and results reporting the wrong outcome.
-- Fixed menu item titles, the site title and the tagline losing HTML, and imported media keeping an old slug.
-- Fixed approval previews missing values, and comment and Contact Form 7 updates changing unchanged data.
-- Fixed BuddyPress tools returning lists instead of items and activity updates dropping values silently.
-- Fixed MCP Adapter and Angie abilities bypassing switched-off tools.
-- Fixed repeated missing-ability errors and unclear Site Health warnings about other plugins abilities.
-- Fixed Elementor 3.x heading edits rejected as page views.
-- Fixed Elementor field lists showing unwritable Pro upsell controls.
-- Fixed Semrush filters losing plus signs and the delete menu item guidance.
-- Fixed successful tool calls wrongly reporting Tool execution failed.
-- Fixed appended terms showing an empty before value and failing undo.
-- Updated dependencies
+= 2.5.0 =
+- Added wp_find_in_post to count and locate text without opening posts.
+- Added site icon and logo controls to site settings.
+- Added Elementor section insertion and column management with automatic resizing.
+- Added section headings to the consent screen permissions table.
+- Added content hash and size to post read and write replies.
+- Added connected AI apps with Revoke to user profiles.
+- Added Loco Translate tools to read and update translation files.
+- Added Strict Draft mode to stop AI publishing live content.
+- Added language and translation linking tools for multilingual sites.
+- Added configurable limits for AI tool calls per user, site, or connection ([docs](https://docs.easymcpai.com/limit-ai-calls-per-user-site-or-connection)).
+- Added site-wide find for text in posts, custom fields and terms.
+- Added Smart Slider 3 tools that read and edit slides.
+- Added post language controls and translation tools for multilingual sites.
+- Improved Elementor template handling and inactive-widget cleanup messages.
+- Improved reliability of tool calls, text edits, widgets and WooCommerce tools.
+- Improved approval checks and Activity records for account and access changes.
+- Improved protection of sensitive data in file reads, commands, errors and logs.
+- Fixed agents not finding WP-CLI commands for settings and custom fields.
+- Fixed misleading tool replies to point agents to the correct action.
+- Fixed Edit scope marking approved categories the users role cannot use.
+- Fixed one address blocking all OAuth clients after too many sign-in requests.
+- Fixed Elementor containers, sections and columns accepting background images and settings.
+- Fixed Elementor containers and widgets accepting sizes, spacing and typography values.
+- Fixed Elementor slideshow backgrounds and image carousels accepting multiple images.
+- Fixed hiding Elementor containers and sections on mobile devices.
+- Fixed the consent screen with short labels, explanation lines and grouped sections.
+- Fixed switched-off tools staying active through REST route tools.
+- Fixed diagnostics naming the plugins own authentication filter as external interference.
+- Fixed Yoast social images showing different files for large uploads.
+- Fixed LatePoint booking tools missing or visible to unauthorized users.
+- Fixed delete replies to show whether items moved to Trash.
+- Fixed Rank Math social images staying on the old image after updates.
+- Fixed large tool replies by shortening pages, lists, products, health and layouts.
+- Fixed deleted batch items showing wrong status and added paging for large layouts.
+- Fixed failed OAuth token requests missing from the Audit Log.
+- Fixed customer tool pointing to store-wide report for order totals.
+- Fixed variation reads showing the parent image instead of no image.
+- Fixed tool replies sending indented JSON instead of compact JSON.
+- Fixed post search leaving out results well under size limit.
+- Fixed Site Health leaving out sections that fit the reply.
+- Fixed failed translation file saves returning unreadable responses.
+- Fixed translation updates accepting wrong placeholders and invalid locales.
+- Fixed event updates to refuse publishing without permission.
+- Fixed metadata tool recommending an ACF writer the connection cannot use.
+- Fixed translation linking reporting posts as unlinked incorrectly.
+- Fixed the media upload link offering a POST command when hosts refuse PUT
+- Fixed widget moves reporting success when the widget stayed in place
+- Fixed the Authorization header check wrongly reporting the rewrite as missing.
+- Fixed Google Search Console and Analytics errors hiding Googles actual reason.
+- Fixed Elementor container, section and column settings not saving.
+- Fixed Elementor sizes, spacing, gaps and typography not saving.
+- Fixed saved content edits reported as failed on pages with missing templates.
+- Fixed moved menu items losing descriptions, titles and dates.
+- Fixed moved menu items losing link addresses and display settings.
+- Fixed republishing failing over unchanged or equivalent custom fields.
+- Fixed republished posts keeping partial changes after refused custom fields.
+- Fixed the comment listing description for WooCommerce shops.
+- Fixed writing Elementor widget and container settings on every tab.
+- Fixed translation linking checks, file save errors and search totals.
+- Fixed AI client sign-in on hosts that block nested well-known paths
+- Fixed REST reads adding or changing site data during lookup
+- Fixed product search finding products by full or partial SKU.
+- Fixed SEO update tools deleting percent signs from text fields
 
 [See changelog for all versions](https://easymcpai.com/changelog).
 

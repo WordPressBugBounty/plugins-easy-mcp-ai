@@ -22,6 +22,7 @@ final class Tool_Directories {
         'rest',
         'privileged',
         'cli',
+        'cloud',
     );
 
     const PLUGIN_GROUPS = array(
@@ -32,6 +33,8 @@ final class Tool_Directories {
         'site-kit'            => 'site-kit',
         'divi'                => 'divi',
         'contact-form-7'      => 'contact-form-7',
+        'smart-slider-3'      => 'smart-slider',
+        'loco-translate'      => 'loco-translate',
         'buddypress'          => 'buddypress',
         'yoast-seo'           => 'seo/yoast',
         'rank-math'           => 'seo/rank-math',
@@ -45,12 +48,14 @@ final class Tool_Directories {
 
     const BUILDERS = 'builders';
 
+    const TRANSLATIONS = 'translations';
+
     public static function enabled(): array {
-        return array_values( array_unique( array_merge( self::ALWAYS_ON, self::external_data(), self::plugin_groups(), self::builders() ) ) );
+        return array_values( array_unique( array_merge( self::ALWAYS_ON, self::external_data(), self::plugin_groups(), self::builders(), self::translations() ) ) );
     }
 
     public static function all(): array {
-        return array_values( array_unique( array_merge( self::ALWAYS_ON, self::EXTERNAL_DATA, array_values( self::PLUGIN_GROUPS ), array( self::BUILDERS ) ) ) );
+        return array_values( array_unique( array_merge( self::ALWAYS_ON, self::EXTERNAL_DATA, array_values( self::PLUGIN_GROUPS ), array( self::BUILDERS, self::TRANSLATIONS ) ) ) );
     }
 
     public static function external_data(): array {
@@ -78,6 +83,10 @@ final class Tool_Directories {
 
     public static function builders(): array {
         return \Easy_MCP_AI\Builders\Builder_Registry::any_present() ? array( self::BUILDERS ) : array();
+    }
+
+    public static function translations(): array {
+        return null === \Easy_MCP_AI\Multilingual\Translation_Registry::active() ? array() : array( self::TRANSLATIONS );
     }
 
     public static function plugin_groups(): array {

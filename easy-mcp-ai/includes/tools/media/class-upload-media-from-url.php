@@ -102,6 +102,7 @@ class Upload_Media_From_Url extends Base_Tool {
     }
 
     public function execute( array $arguments ) {
+        $this->refuse_switched_off_route( 'POST', '/wp/v2/media' );
         $source = $this->resolve_source( $arguments );
 
         self::refuse_non_text_fields( $arguments );
@@ -340,7 +341,7 @@ class Upload_Media_From_Url extends Base_Tool {
     private static function apply_attachment_fields( int $attachment_id, array $arguments ): void {
         $post_update = array( 'ID' => $attachment_id );
         if ( array_key_exists( 'title', $arguments ) ) {
-            $post_update['post_title'] = sanitize_text_field( (string) $arguments['title'] );
+            $post_update['post_title'] = wp_slash( sanitize_text_field( (string) $arguments['title'] ) );
         }
         if ( array_key_exists( 'caption', $arguments ) ) {
             $post_update['post_excerpt'] = wp_slash( (string) $arguments['caption'] );
@@ -350,7 +351,7 @@ class Upload_Media_From_Url extends Base_Tool {
             wp_update_post( $post_update );
         }
         if ( array_key_exists( 'alt_text', $arguments ) ) {
-            update_post_meta( $attachment_id, '_wp_attachment_image_alt', sanitize_text_field( (string) $arguments['alt_text'] ) );
+            update_post_meta( $attachment_id, '_wp_attachment_image_alt', wp_slash( sanitize_text_field( (string) $arguments['alt_text'] ) ) );
         }
     }
 

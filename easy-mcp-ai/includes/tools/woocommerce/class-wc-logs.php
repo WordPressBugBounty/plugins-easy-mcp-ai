@@ -343,12 +343,41 @@ class WC_Logs {
     }
 
     private static function structured( string $json ): ?string {
-        $decoded = json_decode( $json, true );
+        $decoded = self::decode_json( $json );
         if ( ! is_array( $decoded ) ) {
             return null;
         }
-        $encoded = \wp_json_encode( self::redact_structure( $decoded ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-        return false === $encoded ? null : $encoded;
+        return self::encode_json( self::redact_structure( $decoded ) );
+    }
+
+    private static $big_integer_mark = null;
+
+    private static function big_integer_mark(): string {
+        if ( null === self::$big_integer_mark ) {
+            self::$big_integer_mark = '\\u0001' . bin2hex( random_bytes( 8 ) ) . ':';
+        }
+        return self::$big_integer_mark;
+    }
+
+    private static function decode_json( string $json ) {
+        $mark   = self::big_integer_mark();
+        $marked = preg_replace_callback(
+            '/"(?:[^"\\\\]|\\\\.)*+"|(?<![\w.+\-])-?[1-9]\d{18,}+(?![.eE\d])/',
+            static function ( array $m ) use ( $mark ): string {
+                return '"' === $m[0][0] ? $m[0] : '"' . $mark . $m[0] . '"';
+            },
+            $json
+        );
+        return json_decode( null === $marked ? $json : $marked, true, 512, JSON_BIGINT_AS_STRING );
+    }
+
+    private static function encode_json( $value ): ?string {
+        $encoded = \wp_json_encode( $value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+        if ( false === $encoded ) {
+            return null;
+        }
+        $restored = preg_replace( '/"' . preg_quote( self::big_integer_mark(), '/' ) . '(-?\d+)"/', '$1', $encoded );
+        return null === $restored ? $encoded : $restored;
     }
 
     private static function redact_structure( $value, $key = '', int $depth = 0 ) {
@@ -366,10 +395,9 @@ class WC_Logs {
             return $out;
         }
         if ( is_string( $value ) ) {
-            $inner = json_decode( $value, true );
+            $inner = self::decode_json( $value );
             if ( is_array( $inner ) ) {
-                $encoded = \wp_json_encode( self::redact_structure( $inner, '', $depth + 1 ), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-                return false === $encoded ? Text_Redactor::MASK : $encoded;
+                return self::encode_json( self::redact_structure( $inner, '', $depth + 1 ) ) ?? Text_Redactor::MASK;
             }
             return self::redact_text( $value );
         }

@@ -161,6 +161,10 @@ class Tool_Catalogue {
     }
 
     private static function covers( string $category ): array {
+        if ( 'translations' === $category ) {
+            $adapter = \Easy_MCP_AI\Multilingual\Translation_Registry::active();
+            return null === $adapter ? array() : array( $adapter->label() );
+        }
         if ( 'builders' !== $category ) {
             return array();
         }
@@ -302,7 +306,7 @@ class Tool_Catalogue {
             \Easy_MCP_AI\Tools\Tool_Directories::ALWAYS_ON,
             array_values( \Easy_MCP_AI\Tools\Tool_Directories::PLUGIN_GROUPS ),
             \Easy_MCP_AI\Tools\Tool_Directories::EXTERNAL_DATA,
-            array( \Easy_MCP_AI\Tools\Tool_Directories::BUILDERS )
+            array( \Easy_MCP_AI\Tools\Tool_Directories::BUILDERS, \Easy_MCP_AI\Tools\Tool_Directories::TRANSLATIONS )
         ) );
         return $registry;
     }
@@ -375,6 +379,7 @@ class Tool_Catalogue {
                 $item['requiredCapability'] = (string) $tool->get_required_capability();
                 $item['category'] = \Easy_MCP_AI\Tools\Tool_Policy::category( $annotations, $tool->get_category() );
                 $item['access'] = ! empty( $annotations['readOnlyHint'] ) ? 'read' : 'write';
+                $item['reachesCloud'] = \Easy_MCP_AI\Cloud\Cloud_Tools::CATEGORY === $tool->get_category() && ! empty( $annotations['openWorldHint'] );
                 $item['recommended'] = array( 'enabled' => $ability_defaults[ $name ] ?? ! $tool->is_disabled_by_default(), 'requireApproval' => 'read' !== $item['category'] && \Easy_MCP_AI\Approvals\Approval_Gate::is_destructive_by_annotation( $tool ) );
             } else {
                 $hints = $ability_hints[ $name ] ?? null;
@@ -403,6 +408,9 @@ class Tool_Catalogue {
                 $enabled = false;
             }
             $item['enabled'] = $item['available'] && $enabled && \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $name, $patterns );
+            $registered    = $item['enabled'] ? $this->tool_registry->get_tool( $name ) : null;
+            $needed        = $registered ? \Easy_MCP_AI\MCP\Server::required_tool_off( $this->tool_registry, $registered ) : null;
+            $item['needs'] = $needed ? $needed['tool'] : null;
             $approval_choice = \Easy_MCP_AI\Tools\Tool_Policy::approval_choice( $name );
             if ( $tool && null !== $approval_choice && ! \Easy_MCP_AI\Approvals\Approval_Gate::settings_deployed() ) {
                 $item['requireApproval'] = (bool) \apply_filters( 'easy_mcp_ai_requires_approval', $approval_choice, $name, array(), 'explicit' );

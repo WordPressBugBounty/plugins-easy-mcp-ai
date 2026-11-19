@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\CPT;
 
+use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
@@ -43,7 +44,7 @@ class List_CPT_Items extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Lists items of any custom post type (CPT) shown in the REST API, or hidden from it but public with an admin screen. Required: `rest_base` (e.g. "product", "events", "movies"), or the post_type slug, which is also accepted (a hidden type by its slug). `wp_get_post_types` lists every post type with its slug and rest_base. Optional, each detailed on its property: `per_page` (default 10, max 100), `page` or `offset`, `search`, `status` (default publish), `include` or `exclude` (not both), `slug`, `author` or `author_exclude` (not both), `parent` or `parent_exclude` (not both), `after` / `before`, `has_password`, `date_query` / `tax_query` / `meta_query` (WP_Query clause lists; meta_query needs edit_posts and only keys registered with show_in_rest for the type), `orderby` (default date), `order` (default desc), `context` (edit by default: only items you can edit; view: items you can read, for callers without edit access), `raw_columns` (edit context only: each item also carries `raw`, every database column as stored). Returns { items: [{ id, title, status, date, modified, link, slug, raw (only with raw_columns) }], total, total_pages, page, per_page, rest_base }. The tool is listed for every caller, but WordPress enforces each type\'s own edit capability on the request (edit_posts, or a custom one like WooCommerce\'s edit_products), so a caller may get a permission error on a specific CPT.';
+        return 'Lists items of any custom post type (CPT) shown in the REST API, or hidden from it but public with an admin screen. Required: `rest_base` (e.g. "product", "events", "movies"), or the post_type slug, which is also accepted (a hidden type by its slug). `wp_get_post_types` lists every post type with its slug and rest_base. Optional, each detailed on its property: `per_page` (default 10, max 100), `page` or `offset`, `search`, `status` (default publish), `include` or `exclude` (not both), `slug`, `author` or `author_exclude` (not both), `parent` or `parent_exclude` (not both), `after` / `before`, `has_password`, `date_query` / `tax_query` / `meta_query` (WP_Query clause lists; meta_query needs edit_posts and only keys registered with show_in_rest for the type), `orderby` (default date), `order` (default desc), `context` (edit by default: only items you can edit; view: items you can read, for callers without edit access), `raw_columns` (edit context only: each item also carries `raw`, every database column as stored). Returns { items: [{ id, title, status, date, modified, link, slug, raw (only with raw_columns), template_type (Elementor templates only: page, section, kit, …) }], total, total_pages, page, per_page, rest_base }. The tool is listed for every caller, but WordPress enforces each type\'s own edit capability on the request (edit_posts, or a custom one like WooCommerce\'s edit_products), so a caller may get a permission error on a specific CPT.';
     }
 
     public function get_category() {
@@ -64,7 +65,7 @@ class List_CPT_Items extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array_merge(
                 array(
@@ -135,6 +136,8 @@ class List_CPT_Items extends Base_Tool {
             ),
             'required'   => array( 'rest_base' ),
         );
+        $schema['properties'] += Translation_Read::properties();
+        return $schema;
     }
 
     public function execute( array $arguments ) {
@@ -150,6 +153,7 @@ class List_CPT_Items extends Base_Tool {
         $this->validate_required( $arguments, array( 'rest_base' ) );
 
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+        $this->refuse_switched_off_dedicated_tool( $rest_base );
         Hidden_Post_Types::refuse_unreadable( $rest_base );
 
         $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
@@ -171,10 +175,21 @@ class List_CPT_Items extends Base_Tool {
             $request->set_param( $key, $value );
         }
 
-        $response = self::dispatch( $request, $post_type, $vars );
+        $lang     = Translation_Read::requested( $arguments );
+        $vars     = array_merge( $vars, Translation_Read::query_vars( $lang ) );
+        $send     = static function () use ( $lang, $request, $post_type, $vars ): \WP_REST_Response {
+            return Translation_Read::run(
+                $lang,
+                static function () use ( $request, $post_type, $vars ): \WP_REST_Response {
+                    return self::dispatch( $request, $post_type, $vars );
+                }
+            );
+        };
+        $response = $send();
 
         if ( $response->is_error() ) {
-            return $this->empty_page_or_refusal( $response, $rest_base, $page, $per_page );
+            Elementor_Templates::refuse_admin_only( $request->get_route(), $response->as_error() );
+            return $this->empty_page_or_refusal( $response, $rest_base, $page, $per_page, $request, $send );
         }
 
         $items   = $response->get_data();
@@ -184,11 +199,11 @@ class List_CPT_Items extends Base_Tool {
             if ( ! self::may_list_in_context( $context, $item['id'] ) ) {
                 continue;
             }
-            $result[] = self::item_row( $item, $raw );
+            $result[] = self::item_row( $item, $raw, $post_type );
         }
 
         return array_merge(
-            array( 'items' => $result ),
+            array( 'items' => Translation_Read::label_rows( $result ) ),
             $this->pagination_meta( $response, $page, $per_page, count( $items ) ),
             array( 'rest_base' => $rest_base )
         );
@@ -237,7 +252,7 @@ class List_CPT_Items extends Base_Tool {
         return array( $post_type, self::query_vars( $post_type, $arguments ) );
     }
 
-    private function empty_page_or_refusal( \WP_REST_Response $response, string $rest_base, int $page, int $per_page ): array {
+    private function empty_page_or_refusal( \WP_REST_Response $response, string $rest_base, int $page, int $per_page, \WP_REST_Request $request, callable $send ): array {
         $wp_error = $response->as_error();
         if ( 'rest_no_route' === $wp_error->get_error_code() ) {
             throw new \RuntimeException( Post_Type_Tool_Hint::no_route( $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -245,14 +260,14 @@ class List_CPT_Items extends Base_Tool {
         if ( $this->is_invalid_page_error( $wp_error ) ) {
             return array_merge(
                 array( 'items' => array() ),
-                $this->pagination_meta( null, $page, $per_page, 0 ),
+                $this->past_the_end_meta( $request, $send, $page, $per_page ),
                 array( 'rest_base' => $rest_base )
             );
         }
         throw self::rest_error_exception( $wp_error ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
     }
 
-    private static function item_row( array $item, bool $raw ): array {
+    private static function item_row( array $item, bool $raw, string $post_type ): array {
         $row = array(
             'id'       => $item['id'],
             'title'    => $item['title']['raw'] ?? wp_strip_all_tags( $item['title']['rendered'] ?? '' ),
@@ -262,6 +277,9 @@ class List_CPT_Items extends Base_Tool {
             'link'     => $item['link'] ?? '',
             'slug'     => $item['slug'] ?? '',
         );
+        if ( Elementor_Templates::POST_TYPE === $post_type ) {
+            $row['template_type'] = Elementor_Templates::template_type( (int) $item['id'] );
+        }
         if ( $raw ) {
             $row['raw'] = self::raw_row( $item['id'] );
         }
@@ -390,7 +408,7 @@ class List_CPT_Items extends Base_Tool {
         return $vars;
     }
 
-    private static function rest_taxonomy_names( string $post_type ): array {
+    public static function rest_taxonomy_names( string $post_type ): array {
         $taxonomies = array();
         foreach ( (array) get_object_taxonomies( $post_type, 'objects' ) as $key => $tax ) {
             if ( is_object( $tax ) && ! empty( $tax->show_in_rest ) ) {

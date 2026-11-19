@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Shipping_Zone extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce shipping zone together with its locations and every shipping method in it; addresses it covered fall to the next matching zone or to "Rest of the world". Required: `id` (wp_wc_list_shipping_zones). Zone 0 ("Rest of the world") cannot be deleted. There is no trash and no undo. Returns { deleted: true, id, name }. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce shipping zone together with its locations and every shipping method in it; addresses it covered fall to the next matching zone or to "Rest of the world". Required: `id` (wp_wc_list_shipping_zones). Zone 0 ("Rest of the world") cannot be deleted. There is no trash and no undo. Returns { deleted: true, id, name }; if a plugin stops the delete, the call is an error. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -71,6 +72,7 @@ class Delete_Shipping_Zone extends Base_Tool {
         $id = $this->parse_editable_zone_id( $arguments['id'], 'deleted' );
 
         $zone = $this->rest_request( 'DELETE', '/wc/v3/shipping/zones/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_route_gone( '/wc/v3/shipping/zones/' . $id, 'shipping zone ' . $id, 'woocommerce_rest_shipping_zone_invalid', 'WooCommerce may already have removed its shipping methods and locations.' );
 
         return array(
             'deleted' => true,

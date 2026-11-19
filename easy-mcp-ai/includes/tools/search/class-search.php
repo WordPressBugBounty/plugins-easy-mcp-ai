@@ -99,21 +99,17 @@ class Search extends Base_Tool {
             $request->set_param( 'subtype', sanitize_text_field( $arguments['subtype'] ) );
         }
 
-        $response = rest_do_request( $request );
+        $send     = static function () use ( $request ): \WP_REST_Response {
+            return rest_do_request( $request );
+        };
+        $response = $send();
 
-        if ( $response->is_error() ) {
-            $error = $response->as_error();
-            if ( $this->is_invalid_page_error( $error ) ) {
-                return array_merge(
-                    array( 'results' => array() ),
-                    $this->pagination_meta( null, $page, $per_page, 0 ),
-                    array( 'query' => $query )
-                );
-            }
-            throw new \RuntimeException( $error->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        $past = $this->search_past_the_end( $response, $request, $send, $page, $per_page, $query );
+        if ( null !== $past ) {
+            return $past;
         }
 
-        $items   = $response->get_data();
+        $items = $response->get_data();
 
         $want_snippet = ! empty( $arguments['snippet'] );
         $snippet_len  = isset( $arguments['snippet_length'] ) ? (int) $arguments['snippet_length'] : 200;

@@ -11,11 +11,15 @@ abstract class Meta_Command extends Command_Handler {
 
     protected $ctx = null;
 
+    private $wrote_elsewhere = false;
+
     protected $inv = null;
 
     private $batch = null;
 
     const MASK = '[REDACTED]';
+
+    const NO_KEY = 'wp_cli_run needs a meta key here: for an empty key, or 0, WordPress reads every meta row of the object, rows wp_cli_run never prints among them. List the keys with `%s`.';
 
     const KEY_BYTES = 'wp_cli_run refuses to write a meta key containing a control character or a non-ASCII byte, or ending in a space: the meta tables compare keys without regard to accents, control characters or trailing spaces, so such a key can address another key\'s rows. Pass the key in plain ASCII, as `%s` prints it.';
 
@@ -34,6 +38,31 @@ abstract class Meta_Command extends Command_Handler {
     const NOTE_EMPTY = "WP-CLI exits 1 without output here: '%s' has no value to print.";
 
     const NOTE_NO_PATH = "WP-CLI exits 1 without output here: '%s' has no value at that key path.";
+
+    const DELETE_KEPT = 'Failed to delete custom field: WordPress answered that it was deleted, but the meta table still holds it. A plugin or theme on this site may have stopped the delete.';
+
+    const DELETE_UNKNOWN = 'Failed to confirm the custom field was deleted: a database error stopped the meta table being read back, so whether it was deleted is not known.';
+
+    const DELETE_KEY_KEPT    = "Failed to delete '%s' custom field: the meta table still holds it after WordPress answered that it was deleted. A plugin or theme on this site may have stopped the delete.";
+    const DELETE_KEY_UNKNOWN = "Failed to confirm the '%s' custom field was deleted: a database error stopped the meta table being read back.";
+    const DELETE_ALL_LEFT    = 'Failed to delete all custom fields: the meta table still holds %1$d that the read of all custom fields did not list. A plugin or theme on this site may have hidden them. Still stored: %2$s.';
+    const DELETE_ALL_UNKNOWN = 'Failed to confirm all custom fields were deleted: a database error stopped the meta table being read back.';
+
+    const WRITE_STOPPED = 'Failed to %1$s custom field: WordPress answered that it was saved, but the meta table is unchanged. A plugin or theme on this site may have stopped the write. Key: %2$s';
+
+    const WRITTEN_ELSEWHERE = "Custom field '%s' is not in the meta table: WordPress answered that it was saved, and a plugin or theme wrote it to storage of its own.";
+
+    const HELD_ELSEWHERE = "Custom field '%s' is not in the meta table: WordPress already read it as this value, and a plugin or theme took the write into storage of its own.";
+
+    const WRITE_OTHER = 'Failed to %1$s custom field: WordPress answered that it was saved, but the meta table holds a different value. A plugin or theme on this site may have changed it. Key: %2$s';
+
+    const WRITE_UNKNOWN = 'Failed to confirm the custom field was saved: a database error stopped the meta table being read back, so whether it was saved is not known. Key: %s';
+
+    const WRITE_UNBASED = 'Nothing was written: a database error stopped the meta table being read before the write, so its outcome could not be confirmed. Key: %s';
+
+    const DELETE_UNBASED = 'Nothing was deleted: a database error stopped the meta table being read before the delete, so its outcome could not be confirmed. Key: %s';
+
+    const WRITE_FALSE_UNKNOWN = 'WordPress answered that the custom field was not %1$s, but a database error stopped the meta table being read back, so whether anything changed is not known. Key: %2$s';
 
     const PREVIEW_DEPTH = 64;
 
@@ -68,6 +97,73 @@ abstract class Meta_Command extends Command_Handler {
 
     protected function meta_rows( $object_id, string $meta_key ): array {
         throw new \LogicException( static::class . ' has no clean-duplicates backend.' );
+    }
+
+    protected function meta_kept( $object_id, string $meta_key, string $meta_value = '' ): ?bool {
+        return false;
+    }
+
+    final protected function table_meta_kept( $object_id, string $meta_key, string $meta_value = '' ): ?bool {
+        return \Easy_MCP_AI\Tools\Delete_Outcome::meta_kept( $this->meta_type, (int) $object_id, $meta_key, $meta_value );
+    }
+
+    protected function stored_values( $object_id, string $meta_key ) {
+        return false;
+    }
+
+    protected function stored_keys( $object_id ) {
+        return false;
+    }
+
+    final protected function table_keys( $object_id ): ?array {
+        return \Easy_MCP_AI\Tools\Delete_Outcome::stored_meta_keys( $this->meta_type, (int) $object_id );
+    }
+
+    final protected function table_values( $object_id, string $meta_key ): ?array {
+        return \Easy_MCP_AI\Tools\Delete_Outcome::stored_meta_values( $this->meta_type, (int) $object_id, $meta_key );
+    }
+
+    protected function write_object_id( $object_id ) {
+        return $object_id;
+    }
+
+    private function rows_before( $object_id, string $meta_key ) {
+        $rows = $this->stored_values( $this->write_object_id( $object_id ), $meta_key );
+        if ( null === $rows ) {
+            $this->ctx->out->error( sprintf( self::WRITE_UNBASED, $meta_key ) );
+        }
+        return $rows;
+    }
+
+    private function single_value( $object_id, string $meta_key, $rows ) {
+        if ( is_array( $rows ) ) {
+            if ( array() === $rows ) {
+                return '';
+            }
+            return function_exists( 'maybe_unserialize' ) ? \maybe_unserialize( $rows[0] ) : $rows[0];
+        }
+        return $this->get_metadata( $object_id, $meta_key, true );
+    }
+
+    private function reads_as( $object_id, string $meta_key, $meta_value ): bool {
+        try {
+            return $meta_value === $this->sanitize_meta( $meta_key, $this->get_metadata( $this->write_object_id( $object_id ), $meta_key, true ) );
+        } catch ( \Throwable $e ) {
+            return false;
+        }
+    }
+
+    private function mark_if_moved( $object_id, string $meta_key, $before, string $done ): void {
+        if ( ! is_array( $before ) ) {
+            return;
+        }
+        $after = $this->stored_values( $this->write_object_id( $object_id ), $meta_key );
+        if ( null === $after ) {
+            $this->ctx->not_known( sprintf( self::WRITE_FALSE_UNKNOWN, $done, $meta_key ) );
+        }
+        if ( is_array( $after ) && $after !== $before ) {
+            $this->ctx->mark_changed();
+        }
     }
 
     protected function delete_meta_by_mid( int $meta_id ): bool {
@@ -213,13 +309,25 @@ abstract class Meta_Command extends Command_Handler {
             return;
         }
 
+        $before = $this->stored_values( $this->write_object_id( $object_id ), $meta_key );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( self::DELETE_UNBASED, $meta_key ) );
+        }
         $success = $this->delete_metadata( $object_id, $meta_key, $meta_value );
-        if ( $success ) {
-            $ctx->mark_changed();
-            $ctx->out->success( 'Deleted custom field.' );
-        } else {
+        if ( ! $success ) {
+            $this->mark_if_moved( $object_id, $meta_key, $before, 'deleted' );
             $ctx->out->error( 'Failed to delete custom field.' );
         }
+        $kept = $this->meta_kept( $object_id, $meta_key, $meta_value );
+        if ( null === $kept ) {
+            $ctx->not_known( self::DELETE_UNKNOWN );
+        }
+        if ( $kept ) {
+            $this->mark_if_moved( $object_id, $meta_key, $before, 'deleted' );
+            $ctx->out->error( self::DELETE_KEPT );
+        }
+        $ctx->mark_changed();
+        $ctx->out->success( 'Deleted custom field.' );
     }
 
     private static function delete_value( array $args ): string {
@@ -255,14 +363,19 @@ abstract class Meta_Command extends Command_Handler {
         $object_id = $this->check_object_id( $object_id, 'add' );
 
         $meta_value = self::slash( $meta_value );
-        $success    = $this->add_metadata( $object_id, $meta_key, $meta_value );
+        $before     = $this->rows_before( $object_id, $meta_key );
+        $success    = $this->watched(
+            function () use ( $object_id, $meta_key, $meta_value ): bool {
+                return $this->add_metadata( $object_id, $meta_key, $meta_value );
+            }
+        );
 
-        if ( $success ) {
-            $ctx->mark_changed();
-            $ctx->out->success( 'Added custom field.' );
-        } else {
+        if ( ! $success ) {
+            $this->mark_if_moved( $object_id, $meta_key, $before, 'added' );
             $ctx->out->error( 'Failed to add custom field.' );
         }
+        $this->require_written( 'add', $object_id, $meta_key, $meta_value, $before );
+        $ctx->out->success( 'Added custom field.' );
     }
 
     public function update( Invocation $inv, Context $ctx ): void {
@@ -278,20 +391,26 @@ abstract class Meta_Command extends Command_Handler {
         $object_id = $this->check_object_id( $object_id, 'update' );
 
         $meta_value = $this->sanitize_meta( $meta_key, $meta_value );
-        $old_value  = $this->sanitize_meta( $meta_key, $this->get_metadata( $object_id, $meta_key, true ) );
+        $before     = $this->rows_before( $object_id, $meta_key );
+        $old_value  = $this->sanitize_meta( $meta_key, $this->single_value( $object_id, $meta_key, $before ) );
 
         if ( $meta_value === $old_value ) {
             $ctx->out->success( "Value passed for custom field '{$meta_key}' is unchanged." );
         } else {
-            $meta_value = self::slash( $meta_value );
-            $success    = $this->update_metadata( $object_id, $meta_key, $meta_value );
+            $read_as_sent = is_array( $before ) && $this->reads_as( $object_id, $meta_key, $meta_value );
+            $meta_value   = self::slash( $meta_value );
+            $success      = $this->watched(
+                function () use ( $object_id, $meta_key, $meta_value ): bool {
+                    return $this->update_metadata( $object_id, $meta_key, $meta_value );
+                }
+            );
 
-            if ( $success ) {
-                $ctx->mark_changed();
-                $ctx->out->success( "Updated custom field '{$meta_key}'." );
-            } else {
+            if ( ! $success ) {
+                $this->mark_if_moved( $object_id, $meta_key, $before, 'updated' );
                 $ctx->out->error( "Failed to update custom field '{$meta_key}'." );
             }
+            $written = $this->require_written( 'update', $object_id, $meta_key, $meta_value, $before, $read_as_sent );
+            $ctx->out->success( $written ? "Updated custom field '{$meta_key}'." : "Value passed for custom field '{$meta_key}' is unchanged." );
         }
     }
 
@@ -341,7 +460,8 @@ abstract class Meta_Command extends Command_Handler {
             $patch_value = Read_Value::read( $ctx->out, array_pop( $key_path ), $inv->assoc );
         }
 
-        $current_meta_value = $this->sanitize_meta( $meta_key, $this->get_metadata( $object_id, $meta_key, true ) );
+        $before             = $this->rows_before( $object_id, $meta_key );
+        $current_meta_value = $this->sanitize_meta( $meta_key, $this->single_value( $object_id, $meta_key, $before ) );
         $old_meta_value     = $current_meta_value;
         if ( is_object( $current_meta_value ) ) {
             $old_meta_value = clone $current_meta_value;
@@ -360,15 +480,108 @@ abstract class Meta_Command extends Command_Handler {
             $ctx->out->success( "Value passed for custom field '{$meta_key}' is unchanged." );
         } else {
             $slashed = self::slash( $patched_meta_value );
-            $success = $this->update_metadata( $object_id, $meta_key, $slashed );
+            $success = $this->watched(
+                function () use ( $object_id, $meta_key, $slashed ): bool {
+                    return $this->update_metadata( $object_id, $meta_key, $slashed );
+                }
+            );
 
-            if ( $success ) {
-                $ctx->mark_changed();
-                $ctx->out->success( "Updated custom field '{$meta_key}'." );
-            } else {
+            if ( ! $success ) {
+                $this->mark_if_moved( $object_id, $meta_key, $before, 'updated' );
                 $ctx->out->error( "Failed to update custom field '{$meta_key}'." );
             }
+            $this->require_written( 'update', $object_id, $meta_key, $slashed, $before );
+            $ctx->out->success( "Updated custom field '{$meta_key}'." );
         }
+    }
+
+    private function require_written( string $verb, $object_id, string $meta_key, $slashed, $before, bool $held = false ): bool {
+        $object_id = $this->write_object_id( $object_id );
+        $after     = $this->stored_values( $object_id, $meta_key );
+        if ( false === $after ) {
+            $this->ctx->mark_changed();
+            return true;
+        }
+        if ( null === $after ) {
+            $this->ctx->not_known( sprintf( self::WRITE_UNKNOWN, $meta_key ) );
+        }
+        $text  = $this->stored_text( $object_id, $meta_key, $slashed );
+        $count = static function ( $values ) use ( $text ): int {
+            return is_array( $values ) ? count( array_keys( $values, $text, true ) ) : 0;
+        };
+        $done = 'add' === $verb
+            ? $count( $after ) > $count( $before )
+            : ( array() !== $after && count( $after ) === $count( $after ) );
+        if ( $done ) {
+            $this->ctx->mark_changed();
+            return true;
+        }
+        if ( is_array( $before ) && $before === $after ) {
+            if ( $this->wrote_elsewhere ) {
+                if ( $held ) {
+                    $this->ctx->note( sprintf( self::HELD_ELSEWHERE, $meta_key ) );
+                    return false;
+                }
+                $this->ctx->note( sprintf( self::WRITTEN_ELSEWHERE, $meta_key ) );
+                $this->ctx->mark_changed();
+                return true;
+            }
+            $this->ctx->out->error( sprintf( self::WRITE_STOPPED, $verb, $meta_key ) );
+        }
+        if ( is_array( $before ) ) {
+            $this->ctx->mark_changed();
+        }
+        $this->ctx->out->error( sprintf( self::WRITE_OTHER, $verb, $meta_key ) );
+    }
+
+    private function watched( callable $write ): bool {
+        global $wpdb;
+        $table                 = function_exists( '_get_meta_table' ) ? strtolower( (string) \_get_meta_table( $this->meta_type ) ) : '';
+        $this->wrote_elsewhere = false;
+        $pending               = null;
+        $settle                = function () use ( &$pending, &$wpdb ): void {
+            if ( null === $pending || ! is_object( $wpdb ) || $pending !== $wpdb->last_query ) {
+                return;
+            }
+            if ( '' === (string) $wpdb->last_error ) {
+                $this->wrote_elsewhere = true;
+            }
+            $pending = null;
+        };
+        $watch                 = static function ( $query ) use ( &$pending, $settle, $table ) {
+            $settle();
+            $target = is_string( $query ) ? self::written_table( $query ) : null;
+            if ( null !== $target && $target !== $table ) {
+                $pending = $query;
+            }
+            return $query;
+        };
+        \add_filter( 'query', $watch, PHP_INT_MAX );
+        try {
+            return $write();
+        } finally {
+            \remove_filter( 'query', $watch, PHP_INT_MAX );
+            $settle();
+        }
+    }
+
+    private static function written_table( string $query ): ?string {
+        $name    = '(?:`[^`]+`|[\w$]+)';
+        $pattern = '/^\s*(?:INSERT\s+(?:(?:LOW_PRIORITY|DELAYED|HIGH_PRIORITY|IGNORE)\s+)*(?:INTO\s+)?'
+            . '|REPLACE\s+(?:(?:LOW_PRIORITY|DELAYED)\s+)?(?:INTO\s+)?'
+            . '|UPDATE\s+(?:(?:LOW_PRIORITY|IGNORE)\s+)*)'
+            . '(?:' . $name . '\s*\.\s*)?(' . $name . ')/i';
+        return 1 === preg_match( $pattern, $query, $match ) ? strtolower( trim( $match[1], '`' ) ) : null;
+    }
+
+    private function stored_text( $object_id, string $meta_key, $slashed ): string {
+        $key   = function_exists( 'wp_unslash' ) ? (string) \wp_unslash( $meta_key ) : $meta_key;
+        $value = function_exists( 'wp_unslash' ) ? \wp_unslash( $slashed ) : $slashed;
+        if ( function_exists( 'sanitize_meta' ) ) {
+            $subtype = function_exists( 'get_object_subtype' ) ? (string) \get_object_subtype( $this->meta_type, (int) $object_id ) : '';
+            $value   = \sanitize_meta( $key, $value, $this->meta_type, $subtype );
+        }
+        return (string) ( function_exists( 'maybe_serialize' ) ? \maybe_serialize( $value ) : $value );
     }
 
     public function clean_duplicates( Invocation $inv, Context $ctx ): void {
@@ -546,7 +759,19 @@ abstract class Meta_Command extends Command_Handler {
         return $data;
     }
 
-    private function begin( Invocation $inv, Context $ctx ): void {
+    public static function no_key_refusal( string $command, array $args ): ?string {
+        if ( 1 !== preg_match( '/^((?:post|term|user|comment|site|network) meta) (add|delete|get|patch|pluck|update|set)\z/', $command, $m ) ) {
+            return null;
+        }
+        $at = 'patch' === $m[2] ? 2 : 1;
+        if ( ! isset( $args[ $at ] ) ) {
+            return null;
+        }
+        $key = (string) $args[ $at ];
+        return \Easy_MCP_AI\Meta\Meta_Key::reads_every_row( $key ) || '' === trim( $key ) ? sprintf( self::NO_KEY, $m[1] . ' list' ) : null;
+    }
+
+    protected function begin( Invocation $inv, Context $ctx ): void {
         $this->inv = $inv;
         $this->ctx = $ctx;
     }
@@ -578,10 +803,19 @@ abstract class Meta_Command extends Command_Handler {
                 $keys,
                 function ( $meta_key ) use ( $ctx, $object_id, &$errors ): string {
                     $success = $this->delete_metadata( $object_id, (string) $meta_key );
-                    if ( $success ) {
+                    $kept    = $success ? $this->meta_kept( $object_id, (string) $meta_key ) : false;
+                    if ( $success && false === $kept ) {
                         $ctx->mark_changed();
                         $ctx->out->log( "Deleted '{$meta_key}' custom field." );
                         return Batch::SUCCESS;
+                    }
+                    if ( $success ) {
+                        if ( null === $kept ) {
+                            $ctx->mark_changed();
+                        }
+                        $ctx->out->warning( sprintf( null === $kept ? self::DELETE_KEY_UNKNOWN : self::DELETE_KEY_KEPT, $meta_key ) );
+                        $errors = true;
+                        return Batch::FAILURE;
                     }
                     $ctx->out->warning( "Failed to delete '{$meta_key}' custom field." );
                     $errors = true;
@@ -596,8 +830,27 @@ abstract class Meta_Command extends Command_Handler {
         }
         if ( $errors ) {
             $ctx->out->error( 'Failed to delete all custom fields.' );
-        } else {
-            $ctx->out->success( 'Deleted all custom fields.' );
+        }
+        $this->require_none_left( $object_id, $ctx );
+        $ctx->out->success( 'Deleted all custom fields.' );
+    }
+
+    private function require_none_left( $object_id, Context $ctx ): void {
+        $stored = $this->stored_keys( $object_id );
+        if ( false === $stored ) {
+            return;
+        }
+        if ( null === $stored ) {
+            $ctx->out->error( self::DELETE_ALL_UNKNOWN );
+        }
+        $left = array();
+        foreach ( $stored as $meta_key ) {
+            if ( null === $this->protect_key( (string) $meta_key, true ) ) {
+                $left[] = (string) $meta_key;
+            }
+        }
+        if ( $left ) {
+            $ctx->out->error( sprintf( self::DELETE_ALL_LEFT, count( $left ), "'" . implode( "', '", $left ) . "'" ) );
         }
     }
 

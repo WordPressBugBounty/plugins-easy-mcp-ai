@@ -489,7 +489,30 @@ body.emcp-page {
 	border-top: 1px solid var(--emcp-border-subtle);
 }
 
-.emcp-table tbody tr:first-child td {
+.emcp-table tbody:first-of-type tr:first-child td {
+	border-top: none;
+}
+
+/* A section heading of the scope table (GitHub #718): one tbody per
+   section, opened by this row. Not a column heading, so none of the
+   thead's uppercase styling. */
+.emcp-table .emcp-table__section th {
+	padding: 16px 12px 6px;
+	font-size: var(--emcp-text-sm);
+	font-weight: 600;
+	text-transform: none;
+	letter-spacing: 0;
+	color: var(--emcp-fg);
+	background: none;
+	border-top: 1px solid var(--emcp-border);
+	border-bottom: none;
+}
+
+.emcp-table tbody:first-of-type .emcp-table__section th {
+	border-top: none;
+}
+
+.emcp-table .emcp-table__section + tr td {
 	border-top: none;
 }
 
@@ -803,8 +826,9 @@ body.emcp-page {
 	transform: translateX(-50%);
 }
 
-/* What a category row's tools need beyond the approver's account
-   (GitHub #196), under its label. */
+/* Under a category row's label: what its boxes do beyond the label
+   (GitHub #717), then what its tools need beyond the approver's account
+   (GitHub #196). */
 .emcp-row-note {
 	display: block;
 	margin-top: 2px;

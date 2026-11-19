@@ -1,7 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Tools\Posts;
 
+use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -18,7 +20,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress post (PATCH semantics — only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601 site time, use with status="future" to reschedule), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `tag_names` (array of tag names or slugs; with `tags` they replace the post\'s tags, and a missing tag is created), `tax_input` (object: taxonomy slug → array of term IDs; each list replaces that taxonomy\'s terms), `password` (an empty string removes it), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`, `clear` (array of title/content/excerpt to set to an empty string). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, modified, updated }, where `updated` maps each sent field among slug, date, date_gmt, author, sticky, comment_status, ping_status, format, template, featured_media, categories, tags and excerpt to the value WordPress stored (a taken slug comes back with its suffix), plus `created_tag_ids` when `tag_names` was given. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — name the field in `clear` to blank it. For CPT items use `wp_update_cpt_item` instead. Meta, terms, the featured image, sticky, template or format sent alone are written without the post itself being saved (its modified date stays); `resave: true` saves it too.';
+        return 'Updates an existing WordPress post (only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601 site time, use with status="future" to reschedule), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `tag_names` (array of tag names or slugs; with `tags` they replace the post\'s tags, and a missing tag is created), `tax_input` (object: taxonomy slug → array of term IDs; each list replaces that taxonomy\'s terms), `password` (an empty string removes it), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`, `clear` (array of title/content/excerpt to set to an empty string). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, modified, updated, ' . Content_Hash::WRITE_FIELDS . ' }, where `updated` maps each sent field among slug, date, date_gmt, author, sticky, comment_status, ping_status, format, template, featured_media, categories, tags and excerpt to the value WordPress stored (a taken slug comes back with its suffix), plus `created_tag_ids` when `tag_names` was given. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — name the field in `clear` to blank it. For CPT items use `wp_update_cpt_item` instead. Meta, terms, the featured image, sticky, template or format sent alone are written without the post itself being saved (its modified date stays); `resave: true` saves it too.' . Translation_Write::description();
     }
 
     public function get_redacted_arguments() {
@@ -43,7 +45,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'post_id'        => array(
@@ -149,12 +151,17 @@ class Update_Post extends Base_Tool {
             ),
             'required'   => array( 'post_id' ),
         );
+        $schema['properties'] += Translation_Write::properties();
+        return $schema;
     }
 
     public function precheck( array $arguments ): void {
         $this->precheck_other_type( $arguments, 'post_id', 'post', 'update' );
         $params = $this->term_and_media_params( $arguments );
         Create_Post::prepare_term_arguments( $arguments, $params );
+        if ( isset( $arguments['post_id'] ) && Translation_Write::asked( $arguments ) ) {
+            Translation_Write::plan( $arguments, 'post', $this->parse_required_id( $arguments['post_id'], 'post_id' ) );
+        }
     }
 
     public function execute( array $arguments ) {
@@ -168,6 +175,7 @@ class Update_Post extends Base_Tool {
 
         $post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
         $this->refuse_other_type( $post_id, 'post', 'update' );
+        $translation = Translation_Write::plan( $arguments, 'post', $post_id, true );
 
         $clear  = $this->parse_clear( $arguments );
         $params = array_merge(
@@ -190,10 +198,14 @@ class Update_Post extends Base_Tool {
         $created_tag_ids = null === $tag_names ? null : Create_Post::resolve_tag_names( $tag_names, $params );
 
         $echoed = self::echoed_fields( $params, self::ECHOED_FIELDS );
-        $data   = $this->rest_post_update( 'PUT', '/wp/v2/posts/' . $post_id, $params, implode( ',', array_merge( array( 'id', 'title', 'status', 'modified', 'link' ), $echoed, $meta_sent ? array( 'meta' ) : array() ) ), $post_id, ! empty( $arguments['resave'] ) );
+        $fields = implode( ',', array_merge( array( 'id', 'title', 'status', 'modified', 'link' ), $echoed, $meta_sent ? array( 'meta' ) : array() ) );
+        $data   = $translation->alone( $params, $arguments )
+            ? $this->rest_request( 'GET', '/wp/v2/posts/' . $post_id, array( 'context' => 'edit' ), $fields )
+            : $this->rest_post_update( 'PUT', '/wp/v2/posts/' . $post_id, $params, $fields, $post_id, ! empty( $arguments['resave'] ) );
 
-        $result = $this->result( $data, $params, $created_tag_ids, $meta_sent );
-        return self::with_updated( $result, $data, $echoed, $params, $post_id );
+        $result     = $this->result( $data, $params, $created_tag_ids, $meta_sent );
+        $translated = $translation->finish( $post_id );
+        return array_merge( self::with_updated( $result, $data, $echoed, $params, $post_id ), $translated ) + Content_Hash::of_post( $post_id, true );
     }
 
     private static function text_params( array $arguments ): array {

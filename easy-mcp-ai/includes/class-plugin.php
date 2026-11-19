@@ -57,6 +57,9 @@ class Plugin {
         \add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_learnpress_abilities' ), 1000 );
         \add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_elementor_abilities' ), 1000 );
         \add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'register_breakdance_abilities' ), PHP_INT_MIN );
+        \add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'load_latepoint_abilities' ), PHP_INT_MIN );
+        \add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'register_latepoint_category' ), 1000 );
+        \add_action( 'wp_abilities_api_init', array( __CLASS__, 'register_latepoint_abilities' ), 1000 );
         if ( defined( 'WP_CLI' ) && WP_CLI ) {
             Privileged\Privileged_Admin::register_cli();
         }
@@ -78,6 +81,7 @@ class Plugin {
         new Admin\App_Page();
 
         new Admin\Self_Service_Keys( $this->token_manager, $this->tool_registry );
+        new Admin\Self_Service_Connections( $this->tool_registry );
         $this->register_diagnostics();
     }
 
@@ -377,6 +381,7 @@ class Plugin {
         }
         Activator::maybe_upgrade_core_tables();
         Compat\Vendor_Abilities::serve();
+        Loco\Loco_Access::serve();
         $this->handle_oauth_authorize( $oauth_param, $iss_mode );
     }
 
@@ -532,6 +537,7 @@ class Plugin {
         $route = isset( $GLOBALS['wp'] ) && is_object( $GLOBALS['wp'] ) && isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? (string) $GLOBALS['wp']->query_vars['rest_route'] : '';
         if ( Compat\Vendor_Abilities::is_our_rest_route( $route ) ) {
             Compat\Vendor_Abilities::serve();
+            Loco\Loco_Access::serve();
         }
         \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
         Activator::maybe_upgrade_core_tables();
@@ -569,6 +575,8 @@ class Plugin {
         Media_Upload\Upload_Route::register();
 
         MCP\Rest_Auth_Override::register();
+
+        ( new Cloud\Cloud_Proof_Route() )->register_routes();
 
         if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
             OAuth\OAuth_Schema::maybe_upgrade();
@@ -901,7 +909,8 @@ class Plugin {
     }
 
     public static function settle_vendor_ability_ticks(): void {
-        if ( \get_option( 'easy_mcp_ai_vendor_ability_ticks_settled' ) ) {
+        $pass = \get_option( 'easy_mcp_ai_vendor_ability_ticks_settled' );
+        if ( ( is_int( $pass ) || ( is_string( $pass ) && ctype_digit( $pass ) ) ) && 2 <= (int) $pass ) {
             return;
         }
         Compat\Vendor_Abilities::settle_ticks();
@@ -923,6 +932,18 @@ class Plugin {
         Compat\Breakdance_Abilities::register_abilities();
     }
 
+    public static function load_latepoint_abilities(): void {
+        Compat\Latepoint_Abilities::load();
+    }
+
+    public static function register_latepoint_category(): void {
+        Compat\Latepoint_Abilities::register_category();
+    }
+
+    public static function register_latepoint_abilities(): void {
+        Compat\Latepoint_Abilities::register_abilities();
+    }
+
     public static function map_privileged_meta_cap( $caps, $cap, $user_id ) {
         if ( ! is_string( $cap ) || 0 !== strpos( $cap, 'easy_mcp_ai_' ) ) {
             return $caps;
@@ -939,7 +960,7 @@ class Plugin {
             if ( \Easy_MCP_AI\History\Change_Context::get( 'own_history', false ) ) {
                 return;
             }
-            if ( $capture_db || '' !== (string) \Easy_MCP_AI\History\Change_Context::get( 'privileged', '' ) ) {
+            if ( $capture_db || '' !== (string) \Easy_MCP_AI\History\Change_Context::get( 'privileged', '' ) || true === \Easy_MCP_AI\History\Change_Context::get( 'raw_writes', false ) ) {
                 $armed = true;
                 $db_interceptor->arm();
             }

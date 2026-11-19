@@ -18,7 +18,7 @@ class Rest_Write extends Rest_Route_Tool {
     }
 
     public function get_description() {
-        return 'Sends a POST, PUT or PATCH request to any WordPress REST route a plugin or WordPress core registers (e.g. create a Redirection redirect, save a WooCommerce shipping zone), in-process, as this key\'s user: the route\'s own permission check decides. Find routes and their arguments with wp_rest_routes. Required: `route`. Optional: `method` (POST default, PUT, PATCH), `body` (JSON object), `query` (object), `fields`. Returns { status, route, namespace, data, changes_recorded?, force_draft?, dedicated_tool? }; `changes_recorded` 0 with a note means change history saw no change. A POST can delete or uninstall on some routes, so treat every call as a real change. While Force draft is on, a new post this call would publish is saved as a draft. The site address (url) and admin email (email) settings cannot be changed here.';
+        return 'Sends a POST, PUT or PATCH request to any WordPress REST route a plugin or WordPress core registers (e.g. create a Redirection redirect, save a WooCommerce shipping zone), in-process, as this key\'s user: the route\'s own permission check decides. Find routes and their arguments with wp_rest_routes. Required: `route`. Optional: `method` (POST default, PUT, PATCH), `body` (JSON object), `query` (object), `fields`. Returns { status, route, namespace, data, changes_recorded?, force_draft?, dedicated_tool? }; `changes_recorded` 0 with a note means change history saw no change. A POST can delete or uninstall on some routes, so treat every call as a real change. While Draft mode saves new content as drafts (New content or Strict), a new post this call would publish is saved as a draft; under Strict, a call that would publish or change published content is refused. The site address (url) and admin email (email) settings cannot be changed here. A route a dedicated tool covers is refused while the site has that tool switched off, naming the tool.';
     }
 
     public function get_annotations() {
@@ -66,10 +66,11 @@ class Rest_Write extends Rest_Route_Tool {
     }
 
     protected function around_dispatch( callable $dispatch, array &$notes ): \WP_REST_Response {
-        if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_force_draft_on_create', false ) ) {
+        if ( ! \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new() ) {
             return $dispatch();
         }
         $drafted = 0;
+        $strict  = \Easy_MCP_AI\Drafts\Strict_Ceiling::drafted();
         $filter  = static function ( $data, $postarr ) use ( &$drafted ) {
             if ( ! is_array( $data ) || ! empty( $postarr['ID'] ) ) {
                 return $data;
@@ -87,8 +88,9 @@ class Rest_Write extends Rest_Route_Tool {
             return $dispatch();
         } finally {
             \remove_filter( 'wp_insert_post_data', $filter, PHP_INT_MAX );
+            $drafted += \Easy_MCP_AI\Drafts\Strict_Ceiling::drafted() - $strict;
             if ( $drafted > 0 ) {
-                $notes['force_draft'] = sprintf( 'Force draft is on: %d new post(s) this call would have published were saved as drafts.', $drafted );
+                $notes['force_draft'] = sprintf( 'Draft mode saves new content as drafts: %d new post(s) this call would have published were saved as drafts.', $drafted );
             }
         }
     }

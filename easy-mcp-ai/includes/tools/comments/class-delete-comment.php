@@ -2,19 +2,21 @@
 namespace Easy_MCP_AI\Tools\Comments;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
 class Delete_Comment extends Base_Tool {
+    use Comment_Moderation;
 
     public function get_name() {
         return 'wp_delete_comment';
     }
 
     public function get_description() {
-        return 'Deletes a WordPress comment by ID. Required: `comment_id`. Optional: `force` (default false) — false moves to trash (status becomes "trash", recoverable via `wp_update_comment` setting status="approve"); true permanently deletes (irreversible). Deleting a comment does not delete its replies — WordPress reparents child comments to the deleted comment\'s parent. Returns { deleted, id }.';
+        return 'Deletes a WordPress comment by ID. Required: `comment_id`. Optional: `force` (default false) — false moves to trash (status becomes "trash", recoverable via `wp_update_comment` setting status="approve"); true permanently deletes (irreversible). Deleting a comment does not delete its replies — WordPress reparents child comments to the deleted comment\'s parent. Returns { deleted: true, status, id }: `status` is "trash" when the comment was moved to the Trash and "deleted" when it no longer exists, read from what WordPress did, not from `force`; if a plugin stops the trash or the delete, the call is an error.';
     }
 
     public function get_category() {
@@ -85,14 +87,17 @@ class Delete_Comment extends Base_Tool {
         if ( isset( $arguments['force'] ) ) {
             $params['force'] = $force;
         }
+        if ( ! $force ) {
+            $this->refuse_switched_off_moderation( 'trash' );
+        }
 
-        $data = $this->rest_request( 'DELETE', '/wp/v2/comments/' . $comment_id, $params );
-
-        $returned_id = $force ? ( $data['previous']['id'] ?? null ) : $data['id'];
+        $data    = $this->rest_request( 'DELETE', '/wp/v2/comments/' . $comment_id, $params );
+        $outcome = Delete_Outcome::of_comment( $data, $comment_id );
 
         return array(
             'deleted' => true,
-            'id'      => $returned_id,
+            'status'  => $outcome['status'],
+            'id'      => $outcome['item']['id'] ?? null,
         );
     }
 }

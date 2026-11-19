@@ -10,6 +10,8 @@ final class Route_Catalogue {
 
     const MAX_MATCHES = 25;
 
+    const MAX_CLOSEST = 5;
+
     const MAX_ROUTES = 300;
 
     const MAX_DESCRIPTION = 200;
@@ -145,30 +147,63 @@ final class Route_Catalogue {
     }
 
     public static function search( $server, string $search, array $namespaces ): array {
-        $terms = array_values( array_filter( preg_split( '/\s+/', strtolower( trim( $search ) ) ) ) );
-        $ranked = array( array(), array() );
+        $terms   = array_values(
+            array_unique(
+                array_filter(
+                    (array) preg_split( '/\s+/', strtolower( trim( $search ) ) ),
+                    static function ( string $term ): bool {
+                        return '' !== $term;
+                    }
+                )
+            )
+        );
+        $ranked  = array( array(), array() );
+        $partial = array();
         foreach ( $namespaces as $namespace ) {
             foreach ( self::listed_routes( $server, $namespace ) as $pattern => $handlers ) {
                 $display = self::display( (string) $pattern );
                 $path    = strtolower( $namespace . ' ' . $display );
                 $text    = $path . ' ' . strtolower( self::argument_text( (array) $handlers ) );
-                if ( ! self::contains_all( $text, $terms ) ) {
+                $found   = self::terms_in( $text, $terms );
+                $route   = array(
+                    'route'     => $display,
+                    'namespace' => $namespace,
+                    'methods'   => self::methods_of( (array) $handlers ),
+                );
+                if ( count( $found ) < count( $terms ) ) {
+                    if ( array() !== $found ) {
+                        $partial[] = array( $route + array( 'matched_words' => $found ), count( self::terms_in( $path, $found ) ) );
+                    }
                     continue;
                 }
                 $in_path = self::contains_all( $path, $terms );
-                $ranked[ $in_path ? 0 : 1 ][] = array(
-                    'route'      => $display,
-                    'namespace'  => $namespace,
-                    'methods'    => self::methods_of( (array) $handlers ),
-                    'matched_in' => $in_path ? 'route' : 'arguments',
-                );
+                $ranked[ $in_path ? 0 : 1 ][] = $route + array( 'matched_in' => $in_path ? 'route' : 'arguments' );
             }
         }
         $matches = array_merge( $ranked[0], $ranked[1] );
-        return array(
+        $result  = array(
             'matches'   => array_slice( $matches, 0, self::MAX_MATCHES ),
             'truncated' => count( $matches ) > self::MAX_MATCHES,
         );
+        if ( array() === $matches ) {
+            $result['closest'] = self::closest( $partial );
+        }
+        return $result;
+    }
+
+    private static function closest( array $partial ): array {
+        $order = array_keys( $partial );
+        usort(
+            $order,
+            static function ( int $a, int $b ) use ( $partial ): int {
+                return array( count( $partial[ $b ][0]['matched_words'] ), $partial[ $b ][1], $a ) <=> array( count( $partial[ $a ][0]['matched_words'] ), $partial[ $a ][1], $b );
+            }
+        );
+        $closest = array();
+        foreach ( array_slice( $order, 0, self::MAX_CLOSEST ) as $index ) {
+            $closest[] = $partial[ $index ][0];
+        }
+        return $closest;
     }
 
     private static function listed_routes( $server, string $namespace ): array {
@@ -266,6 +301,17 @@ final class Route_Catalogue {
             $fields[ $name ] = is_array( $type ) ? implode( '|', array_map( 'strval', $type ) ) : (string) $type;
         }
         return $fields;
+    }
+
+    private static function terms_in( string $text, array $terms ): array {
+        return array_values(
+            array_filter(
+                $terms,
+                static function ( string $term ) use ( $text ): bool {
+                    return false !== strpos( $text, $term );
+                }
+            )
+        );
     }
 
     private static function contains_all( string $text, array $terms ): bool {

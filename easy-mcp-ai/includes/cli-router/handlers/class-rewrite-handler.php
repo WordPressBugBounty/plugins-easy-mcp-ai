@@ -26,6 +26,12 @@ class Rewrite_Handler extends Command_Handler {
     const NOT_CAPTURED_HTACCESS = '.htaccess: when the permalink structure changes, the plugin that serves this MCP connection removes its own Plain-permalinks block from .htaccess if one is there; change history does not record files.';
 
     const HARD_WARNING      = 'Regenerating a .htaccess file requires special configuration. See usage docs.';
+
+    const STRUCTURE_NOT_STORED = 'WordPress did not store the permalink settings as sent. A plugin or theme on this site may have stopped or changed the write. Stored: %s';
+
+    const STRUCTURE_UNKNOWN = 'A database error stopped the permalink settings being read back after the write, so whether WordPress stored them is not known.';
+
+    const STRUCTURE_BEFORE_UNREAD = 'Nothing was written: a database error stopped the permalink settings being read before the write, so their state is not known.';
     const MULTISITE_WARNING = "WordPress can't generate .htaccess file for a multisite install.";
     const EMPTY_WARNING     = "Rewrite rules are empty, possibly because of a missing permalink_structure option. Use 'wp rewrite list' to verify, or 'wp rewrite structure' to update permalink_structure.";
 
@@ -70,6 +76,10 @@ class Rewrite_Handler extends Command_Handler {
 
         $before = $this->bases_state();
         $values = $this->structure_values( $raw, $assoc_args );
+        $stored_before = $this->stored_bases( $before );
+        if ( null === $stored_before ) {
+            $ctx->out->error( self::STRUCTURE_BEFORE_UNREAD );
+        }
 
         $this->set_permalink_structure( $values['permalink_structure'] );
 
@@ -81,19 +91,60 @@ class Rewrite_Handler extends Command_Handler {
             $this->set_tag_base( $values['tag_base'] );
         }
 
-        $ctx->out->success( 'Rewrite structure set.' );
-
         $hard = (bool) Read_Value::flag( $assoc_args, 'hard' );
         if ( $hard ) {
             $ctx->out->warning( self::HARD_WARNING );
             $ctx->note( self::NOTE_HARD );
         }
 
-        $this->child_flush( $before, $hard, $ctx );
+        $this->child_flush( $before, $hard, $ctx, $values, $stored_before );
     }
 
-    private function child_flush( array $before, bool $hard, Context $ctx ): void {
+    private function require_structure_stored( array $values, array $after, ?array $before, Context $ctx ): void {
+        $off = array();
+        foreach ( array( 'permalink_structure', 'category_base', 'tag_base' ) as $name ) {
+            if ( ! array_key_exists( $name, $values ) ) {
+                continue;
+            }
+            $expected = $this->sanitized_option( $name, (string) $values[ $name ] );
+            if ( null !== $expected && (string) $expected !== $after[ $name ] ) {
+                $off[] = $name . ' ' . ( '' === $after[ $name ] ? '(empty)' : $after[ $name ] );
+            }
+        }
+        if ( $off ) {
+            if ( null !== $before && $before !== $after ) {
+                $ctx->mark_changed();
+            }
+            $ctx->out->error( \Easy_MCP_AI\MCP\Refusal_Text::fit( self::STRUCTURE_NOT_STORED, array( implode( ', ', $off ) ) ) );
+        }
+    }
+
+    protected function stored_bases( array $read ): ?array {
+        $stored = array();
+        foreach ( array_keys( $read ) as $name ) {
+            $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( (string) $name );
+            if ( null === $row ) {
+                return null;
+            }
+            $stored[ $name ] = $row[0] && is_scalar( $row[1] ) ? (string) $row[1] : '';
+        }
+        return $stored;
+    }
+
+    protected function sanitized_option( string $name, string $value ) {
+        return function_exists( 'sanitize_option' ) ? \sanitize_option( $name, $value ) : null;
+    }
+
+    private function child_flush( array $before, bool $hard, Context $ctx, ?array $values = null, ?array $stored_before = null ): void {
         $after = $this->bases_state();
+        if ( null !== $values ) {
+            $stored = $this->stored_bases( $after );
+            if ( null === $stored ) {
+                $ctx->not_known( self::STRUCTURE_UNKNOWN );
+            }
+            $this->require_structure_stored( $values, $stored, $stored_before, $ctx );
+            $ctx->out->success( 'Rewrite structure set.' );
+        }
         if ( $after !== $before ) {
             $ctx->mark_changed();
             if ( $after['permalink_structure'] !== $before['permalink_structure'] ) {

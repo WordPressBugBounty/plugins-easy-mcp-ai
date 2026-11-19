@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Taxonomy;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,7 +17,7 @@ class Delete_Term_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Deletes a term meta key. Required: `term_id`, `key`. Optional: `value` — if provided, deletes only rows matching that value; omit to remove ALL rows for the key. Returns { deleted: bool, term_id, taxonomy, key, value_provided: bool }. Authorization is WordPress\'s own: the per-term `edit_term` capability, and for a protected key (leading underscore) core\'s `delete_term_meta` check for that term and key — the key\'s registered auth callback plus any auth_term_meta filters; a protected key nothing has registered needs administrator privileges. A key containing a backslash is refused (WordPress removes it before it stores or matches the key).';
+        return 'Deletes a term meta key. Required: `term_id`, `key`. Optional: `value` — if provided, deletes only rows matching that value; omit to remove ALL rows for the key. Returns { deleted: bool, term_id, taxonomy, key, value_provided: bool }. If a plugin stops the delete (a `delete_term_metadata` filter returning true, which makes WordPress answer true and keep the rows), the call is an error. Authorization is WordPress\'s own: the per-term `edit_term` capability, and for a protected key (leading underscore) core\'s `delete_term_meta` check for that term and key — the key\'s registered auth callback plus any auth_term_meta filters; a protected key nothing has registered needs administrator privileges. A key containing a backslash is refused (WordPress removes it before it stores or matches the key).';
     }
 
     public function get_category() {
@@ -87,10 +88,22 @@ class Delete_Term_Meta extends Base_Tool {
 
         $this->refuse_delete_value_read_as_empty( $arguments );
         $value_provided = array_key_exists( 'value', $arguments );
+        $value          = '';
         if ( $value_provided ) {
-            $deleted = delete_term_meta( $term_id, $key, $arguments['value'] );
+            list( $deleted, $value ) = $this->delete_meta_by_value(
+                'term',
+                $term_id,
+                $key,
+                static function ( $candidate ) use ( $term_id, $key ) {
+                    return delete_term_meta( $term_id, $key, $candidate );
+                },
+                $arguments['value']
+            );
         } else {
             $deleted = delete_term_meta( $term_id, $key );
+        }
+        if ( $deleted ) {
+            Delete_Outcome::require_meta_gone( 'term', $term_id, $key, $value, 'term ' . $term_id, $key );
         }
 
         return array(

@@ -21,7 +21,7 @@ class Text_Redactor {
 
         $text = preg_replace( '/\b(Bearer|Basic)\s+[A-Za-z0-9._~+\/=\-]{8,}/i', '$1 ' . self::MASK, $text );
 
-        $text = preg_replace( '/\bwpmcp_[A-Za-z0-9_]{8,}/', 'wpmcp_' . self::MASK, $text );
+        $text = preg_replace( '/\b(wpmcp_|emcps_)[A-Za-z0-9_]{8,}/', '$1' . self::MASK, $text );
 
         $text = preg_replace( '/\beyJ[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}/', self::MASK, $text );
 

@@ -1,6 +1,8 @@
 <?php
 namespace Easy_MCP_AI\Privileged\Search_Replace;
 
+use Easy_MCP_AI\MCP\Server;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -662,7 +664,7 @@ final class Runner {
 
     private static function fit( array $out ): array {
         $size = static function ( $value ): int {
-            $json = \wp_json_encode( $value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+            $json = \wp_json_encode( $value, Server::RESULT_JSON_FLAGS );
             return is_string( $json ) ? strlen( $json ) : 0;
         };
         $total = $size( $out );
@@ -670,7 +672,7 @@ final class Runner {
             while ( $total > self::RESULT_BUDGET && ! empty( $out[ $list ] ) ) {
                 $dropped = array_pop( $out[ $list ] );
                 ++$out[ $list . '_more' ];
-                $total -= $size( $dropped ) + 16;
+                $total -= $size( $dropped ) + 1;
                 if ( $total <= self::RESULT_BUDGET ) {
                     $total = $size( $out );
                 }

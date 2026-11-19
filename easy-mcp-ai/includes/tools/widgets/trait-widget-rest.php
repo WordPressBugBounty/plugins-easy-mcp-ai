@@ -104,6 +104,7 @@ trait Widget_Rest {
             array_splice( $order, $index, 0, array( $widget_id ) );
 
             if ( $order !== $current ) {
+                $this->refuse_switched_off_route( 'PUT', '/wp/v2/sidebars/{id}' );
                 $saved = $this->rest_request( 'PUT', '/wp/v2/sidebars/' . $sidebar_id, array( 'widgets' => $order ), 'id,widgets' );
                 if ( isset( $saved['widgets'] ) && is_array( $saved['widgets'] ) ) {
                     $order = $this->widget_ids( $saved['widgets'] );
@@ -164,5 +165,72 @@ trait Widget_Rest {
             $shaped['rendered'] = isset( $data['rendered'] ) ? (string) $data['rendered'] : '';
         }
         return $shaped;
+    }
+
+    protected static function sidebars_listing( string $widget_id ): array {
+        $row = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( 'sidebars_widgets' );
+        if ( null === $row ) {
+            throw self::unread( $widget_id );
+        }
+        $listed = array();
+        foreach ( $row[0] && is_array( $row[1] ) ? $row[1] : array() as $sidebar => $ids ) {
+            if ( 'array_version' !== $sidebar && is_array( $ids ) && in_array( $widget_id, $ids, true ) ) {
+                $listed[] = (string) $sidebar;
+            }
+        }
+        return $listed;
+    }
+
+    protected static function settings_remain( string $widget_id ): ?bool {
+        $parsed = wp_parse_widget_id( $widget_id );
+        if ( ! isset( $parsed['number'] ) ) {
+            return null;
+        }
+        $object = self::widget_object( (string) $parsed['id_base'] );
+        if ( self::overrides_widget_method( $object, 'get_settings' ) ) {
+            return self::holds_instance( $object->get_settings(), $parsed['number'] );
+        }
+        if ( self::overrides_widget_method( $object, 'save_settings' ) ) {
+            return null;
+        }
+        $option = is_object( $object ) && isset( $object->option_name ) && is_string( $object->option_name ) && '' !== $object->option_name
+            ? $object->option_name
+            : 'widget_' . $parsed['id_base'];
+        $row    = \Easy_MCP_AI\Tools\Delete_Outcome::stored_option( $option );
+        if ( null === $row ) {
+            throw self::unread( $widget_id );
+        }
+        return $row[0] && self::holds_instance( $row[1], $parsed['number'] );
+    }
+
+    private static function holds_instance( $settings, $number ): bool {
+        return ( is_array( $settings ) || $settings instanceof \ArrayAccess ) && isset( $settings[ $number ] );
+    }
+
+    private static function widget_object( string $id_base ) {
+        global $wp_widget_factory;
+        $object = is_object( $wp_widget_factory ) && method_exists( $wp_widget_factory, 'get_widget_object' ) ? $wp_widget_factory->get_widget_object( $id_base ) : null;
+        return is_object( $object ) ? $object : null;
+    }
+
+    private static function overrides_widget_method( $object, string $method ): bool {
+        return is_object( $object ) && method_exists( $object, $method )
+            && 'WP_Widget' !== ( new \ReflectionMethod( $object, $method ) )->getDeclaringClass()->getName();
+    }
+
+    protected static function unfinished( string $widget_id, string $done, string $target, array $listed, array $notes = array(), string $where = '' ): \Exception {
+        $elsewhere = array_values( array_diff( $listed, array( $target ) ) );
+        $state     = array();
+        if ( array() !== $elsewhere ) {
+            $state[] = 'it is still in ' . implode( ', ', $elsewhere );
+        } elseif ( '' !== $target && ! in_array( $target, $listed, true ) ) {
+            $state[] = 'no widget area lists it';
+        }
+        $state = array_merge( $state, $notes );
+        return \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'The widget was not fully %1$s: a plugin or theme on this site may have stopped it. %2$s', array( $done, sprintf( 'Widget %1$s%2$s: %3$s.', $widget_id, '' === $where ? '' : ' ' . $where, implode( ' and ', $state ) ) ), 1 );
+    }
+
+    protected static function unread( string $widget_id ): \Exception {
+        return \Easy_MCP_AI\Tools\Delete_Outcome::refusal( 'A database error stopped the widget being read back after the call, so whether it changed is not known. Widget: %s', array( $widget_id ) );
     }
 }

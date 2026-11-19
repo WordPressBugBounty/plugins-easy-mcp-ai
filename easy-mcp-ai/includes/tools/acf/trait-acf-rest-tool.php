@@ -45,13 +45,13 @@ trait Acf_Rest_Tool {
     private static function not_a_post_type( string $base, int $id, string $verb ): string {
         if ( 0 === strcasecmp( 'users', $base ) ) {
             $tool = 'get' === $verb ? 'wp_acf_get_user_fields' : 'wp_acf_update_user_fields';
-            if ( Post_Type_Tool_Hint::may_use( $tool ) ) {
+            if ( Post_Type_Tool_Hint::may_reach( $tool ) ) {
                 return sprintf( 'Use %1$s with user_id %2$d: this tool reaches ACF fields on posts only, and "users" is not a post type.', $tool, $id );
             }
             return 'This tool reaches ACF fields on posts only, and "users" is not a post type.';
         }
         if ( self::is_taxonomy_base( $base ) ) {
-            if ( 'get' === $verb && Post_Type_Tool_Hint::may_use( 'wp_acf_get_term_fields' ) ) {
+            if ( 'get' === $verb && Post_Type_Tool_Hint::may_reach( 'wp_acf_get_term_fields' ) ) {
                 return sprintf( 'Use wp_acf_get_term_fields with term_id %1$d: this tool reaches ACF fields on posts only, and this post_type is a taxonomy: %2$s', $id, $base );
             }
             return sprintf( 'This tool reaches ACF fields on posts only, and this post_type is a taxonomy: %s', $base );

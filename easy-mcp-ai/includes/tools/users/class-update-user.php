@@ -12,6 +12,8 @@ class Update_User extends Base_Tool {
 
     const TAKEOVER_CAPABILITIES = array(
         'manage_options',
+        'unfiltered_html',
+        'create_users',
         'promote_users',
         'edit_users',
         'manage_network',
@@ -44,7 +46,7 @@ class Update_User extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress user (PATCH semantics). Required: `user_id`. Optional: `email`, `first_name`, `last_name`, `roles` (array of role slugs — replaces all current roles), `url` (website URL), `description` (biographical info), `password`, `name` (display name), `nickname`, `slug` (user_nicename), `locale`, `rich_editing`, `syntax_highlighting`, `comment_shortcuts`, `show_admin_bar_front`, `use_ssl` (booleans), `admin_color`, `user_registered` (UTC "Y-m-d H:i:s"), `skip_email` (do not send the password-change or email-change notice). Role changes without replacing the set: `add_roles` / `remove_roles` (WP_User::add_role() / remove_role(); a role must exist and be one you may assign; removing the last administrator, or a role that leaves your own account unable to edit users, is refused); `remove_from_site` (single site: remove_all_caps(), the account stays with no role; multisite: remove_user_from_blog(), the network account stays); `add_to_site` (multisite: add a network user who is not a member to this site with the one role in `roles`). Returns { id, name, email, roles, changed, changed_fields }: `changed` is false when the call left the user exactly as it was (a new password always counts as a change: WordPress stores a new hash). Granting an administrator-level role, setting a password or changing the email address is the kind of call the site\'s approval switch pauses (when it is on and nothing in the approval settings exempts it). Only administrators can change roles or edit other users.';
+        return 'Updates an existing WordPress user (PATCH semantics). Required: `user_id`. Optional: `email`, `first_name`, `last_name`, `roles` (array of role slugs — replaces all current roles), `url` (website URL), `description` (biographical info), `password`, `name` (display name), `nickname`, `slug` (user_nicename), `locale`, `rich_editing`, `syntax_highlighting`, `comment_shortcuts`, `show_admin_bar_front`, `use_ssl` (booleans), `admin_color`, `user_registered` (UTC "Y-m-d H:i:s"), `skip_email` (do not send the password-change or email-change notice). Role changes without replacing the set: `add_roles` / `remove_roles` (WP_User::add_role() / remove_role(); a role must exist and be one you may assign; removing the last administrator, or a role that leaves your own account unable to edit users, is refused); `remove_from_site` (single site: remove_all_caps(), the account stays with no role; multisite: remove_user_from_blog(), the network account stays); `add_to_site` (multisite: add a network user who is not a member to this site with the one role in `roles`). Returns { id, name, email, roles, changed, changed_fields }: `changed` is false when the call left the user exactly as it was (a new password always counts as a change: WordPress stores a new hash). Granting an administrator-level role or one that can publish scripts or create accounts (Editor, by default), setting a password or changing the email address is the kind of call the site\'s approval switch pauses (when it is on and nothing in the approval settings exempts it). Only administrators can change roles or edit other users.';
     }
 
     public function get_category() {
@@ -171,7 +173,7 @@ class Update_User extends Base_Tool {
 
     public function get_approval_policy( array $arguments ) {
         try {
-            if ( self::grants_takeover_role( $arguments ) || self::sets_password( $arguments ) || self::changes_email( $arguments ) ) {
+            if ( self::grants_takeover_role( $arguments ) || self::sets_password( $arguments ) || self::changes_email( $arguments['user_id'] ?? null, $arguments['email'] ?? null ) ) {
                 return 'always';
             }
         } catch ( \Throwable $e ) {
@@ -195,21 +197,21 @@ class Update_User extends Base_Tool {
         return false;
     }
 
-    private static function sets_password( array $arguments ): bool {
+    public static function sets_password( array $arguments ): bool {
         return isset( $arguments['password'] ) && is_string( $arguments['password'] ) && '' !== $arguments['password'];
     }
 
-    private static function changes_email( array $arguments ): bool {
-        if ( ! isset( $arguments['email'] ) || ! is_string( $arguments['email'] ) || '' === trim( $arguments['email'] ) ) {
+    public static function changes_email( $user_id, $email ): bool {
+        if ( ! is_string( $email ) || '' === trim( $email ) ) {
             return false;
         }
-        $id   = isset( $arguments['user_id'] ) && is_numeric( $arguments['user_id'] ) ? (int) $arguments['user_id'] : 0;
+        $id   = is_numeric( $user_id ) ? (int) $user_id : 0;
         $user = $id > 0 ? get_userdata( $id ) : false;
         if ( ! $user ) {
             return false;
         }
         $current = isset( $user->user_email ) ? (string) $user->user_email : '';
-        return 0 !== strcasecmp( sanitize_email( $arguments['email'] ), $current );
+        return 0 !== strcasecmp( sanitize_email( $email ), $current );
     }
 
     public static function role_is_takeover_grant( string $role ): bool {

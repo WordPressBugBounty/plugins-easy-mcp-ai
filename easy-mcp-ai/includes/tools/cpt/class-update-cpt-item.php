@@ -1,7 +1,9 @@
 <?php
 namespace Easy_MCP_AI\Tools\CPT;
 
+use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Content_Hash;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
 use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 use Easy_MCP_AI\Tools\Posts\Update_Post;
@@ -17,7 +19,7 @@ class Update_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing custom post type (CPT) item, also of a type hidden from the REST API that these tools open. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private/future or a custom status registered on this site; "trash" is not accepted — use `wp_delete_cpt_item`), `slug`, `excerpt`, `meta` (only keys registered with `show_in_rest=true` persist; dropped keys are reported back as `meta_ignored` with a `notice`; refused when the CPT does not support "custom-fields"). Also: `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (hierarchical types only, 0 = top level), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (an empty string removes it), `featured_media` (attachment ID, 0 removes it), `template`, `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms) and `clear` (list of title/content/excerpt to set to an empty string, the same as sending them empty here). Each of those added fields is refused, naming the missing support, when the CPT does not accept it, and needs `rest_base` to name a post type these tools reach. Status transitions follow normal WordPress rules. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title`, `content`, or `excerpt` here DOES blank the field rather than preserving the existing value. Discover the CPT\'s `rest_base` via `wp_get_post_types`. Returns { id, title, status, link }, plus `meta_ignored` and `notice` when sent meta keys were dropped. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
+        return 'Updates an existing custom post type (CPT) item, also of a type hidden from the REST API that these tools open. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private/future or a custom status registered on this site; "trash" is not accepted — use `wp_delete_cpt_item`), `slug`, `excerpt`, `meta` (only keys registered with `show_in_rest=true` persist; dropped keys are reported back as `meta_ignored` with a `notice`; refused when the CPT does not support "custom-fields"). Also: `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (hierarchical types only, 0 = top level), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (an empty string removes it), `featured_media` (attachment ID, 0 removes it), `template`, `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms) and `clear` (list of title/content/excerpt to set to an empty string, the same as sending them empty here). Each of those added fields is refused, naming the missing support, when the CPT does not accept it, and needs `rest_base` to name a post type these tools reach. Status transitions follow normal WordPress rules. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title`, `content`, or `excerpt` here DOES blank the field rather than preserving the existing value. Discover the CPT\'s `rest_base` via `wp_get_post_types`. Returns { id, title, status, link, ' . Content_Hash::WRITE_FIELDS . ' }, plus `meta_ignored` and `notice` when sent meta keys were dropped. WordPress enforces the CPT\'s own write capability (edit_posts, or a custom one such as WooCommerce\'s edit_products), so a caller may see a permission error although the tool is listed.' . Translation_Write::description();
     }
 
     public function get_category() {
@@ -42,7 +44,7 @@ class Update_CPT_Item extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'rest_base' => array(
@@ -136,14 +138,20 @@ class Update_CPT_Item extends Base_Tool {
             ),
             'required'   => array( 'rest_base', 'item_id' ),
         );
+        $schema['properties'] += Translation_Write::properties();
+        return $schema;
     }
 
     public function precheck( array $arguments ): void {
         Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
-                $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'POST' );
+                $this->refuse_switched_off_dedicated_tool( $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'POST' ) );
                 $this->precheck_featured_media( $arguments );
+                if ( isset( $arguments['rest_base'], $arguments['item_id'] ) && Translation_Write::asked( $arguments ) ) {
+                    $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+                    Translation_Write::plan( $arguments, Create_CPT_Item::post_type_for_rest_base( $rest_base )[0], $this->parse_required_id( $arguments['item_id'], 'item_id' ) );
+                }
             }
         );
     }
@@ -174,27 +182,32 @@ class Update_CPT_Item extends Base_Tool {
         $this->validate_title_length( isset( $arguments['title'] ) ? $arguments['title'] : null );
 
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+        $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
 
+        $post_type      = Create_CPT_Item::post_type_for_rest_base( $rest_base )[0];
+        $translation    = Translation_Write::plan( $arguments, $post_type, $item_id, true );
         $params         = self::content_params( $arguments );
         $meta_sent      = $this->apply_meta_argument( $arguments, $params );
         $meta_post_type = $meta_sent ? self::refuse_meta_without_support( $rest_base ) : '';
         $this->apply_post_type_fields( $arguments, $rest_base, $params );
         $this->refuse_builder_owned_write( $item_id, array_key_exists( 'content', $params ), (array) ( $params['meta'] ?? array() ) );
 
-        $data = $this->update_item( $rest_base, $item_id, $params, ! empty( $arguments['resave'] ) );
+        $data = $translation->alone( $params, $arguments )
+            ? self::item_as_read( $item_id, $post_type )
+            : $this->update_item( $rest_base, $item_id, $params, ! empty( $arguments['resave'] ) );
 
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
             'status' => $data['status'],
             'link'   => $data['link'] ?? '',
-        );
+        ) + Content_Hash::of_post( $item_id, true );
         if ( $meta_sent ) {
             $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], $data['meta'] ?? null, 'post', $meta_post_type ) );
         }
 
-        return $result;
+        return array_merge( $result, $translation->finish( $item_id ) );
     }
 
     private static function refuse_meta_without_support( string $rest_base ): string {
@@ -248,6 +261,19 @@ class Update_CPT_Item extends Base_Tool {
         }
     }
 
+    private static function item_as_read( int $item_id, string $post_type ): array {
+        $post = get_post( $item_id );
+        if ( ! is_object( $post ) || $post->post_type !== $post_type ) {
+            throw new \InvalidArgumentException( sprintf( 'There is no %1$s item with ID %2$d. Nothing was changed.', $post_type, $item_id ) );
+        }
+        return array(
+            'id'     => $item_id,
+            'title'  => array( 'raw' => (string) $post->post_title ),
+            'status' => (string) $post->post_status,
+            'link'   => (string) get_permalink( $item_id ),
+        );
+    }
+
     private function update_item( string $rest_base, int $item_id, array $params, bool $resave ): array {
         $request = new \WP_REST_Request( 'POST', self::post_type_route( $rest_base, $item_id, 'POST' ) );
         foreach ( $params as $key => $value ) {
@@ -261,6 +287,7 @@ class Update_CPT_Item extends Base_Tool {
             if ( 'rest_no_route' === $wp_error->get_error_code() ) {
                 throw new \RuntimeException( Post_Type_Tool_Hint::no_route( $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
+            Elementor_Templates::refuse_admin_only( $request->get_route(), $wp_error );
             throw self::rest_error_exception( $wp_error, sprintf( 'Failed to update item in "%s": ', $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 

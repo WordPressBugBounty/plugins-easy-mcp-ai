@@ -52,11 +52,12 @@ class OAuth_Routes {
         );
 
         foreach ( array(
-            '/mcp/.well-known/oauth-protected-resource'   => 'get_resource_issuer_protected_resource_metadata',
-            '/mcp/.well-known/oauth-authorization-server' => 'get_resource_issuer_metadata',
-            '/mcp/.well-known/openid-configuration'       => 'get_resource_issuer_openid_configuration',
-            '/discovery/openid-configuration'             => 'get_openid_configuration',
-            '/oauth/jwks'                                 => 'get_jwks',
+            '/discovery/resource/oauth-protected-resource' => 'get_resource_issuer_protected_resource_metadata',
+            '/mcp/.well-known/oauth-protected-resource'    => 'get_resource_issuer_protected_resource_metadata',
+            '/mcp/.well-known/oauth-authorization-server'  => 'get_resource_issuer_metadata',
+            '/mcp/.well-known/openid-configuration'        => 'get_resource_issuer_openid_configuration',
+            '/discovery/openid-configuration'              => 'get_openid_configuration',
+            '/oauth/jwks'                                  => 'get_jwks',
         ) as $route => $callback ) {
             register_rest_route(
                 self::NAMESPACE_V1,
@@ -142,26 +143,9 @@ class OAuth_Routes {
             return $transport_error;
         }
 
-        $ip = \Easy_MCP_AI\Client_IP::get();
-
-        $per_ip_key    = 'easy_mcp_ai_revoke_rl_' . md5( $ip );
-        $global_key    = 'easy_mcp_ai_revoke_rl_global';
-        $per_ip_limit  = 60;
-        $global_limit  = 600;
-
-        if ( \wp_using_ext_object_cache() ) {
-            \wp_cache_add( $per_ip_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $ip_count = \wp_cache_incr( $per_ip_key, 1, 'easy_mcp_ai' );
-
-            \wp_cache_add( $global_key, 0, 'easy_mcp_ai', HOUR_IN_SECONDS );
-            $global_count = \wp_cache_incr( $global_key, 1, 'easy_mcp_ai' );
-        } else {
-            $ip_count     = Token_Endpoint::rl_transient_increment( $per_ip_key );
-            $global_count = Token_Endpoint::rl_transient_increment( $global_key );
-        }
-
-        if ( $ip_count > $per_ip_limit || $global_count > $global_limit ) {
-            return new \WP_REST_Response( null, 429 );
+        $rate_error = Rate_Limit::check( 'revoke', 'easy_mcp_ai_revoke_rl_', 60, 600 );
+        if ( null !== $rate_error ) {
+            return $rate_error;
         }
 
         $query_error = Token_Endpoint::reject_query_credentials( $request, array( 'token', 'client_secret' ) );

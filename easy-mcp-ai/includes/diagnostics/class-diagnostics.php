@@ -85,6 +85,8 @@ class Diagnostics {
             }
         }
 
+        $results = Check_Transport::settle_with_probe( $results );
+
         self::$results = $results;
         self::persist( $results, self::invalidated_at( $previous ) );
 

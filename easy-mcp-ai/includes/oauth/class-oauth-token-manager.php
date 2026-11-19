@@ -133,6 +133,26 @@ class OAuth_Token_Manager {
         return $row;
     }
 
+    public function refresh_token_is_live( string $raw_refresh_token, string $client_id ): bool {
+        global $wpdb;
+
+        $refresh_hash = Token_Keys::hash( $raw_refresh_token, Token_Keys::parse_id( $raw_refresh_token, '' ) );
+        if ( null === $refresh_hash ) {
+            return false;
+        }
+        $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; the answer must be fresh, as refresh() reads it.
+        $row = $wpdb->get_row(
+            $wpdb->prepare( "SELECT is_active, client_id, refresh_expires_at FROM {$table} WHERE refresh_hash = %s LIMIT 1", $refresh_hash ),
+            ARRAY_A
+        );
+        // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        if ( ! is_array( $row ) || ! (int) $row['is_active'] || $client_id !== $row['client_id'] ) {
+            return false;
+        }
+        return empty( $row['refresh_expires_at'] ) || strtotime( $row['refresh_expires_at'] . ' UTC' ) >= time();
+    }
+
     public function refresh( string $raw_refresh_token, string $client_id, string $resource ) {
         global $wpdb;
 

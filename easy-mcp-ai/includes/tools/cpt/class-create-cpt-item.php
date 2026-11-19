@@ -1,6 +1,7 @@
 <?php
 namespace Easy_MCP_AI\Tools\CPT;
 
+use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Hidden_Post_Types;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
@@ -40,7 +41,7 @@ class Create_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Creates a new item in any custom post type (CPT) shown in the REST API, or hidden from it (`show_in_rest` false) but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug — `wp_get_post_types` lists both; a hidden type by its slug) and `title` (unless `allow_empty_title` is true and `content` or `excerpt` is given). Optional: `status` (default draft; publish/draft/pending/private/future or a custom status registered on this site; "future" needs `date` or `date_gmt`), `slug`, `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (parent item ID, hierarchical types only), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (protects the content and excerpt), `featured_media` (attachment ID), `template`, `meta` (only REST-registered keys persist; dropped keys are reported back as `meta_ignored` with a `notice`) `tax_input` ({ taxonomy slug: [term IDs] } for taxonomies of the type the tools reach, as the property says; every term must exist in that taxonomy) and `allow_empty_title` (boolean, default false). `title`, `content` and `excerpt` are forwarded as before and silently ignored when the CPT lacks the matching `supports` entry; every field added since is refused, naming the missing support, when the CPT does not accept it. If **Easy MCP AI → Settings → Force draft on create** is enabled, `status` is silently overridden to `draft` regardless of the value supplied. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas. Returns { id, title, status, link }, plus `meta_ignored` and `notice` when sent meta keys were dropped. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.';
+        return 'Creates a new item in any custom post type (CPT) shown in the REST API, or hidden from it (`show_in_rest` false) but public with an admin screen. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug — `wp_get_post_types` lists both; a hidden type by its slug) and `title` (unless `allow_empty_title` is true and `content` or `excerpt` is given). Optional: `status` (default draft; publish/draft/pending/private/future or a custom status registered on this site; "future" needs `date` or `date_gmt`), `slug`, `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (parent item ID, hierarchical types only), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (protects the content and excerpt), `featured_media` (attachment ID), `template`, `meta` (only REST-registered keys persist; dropped keys are reported back as `meta_ignored` with a `notice`) `tax_input` ({ taxonomy slug: [term IDs] } for taxonomies of the type the tools reach, as the property says; every term must exist in that taxonomy) and `allow_empty_title` (boolean, default false). `title`, `content` and `excerpt` are forwarded as before and silently ignored when the CPT lacks the matching `supports` entry; every field added since is refused, naming the missing support, when the CPT does not accept it. If **Easy MCP AI → Settings → Draft mode** saves new content as drafts (New content or Strict), `status` is silently overridden to `draft` regardless of the value supplied. For built-in post/page use `wp_create_post` / `wp_create_page` for richer schemas. Returns { id, title, status, link }, plus `meta_ignored` and `notice` when sent meta keys were dropped. This tool is listed as `read` for all callers regardless of the target CPT, but WordPress enforces the CPT\'s own write capability on the underlying REST request (some require edit_posts, others a custom capability like WooCommerce\'s edit_products) — a low-privilege caller may still see a permission error even though the tool is visible.' . Translation_Write::description();
     }
 
     public function get_category() {
@@ -65,7 +66,7 @@ class Create_CPT_Item extends Base_Tool {
     }
 
     public function get_input_schema() {
-        return array(
+        $schema = array(
             'type'       => 'object',
             'properties' => array(
                 'rest_base' => array(
@@ -152,13 +153,17 @@ class Create_CPT_Item extends Base_Tool {
             ),
             'required'   => array( 'rest_base' ),
         );
+        $schema['properties'] += Translation_Write::properties();
+        return $schema;
     }
 
     public function precheck( array $arguments ): void {
         Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
-                self::post_type_route( $this->checked_custom_type( $arguments )[0], null, 'POST' );
+                list( $rest_base, $post_type ) = $this->checked_custom_type( $arguments );
+                self::post_type_route( $rest_base, null, 'POST' );
+                Translation_Write::plan( $arguments, $post_type, null );
             }
         );
     }
@@ -174,6 +179,7 @@ class Create_CPT_Item extends Base_Tool {
 
     private function create( array $arguments ): array {
         list( $rest_base, $post_type, $post_type_object ) = $this->checked_custom_type( $arguments );
+        $translation = Translation_Write::plan( $arguments, $post_type, null, true );
 
         $params    = self::content_params( $arguments );
         $meta_sent = $this->apply_checked_fields( $arguments, $params, $post_type, $post_type_object );
@@ -181,7 +187,12 @@ class Create_CPT_Item extends Base_Tool {
 
         $this->maybe_force_draft( $params );
 
-        $data = self::create_item( $rest_base, $params );
+        $params += $translation->create_params();
+        $data    = $translation->save(
+            static function () use ( $rest_base, $params ): array {
+                return self::create_item( $rest_base, $params );
+            }
+        );
 
         $result = array(
             'id'     => $data['id'],
@@ -193,7 +204,7 @@ class Create_CPT_Item extends Base_Tool {
             $result = array_merge( $result, $this->ignored_meta_report( $params['meta'], $data['meta'] ?? null, 'post', $post_type ) );
         }
 
-        return $result;
+        return $result + $translation->finish( (int) $data['id'] );
     }
 
     private function checked_custom_type( array $arguments ): array {
@@ -284,6 +295,7 @@ class Create_CPT_Item extends Base_Tool {
             if ( 'rest_no_route' === $wp_error->get_error_code() ) {
                 throw new \RuntimeException( Post_Type_Tool_Hint::no_route( $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
+            Elementor_Templates::refuse_admin_only( $request->get_route(), $wp_error );
             throw self::rest_error_exception( $wp_error, sprintf( 'Failed to create item in "%s": ', $rest_base ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 

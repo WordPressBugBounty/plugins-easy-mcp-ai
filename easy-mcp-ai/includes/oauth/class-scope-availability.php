@@ -14,6 +14,8 @@ final class Scope_Availability {
 
     const NONE = 'none';
 
+    const OFF = 'off';
+
     public static function for_current_user( array $categories, ?\Easy_MCP_AI\Tools\Tool_Registry $registry = null ): array {
         $out = array();
         foreach ( self::rows( $categories, $registry ) as $slug => $tools ) {
@@ -26,6 +28,85 @@ final class Scope_Availability {
             }
         }
         return $out;
+    }
+
+    public static function for_user( int $user_id, ?array $roles, array $categories, ?\Easy_MCP_AI\Tools\Tool_Registry $registry = null, ?array $shared = null ): ?array {
+        $shared = $shared ?? self::shared( $categories, $registry );
+        if ( null === $shared || \Easy_MCP_AI\Auth\Role_Ceiling::is_limited( $user_id ) ) {
+            return null;
+        }
+        $scopes = $shared['scopes'];
+        $ask     = static function () use ( $scopes, $user_id ): array {
+            $out = array();
+            foreach ( $scopes as $scope => $tools ) {
+                $refused = array();
+                foreach ( $tools as $name => $tool ) {
+                    if ( self::is_refused( $tool, $user_id ) ) {
+                        $refused[ $name ] = $tool['cap'];
+                    }
+                }
+                $out[ $scope ] = array(
+                    'on'      => array_keys( $tools ),
+                    'refused' => $refused,
+                );
+            }
+            return $out;
+        };
+        $answers = null === $roles ? $ask() : \Easy_MCP_AI\Auth\Role_Ceiling::while_limited( $user_id, $roles, $ask );
+        return array(
+            'scopes' => $answers,
+            'off'    => $shared['off'],
+        );
+    }
+
+    public static function shared( array $categories, ?\Easy_MCP_AI\Tools\Tool_Registry $registry = null ): ?array {
+        $registry = $registry ?? self::registry();
+        $scopes   = $registry ? self::scope_tools( $categories, $registry ) : null;
+        if ( null === $scopes ) {
+            return null;
+        }
+        return array(
+            'scopes' => $scopes,
+            'off'    => self::switched_off_names( $registry ),
+        );
+    }
+
+    public static function mark( array $category, array $held, array $answer ): ?array {
+        if ( ! empty( $category['is_ability'] ) ) {
+            return null;
+        }
+        $on      = array();
+        $refused = array();
+        $names   = array();
+        foreach ( $held as $scope ) {
+            if ( ! isset( $answer['scopes'][ $scope ] ) ) {
+                continue;
+            }
+            $on      = array_merge( $on, $answer['scopes'][ $scope ]['on'] );
+            $refused = $refused + $answer['scopes'][ $scope ]['refused'];
+            $names   = array_merge( $names, Scope_Map::SCOPE_MAP[ $scope ] );
+        }
+        $on = array_unique( $on );
+        if ( array() === $on ) {
+            $inactive = ! empty( $category['plugin_required'] ) && ! Scope_Map::is_plugin_category_active( (string) $category['slug'] );
+            return ! $inactive && array() !== array_intersect( $names, $answer['off'] )
+                ? array( 'state' => self::OFF, 'roles' => array() )
+                : null;
+        }
+        if ( array() === $refused ) {
+            return null;
+        }
+        return array(
+            'state' => count( $refused ) === count( $on ) ? self::NONE : self::SOME,
+            'roles' => self::roles_granting_any( array_values( array_unique( $refused ) ) ),
+        );
+    }
+
+    private static function switched_off_names( \Easy_MCP_AI\Tools\Tool_Registry $registry ): array {
+        return array_merge(
+            array_column( \Easy_MCP_AI\Tools\Switched_Off_Inventory::tools( $registry ), 'name' ),
+            array_column( \Easy_MCP_AI\Tools\Switched_Off_Inventory::integration_tools(), 'name' )
+        );
     }
 
     public static function refused_titles( array $categories, ?\Easy_MCP_AI\Tools\Tool_Registry $registry = null ): array {
@@ -118,7 +199,7 @@ final class Scope_Availability {
                 $scopes[ $scope ] = array();
                 foreach ( Scope_Map::SCOPE_MAP[ $scope ] as $name ) {
                     $tool = $registry->get_tool( $name );
-                    if ( ! $tool || $tool instanceof \Easy_MCP_AI\Tools\Privileged_Tool || ! Tool_State::is_enabled( $tool ) || ! Server::matches_tool_patterns( $name, $patterns ) ) {
+                    if ( ! $tool || $tool instanceof \Easy_MCP_AI\Tools\Privileged_Tool || ! Tool_State::is_enabled( $tool ) || ! Server::matches_tool_patterns( $name, $patterns ) || null !== Server::required_tool_off( $registry, $tool ) ) {
                         continue;
                     }
                     $scopes[ $scope ][ $name ] = array(
@@ -131,8 +212,11 @@ final class Scope_Availability {
         return $scopes;
     }
 
-    private static function is_refused( array $tool ): bool {
-        return '' !== $tool['cap'] && ! \current_user_can( $tool['cap'] );
+    private static function is_refused( array $tool, ?int $user_id = null ): bool {
+        if ( '' === $tool['cap'] ) {
+            return false;
+        }
+        return null === $user_id ? ! \current_user_can( $tool['cap'] ) : ! \user_can( $user_id, $tool['cap'] );
     }
 
     private static function roles_granting_any( array $capabilities ): array {

@@ -102,6 +102,10 @@ class Send_Email extends Base_Tool {
         );
     }
 
+    public function throttle_units( array $arguments ) {
+        return max( 1, count( $this->resolve_recipients( $arguments )['recipients'] ) );
+    }
+
     public function redact_for_record( array $arguments ) {
         if ( array_key_exists( 'message', $arguments ) ) {
             $arguments['message'] = '[REDACTED]';

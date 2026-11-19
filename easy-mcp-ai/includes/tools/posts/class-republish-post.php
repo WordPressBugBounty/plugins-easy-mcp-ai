@@ -5,8 +5,12 @@ use Easy_MCP_AI\Builders\Builder_Registry;
 use Easy_MCP_AI\Builders\Elementor_Adapter;
 use Easy_MCP_AI\Builders\Layout_Adapter;
 use Easy_MCP_AI\Builders\Layout_Lock;
+use Easy_MCP_AI\History\Rebuild_Planner;
+use Easy_MCP_AI\MCP\Detailed_Runtime_Error;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
+use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\Meta\Meta_Exposure;
+use Easy_MCP_AI\Meta\Meta_Field_Provider;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Menus\Navigation_Labels;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
@@ -31,6 +35,8 @@ class Republish_Post extends Base_Tool {
     const MENU_LOCK_WAIT = 3;
 
     const HOOKED_BLOCKS_META = '_wp_ignored_hooked_blocks';
+
+    const CAUSE_ROOM = 500;
 
     public function get_name() {
         return 'wp_republish_post';
@@ -123,29 +129,62 @@ class Republish_Post extends Base_Tool {
             if ( '' !== $lock ) {
                 wp_cache_delete( $id, 'post_meta' );
             }
-            $before   = self::state( $id );
-            $titles   = Navigation_Labels::titles( $original );
-            $kept     = self::kept_meta_keys( $original, $copy );
-            $revision = self::save_revision( $id );
-            $audit_id = self::audit_id();
-            $restore  = self::restore_sentence( $revision, $audit_id, null !== $pair['elementor'] );
+            $before        = self::state( $id );
+            $fields_before = self::post_fields( $id );
+            $titles        = Navigation_Labels::titles( $original );
+            $kept          = self::kept_meta_keys( $original, $copy );
+            $leave         = array_merge( $pair['layout_copy'] ? array( Elementor_Adapter::DATA_KEY ) : array(), $pair['restricted_alike'] );
+            $snapshot  = Duplicate_Post::meta_snapshot( (int) $copy->ID, $id, $leave );
+            $revision  = self::save_revision( $id );
+            $audit_id  = self::audit_id();
+            $elementor = null !== $pair['elementor'];
             self::require_lock( $id, $lock );
             $keep      = self::revision_keeper( $id );
             $keep_hook = 'wp_' . $original->post_type . '_revisions_to_keep';
             add_filter( $keep_hook, $keep, PHP_INT_MAX, 2 );
+            $meta     = null;
+            $building = false;
             try {
-                $meta = Duplicate_Post::copy_meta( (int) $copy->ID, $id, $pair['layout_copy'] ? array( Elementor_Adapter::DATA_KEY ) : array() );
+                $meta = Duplicate_Post::copy_meta_or_put_back( $id, $snapshot );
                 if ( array() !== $meta['failed'] ) {
-                    throw new \RuntimeException( sprintf( 'WordPress refused %1$d of the copy\'s meta keys: %2$s.', count( $meta['failed'] ), implode( ', ', $meta['failed'] ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                    throw new \RuntimeException( sprintf( 'WordPress refused the copy\'s meta key %s, and the keys copied before it were put back.', $meta['failed'][0] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
                 self::require_lock( $id, $lock );
-                $builder = $this->write_builder( $pair, $original, $copy );
+                $building = true;
+                $builder  = $this->write_builder( $pair, $original, $copy );
+                $building = false;
                 self::require_lock( $id, $lock );
                 $fields = $this->write_fields( $route, $copy );
                 self::require_lock( $id, $lock );
                 self::release_yoast_link( $original, $copy );
             } catch ( \Throwable $e ) {
-                throw new Detailed_Tool_Error( sprintf( 'Post %1$d was partly updated from copy %2$d before an error; the copy was left as it is.', $id, (int) $copy->ID ), 'The error was: ' . $e->getMessage() . ' ' . $restore ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                $cause = $e->getMessage();
+                if ( $building ) {
+                    $copied = $meta['changed'];
+                    $meta   = null;
+                    if ( '' !== $lock && ! Layout_Lock::holds( $id, $lock ) ) {
+                        $cause .= ' Another edit took the post over, so the meta copied before was not put back.';
+                    } else {
+                        try {
+                            $meta   = array(
+                                'failed'  => array(),
+                                'changed' => Duplicate_Post::put_back_meta( $id, $snapshot, $copied ),
+                            );
+                            $cause .= ' The meta copied before it was put back.';
+                        } catch ( \Throwable $put_back ) {
+                            $cause .= ' The meta copied before it could not be put back: ' . $put_back->getMessage();
+                        }
+                    }
+                }
+                if ( null !== $meta && ( $building || array() !== $meta['failed'] ) ) {
+                    $differs = self::still_differs( $id, array_keys( $meta['changed'] ), $fields_before );
+                    if ( '' === $differs ) {
+                        throw Detailed_Runtime_Error::fitted( sprintf( 'Post %1$d is unchanged: %2$s The copy was left as it is.', $id, $cause ) );
+                    }
+                    $cause .= $differs;
+                }
+                $not_restored = null === $audit_id || null === $meta ? null : self::not_restored( $id, $meta['changed'] );
+                throw new Detailed_Tool_Error( sprintf( 'Post %1$d was partly updated from copy %2$d before an error; the copy was left as it is.', $id, (int) $copy->ID ), self::partly_updated_details( $cause, $revision, $audit_id, $elementor, $not_restored ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             } finally {
                 remove_filter( $keep_hook, $keep, PHP_INT_MAX );
             }
@@ -156,8 +195,8 @@ class Republish_Post extends Base_Tool {
         }
         if ( (int) wp_is_post_revision( $revision ) !== $id ) {
             $revision = null;
-            $restore  = self::restore_sentence( null, $audit_id, null !== $pair['elementor'] );
         }
+        $restore = self::restore_sentence( $revision, $audit_id, $elementor, null === $audit_id ? null : self::not_restored( $id, $meta['changed'] ) );
 
         $reply = array(
             'changed'          => self::state( $id ) !== $before,
@@ -220,18 +259,21 @@ class Republish_Post extends Base_Tool {
         }
         self::check_statuses( $copy, $original );
         $this->check_permissions( $copy, $original );
-        self::check_restricted_meta( $copy, $original );
-        $rest_base = $this->served_rest_base( $original );
+        $restricted_alike = self::check_restricted_meta( $copy, $original );
+        $rest_base        = $this->served_rest_base( $original );
         self::post_type_route( $rest_base, (int) $copy->ID, 'DELETE' );
+        $this->refuse_switched_off_post_type_route( 'POST', $rest_base, true );
+        $this->refuse_switched_off_post_type_route( 'DELETE', $rest_base, true );
         $editing = Layout_Adapter::editing_user( $original_id );
         if ( null !== $editing ) {
             throw new \InvalidArgumentException( sprintf( '%1$s has post %2$d open in the editor; their next save there would replace what this call writes. Try again once they close it.', $editing, $original_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return array_merge(
             array(
-                'copy'      => $copy,
-                'original'  => $original,
-                'rest_base' => $rest_base,
+                'copy'             => $copy,
+                'original'         => $original,
+                'rest_base'        => $rest_base,
+                'restricted_alike' => $restricted_alike,
             ),
             self::builder_plan( $copy, $original )
         );
@@ -290,25 +332,44 @@ class Republish_Post extends Base_Tool {
         }
     }
 
-    private static function check_restricted_meta( object $copy, object $original ): void {
+    private static function check_restricted_meta( object $copy, object $original ): array {
         $on_original = (array) get_post_meta( (int) $original->ID );
         $refused     = array();
+        $alike       = array();
         foreach ( (array) get_post_meta( (int) $copy->ID ) as $key => $values ) {
             $key = (string) $key;
-            if ( Duplicate_Post::is_skipped_meta( $key ) || ( isset( $on_original[ $key ] ) && $on_original[ $key ] === $values ) ) {
+            if ( Duplicate_Post::is_skipped_meta( $key ) ) {
                 continue;
             }
             $provider = Meta_Exposure::provider_for_key( $key );
             if ( null === $provider || ! $provider->is_active() || ! array_key_exists( $key, $provider->get_fields() ) ) {
                 continue;
             }
-            if ( ! $provider->can_edit_field( $key, get_current_user_id(), (int) $original->ID ) ) {
-                $refused[] = sprintf( '"%1$s" (%2$s restricts this field for your role)', $key, $provider->get_label() );
+            if ( $provider->can_edit_field( $key, get_current_user_id(), (int) $original->ID ) ) {
+                continue;
             }
+            if ( isset( $on_original[ $key ] ) && self::read_alike( $provider, $key, (array) $on_original[ $key ], (array) $values ) ) {
+                $alike[] = $key;
+                continue;
+            }
+            $refused[] = sprintf( '"%1$s" (%2$s restricts this field for your role)', $key, $provider->get_label() );
         }
         if ( array() !== $refused ) {
             throw new \InvalidArgumentException( sprintf( 'You are not allowed to change %1$s on post %2$d, which the copy holds with another value. Nothing was written.', implode( ', ', $refused ), (int) $original->ID ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+        return $alike;
+    }
+
+    private static function read_alike( Meta_Field_Provider $provider, string $key, array $original, array $copy ): bool {
+        if ( array_keys( $original ) !== array_keys( $copy ) ) {
+            return false;
+        }
+        foreach ( $original as $index => $stored ) {
+            if ( ! $provider->reads_alike( $key, $stored, $copy[ $index ] ) ) {
+                return false;
+            }
+        }
+        return true;
     }
 
     protected function caller_may_update_custom_items(): ?bool {
@@ -438,18 +499,109 @@ class Republish_Post extends Base_Tool {
         return $audit_id > 0 ? $audit_id : null;
     }
 
-    private static function restore_sentence( ?int $revision, ?int $audit_id, bool $elementor ): string {
-        $parts = array();
-        if ( null !== $revision ) {
-            $parts[] = sprintf( 'wp_restore_revision { "revision_id": %1$d } puts back the title, content and excerpt%2$s', $revision, $elementor ? ', and the Elementor layout and whether the page is built with Elementor' : '' );
+    private static function still_differs( int $post_id, array $keys, array $before ): string {
+        $now     = self::post_fields( $post_id );
+        $differs = array();
+        if ( array() !== $keys ) {
+            $differs[] = sprintf( 'These meta keys still differ from before the call: %s.', implode( ', ', array_map( 'strval', $keys ) ) );
         }
+        if ( $now['fields'] !== $before['fields'] ) {
+            $differs[] = 'The post\'s title, content, excerpt or terms differ from before the call.';
+        }
+        if ( array() === $differs && $now['saved_at'] !== $before['saved_at'] ) {
+            $differs[] = 'WordPress saved the post again, so its modified date differs from before the call.';
+        }
+        return array() === $differs ? '' : ' ' . implode( ' ', $differs );
+    }
+
+    private static function restore_sentence( ?int $revision, ?int $audit_id, bool $elementor, ?array $not_restored, ?callable $fits = null ): string {
+        $parts = array();
         if ( null !== $audit_id ) {
-            $parts[] = sprintf( 'wp_history_apply { "audit_id": %d } puts back the other fields and the meta keys registered for the REST API, and names each other meta key it replaced, whose old value wp_history_get shows', $audit_id );
+            $parts[] = sprintf( 'wp_history_apply { "audit_id": %d } puts back the fields and the meta keys registered for the REST API', $audit_id );
+        }
+        if ( null !== $revision ) {
+            $parts[] = sprintf( '%1$swp_restore_revision { "revision_id": %2$d } puts back the title, content and excerpt%3$s', array() === $parts ? '' : 'then ', $revision, $elementor ? ', and the Elementor layout and whether the page is built with Elementor' : '' );
         }
         if ( array() === $parts ) {
             return 'No revision of this post and no change history entry are available, so this cannot be undone from here.';
         }
-        return 'To undo: ' . implode( '; ', $parts ) . '.';
+        $sentence = 'To undo: ' . implode( '; ', $parts ) . '.';
+        if ( null === $audit_id ) {
+            return $sentence;
+        }
+        if ( null === $not_restored ) {
+            return $sentence . ' wp_history_apply names each meta key it does not put back, whose old value wp_history_get shows.';
+        }
+        $fits = $fits ?? static function (): bool {
+            return true;
+        };
+        $keys = self::not_restored_sentence(
+            $not_restored,
+            static function ( string $text ) use ( $fits, $sentence ): bool {
+                return $fits( $sentence . ' ' . $text );
+            }
+        );
+        return '' === $keys ? $sentence : $sentence . ' ' . $keys;
+    }
+
+    private static function partly_updated_details( string $cause, ?int $revision, ?int $audit_id, bool $elementor, ?array $not_restored ): string {
+        $tail = ' The error was: ' . $cause;
+        $room = Detailed_Tool_Error::MAX_DETAILS - min( strlen( $tail ), self::CAUSE_ROOM );
+        $undo = self::restore_sentence(
+            $revision,
+            $audit_id,
+            $elementor,
+            $not_restored,
+            static function ( string $text ) use ( $room ): bool {
+                $scrubbed = Server::sanitize_error_message( $text, PHP_INT_MAX );
+                return $scrubbed === $text && strlen( $scrubbed ) <= $room;
+            }
+        );
+        return $undo . $tail;
+    }
+
+    private static function not_restored( int $post_id, array $changed ): array {
+        $planner = new Rebuild_Planner();
+        $by_why  = array();
+        foreach ( $changed as $key => $change ) {
+            if ( ! $change['in_place'] && array() !== $change['before'] ) {
+                $why = 'its rows were replaced, and wp_history_apply never deletes the rows the copy added';
+            } else {
+                $why = $planner->meta_not_restored( $post_id, (string) $key, array_map( 'maybe_unserialize', $change['before'] ), $change['after'] );
+            }
+            if ( null !== $why ) {
+                $by_why[ $why ][] = (string) $key;
+            }
+        }
+        return $by_why;
+    }
+
+    private static function not_restored_sentence( array $not_restored, callable $fits ): string {
+        $total   = array_sum( array_map( 'count', $not_restored ) );
+        $compose = static function ( array $shown, int $more ): string {
+            $groups = array();
+            foreach ( $shown as $why => $keys ) {
+                $groups[] = sprintf( '%1$s (%2$s)', implode( ', ', $keys ), $why );
+            }
+            if ( $more > 0 ) {
+                $groups[] = sprintf( array() === $groups ? '%d meta keys, which it names' : '%d more meta keys, which it names', $more );
+            }
+            return 'wp_history_apply does not put back ' . implode( '; ', $groups ) . '; wp_history_get shows the old values.';
+        };
+        $shown = array();
+        $count = 0;
+        foreach ( $not_restored as $why => $keys ) {
+            foreach ( $keys as $key ) {
+                $next          = $shown;
+                $next[ $why ][] = $key;
+                if ( ! $fits( $compose( $next, $total - $count - 1 ) ) ) {
+                    return $compose( $shown, $total - $count );
+                }
+                $shown = $next;
+                ++$count;
+            }
+        }
+        return 0 === $total ? '' : $compose( $shown, 0 );
     }
 
     private static function require_lock( int $post_id, string $lock ): void {
@@ -557,6 +709,16 @@ class Republish_Post extends Base_Tool {
 
     private function relabel_menu( object $holder, array $menu, array $by_hand, int $post_id, array $old_titles, string $title ): array {
         $id = (int) $holder->ID;
+        $type    = get_post_type_object( $holder->post_type );
+        $refusal = \Easy_MCP_AI\Rest_Routes\Dedicated_Tools::route_refusal( 'POST', '/wp/v2/' . ( is_object( $type ) && ! empty( $type->rest_base ) ? (string) $type->rest_base : (string) $holder->post_type ) . '/{id}' );
+        if ( null !== $refusal ) {
+            $kept   = self::kept_by_hand( $menu, $by_hand );
+            $kept[] = $menu + array( 'reason' => 'It still shows the old title, and its labels were left as they are. ' . $refusal );
+            return array(
+                'updated' => array(),
+                'kept'    => $kept,
+            );
+        }
         try {
             $lock = Layout_Lock::acquire_waiting( $id, self::MENU_LOCK_WAIT );
         } catch ( \RuntimeException $e ) {
@@ -754,18 +916,18 @@ class Republish_Post extends Base_Tool {
         return $kept;
     }
 
-    private static function state( int $post_id ): string {
+    private static function post_fields( int $post_id ): array {
         clean_post_cache( $post_id );
-        $post  = get_post( $post_id );
-        $meta  = array();
+        $post = get_post( $post_id );
+        return array(
+            'fields'   => (string) wp_json_encode( array( $post->post_title, $post->post_content, $post->post_excerpt, self::terms( $post_id, (string) $post->post_type ) ) ),
+            'saved_at' => (string) ( $post->post_modified_gmt ?? '' ),
+        );
+    }
+
+    private static function terms( int $post_id, string $post_type ): array {
         $terms = array();
-        foreach ( (array) get_post_meta( $post_id ) as $key => $values ) {
-            if ( ! Duplicate_Post::is_skipped_meta( (string) $key ) ) {
-                $meta[ (string) $key ] = $values;
-            }
-        }
-        ksort( $meta );
-        foreach ( get_object_taxonomies( (string) $post->post_type ) as $taxonomy ) {
+        foreach ( get_object_taxonomies( $post_type ) as $taxonomy ) {
             $tax    = get_taxonomy( $taxonomy );
             $sorted = is_object( $tax ) && ! empty( $tax->sort );
             $ids    = wp_get_object_terms( $post_id, $taxonomy, $sorted ? array( 'fields' => 'ids', 'orderby' => 'term_order' ) : array( 'fields' => 'ids' ) );
@@ -776,6 +938,19 @@ class Republish_Post extends Base_Tool {
                 $terms[ $taxonomy ] = $ids;
             }
         }
+        return $terms;
+    }
+
+    private static function state( int $post_id ): string {
+        clean_post_cache( $post_id );
+        $post = get_post( $post_id );
+        $meta = array();
+        foreach ( (array) get_post_meta( $post_id ) as $key => $values ) {
+            if ( ! Duplicate_Post::is_skipped_meta( (string) $key ) ) {
+                $meta[ (string) $key ] = $values;
+            }
+        }
+        ksort( $meta );
         return (string) wp_json_encode(
             array(
                 $post->post_title,
@@ -784,7 +959,7 @@ class Republish_Post extends Base_Tool {
                 get_page_template_slug( $post_id ),
                 (int) get_post_thumbnail_id( $post_id ),
                 get_post_format( $post_id ),
-                $terms,
+                self::terms( $post_id, (string) $post->post_type ),
                 $meta,
             )
         );

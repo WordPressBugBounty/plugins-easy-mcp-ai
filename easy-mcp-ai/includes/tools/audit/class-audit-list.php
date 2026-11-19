@@ -30,8 +30,8 @@ class Audit_List extends Base_Tool {
             'type'       => 'object',
             'properties' => array(
                 'search'          => array( 'type' => 'string', 'description' => 'Free-text match over the tool name and the redacted arguments (case-insensitive substring).' ),
-                'tool_name'       => array( 'type' => 'string', 'description' => 'Exact tool name, e.g. wp_update_post. Internal events use a leading underscore: _auth_failure, _oauth_authorize, _oauth_device, _oauth_refresh.' ),
-                'wp_user_id'      => array( 'type' => 'integer', 'description' => 'WordPress user the credential belongs to.' ),
+                'tool_name'       => array( 'type' => 'string', 'description' => 'Exact tool name, e.g. wp_update_post. Internal events use a leading underscore: _auth_failure, _oauth_authorize, _oauth_device, _oauth_refresh, _api_key_created.' ),
+                'wp_user_id'      => array( 'type' => 'integer', 'description' => 'WordPress user the credential belongs to; for an _api_key_created row, the user who created the key (its owner is owner_user_id in the arguments).' ),
                 'oauth_client_id' => array( 'type' => 'string' ),
                 'auth_source'     => array( 'type' => 'string', 'enum' => array( 'legacy', 'oauth', 'unknown' ), 'description' => 'legacy = API key, oauth = OAuth 2.1 grant, unknown = rows written before the source was recorded.' ),
                 'result_status'   => array( 'type' => 'string', 'description' => 'success, error, pending, refused, auth_failure, or an OAuth refresh event name.' ),

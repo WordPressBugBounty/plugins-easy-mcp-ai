@@ -30,6 +30,16 @@ final class User_Handler extends Command_Handler {
     const MSG_LAST_ADMIN    = "removing the 'administrator' role from %s (%d) would leave this site without an administrator. Promote another user to administrator first.";
     const MSG_OWN_GATE      = "removing the '%s' role from your own WordPress user (user %d) would leave it without a role that can edit users. Do it as another administrator.";
     const MSG_SITES_NOTE    = 'User %d %s: WP-CLI also set the spam flag to %s on every site of the user except the main site: %s.';
+    const MSG_CAP_KEPT      = "WordPress did not remove the capability: it is still stored in the user's capabilities. A plugin or theme on this site may have stopped the write. Capability '%s', user %s (%d).";
+    const MSG_CAPS_UNREAD   = "WordPress answered that the capability was removed, but a database error stopped the user's capabilities being read back, so whether it was removed is not known. Capability '%s', user %s (%d).";
+    const MSG_CAP_NOT_ADDED = "WordPress did not add the capability: the user's stored capabilities do not grant it. A plugin or theme on this site may have stopped the write. Capability '%s', user %s (%d).";
+    const MSG_ADD_UNREAD    = "WordPress answered that the capability was added, but a database error stopped the user's capabilities being read back, so whether it was added is not known. Capability '%s', user %s (%d).";
+    const MSG_ADD_UNBASED   = "A database error stopped the user's stored capabilities being read, so nothing was written. Capability '%s', user %s (%d).";
+    const MSG_SITES_UNREAD  = 'WordPress answered the spam flag of the sites of user %d, but a database error stopped some being read back, so whether they were stored is not known. Sites: %s.';
+    const MSG_SPAM_KEPT     = "WordPress did not store the user's spam flag: the users table still holds %s for user %d. A plugin or theme on this site may have stopped the write.";
+    const MSG_SPAM_UNREAD   = 'WordPress answered the spam flag of user %d, but a database error stopped it being read back, so whether it was stored is not known.';
+    const MSG_SPAM_UNBASED  = 'A database error stopped the stored spam flag of user %d being read, so nothing was written.';
+    const MSG_SITES_KEPT    = 'WordPress did not store the spam flag of every site of user %d: a plugin or theme on this site may have stopped the write. Sites still holding the old flag: %s.';
 
     public function preflight_cap( Invocation $inv, Context $ctx ): void {
         $cap     = isset( $inv->args[1] ) ? (string) $inv->args[1] : '';
@@ -56,9 +66,22 @@ final class User_Handler extends Command_Handler {
         $cap = (string) $inv->args[1];
         $ctx->not_captured( self::NOT_CAPTURED_CAPS );
 
-        $caps = isset( $user->caps ) ? (array) $user->caps : array();
-        if ( ! ( array_key_exists( $cap, $caps ) && true === $caps[ $cap ] ) ) {
+        $before = self::stored_caps( $user );
+        if ( null === $before ) {
+            $ctx->out->error( sprintf( self::MSG_ADD_UNBASED, $cap, $user->user_login, $user->ID ) );
+        }
+        if ( true !== ( $before[ $cap ] ?? null ) ) {
             $user->add_cap( $cap );
+            $stored = self::stored_caps( $user );
+            if ( null === $stored ) {
+                $ctx->not_known( sprintf( self::MSG_ADD_UNREAD, $cap, $user->user_login, $user->ID ) );
+            }
+            if ( true !== ( $stored[ $cap ] ?? null ) ) {
+                if ( $stored !== $before ) {
+                    $ctx->mark_changed();
+                }
+                $ctx->out->error( sprintf( self::MSG_CAP_NOT_ADDED, $cap, $user->user_login, $user->ID ) );
+            }
             $ctx->mark_changed();
         }
         $ctx->out->success( "Added '{$cap}' capability for {$user->user_login} ({$user->ID})." );
@@ -76,8 +99,38 @@ final class User_Handler extends Command_Handler {
 
         $ctx->not_captured( self::NOT_CAPTURED_CAPS );
         $user->remove_cap( $cap );
+        $stored = self::stored_caps( $user );
+        if ( null === $stored ) {
+            $ctx->not_known( sprintf( self::MSG_CAPS_UNREAD, $cap, $user->user_login, $user->ID ) );
+        }
+        if ( array_key_exists( $cap, $stored ) ) {
+            $ctx->out->error( sprintf( self::MSG_CAP_KEPT, $cap, $user->user_login, $user->ID ) );
+        }
         $ctx->mark_changed();
         $ctx->out->success( "Removed '{$cap}' cap for {$user->user_login} ({$user->ID})." );
+    }
+
+    private static function stored_caps( object $user ): ?array {
+        global $wpdb;
+        $key = isset( $user->cap_key ) ? (string) $user->cap_key : $wpdb->get_blog_prefix() . 'capabilities';
+        $row = self::stored_user_meta( (int) $user->ID, $key );
+        if ( null === $row ) {
+            return null;
+        }
+        return is_array( $row[1] ) ? $row[1] : array();
+    }
+
+    public static function stored_user_meta( int $user_id, string $key ): ?array {
+        global $wpdb;
+        if ( isset( $wpdb->last_error ) ) {
+            $wpdb->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the stored row itself is the answer; a cache or filter could stand in for it.
+        $row = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = %s ORDER BY umeta_id ASC LIMIT 1", $user_id, $key ) );
+        if ( '' !== (string) ( $wpdb->last_error ?? '' ) ) {
+            return null;
+        }
+        return null === $row ? array( false, null ) : array( true, \maybe_unserialize( $row ) );
     }
 
     private static function refuse_not_direct( Context $ctx, object $user, string $cap ): void {
@@ -160,8 +213,11 @@ final class User_Handler extends Command_Handler {
         $ctx->not_captured( self::NOT_CAPTURED_SPAM );
 
         foreach ( $users as $user ) {
-            if ( self::set_spam( $user, $value, $action, $ctx ) ) {
+            $result = self::set_spam( $user, $value, $action, $ctx );
+            if ( true === $result ) {
                 ++$successes;
+            } elseif ( null === $result ) {
+                ++$errors;
             }
         }
 
@@ -170,7 +226,7 @@ final class User_Handler extends Command_Handler {
 
     private static function refuse_current_site( array $users, string $value, Context $ctx ): void {
         foreach ( $users as $user ) {
-            if ( self::is_network_admin( $user ) || $value === $user->spam ) {
+            if ( self::is_network_admin( $user ) || true === self::already_stored( $user, $value ) ) {
                 continue;
             }
             foreach ( self::spam_sites( (int) $user->ID ) as $site ) {
@@ -182,7 +238,7 @@ final class User_Handler extends Command_Handler {
         }
     }
 
-    private static function set_spam( object $user, string $value, string $action, Context $ctx ): bool {
+    private static function set_spam( object $user, string $value, string $action, Context $ctx ): ?bool {
         $user_id = $user->ID;
 
         if ( self::is_network_admin( $user ) ) {
@@ -190,15 +246,21 @@ final class User_Handler extends Command_Handler {
             return false;
         }
 
-        if ( $value === $user->spam ) {
+        $already = self::already_stored( $user, $value );
+        if ( null === $already ) {
+            $ctx->out->warning( sprintf( self::MSG_SPAM_UNBASED, (int) $user_id ) );
+            return null;
+        }
+        if ( $already ) {
             $ctx->out->warning( "User {$user_id} already {$action}." );
             return false;
         }
 
         $named = array();
+        $sites = array();
         foreach ( self::spam_sites( (int) $user_id ) as $details ) {
             \update_blog_status( $details->userblog_id, 'spam', $value );
-            $named[] = self::site_label( $details );
+            $sites[ (int) $details->userblog_id ] = self::site_label( $details );
         }
 
         \wp_update_user(
@@ -207,13 +269,65 @@ final class User_Handler extends Command_Handler {
                 'spam' => $value,
             )
         );
-        $ctx->mark_changed();
+
+        $kept_sites   = array();
+        $unread_sites = array();
+        foreach ( $sites as $blog_id => $label ) {
+            $flag = self::stored_flag( 'blogs', 'blog_id', $blog_id );
+            if ( null === $flag ) {
+                $unread_sites[] = $label;
+            } elseif ( $flag === $value ) {
+                $named[] = $label;
+            } else {
+                $kept_sites[] = $label;
+            }
+        }
+        $flag = self::stored_flag( 'users', 'ID', (int) $user_id );
         if ( $named ) {
+            $ctx->mark_changed();
             $ctx->note( sprintf( self::MSG_SITES_NOTE, (int) $user_id, $action, $value, implode( ', ', $named ) ) );
+        }
+        if ( $kept_sites ) {
+            $ctx->out->warning( sprintf( self::MSG_SITES_KEPT, (int) $user_id, implode( ', ', $kept_sites ) ) );
+        }
+        if ( $unread_sites ) {
+            $ctx->mark_changed();
+            $ctx->out->warning( sprintf( self::MSG_SITES_UNREAD, (int) $user_id, implode( ', ', $unread_sites ) ) );
+        }
+        if ( null === $flag ) {
+            $ctx->mark_changed();
+            $ctx->out->warning( sprintf( self::MSG_SPAM_UNREAD, (int) $user_id ) );
+            return null;
+        }
+        if ( $flag !== $value ) {
+            $ctx->out->warning( sprintf( self::MSG_SPAM_KEPT, $flag, (int) $user_id ) );
+            return null;
+        }
+        $ctx->mark_changed();
+        if ( $kept_sites || $unread_sites ) {
+            return null;
         }
 
         $ctx->out->log( "User {$user_id} {$action}." );
         return true;
+    }
+
+    private static function already_stored( object $user, string $value ): ?bool {
+        $flag = self::stored_flag( 'users', 'ID', (int) $user->ID );
+        return null === $flag ? null : $flag === $value;
+    }
+
+    private static function stored_flag( string $table, string $column, int $id ): ?string {
+        global $wpdb;
+        if ( isset( $wpdb->last_error ) ) {
+            $wpdb->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the stored row is the answer; the table and column are $wpdb's own, never input.
+        $flag = $wpdb->get_var( $wpdb->prepare( "SELECT spam FROM {$wpdb->$table} WHERE {$column} = %d LIMIT 1", $id ) );
+        if ( '' !== (string) ( $wpdb->last_error ?? '' ) || null === $flag ) {
+            return null;
+        }
+        return (string) (int) $flag;
     }
 
     private static function spam_sites( int $user_id ): array {

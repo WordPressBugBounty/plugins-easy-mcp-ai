@@ -96,6 +96,9 @@ class Add_Post_Terms extends Base_Tool {
         $terms     = self::terms_to_set( $terms_raw, $by );
         $to_create = self::terms_to_create( $terms, $taxonomy, $by );
         self::refuse_uncreatable_terms( $to_create, $taxonomy, $tax_obj );
+        if ( array() !== $to_create ) {
+            $this->refuse_switched_off_term_action( 'create', $taxonomy );
+        }
 
         $before = wp_get_object_terms(
             $post_id,
@@ -108,7 +111,7 @@ class Add_Post_Terms extends Base_Tool {
         );
 
         $append = isset( $arguments['append'] ) ? (bool) $arguments['append'] : true;
-        $result = wp_set_object_terms( $post_id, $terms, $taxonomy, $append );
+        $result = wp_set_object_terms( $post_id, wp_slash( $terms ), $taxonomy, $append );
         if ( is_wp_error( $result ) ) {
             throw new \RuntimeException( $result->get_error_message() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
@@ -206,7 +209,7 @@ class Add_Post_Terms extends Base_Tool {
         $missing_ids = array();
         $to_create   = array();
         foreach ( $terms as $term ) {
-            if ( ( is_string( $term ) && '' === trim( $term ) ) || term_exists( $term, $taxonomy ) ) {
+            if ( ( is_string( $term ) && '' === trim( $term ) ) || term_exists( wp_slash( $term ), $taxonomy ) ) {
                 continue;
             }
             if ( is_int( $term ) ) {

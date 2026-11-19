@@ -65,12 +65,18 @@ final class Tool_Status {
                 return sprintf( 'is switched off on this site. An administrator can switch it on in wp-admin under %s.', $status['where'] );
             case 'off_locked':
                 return sprintf( 'is ' . self::IN_CONFIGURATION . '.', 'it' );
+            case 'integration_off':
+                return sprintf( 'is switched off on this site with the rest of the %1$s integration. An administrator can switch the %1$s integration on in wp-admin under %2$s.', $status['integration'], $status['where'] );
+            case 'integration_off_locked':
+                return sprintf( 'belongs to the %s integration, ' . sprintf( self::IN_CONFIGURATION, 'it' ) . '.', $status['integration'] );
             case 'pattern':
                 return Config::is_locked( 'easy_mcp_ai_allowed_tool_patterns' )
                     ? 'is excluded by the allowed tool patterns set in this site\'s configuration (wp-config.php or the server environment), where only the site owner can change them.'
                     : 'is excluded by this site\'s allowed tool patterns, which have no wp-admin screen: the site owner changes them with the easy_mcp_ai_allowed_tool_patterns option or EASY_MCP_AI_ALLOWED_TOOL_PATTERNS.';
             case 'app_only':
                 return 'can only be called from an approval card, in a client that supports MCP Apps.';
+            case 'needs_tool':
+                return sprintf( 'needs the %s tool, which %s', $status['tool'], self::predicate( $status['cause'] ) );
             case 'privileged':
                 return 'is refused right now: ' . rtrim( $status['message'], '.' ) . '.';
             default:

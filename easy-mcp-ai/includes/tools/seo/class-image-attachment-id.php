@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-final class Yoast_Image_Id {
+final class Image_Attachment_Id {
 
 	public static function for_url( string $url ): int {
 		if ( '' === $url ) {
@@ -17,7 +17,7 @@ final class Yoast_Image_Id {
 		if ( $id > 0 ) {
 			return $id;
 		}
-		if ( ! preg_match( '#^(.+/)([^/]+)-\d+x\d+(\.[a-z0-9]+)$#i', $url, $parts ) ) {
+		if ( ! preg_match( '#^(.+/)([^/]+)(\.[a-z0-9]+)$#i', $url, $parts ) ) {
 			return 0;
 		}
 		$folder = self::uploads_folder( $parts[1] );
@@ -25,17 +25,34 @@ final class Yoast_Image_Id {
 			return 0;
 		}
 
-		$file = self::file_name( $url );
-		foreach ( array( $parts[2], $parts[2] . '-scaled' ) as $original ) {
-			$id = (int) attachment_url_to_postid( $parts[1] . $original . $parts[3] );
-			if ( $id > 0 && self::lists_size( wp_get_attachment_metadata( $id ), $file ) ) {
+		$file = $parts[2] . $parts[3];
+		if ( preg_match( '#^(.+)-\d+x\d+$#i', $parts[2], $copy ) ) {
+			foreach ( array( $copy[1], $copy[1] . '-scaled' ) as $original ) {
+				$id = (int) attachment_url_to_postid( $parts[1] . $original . $parts[3] );
+				if ( $id > 0 && self::lists_size( wp_get_attachment_metadata( $id ), $file ) ) {
+					return $id;
+				}
+			}
+		} else {
+			$id = self::attached_in_place_of( $parts[1], $parts[2], $parts[3], $file );
+			if ( $id > 0 ) {
 				return $id;
 			}
 		}
 
 		foreach ( self::attachments_naming( $folder, $file ) as $candidate => $metadata ) {
-			if ( self::lists_size( $metadata, $file ) && self::folder_of( $metadata['file'] ) === $folder ) {
+			if ( ( self::lists_size( $metadata, $file ) || self::is_uploaded_original( $metadata, $file ) ) && self::folder_of( $metadata['file'] ) === $folder ) {
 				return $candidate;
+			}
+		}
+		return 0;
+	}
+
+	private static function attached_in_place_of( string $folder_url, string $name, string $extension, string $file ): int {
+		foreach ( array( '-scaled', '-rotated' ) as $suffix ) {
+			$id = (int) attachment_url_to_postid( $folder_url . $name . $suffix . $extension );
+			if ( $id > 0 && self::is_uploaded_original( wp_get_attachment_metadata( $id ), $file ) ) {
+				return $id;
 			}
 		}
 		return 0;
@@ -88,13 +105,12 @@ final class Yoast_Image_Id {
 		return false;
 	}
 
+	private static function is_uploaded_original( $metadata, string $file ): bool {
+		return is_array( $metadata ) && isset( $metadata['file'], $metadata['original_image'] ) && is_string( $metadata['file'] ) && $file === $metadata['original_image'];
+	}
+
 	private static function folder_of( string $path ): string {
 		$slash = strrpos( $path, '/' );
 		return false === $slash ? '' : substr( $path, 0, $slash + 1 );
-	}
-
-	private static function file_name( string $path ): string {
-		$slash = strrpos( $path, '/' );
-		return false === $slash ? $path : substr( $path, $slash + 1 );
 	}
 }

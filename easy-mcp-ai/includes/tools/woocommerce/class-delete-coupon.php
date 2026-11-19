@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,7 @@ class Delete_Coupon extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a WooCommerce coupon by ID. Required: `id`. Deletion is immediate and irreversible — no trash. Returns { deleted: true, id }. Use `wp_wc_list_coupons` to find the ID by code. Requires WooCommerce active.';
+        return 'Permanently deletes a WooCommerce coupon by ID. Required: `id`. Deletion is immediate and irreversible — no trash. Returns { deleted: true, id }; if a plugin stops the delete, the call is an error. Use `wp_wc_list_coupons` to find the ID by code. Requires WooCommerce active.';
     }
 
     public function get_category() {
@@ -56,6 +57,7 @@ class Delete_Coupon extends Base_Tool {
         $id = $this->parse_required_id( $arguments['id'], 'id' );
 
         $this->rest_request( 'DELETE', '/wc/v3/coupons/' . $id, array( 'force' => true ) );
+        Delete_Outcome::require_post_gone( $id, 'coupon ' . $id );
 
         return array(
             'deleted' => true,
