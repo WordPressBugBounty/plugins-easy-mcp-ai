@@ -249,11 +249,11 @@ final class Elementor extends Cache_Adapter {
     private static function owner_of( $callable ): string {
         if ( is_string( $callable ) ) {
             $owner = false !== strpos( $callable, '::' ) ? (string) strstr( $callable, '::', true ) : $callable;
-            return strtolower( ltrim( $owner, '\\' ) );
+            return \Easy_MCP_AI\Autoloader::lower( ltrim( $owner, '\\' ) );
         }
         if ( is_array( $callable ) && isset( $callable[0] ) ) {
             $owner = is_object( $callable[0] ) ? get_class( $callable[0] ) : (string) $callable[0];
-            return strtolower( ltrim( $owner, '\\' ) );
+            return \Easy_MCP_AI\Autoloader::lower( ltrim( $owner, '\\' ) );
         }
         return '';
     }

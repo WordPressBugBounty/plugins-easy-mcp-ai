@@ -226,7 +226,7 @@ final class Outliner {
         $this->add(
             $out[ $list ],
             array(
-                'call' => strtolower( ltrim( $tokens[ $i ][1], '\\' ) ),
+                'call' => \Easy_MCP_AI\Autoloader::lower( ltrim( $tokens[ $i ][1], '\\' ) ),
                 $key   => self::label( substr( $tokens[ $i + 2 ][1], 1, -1 ) ),
                 'line' => $tokens[ $i ][2],
             )
@@ -244,7 +244,7 @@ final class Outliner {
         if ( $i > 0 && in_array( $tokens[ $i - 1 ][0], array( T_OBJECT_OPERATOR, T_DOUBLE_COLON, T_FUNCTION, T_NEW ), true ) ) {
             return null;
         }
-        $call = strtolower( ltrim( $tokens[ $i ][1], '\\' ) );
+        $call = \Easy_MCP_AI\Autoloader::lower( ltrim( $tokens[ $i ][1], '\\' ) );
         if ( in_array( $call, self::HOOK_CALLS, true ) ) {
             return 'hooks';
         }

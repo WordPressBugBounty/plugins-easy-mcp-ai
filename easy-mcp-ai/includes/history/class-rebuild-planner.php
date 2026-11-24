@@ -330,6 +330,9 @@ class Rebuild_Planner {
             if ( in_array( $field, array( 'post_author', 'post_parent', 'menu_order' ), true ) ) {
                 $value = 'post_parent' === $field ? $this->id( 'post', (int) $value ) : (int) $value;
             }
+            if ( in_array( $field, array( 'comment_status', 'ping_status' ), true ) ) {
+                $value = \Easy_MCP_AI\Tools\Base_Tool::discussion_status( $value );
+            }
             $args[ $map[ $field ] ] = $value;
             $restore[]              = $field;
         }
@@ -447,8 +450,8 @@ class Rebuild_Planner {
                 $args['author'] = (int) $before['post_author'];
             }
             foreach ( array( 'comment_status', 'ping_status' ) as $field ) {
-                if ( in_array( $before[ $field ] ?? null, array( 'open', 'closed' ), true ) ) {
-                    $args[ $field ] = $before[ $field ];
+                if ( isset( $before[ $field ] ) ) {
+                    $args[ $field ] = \Easy_MCP_AI\Tools\Base_Tool::discussion_status( $before[ $field ] );
                 }
             }
         } else {
@@ -488,11 +491,14 @@ class Rebuild_Planner {
             } elseif ( 'post' === $kind && 'post_tag' === $taxonomy ) {
                 $args['tags'] = $ids;
             } elseif ( 'post_format' === $taxonomy ) {
-                $format = self::format_from_term( (int) $ids[0] );
-                if ( 'post' === $kind && null !== $format ) {
+                $format = 'post' === $kind ? self::format_from_term( (int) $ids[0] ) : null;
+                if ( null === $format ) {
+                    $not_restored['terms.post_format'] = __( 'the post format could not be set on the recreated post', 'easy-mcp-ai' );
+                } elseif ( \function_exists( '\get_post_format_slugs' ) && array_key_exists( $format, \get_post_format_slugs() ) ) {
                     $args['format'] = $format;
                 } else {
-                    $not_restored['terms.post_format'] = __( 'the post format could not be set on the recreated post', 'easy-mcp-ai' );
+                    /* translators: %s: post format slug */
+                    $not_restored['terms.post_format'] = sprintf( __( 'the post format "%s" is not one WordPress knows, so the recreated post has none', 'easy-mcp-ai' ), $format );
                 }
             } else {
                 $follow[] = array(
@@ -505,6 +511,17 @@ class Rebuild_Planner {
         $calls = array_merge( array( array( 'tool' => $tools['create'], 'arguments' => $args ) ), $follow );
         $this->recreated_post_types[ (int) $row['object_id'] ] = $subtype;
         return self::restore( $calls, $not_restored, array( '*' ), 'post' );
+    }
+
+    private static function template_accepted( string $template, $post, string $type ): bool {
+        if ( ! $template ) {
+            return true;
+        }
+        if ( $post && \function_exists( '\get_page_template_slug' ) && \get_page_template_slug( (int) $post->ID ) === $template ) {
+            return true;
+        }
+        $offered = \wp_get_theme()->get_page_templates( $post ? $post : null, $type );
+        return isset( $offered[ $template ] );
     }
 
     private static function format_from_term( $term_id ) {
@@ -581,8 +598,12 @@ class Rebuild_Planner {
                 /* translators: %s: tool name */
                 return self::refuse( sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), $tools['update'] ) );
             }
-            $template = 'default' === (string) $value ? '' : (string) $value;
-            $arg      = '_thumbnail_id' === $key ? array( 'featured_media' => (int) $value ) : array( 'template' => $template );
+            $template = ( ! $value || 'default' === (string) $value ) ? '' : (string) $value;
+            if ( '_wp_page_template' === $key && ! self::template_accepted( $template, $post, $type ) ) {
+                /* translators: %s: page template file */
+                return self::refuse( sprintf( __( 'the template "%s" is not one the active theme offers for this post type, so WordPress would refuse it', 'easy-mcp-ai' ), $template ) );
+            }
+            $arg = '_thumbnail_id' === $key ? array( 'featured_media' => (int) $value ) : array( 'template' => $template );
             return self::restore( array( array( 'tool' => $tools['update'], 'arguments' => array( $tools['id_arg'] => $post_id ) + $arg ) ), array(), array( 'value' ) );
         }
         $image_field = array_search( $key, \Easy_MCP_AI\Tools\SEO\Yoast_Update_Post_Seo::IMAGE_URLS, true );

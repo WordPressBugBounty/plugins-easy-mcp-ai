@@ -3,6 +3,7 @@
 namespace Easy_MCP_AI\Meta\Providers;
 
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
+use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
 use Easy_MCP_AI\Tools\SEO\Tsf_Get_Post_Seo;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -33,6 +34,12 @@ class Tsf_Meta_Provider extends Meta_Field_Provider {
 
     public function read_tool_for( $key ) {
         return in_array( (string) $key, Tsf_Get_Post_Seo::META_KEYS, true ) ? 'wp_tsf_get_post_seo' : '';
+    }
+
+    public function after_write( $post_id, array $keys ) {
+        if ( in_array( '_social_image_url', $keys, true ) ) {
+            Image_Attachment_Id::store_for_post( (int) $post_id, '_social_image_id', (string) get_post_meta( (int) $post_id, '_social_image_url', true ) );
+        }
     }
 
     public function get_fields() {

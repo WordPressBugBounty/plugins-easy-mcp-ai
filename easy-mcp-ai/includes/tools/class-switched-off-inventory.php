@@ -191,7 +191,7 @@ final class Switched_Off_Inventory {
             'label'       => '' !== $label ? $label : $slug,
             'summary'     => self::summary( '' !== $description ? $description : $label ),
             'group'       => 'abilities:' . $namespace,
-            'group_label' => 'core' === $namespace ? 'WordPress abilities' : ( \Easy_MCP_AI\Compat\Vendor_Abilities::vendor_of( $namespace ) ?? ucfirst( $namespace ) ) . ' abilities',
+            'group_label' => 'core' === $namespace ? 'WordPress abilities' : ( Plugin_Integration_Registry::ability_source_label( $namespace ) ?? \Easy_MCP_AI\Compat\Vendor_Abilities::vendor_of( $namespace ) ?? ucfirst( $namespace ) ) . ' abilities',
             'access'      => ! empty( $annotations['readonly'] ) ? 'read' : 'write',
             'state'       => self::NOT_ENABLED,
             'where'       => Tool_Status::place( $path, null !== Tool_State::override_of( $name ) ),

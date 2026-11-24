@@ -89,16 +89,7 @@ $headings        = array(
                         <div class="easy-mcp-key-tools wp-mcp-tool-list">
                             <?php
                             foreach ( $tools as $tool ) :
-                                $short_description = '';
-                                if ( ! empty( $tool['description'] ) ) {
-                                    $full_description  = (string) $tool['description'];
-                                    $short_description = preg_match( '/^(.+?[.!?])(\s|$)/u', $full_description, $sentence )
-                                        ? $sentence[1]
-                                        : $full_description;
-                                    if ( mb_strlen( $short_description ) > 160 ) {
-                                        $short_description = rtrim( mb_substr( $short_description, 0, 157 ) ) . '…';
-                                    }
-                                }
+                                $short_description = self::short_description( (string) ( $tool['description'] ?? '' ) );
                                 ?>
                             <div class="wp-mcp-tool-row" data-tool-name="<?php echo esc_attr( $tool['name'] ); ?>">
                                 <label class="wp-mcp-tool-label">
@@ -112,8 +103,21 @@ $headings        = array(
                                 </label>
                             </div>
                             <?php endforeach; ?>
-                            <?php if ( ! $tools ) : ?>
-                            <p class="wp-mcp-tool-row"><?php esc_html_e( 'No tools are available for your account.', 'easy-mcp-ai' ); ?></p>
+                            <?php if ( ! $tools && ! $unlisted ) : ?>
+                            <p class="wp-mcp-tool-row easy-mcp-key-no-tools"><?php esc_html_e( 'No tools are available for your account.', 'easy-mcp-ai' ); ?></p>
+                            <?php endif; ?>
+                            <?php if ( $unlisted ) : ?>
+                            <p class="wp-mcp-tool-row easy-mcp-key-unlisted">
+                                <?php
+                                echo esc_html(
+                                    sprintf(
+                                        /* translators: %s: comma-separated plugin names, e.g. "Elementor, LearnPress". */
+                                        __( 'Not listed here: the %s abilities your account may use. This plugin registers them only on its own requests, so this page cannot offer them. Ask an administrator to create a key for them.', 'easy-mcp-ai' ),
+                                        implode( ', ', $unlisted )
+                                    )
+                                );
+                                ?>
+                            </p>
                             <?php endif; ?>
                         </div>
                     </fieldset>
@@ -121,7 +125,9 @@ $headings        = array(
             </tr>
         </table>
         <p>
-            <button type="submit" class="button button-secondary" form="easy-mcp-self-create" <?php disabled( ! $tools ); ?>><?php esc_html_e( 'Generate key', 'easy-mcp-ai' ); ?></button>
+            <button type="submit" id="easy-mcp-key-generate" class="button button-secondary" form="easy-mcp-self-create" <?php disabled( ! $tools ); ?>><?php esc_html_e( 'Generate key', 'easy-mcp-ai' ); ?></button>
+        </p>
+        <p class="easy-mcp-key-error notice notice-error inline" role="alert" hidden>
         </p>
     </div>
 </details>

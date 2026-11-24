@@ -16,7 +16,7 @@ class Get_User_Meta extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Reads user meta for a given user. Required: `user_id`. Optional: `key` (single key — omit to fetch all meta), `single` (boolean, default true — when true returns a single value; when false returns an array of values for the key). Returns { user_id, key, value } for one key, or { user_id, meta, withheld_keys } for all meta, where `withheld_keys` (sorted) names every key the policy left out of `meta`, so an omission is never silent. Users can read their own meta without edit_users. Auth-sensitive keys (session_tokens, _password_reset_key, _application_passwords, etc.) and the role keys ({prefix}capabilities, {prefix}user_level) are blocked for all callers including administrators; in the all-meta read, `_`-prefixed keys are also withheld from callers without manage_options unless the `easy_mcp_ai_user_meta_readable_protected_keys` filter lists them.';
+        return 'Reads user meta for a given user. Required: `user_id`. Optional: `key` (single key — omit to fetch all meta), `single` (boolean, default true — when true returns a single value; when false returns an array of values for the key). Returns { user_id, key, value } for one key, or { user_id, meta, withheld_keys } for all meta, where `withheld_keys` (sorted) names every key the policy left out of `meta`, so an omission is never silent. Users can read their own meta without edit_users. Auth-sensitive keys (session_tokens, _password_reset_key, _application_passwords, two-factor secrets such as a TOTP seed or backup codes, etc.) and the role keys ({prefix}capabilities, {prefix}user_level) are blocked for all callers including administrators; in the all-meta read, `_`-prefixed keys are also withheld from callers without manage_options unless the `easy_mcp_ai_user_meta_readable_protected_keys` filter lists them.';
     }
 
     public function get_category() {
@@ -108,6 +108,10 @@ class Get_User_Meta extends Base_Tool {
             'meta'          => $all,
             'withheld_keys' => $withheld,
         );
+    }
+
+    public static function is_auth_sensitive( string $key ): bool {
+        return self::is_auth_protected( $key );
     }
 
     public static function is_key_readable( string $key ): bool {

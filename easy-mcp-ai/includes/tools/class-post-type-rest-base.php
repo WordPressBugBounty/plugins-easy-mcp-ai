@@ -99,6 +99,15 @@ final class Post_Type_Rest_Base {
         return $served;
     }
 
+    public static function uses_core_get_post( object $object ): bool {
+        if ( ! method_exists( $object, 'get_rest_controller' ) ) {
+            return true;
+        }
+        $controller = $object->get_rest_controller();
+        return $controller instanceof \WP_REST_Posts_Controller
+            && 'WP_REST_Posts_Controller' === ( new \ReflectionMethod( $controller, 'get_post' ) )->getDeclaringClass()->getName();
+    }
+
     public static function route_namespace( string $base ): string {
         return null === self::served_type( $base ) && null !== Hidden_Post_Types::open_type( $base ) ? Hidden_Post_Types::POST_TYPE_NAMESPACE : 'wp/v2';
     }

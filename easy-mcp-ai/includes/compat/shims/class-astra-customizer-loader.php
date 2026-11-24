@@ -108,6 +108,6 @@ final class Astra_Customizer_Loader extends Compat_Shim {
         if ( ! is_array( $function ) || ! isset( $function[0], $function[1] ) || ! is_string( $function[1] ) ) {
             return null;
         }
-        return $function[0] instanceof $this->customizer ? strtolower( $function[1] ) : null;
+        return $function[0] instanceof $this->customizer ? \Easy_MCP_AI\Autoloader::lower( $function[1] ) : null;
     }
 }

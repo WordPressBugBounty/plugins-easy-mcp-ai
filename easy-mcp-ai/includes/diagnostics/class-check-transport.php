@@ -626,10 +626,11 @@ class Check_Transport {
 
     private static function read_htaccess( $home_path, $abspath ): ?array {
         foreach ( self::htaccess_candidates( $home_path, $abspath ) as $candidate ) {
-            $contents = self::read_file( $candidate );
-            if ( null !== $contents ) {
-                return array( 'path' => $candidate, 'contents' => $contents );
+            if ( ! file_exists( $candidate ) ) {
+                continue;
             }
+            $contents = self::read_file( $candidate );
+            return null === $contents ? null : array( 'path' => $candidate, 'contents' => $contents );
         }
         return null;
     }

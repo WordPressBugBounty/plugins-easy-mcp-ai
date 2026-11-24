@@ -17,6 +17,8 @@ class Plugin {
     private $tool_registry;
     private $resource_registry;
 
+    private $rest_build_deferred = false;
+
     public static function instance() {
         if ( null === self::$instance ) {
             self::$instance = new self();
@@ -28,7 +30,6 @@ class Plugin {
         Config_Admin::register();
         Admin\Review_Ask::register();
         \add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
-        \add_action( 'admin_init', array( __CLASS__, 'maybe_seed_abilities' ) );
         \add_action( 'init', array( $this, 'handle_well_known' ), 0 );
         \add_filter( 'rest_pre_serve_request', array( Cache\Page_Cache_Opt_Out::class, 'on_rest_pre_serve_request' ), 1, 4 );
         \add_action( 'init', array( $this, 'handle_oauth_authorize_request' ), PHP_INT_MAX );
@@ -539,17 +540,38 @@ class Plugin {
             Compat\Vendor_Abilities::serve();
             Loco\Loco_Access::serve();
         }
+        if ( self::serves_another_rest_route( $route, defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+            $this->rest_build_deferred = true;
+            \add_filter( 'rest_pre_dispatch', array( $this, 'build_for_inner_request' ), 0, 3 );
+            self::upgrade_rest_schemas();
+            if ( self::oauth_enabled() ) {
+                OAuth\OAuth_Schema::maybe_upgrade();
+            }
+            return;
+        }
+        $this->build_rest_infrastructure( false );
+    }
+
+    private static function upgrade_rest_schemas(): void {
         \Easy_MCP_AI\History\Change_Log_Schema::maybe_upgrade();
         Activator::maybe_upgrade_core_tables();
         \Easy_MCP_AI\Tasks\Task_Schema::maybe_upgrade();
         \Easy_MCP_AI\Approvals\Approval_Schema::maybe_upgrade();
+    }
+
+    private static function oauth_enabled(): bool {
+        return (bool) \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) );
+    }
+
+    private function build_rest_infrastructure( bool $deferred ): void {
+        self::upgrade_rest_schemas();
 
         $this->token_manager     = new Auth\Token_Manager();
         $this->tool_registry     = new Tools\Tool_Registry();
         $this->resource_registry = new Resources\Resource_Registry();
         $this->server            = new MCP\Server( $this->tool_registry, $this->resource_registry, $this->token_manager );
 
-        $this->register_tools( $this->tool_registry );
+        $read_abilities = $this->register_tools( $this->tool_registry, $deferred );
         $this->register_resources();
 
         if ( \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true ) ) {
@@ -578,12 +600,14 @@ class Plugin {
 
         ( new Cloud\Cloud_Proof_Route() )->register_routes();
 
-        if ( \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
+        if ( self::oauth_enabled() ) {
             OAuth\OAuth_Schema::maybe_upgrade();
 
             $oauth_routes = new OAuth\OAuth_Routes();
             $oauth_routes->register_routes();
         }
+
+        ( new Admin\Rest\Self_Service_Routes( $this->token_manager, $this->tool_registry ) )->register();
 
         ( new Admin\Rest\Admin_Routes(
             $this->tool_registry,
@@ -591,14 +615,42 @@ class Plugin {
                 return $this->lazy_tool_registry();
             }
         ) )->register();
+
+        if ( null !== $read_abilities ) {
+            $read_abilities();
+        }
     }
 
-    private function register_tools( Tools\Tool_Registry $registry ): void {
+    public static function serves_another_rest_route( string $route, bool $rest_request ): bool {
+        if ( ! $rest_request ) {
+            return false;
+        }
+        $route = \untrailingslashit( $route );
+        return ! empty( $route ) && ! Compat\Vendor_Abilities::is_our_rest_route( $route );
+    }
+
+    public function build_for_inner_request( $result, $server, $request ) {
+        if ( $request instanceof \WP_REST_Request && ! self::serves_another_rest_route( (string) $request->get_route(), true ) ) {
+            $this->build_deferred_rest_infrastructure();
+        }
+        return $result;
+    }
+
+    private function build_deferred_rest_infrastructure(): void {
+        if ( ! $this->rest_build_deferred ) {
+            return;
+        }
+        $this->rest_build_deferred = false;
+        \remove_filter( 'rest_pre_dispatch', array( $this, 'build_for_inner_request' ), 0 );
+        $this->build_rest_infrastructure( true );
+    }
+
+    private function register_tools( Tools\Tool_Registry $registry, bool $deferred = false ): ?callable {
         $registry->auto_discover();
-        $this->register_ability_tools( $registry );
+        return $this->register_ability_tools( $registry, $deferred );
     }
 
-    private function register_ability_tools( Tools\Tool_Registry $registry ): void {
+    private function register_ability_tools( Tools\Tool_Registry $registry, bool $deferred = false ): ?callable {
         $dynamic_registrar = new Tools\Dynamic_Tool_Registrar();
         $read              = static function () use ( $dynamic_registrar, $registry ) {
             self::maybe_seed_abilities();
@@ -606,11 +658,19 @@ class Plugin {
         };
         if ( \doing_action( 'init' ) ) {
             \add_action( 'wp_loaded', $read );
-        } elseif ( \doing_action( 'rest_api_init' ) ) {
+        } elseif ( \doing_action( 'rest_api_init' ) && ! self::running_last_priority( 'rest_api_init' ) ) {
             \add_action( 'rest_api_init', $read, PHP_INT_MAX );
+        } elseif ( $deferred ) {
+            return $read;
         } else {
             $read();
         }
+        return null;
+    }
+
+    private static function running_last_priority( string $hook ): bool {
+        $running = $GLOBALS['wp_filter'][ $hook ] ?? null;
+        return $running instanceof \WP_Hook && PHP_INT_MAX === $running->current_priority();
     }
 
     private function register_resources() {
@@ -858,7 +918,7 @@ class Plugin {
     }
 
     public static function maybe_seed_abilities(): void {
-        if ( ! \get_option( 'easy_mcp_ai_abilities_seed_pending' ) ) {
+        if ( ! Compat\Vendor_Abilities::served() || ! \get_option( 'easy_mcp_ai_abilities_seed_pending' ) ) {
             return;
         }
         Ability_Seed::maybe_run();
@@ -1076,15 +1136,31 @@ class Plugin {
         if ( null === $this->server && function_exists( 'rest_get_server' ) ) {
             \rest_get_server();
         }
+        $this->build_deferred_rest_infrastructure();
         return $this->server;
     }
 
     public function run_task_tick( $task_id = null ) {
+        if ( self::is_working_task( $task_id ) ) {
+            Compat\Vendor_Abilities::serve_background_tick();
+        }
         $this->guarded_background_work( function ( $server ) use ( $task_id ) {
             if ( is_string( $task_id ) && '' !== $task_id ) {
                 $server->get_task_manager()->run_background_tick( $task_id );
             }
         } );
+    }
+
+    private static function is_working_task( $task_id ): bool {
+        if ( ! is_string( $task_id ) || '' === $task_id ) {
+            return false;
+        }
+        try {
+            $row = ( new Tasks\Wpdb_Task_Store() )->find( $task_id );
+        } catch ( \Throwable $e ) {
+            return false;
+        }
+        return is_array( $row ) && 'working' === ( $row['status'] ?? null );
     }
 
     public function cleanup_tasks() {

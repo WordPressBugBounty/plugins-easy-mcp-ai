@@ -72,6 +72,19 @@ final class Post_Type_Tool_Hint {
         return sprintf( 'ID %1$d has post type "%2$s", not "%3$s", so %4$s cannot %5$s it.', $id, $type, $expected_type, $tool, self::VERBS[ $verb ] );
     }
 
+    public static function other_base( object $post, string $expected_type, string $argument, string $tool ): string {
+        $type   = (string) $post->post_type;
+        $object = \get_post_type_object( $type );
+        $reach  = Post_Type_Rest_Base::inspect( $type, $object );
+        $sends  = Post_Type_Rest_Base::OK === $reach['reason']
+            ? Post_Type_Rest_Base::uses_core_get_post( $object )
+            : Post_Type_Rest_Base::HIDDEN === $reach['reason'] && in_array( $tool, self::CPT_TOOLS, true );
+        if ( $sends ) {
+            return sprintf( 'ID %1$d has post type "%2$s", not "%3$s". Send %4$s: %5$s', (int) $post->ID, $type, $expected_type, $argument, $reach['base'] );
+        }
+        return sprintf( 'ID %1$d has post type "%2$s", not "%3$s", and %4$s cannot reach that type.', (int) $post->ID, $type, $expected_type, $tool );
+    }
+
     public static function usable_tool( object $post, string $verb ): ?array {
         foreach ( self::candidates( $post, $verb ) as $candidate ) {
             if ( self::may_use( $candidate[0] ) ) {

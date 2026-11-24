@@ -164,7 +164,8 @@ class Blocker_Copy {
 
     private static function visibility_copy( Diagnostic_Result $r, array $tokens ) {
         $blind = array_values( array_filter( $tokens, static function ( $t ) {
-            return is_array( $t ) && 0 === (int) ( isset( $t['visible'] ) ? $t['visible'] : 0 );
+            return is_array( $t ) && 0 === (int) ( isset( $t['visible'] ) ? $t['visible'] : 0 )
+                && 0 === (int) ( isset( $t['visible_with'] ) ? $t['visible_with'] : 0 );
         } ) );
 
         if ( 1 !== count( $blind ) ) {

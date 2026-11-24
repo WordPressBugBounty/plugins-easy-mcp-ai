@@ -8,6 +8,7 @@ use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Rest_Routes\Dedicated_Tools;
 use Easy_MCP_AI\Rest_Routes\Namespace_State;
 use Easy_MCP_AI\Rest_Routes\Route_Gate;
+use Easy_MCP_AI\Rest_Routes\Wordfence_Routes;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -207,7 +208,7 @@ abstract class Rest_Route_Tool extends Base_Tool {
         $path     = Route_Gate::normalize_path( $arguments['route'] ?? null );
         $query    = self::object_argument( $arguments, 'query' );
         $body     = $this->sends_body() ? self::object_argument( $arguments, 'body' ) : array();
-        $resolved = Route_Gate::resolve( \rest_get_server(), $method, $path );
+        $resolved = Route_Gate::resolve_loading( \rest_get_server(), $method, $path );
         $refusal  = Route_Gate::refusal( $method, $resolved, $query + $body );
         if ( null === $refusal ) {
             $refusal = Route_Gate::parameter_conflict( $resolved['url_params'], $query ) ?? Route_Gate::parameter_conflict( $resolved['url_params'], $body );
@@ -225,6 +226,10 @@ abstract class Rest_Route_Tool extends Base_Tool {
             throw new \RuntimeException( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $this->refuse_builder_owned_route_write( $path, $query, $body );
+        $secret = \Easy_MCP_AI\Tools\Users\Customer_Meta_Filter::write_refusal( $method, $path, self::params_as_read( $query, $body ) );
+        if ( null !== $secret ) {
+            throw Detailed_Runtime_Error::for_validation( $secret ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
         return array( $method, $path, $query, $body, $resolved );
     }
 
@@ -297,7 +302,7 @@ abstract class Rest_Route_Tool extends Base_Tool {
         };
         \add_filter( 'rest_dispatch_request', $confirm, PHP_INT_MIN, 3 );
         try {
-            return \rest_do_request( $request );
+            return \Easy_MCP_AI\Tools\Users\Customer_Meta_Filter::filter_response( $request->get_route(), \rest_do_request( $request ) );
         } finally {
             \remove_filter( 'rest_dispatch_request', $confirm, PHP_INT_MIN );
         }
@@ -355,6 +360,10 @@ abstract class Rest_Route_Tool extends Base_Tool {
     }
 
     private static function error_for( string $method, string $path, \WP_REST_Response $response ): \Exception {
+        $wordfence = Wordfence_Routes::refusal( $method, $path, $response );
+        if ( null !== $wordfence ) {
+            return $wordfence;
+        }
         $status  = (int) $response->get_status();
         $data    = $response->get_data();
         $code    = is_array( $data ) && isset( $data['code'] ) && is_string( $data['code'] ) ? $data['code'] : '';

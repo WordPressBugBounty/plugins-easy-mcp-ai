@@ -110,6 +110,7 @@ class Get_Post_Full extends Base_Tool {
         $post_type = ! empty( $arguments['post_type'] )
             ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' )
             : 'posts';
+        $this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
 
         $context                   = $this->read_context( $arguments, $post_id );
         list( $include, $exclude ) = self::sections( $arguments );

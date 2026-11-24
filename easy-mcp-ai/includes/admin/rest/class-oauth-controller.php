@@ -399,6 +399,7 @@ class OAuth_Controller extends Admin_Rest_Controller {
         list( $privileged, $ordinary ) = Privileged_Groups::split_scopes( $parts );
         $tools   = Scope_Map::resolve_allowed_tools( implode( ' ', $ordinary ) );
         $full    = in_array( '*', $tools, true );
+        $uncounted = $full ? array() : \Easy_MCP_AI\Compat\Unseen_Abilities::in_scope( implode( ' ', $ordinary ) );
         $user_id = (int) ( $row['wp_user_id'] ?? 0 );
 
         return array(
@@ -414,9 +415,10 @@ class OAuth_Controller extends Admin_Rest_Controller {
             'scope'        => $scope,
             'scopes'       => $parts,
             'privilegedScopes' => $privileged,
-            'preset'       => empty( $ordinary ) ? Access_Presets::CUSTOM : $this->presets->from_allowed_tools( $tools ),
+            'preset'       => empty( $ordinary ) || $uncounted ? Access_Presets::CUSTOM : $this->presets->from_allowed_tools( $tools ),
             'fullAccess'   => $full,
             'toolCount'    => $full ? null : count( $tools ),
+            'uncounted'    => $uncounted,
             'roleLimit'    => self::role_limit_payload( $row['role_limit'] ?? null ),
             'availability' => $this->availability_payload( $user_id, $row['role_limit'] ?? null, $parts ),
             'grantedAt'    => Dashboard_Controller::iso8601( $row['granted_at'] ?? null ),

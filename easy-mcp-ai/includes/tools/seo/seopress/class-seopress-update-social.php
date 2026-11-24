@@ -10,12 +10,22 @@ use Easy_MCP_AI\Tools\Base_Tool;
 
 class Seopress_Update_Social extends Base_Tool {
 
+	const IMAGE_URLS = array(
+		'og_image'      => '_seopress_social_fb_img',
+		'twitter_image' => '_seopress_social_twitter_img',
+	);
+
+	const IMAGE_IDS = array(
+		'og_image'      => '_seopress_social_fb_img_attachment_id',
+		'twitter_image' => '_seopress_social_twitter_img_attachment_id',
+	);
+
 	public function get_name() {
 		return 'wp_seopress_update_post_social';
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress social (Open Graph / Twitter) settings for a post or page via the seopress/v1 REST API. Only the fields you provide are changed.';
+		return 'Updates the SEOPress social (Open Graph / Twitter) settings for a post or page via the seopress/v1 REST API. Only the fields you provide are changed; an image URL is stored with the id of its Media Library image, as SEOPress\'s own editor stores it.';
 	}
 
 	public function get_category() {
@@ -98,15 +108,16 @@ class Seopress_Update_Social extends Base_Tool {
 			}
 		}
 
-		$url_map = array(
-			'og_image'      => '_seopress_social_fb_img',
-			'twitter_image' => '_seopress_social_twitter_img',
-		);
-		foreach ( $url_map as $arg => $key ) {
+		foreach ( self::IMAGE_URLS as $arg => $key ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				$body[ $key ] = esc_url_raw( (string) $arguments[ $arg ] );
+				$url          = esc_url_raw( (string) $arguments[ $arg ] );
+				$body[ $key ] = $url;
+				$attachment_id                   = Image_Attachment_Id::for_url( $url );
+				$body[ self::IMAGE_IDS[ $arg ] ] = $attachment_id > 0 ? (string) $attachment_id : '';
 			}
 		}
+
+		self::refuse_fields_seopress_drops( $post_id, $body );
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/social-settings', $body );
 		if ( array() !== $body ) {
@@ -117,5 +128,40 @@ class Seopress_Update_Social extends Base_Tool {
 			'post_id' => $post_id,
 			'updated' => true,
 		);
+	}
+
+	private static function refuse_fields_seopress_drops( int $post_id, array $body ): void {
+		if ( array() === $body ) {
+			return;
+		}
+		$helper = array( '\SEOPress\Helpers\Metas\SocialSettings', 'getMetaKeys' );
+		if ( ! is_callable( $helper ) ) {
+			throw new \InvalidArgumentException( 'This SEOPress version does not say which social fields it saves (SEOPress\Helpers\Metas\SocialSettings::getMetaKeys() is missing), so nothing was sent. Nothing was changed.' );
+		}
+		$saved = array();
+		foreach ( (array) call_user_func( $helper, $post_id ) as $field ) {
+			if ( is_array( $field ) && isset( $field['key'] ) && is_string( $field['key'] ) ) {
+				$saved[] = $field['key'];
+			}
+		}
+		$arguments = array(
+			'_seopress_social_fb_title'       => 'og_title',
+			'_seopress_social_fb_desc'        => 'og_description',
+			'_seopress_social_twitter_title'  => 'twitter_title',
+			'_seopress_social_twitter_desc'   => 'twitter_description',
+		);
+		foreach ( self::IMAGE_URLS as $arg => $key ) {
+			$arguments[ $key ]                    = $arg;
+			$arguments[ self::IMAGE_IDS[ $arg ] ] = $arg . ' (its Media Library image id)';
+		}
+		$dropped = array();
+		foreach ( array_keys( $body ) as $key ) {
+			if ( ! in_array( $key, $saved, true ) ) {
+				$dropped[] = $arguments[ $key ] ?? (string) $key;
+			}
+		}
+		if ( array() !== $dropped ) {
+			throw new \InvalidArgumentException( sprintf( 'SEOPress does not offer %s for this post, so its social settings route would not save it. Nothing was changed.', implode( ', ', $dropped ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
 	}
 }

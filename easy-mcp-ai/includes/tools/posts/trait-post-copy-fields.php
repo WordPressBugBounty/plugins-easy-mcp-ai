@@ -18,6 +18,17 @@ trait Post_Copy_Fields {
         return array( 'skipped_template' => $template );
     }
 
+    private static function copied_format( object $source ): array {
+        $format = get_post_format( (int) $source->ID );
+        if ( ! is_string( $format ) || '' === $format ) {
+            return array();
+        }
+        if ( array_key_exists( $format, get_post_format_slugs() ) ) {
+            return array( 'format' => $format );
+        }
+        return array( 'skipped_format' => $format );
+    }
+
     private function copied_terms( object $source ): array {
         $rest_bases = $this->rest_taxonomies_for( $source->post_type );
         $params     = array();

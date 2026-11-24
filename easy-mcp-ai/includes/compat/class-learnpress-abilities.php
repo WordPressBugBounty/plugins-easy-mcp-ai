@@ -49,6 +49,10 @@ final class Learnpress_Abilities extends Vendor_Abilities {
         );
     }
 
+    public static function plugin_loaded(): bool {
+        return class_exists( self::ABILITIES_CLASS );
+    }
+
     protected static function ran_before_switches_dropped( string $slug ): bool {
         unset( $slug );
         return \Easy_MCP_AI\Meta\Meta_Exposure::is_group_enabled( 'learnpress' );

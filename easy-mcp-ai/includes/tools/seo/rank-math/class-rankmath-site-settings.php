@@ -47,6 +47,28 @@ final class Rankmath_Site_Settings {
 		'geo'                        => array( 'type' => 'titles', 'key' => 'geo', 'kind' => 'geo', 'label' => 'Geo Coordinates', 'module' => 'local-seo', 'entity' => 'company' ),
 		'local_seo_about_page'       => array( 'type' => 'titles', 'key' => 'local_seo_about_page', 'kind' => 'page', 'label' => 'About Page', 'module' => 'local-seo' ),
 		'local_seo_contact_page'     => array( 'type' => 'titles', 'key' => 'local_seo_contact_page', 'kind' => 'page', 'label' => 'Contact Page', 'module' => 'local-seo' ),
+		'google_verify'              => array( 'type' => 'general', 'key' => 'google_verify', 'kind' => 'verify', 'label' => 'Google Search Console' ),
+		'bing_verify'                => array( 'type' => 'general', 'key' => 'bing_verify', 'kind' => 'verify', 'label' => 'Bing Webmaster Tools' ),
+		'baidu_verify'               => array( 'type' => 'general', 'key' => 'baidu_verify', 'kind' => 'verify', 'label' => 'Baidu Webmaster Tools' ),
+		'yandex_verify'              => array( 'type' => 'general', 'key' => 'yandex_verify', 'kind' => 'verify', 'label' => 'Yandex Verification ID' ),
+		'pinterest_verify'           => array( 'type' => 'general', 'key' => 'pinterest_verify', 'kind' => 'verify', 'label' => 'Pinterest Verification ID' ),
+		'norton_verify'              => array( 'type' => 'general', 'key' => 'norton_verify', 'kind' => 'verify', 'label' => 'Norton Safe Web Verification ID' ),
+		'post_type_archives'         => array( 'type' => 'titles', 'key' => self::ARCHIVE_KEY, 'kind' => 'archives', 'label' => '<Post type> Archive Title" and "<Post type> Archive Description' ),
+	);
+
+	const ARCHIVE_KEY = 'pt_%s_archive_%s';
+
+	const ARCHIVE_FIELDS = array( 'title', 'description' );
+
+	const ARCHIVE_FALLBACK = '%pt_plural% Archive %page% %sep% %sitename%';
+
+	const VERIFY_TAGS = array(
+		'google_verify'    => 'google-site-verification',
+		'bing_verify'      => 'msvalidate.01',
+		'baidu_verify'     => 'baidu-site-verification',
+		'yandex_verify'    => 'yandex-verification',
+		'pinterest_verify' => 'p:domain_verify',
+		'norton_verify'    => 'norton-safeweb-site-verification',
 	);
 
 	const MODULES = array(
@@ -103,6 +125,13 @@ final class Rankmath_Site_Settings {
 		'geo'                        => 'The business\'s latitude and longitude in the schema, as "latitude,longitude". Needs the Local SEO module on and an Organization.',
 		'local_seo_about_page'       => 'The page whose schema becomes AboutPage, as a page id; 0 removes it. Needs the Local SEO module on.',
 		'local_seo_contact_page'     => 'The page whose schema becomes ContactPage, as a page id; 0 removes it. Needs the Local SEO module on.',
+		'google_verify'              => 'Printed on the home page only, as <meta name="google-site-verification" content="…">. While Rank Math\'s Analytics module holds the code it got when Search Console was connected (kept for two days), Rank Math prints that code instead.',
+		'bing_verify'                => 'Printed on the home page only, as <meta name="msvalidate.01" content="…">.',
+		'baidu_verify'               => 'Printed on the home page only, as <meta name="baidu-site-verification" content="…">.',
+		'yandex_verify'              => 'Printed on the home page only, as <meta name="yandex-verification" content="…">.',
+		'pinterest_verify'           => 'Printed on the home page only, as <meta name="p:domain_verify" content="…">.',
+		'norton_verify'              => 'Printed on the home page only, as <meta name="norton-safeweb-site-verification" content="…">.',
+		'post_type_archives'         => 'The title and meta description of a post type\'s archive page (such as /books/), one row per post type that has an archive. Rank Math variables such as %pt_plural%, %page% and %sep% are kept. Rows and fields not sent are kept; "" makes Rank Math print its fallback, "' . self::ARCHIVE_FALLBACK . '", for the description too.',
 	);
 
 	const FIELD_TYPES = array(
@@ -124,6 +153,8 @@ final class Rankmath_Site_Settings {
 		'hours'    => 'repeatableGroup',
 		'phones'   => 'repeatableGroup',
 		'info'     => 'repeatableGroup',
+		'verify'   => 'text',
+		'archives' => 'selectVariable',
 		'image'    => 'file',
 	);
 
@@ -177,12 +208,38 @@ final class Rankmath_Site_Settings {
 					}
 				}
 				return $rows;
+			case 'archives':
+				return self::archives( $stored );
 		}
 		$text = is_scalar( $raw ) ? (string) $raw : '';
 		if ( 'urls' === $definition['kind'] ) {
 			return array_values( array_filter( array_map( 'trim', explode( "\n", $text ) ), 'strlen' ) );
 		}
 		return $text;
+	}
+
+	public static function archive_post_types(): array {
+		$out = array();
+		foreach ( (array) \RankMath\Helper::get_accessible_post_types() as $post_type ) {
+			$object = get_post_type_object( (string) $post_type );
+			if ( $object && ! empty( $object->has_archive ) ) {
+				$out[] = (string) $post_type;
+			}
+		}
+		return $out;
+	}
+
+	private static function archives( array $stored ): array {
+		$rows = array();
+		foreach ( self::archive_post_types() as $post_type ) {
+			$row = array( 'post_type' => $post_type );
+			foreach ( self::ARCHIVE_FIELDS as $field ) {
+				$raw           = $stored[ sprintf( self::ARCHIVE_KEY, $post_type, $field ) ] ?? '';
+				$row[ $field ] = is_scalar( $raw ) ? (string) $raw : '';
+			}
+			$rows[] = $row;
+		}
+		return $rows;
 	}
 
 	private static function parts( $raw, array $keys ): array {

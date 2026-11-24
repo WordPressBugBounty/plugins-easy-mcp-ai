@@ -32,7 +32,20 @@ final class Tool_Policy {
         }
         $value = is_array( $value ) ? $value : array();
         if ( ! array_key_exists( 'known', $value ) && array() !== $value ) {
-            return array( 'holdPolicy' => self::valid_hold_policy( $value['holdPolicy'] ?? null ) );
+            $state = array( 'holdPolicy' => self::valid_hold_policy( $value['holdPolicy'] ?? null ) );
+            if ( isset( $value['seen'] ) && is_array( $value['seen'] ) ) {
+                $state['seen'] = array();
+                foreach ( $value['seen'] as $name => $added ) {
+                    if ( is_string( $name ) ) {
+                        $state['seen'][ $name ] = true === $added;
+                    }
+                }
+            }
+            $choices = self::valid_choices( $value['choices'] ?? array() );
+            if ( $choices ) {
+                $state['choices'] = $choices;
+            }
+            return $state;
         }
         $state = array(
             'known' => array(),
@@ -49,17 +62,23 @@ final class Tool_Policy {
                 );
             }
         }
-        foreach ( (array) ( $value['choices'] ?? array() ) as $name => $choice ) {
+        $state['choices'] = self::valid_choices( $value['choices'] ?? array() );
+        return $state;
+    }
+
+    private static function valid_choices( $raw ): array {
+        $choices = array();
+        foreach ( (array) $raw as $name => $choice ) {
             if ( ! is_string( $name ) || ! is_array( $choice ) ) {
                 continue;
             }
             foreach ( array( 'enabled', 'requireApproval' ) as $field ) {
                 if ( array_key_exists( $field, $choice ) ) {
-                    $state['choices'][ $name ][ $field ] = is_bool( $choice[ $field ] ) ? $choice[ $field ] : 'requireApproval' === $field;
+                    $choices[ $name ][ $field ] = is_bool( $choice[ $field ] ) ? $choice[ $field ] : 'requireApproval' === $field;
                 }
             }
         }
-        return $state;
+        return $choices;
     }
 
     private static function valid_hold_policy( $value ) {
@@ -118,16 +137,18 @@ final class Tool_Policy {
 
     private static function synchronized( array $state, array $categories ): array {
         $first = ! isset( $state['known'] ) || ! is_array( $state['known'] );
+        $added_since_seed = $first ? array_keys( array_filter( $state['seen'] ?? array() ) ) : array();
         if ( $first ) {
-            $state = array( 'known' => array(), 'choices' => array(), 'holdPolicy' => $state['holdPolicy'] ?? 'write_destructive' );
+            $state = array( 'known' => array(), 'choices' => $state['choices'] ?? array(), 'holdPolicy' => $state['holdPolicy'] ?? 'write_destructive' );
         }
         $changed = $first;
         $baseline = $first || ! empty( $state['unlisted'] );
         unset( $state['unlisted'] );
         foreach ( $categories as $name => $category ) {
             if ( ! array_key_exists( $name, $state['known'] ) ) {
+                $addition = ! $baseline || in_array( $name, $added_since_seed, true );
                 $state['known'][ $name ] = array(
-                    'held' => ! $baseline && self::held_by( $category, $state['holdPolicy'] ?? 'write_destructive' ),
+                    'held' => $addition && self::held_by( $category, $state['holdPolicy'] ?? 'write_destructive' ),
                 );
                 if ( ! $baseline && in_array( $category, array( 'destructive', 'unrestricted' ), true ) && ! isset( $state['choices'][ $name ]['requireApproval'] ) ) {
                     $state['choices'][ $name ]['requireApproval'] = true;
@@ -212,6 +233,19 @@ final class Tool_Policy {
                     return;
                 }
             }
+            if ( ! isset( $state['known'] ) ) {
+                $state['seen'] = array_merge( $state['seen'], array_fill_keys( array_keys( $added ), true ) );
+                foreach ( $added as $name => $entry ) {
+                    if ( in_array( $entry[1], array( 'destructive', 'unrestricted' ), true ) && ! isset( $state['choices'][ $name ]['requireApproval'] ) ) {
+                        $state['choices'][ $name ]['requireApproval'] = true;
+                    }
+                }
+                $recorded = self::persist( $state );
+                if ( ! $recorded ) {
+                    self::$memo['state'] = $state;
+                }
+                return;
+            }
             self::synchronize( array_map( static function ( $entry ) {
                 return $entry[1];
             }, $added ) );
@@ -220,8 +254,26 @@ final class Tool_Policy {
         return $locked && $recorded;
     }
 
+    public static function record_seed( array $slugs ): bool {
+        $recorded = false;
+        $locked   = self::locked( static function () use ( $slugs, &$recorded ) {
+            $state = self::fresh();
+            if ( isset( $state['known'] ) ) {
+                $recorded = true;
+                return;
+            }
+            $state['seen'] = array();
+            foreach ( $slugs as $slug ) {
+                $state['seen'][ Dynamic_Tool_Registrar::build_tool_name( $slug ) ] = false;
+            }
+            $recorded = self::persist( $state );
+        } );
+        return $locked && $recorded;
+    }
+
     private static function added_abilities( array $state, array $abilities ): array {
-        if ( ! isset( $state['known'] ) || ! empty( $state['unlisted'] ) ) {
+        $known = $state['known'] ?? $state['seen'] ?? null;
+        if ( null === $known || ! empty( $state['unlisted'] ) ) {
             return array();
         }
         $added = array();
@@ -231,7 +283,7 @@ final class Tool_Policy {
             }
             $slug = (string) $ability->get_name();
             $name = Dynamic_Tool_Registrar::build_tool_name( $slug );
-            if ( '' === $slug || array_key_exists( $name, $state['known'] ) || isset( $added[ $name ] ) ) {
+            if ( '' === $slug || array_key_exists( $name, $known ) || isset( $added[ $name ] ) ) {
                 continue;
             }
             $added[ $name ] = array( $slug, self::category( Dynamic_Tool_Registrar::annotations_of( $ability ), 'abilities' ) );
@@ -359,7 +411,7 @@ final class Tool_Policy {
         $result = self::storage_error();
         self::locked( static function () use ( $policy, &$result ) {
             $state = self::fresh();
-            $state = isset( $state['known'] ) ? $state : array();
+            $state = isset( $state['known'] ) ? $state : array_intersect_key( $state, array( 'seen' => true, 'choices' => true ) );
             $state['holdPolicy'] = $policy;
             $result = self::persist( $state ) ? true : self::storage_error();
         } );

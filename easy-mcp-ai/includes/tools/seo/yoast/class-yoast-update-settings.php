@@ -25,7 +25,7 @@ class Yoast_Update_Settings extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates Yoast SEO\'s site-wide title and social settings, as Yoast\'s Settings screen does. Send only what changes: `separator` (a key such as sc-pipe; wp_yoast_get_settings lists them), `templates` (a list of { content_type, field, value } with field title, description, social_title or social_description; "" clears it; Yoast variables such as %%title%% and %%sep%% are kept), `social_images` (a list of { content_type, image_id }, the attachment ID of an image in the media library; 0 clears it) and `default_social_image_id` (the image used when a page has none; 0 clears it). Content types are the ones wp_yoast_get_settings lists, e.g. post_type:post, archive:product, taxonomy:category, home (used only while the homepage shows the latest posts), author_archive, date_archive, search, 404. A content type, field or separator Yoast does not have here, an image ID that is not an image, or a setting a network administrator locked is refused, and nothing is changed. Returns { updated, changed_fields, unchanged_fields, stored_differently, not_saved, previews, settings }: updated is false when every value sent was already stored; stored_differently lists settings Yoast\'s sanitiser changed (HTML is stripped from templates); not_saved lists settings WordPress stored nothing for (the database refused the write, or another process deleted Yoast\'s option during the call); previews shows each post type title or description template applied to that type\'s newest published post. Calls made at the same moment are saved one after another, each over what the one before saved. Pages already in a page cache keep the old titles until it is cleared: use wp_clear_cache with scope "site", and wp_yoast_get_head to check a page. Requires Yoast\'s wpseo_manage_options capability (administrators and SEO managers).';
+		return 'Updates Yoast SEO\'s site-wide title and social settings, as Yoast\'s Settings screen does. Send only what changes: `separator` (a key such as sc-pipe; wp_yoast_get_settings lists them), `templates` (a list of { content_type, field, value } with field title, description, social_title or social_description; "" clears it; Yoast variables such as %%title%% and %%sep%% are kept), `social_images` (a list of { content_type, image_id }, the attachment ID of an image in the media library; 0 clears it) `default_social_image_id` (the image used when a page has none; 0 clears it), and `noindex_author_archive` / `noindex_date_archive` (true keeps author or date archives out of search results; they do nothing while Yoast\'s author or date archives are switched off, which redirects them). Content types are the ones wp_yoast_get_settings lists, e.g. post_type:post, archive:product, taxonomy:category, home (used only while the homepage shows the latest posts), author_archive, date_archive, search, 404. A content type, field or separator Yoast does not have here, an image ID that is not an image, or a setting a network administrator locked is refused, and nothing is changed. Returns { updated, changed_fields, unchanged_fields, stored_differently, not_saved, previews, settings }: updated is false when every value sent was already stored; stored_differently lists settings Yoast\'s sanitiser changed (HTML is stripped from templates); not_saved lists settings WordPress stored nothing for (the database refused the write, or another process deleted Yoast\'s option during the call); previews shows each post type title or description template applied to that type\'s newest published post. Calls made at the same moment are saved one after another, each over what the one before saved. Pages already in a page cache keep the old titles until it is cleared: use wp_clear_cache with scope "site", and wp_yoast_get_head to check a page. Requires Yoast\'s wpseo_manage_options capability (administrators and SEO managers).';
 	}
 
 	public function get_category() {
@@ -86,6 +86,8 @@ class Yoast_Update_Settings extends Base_Tool {
 					),
 				),
 				'default_social_image_id' => array( 'type' => 'integer', 'minimum' => 0, 'description' => 'Attachment ID of the image used when a page has no social image of its own; 0 clears it.' ),
+				'noindex_author_archive'  => array( 'type' => 'boolean', 'description' => 'true keeps author archives out of search results (Yoast\'s Settings › Advanced › Author archives › "Show author archives in search results" off); false lets them be shown.' ),
+				'noindex_date_archive'    => array( 'type' => 'boolean', 'description' => 'true keeps date archives out of search results (Yoast\'s Settings › Advanced › Date archives › "Show date archives in search results" off); false lets them be shown.' ),
 			),
 		);
 	}
@@ -154,7 +156,7 @@ class Yoast_Update_Settings extends Base_Tool {
 	}
 
 	private function planned_changes( array $arguments, object $titles, object $social, array $defaults ): array {
-		$allowed = array( 'separator', 'templates', 'social_images', 'default_social_image_id' );
+		$allowed = array_merge( array( 'separator', 'templates', 'social_images', 'default_social_image_id' ), array_keys( Yoast_Site_Settings::NOINDEX ) );
 		$unknown = array_diff( array_keys( $arguments ), $allowed );
 		if ( $unknown ) {
 			throw new \InvalidArgumentException( sprintf( 'Unknown argument(s): %s. Accepted: %s.', implode( ', ', array_map( 'sanitize_key', $unknown ) ), implode( ', ', $allowed ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -180,8 +182,14 @@ class Yoast_Update_Settings extends Base_Tool {
 			);
 		}
 
+		foreach ( Yoast_Site_Settings::NOINDEX as $name => $key ) {
+			if ( array_key_exists( $name, $arguments ) ) {
+				$planned[] = self::noindex_change( $name, $key, $arguments[ $name ] );
+			}
+		}
+
 		if ( ! $planned ) {
-			throw new \InvalidArgumentException( 'Nothing to update: pass at least one of separator, templates, social_images or default_social_image_id. wp_yoast_get_settings shows the current settings.' );
+			throw new \InvalidArgumentException( sprintf( 'Nothing to update: pass at least one of %s. wp_yoast_get_settings shows the current settings.', implode( ', ', $allowed ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		}
 		$this->refuse_duplicates( $planned );
 		$this->refuse_locked( $planned, $titles, $social );
@@ -198,6 +206,18 @@ class Yoast_Update_Settings extends Base_Tool {
 			'option' => Yoast_Site_Settings::TITLES,
 			'values' => array( 'separator' => $value ),
 			'check'  => 'separator',
+		);
+	}
+
+	private static function noindex_change( string $name, string $key, $value ): array {
+		if ( ! is_bool( $value ) ) {
+			throw new \InvalidArgumentException( sprintf( '%s must be true or false. Nothing was changed.', $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		return array(
+			'label'  => $name,
+			'option' => Yoast_Site_Settings::TITLES,
+			'values' => array( $key => $value ),
+			'check'  => $key,
 		);
 	}
 

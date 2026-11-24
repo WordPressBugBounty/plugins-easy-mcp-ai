@@ -99,7 +99,7 @@ class Yoast_Get_Post_Seo extends Base_Tool {
 			}
 		}
 
-		$this->guard_fallback( $post_id, $rest_error );
+		$this->guard_fallback( $post_id, $rest_base, $rest_error );
 
 		return array(
 			'post_id'             => $post_id,
@@ -128,11 +128,12 @@ class Yoast_Get_Post_Seo extends Base_Tool {
 		return $result;
 	}
 
-	private function guard_fallback( $post_id, $rest_error ) {
+	private function guard_fallback( $post_id, $rest_base, $rest_error ) {
 		if ( current_user_can( 'edit_post', $post_id ) ) {
 			return;
 		}
 		if ( null !== $rest_error ) {
+			$this->refuse_other_post_type_base( (int) $post_id, (string) $rest_base, 'post_type' );
 			throw $rest_error;
 		}
 		throw new \RuntimeException( sprintf( 'Sorry, you are not allowed to edit post %d, so its stored Yoast SEO values cannot be read.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped

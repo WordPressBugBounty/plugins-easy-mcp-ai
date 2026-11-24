@@ -63,6 +63,9 @@ class Delete_CPT_Item extends Base_Tool {
         Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
+                if ( isset( $arguments['rest_base'] ) && '' !== $arguments['rest_base'] ) {
+                    $this->refuse_switched_off_dedicated_tool( $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' ) );
+                }
                 $this->refuse_switched_off_dedicated_tool( $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'DELETE' ) );
             }
         );
@@ -93,6 +96,7 @@ class Delete_CPT_Item extends Base_Tool {
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
         $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
+        $this->refuse_other_post_type_base( $item_id, $rest_base, 'rest_base' );
         $force     = self::boolean_arg( $arguments, 'force', false, 'Nothing was deleted.' );
         Elementor_Templates::refuse_kit_delete( $rest_base, $item_id );
 

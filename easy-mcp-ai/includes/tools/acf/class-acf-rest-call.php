@@ -130,10 +130,22 @@ final class Acf_Rest_Call {
                 if ( false === stripos( $methods, 'POST' ) && false === stripos( $methods, 'PUT' ) && false === stripos( $methods, 'PATCH' ) ) {
                     continue;
                 }
-                $endpoints[ $pattern ][ $key ]['args']['acf'] = $args['acf'];
+                $endpoints[ $pattern ][ $key ]['args']['acf'] = self::partial_update_argument( $args['acf'] );
             }
         }
         return $endpoints;
+    }
+
+    private static function partial_update_argument( $arg ) {
+        if ( ! is_array( $arg ) || ! isset( $arg['properties'] ) || ! is_array( $arg['properties'] ) ) {
+            return $arg;
+        }
+        foreach ( $arg['properties'] as $name => $property ) {
+            if ( is_array( $property ) ) {
+                unset( $arg['properties'][ $name ]['required'] );
+            }
+        }
+        return $arg;
     }
 
     private static function object_route( $type, $id ) {

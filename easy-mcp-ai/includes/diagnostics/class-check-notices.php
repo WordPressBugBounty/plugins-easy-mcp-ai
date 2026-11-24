@@ -19,16 +19,26 @@ class Check_Notices {
 
         $plain = \Easy_MCP_AI\Admin\Admin_Page::permalinks_are_plain();
         return array(
-            self::evaluate_permalinks( $plain, $plain && self::plain_routes_in_place() ),
+            self::evaluate_permalinks( $plain, $plain ? self::plain_routes_in_place() : false ),
             self::evaluate_oauth_transport( \Easy_MCP_AI\Admin\Admin_Page::oauth_transport_problem() ),
         );
     }
 
-    public static function evaluate_permalinks( $are_plain, $routed = false ) {
+    public static function evaluate_permalinks( $are_plain, ?bool $routed = false ) {
         $label = self::permalink_label();
 
         if ( ! $are_plain ) {
             return Diagnostic_Result::pass( 'a7', Diagnostic_Result::TIER_BLOCKER, $label, '', array( 'permalinks_plain' => false ) );
+        }
+
+        if ( null === $routed ) {
+            return Diagnostic_Result::unknown(
+                'a7',
+                Diagnostic_Result::TIER_BLOCKER,
+                $label,
+                __( 'Permalinks are set to "Plain", and .htaccess exists but PHP cannot read it, so it is not known whether it holds rules that send OAuth discovery and sign-in requests to WordPress. The connection checks measure whether those requests arrive.', 'easy-mcp-ai' ),
+                array( 'permalinks_plain' => true, 'plain_routes' => null )
+            );
         }
 
         if ( $routed ) {

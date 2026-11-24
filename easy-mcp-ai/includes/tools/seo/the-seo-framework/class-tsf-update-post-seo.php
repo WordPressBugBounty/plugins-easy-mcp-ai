@@ -88,7 +88,7 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 				),
 				'social_image_url' => array(
 					'type'        => 'string',
-					'description' => 'The social image URL (_social_image_url).',
+					'description' => 'The social image URL (_social_image_url). Sent without social_image_id, the id of its Media Library image is stored with it, or none for another image.',
 				),
 				'social_image_id'  => array(
 					'type'        => 'integer',
@@ -114,7 +114,8 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 		$qubits   = self::qubit_values( $arguments );
 		$image_id = self::social_image_id( $arguments );
 
-		$updated = array();
+		$updated   = array();
+		$id_before = (string) get_post_meta( $post_id, '_social_image_id', true );
 
 		$text_map = array(
 			'title'               => '_genesis_title',
@@ -150,6 +151,11 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 		if ( null !== $image_id ) {
 			update_post_meta( $post_id, '_social_image_id', $image_id );
 			$updated[] = '_social_image_id';
+		} elseif ( isset( $arguments['social_image_url'] ) ) {
+			Image_Attachment_Id::store_for_post( $post_id, '_social_image_id', esc_url_raw( (string) $arguments['social_image_url'] ) );
+			if ( (string) get_post_meta( $post_id, '_social_image_id', true ) !== $id_before ) {
+				$updated[] = '_social_image_id';
+			}
 		}
 
 		if ( array() !== $updated ) {

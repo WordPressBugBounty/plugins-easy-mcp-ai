@@ -85,6 +85,7 @@ class Update_Post_Meta extends Base_Tool {
         $post_type = ! empty( $arguments['post_type'] )
             ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' )
             : 'posts';
+        $this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
         $this->refuse_builder_owned_write( $post_id, false, $meta );
 
         $unregistered = \Easy_MCP_AI\Meta\Unregistered_Meta::plan( $post_id, $meta );

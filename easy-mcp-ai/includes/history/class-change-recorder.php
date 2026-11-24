@@ -79,6 +79,7 @@ class Change_Recorder {
         'easy_mcp_ai_tool_policy_lock',
         'easy_mcp_ai_translation_lock',
         'easy_mcp_ai_media_upload_',
+        'easy_mcp_ai_self_create_',
         'easy_mcp_ai_cloud_ref_',
         'easy_mcp_ai_call_observations',
     );
@@ -1976,7 +1977,7 @@ class Change_Recorder {
         $oid                  = (string) ( $payload['object_id'] ?? '' );
         if ( in_array( $object_type, array( 'meta', 'term_meta', 'user_meta', 'comment_meta' ), true ) ) {
             $parts = explode( ':', $oid, 2 );
-            if ( isset( $parts[1] ) && Change_Redactor::key_is_sensitive( $parts[1] ) ) {
+            if ( isset( $parts[1] ) && ( 'user_meta' === $object_type ? Change_Redactor::user_meta_key_is_secret( $parts[1] ) : Change_Redactor::key_is_sensitive( $parts[1] ) ) ) {
                 $identifier_sensitive = true;
             }
         } elseif ( in_array( $object_type, array( 'option', 'site_option' ), true ) ) {

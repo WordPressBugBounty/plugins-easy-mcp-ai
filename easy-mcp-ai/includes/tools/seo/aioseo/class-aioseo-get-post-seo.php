@@ -60,6 +60,7 @@ class Aioseo_Get_Post_Seo extends Base_Tool {
 
 		$post_id   = $this->parse_required_id( $arguments['post_id'] ?? null, 'post_id' );
 		$post_type = ! empty( $arguments['post_type'] ) ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' ) : 'posts';
+		$this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
 
 		$data = $this->rest_request( 'GET', self::post_type_route( $post_type, $post_id, 'GET' ) );
 

@@ -30,12 +30,27 @@ abstract class Vendor_Abilities {
         self::$ours = $ours;
     }
 
+    public static function serve_background_tick(): bool {
+        if ( self::$ours ) {
+            return true;
+        }
+        if ( \did_action( 'wp_abilities_api_categories_init' ) || \did_action( 'wp_abilities_api_init' ) ) {
+            return false;
+        }
+        self::serve();
+        return true;
+    }
+
+    public static function plugin_loaded(): bool {
+        return true;
+    }
+
     public static function served(): bool {
         return self::$ours;
     }
 
     public static function is_our_rest_route( string $route ): bool {
-        return 1 === preg_match( '#^/?easy-mcp-ai(-admin)?/v1(/|$)#i', $route );
+        return 1 === preg_match( '#^/?easy-mcp-ai(-admin|-profile)?/v1(/|$)#i', $route );
     }
 
     public static function vendor_of( string $prefix ): ?string {
@@ -59,20 +74,23 @@ abstract class Vendor_Abilities {
         }
         $enabled = \get_option( 'easy_mcp_ai_enabled_abilities', array() );
         if ( is_array( $enabled ) && count( self::untick( $enabled, $done ) ) !== count( $enabled ) ) {
-            $settled = false;
-            \Easy_MCP_AI\Tools\Tool_Policy::locked( static function () use ( &$settled, $done ) {
-                $current = \Easy_MCP_AI\Config::read_uncached( 'easy_mcp_ai_enabled_abilities' );
-                $keep    = is_array( $current ) ? self::untick( $current, $done ) : array();
-                if ( ! is_array( $current ) || count( $keep ) === count( $current ) ) {
-                    $settled = true;
+            \Easy_MCP_AI\Tools\Tool_Policy::locked( static function () {
+                \Easy_MCP_AI\Config::read_uncached( self::TICKS_SETTLED_OPTION );
+                $done = self::settled_pass();
+                if ( $done >= self::TICKS_SETTLED_VERSION ) {
                     return;
                 }
-                \update_option( 'easy_mcp_ai_enabled_abilities', $keep );
-                $settled = \Easy_MCP_AI\Config::read_uncached( 'easy_mcp_ai_enabled_abilities' ) === $keep;
+                $current = \Easy_MCP_AI\Config::read_uncached( 'easy_mcp_ai_enabled_abilities' );
+                $keep    = is_array( $current ) ? self::untick( $current, $done ) : array();
+                if ( is_array( $current ) && count( $keep ) !== count( $current ) ) {
+                    \update_option( 'easy_mcp_ai_enabled_abilities', $keep );
+                    if ( \Easy_MCP_AI\Config::read_uncached( 'easy_mcp_ai_enabled_abilities' ) !== $keep ) {
+                        return;
+                    }
+                }
+                \update_option( self::TICKS_SETTLED_OPTION, self::TICKS_SETTLED_VERSION );
             } );
-            if ( ! $settled ) {
-                return;
-            }
+            return;
         }
         \update_option( self::TICKS_SETTLED_OPTION, self::TICKS_SETTLED_VERSION );
     }
@@ -114,6 +132,10 @@ abstract class Vendor_Abilities {
 
     protected static function active(): bool {
         return self::$ours && ! isset( self::$failed[ static::class ] );
+    }
+
+    public static function own_abilities_registered(): bool {
+        return static::any_registered();
     }
 
     protected static function any_registered(): bool {

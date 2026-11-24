@@ -40,7 +40,7 @@ final class Customizer_Autoload {
     }
 
     public static function file_for( string $class ): string {
-        $lower = strtolower( $class );
+        $lower = \Easy_MCP_AI\Autoloader::lower( $class );
         if ( 1 !== preg_match( '/^wp_\w*customize\w*\z/', $lower ) || in_array( $lower, self::NOT_AUTOLOADED, true ) ) {
             return '';
         }

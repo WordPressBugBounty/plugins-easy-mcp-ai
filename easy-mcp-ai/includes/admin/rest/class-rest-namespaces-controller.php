@@ -3,6 +3,7 @@
 namespace Easy_MCP_AI\Admin\Rest;
 
 use Easy_MCP_AI\Rest_Routes\Namespace_State;
+use Easy_MCP_AI\Rest_Routes\Route_Gate;
 use Easy_MCP_AI\Rest_Routes\Route_Catalogue;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -52,6 +53,7 @@ class Rest_Namespaces_Controller extends Admin_Rest_Controller {
 
     private function state(): array {
         $server     = \rest_get_server();
+        Route_Gate::load_routes_for( $server, '/' );
         $namespaces = array();
         $registered = array();
         foreach ( Route_Catalogue::namespaces( $server ) as $entry ) {

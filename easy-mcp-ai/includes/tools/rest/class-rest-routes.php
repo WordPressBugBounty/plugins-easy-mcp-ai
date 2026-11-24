@@ -77,6 +77,7 @@ class Rest_Routes extends Rest_Route_Tool {
 
     public function execute( array $arguments ) {
         $server = \rest_get_server();
+        Route_Gate::load_routes_for( $server, '/' );
         if ( isset( $arguments['route'] ) && is_string( $arguments['route'] ) && '' !== trim( $arguments['route'] ) ) {
             return $this->describe_route( $server, $arguments['route'], ! empty( $arguments['include_fields'] ) );
         }

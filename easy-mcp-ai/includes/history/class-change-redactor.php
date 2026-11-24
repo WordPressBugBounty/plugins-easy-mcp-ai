@@ -162,6 +162,26 @@ class Change_Redactor {
         return self::is_sensitive( (string) $key );
     }
 
+    public static function user_meta_key_is_secret( string $key ): bool {
+        return self::key_is_sensitive( $key ) || \Easy_MCP_AI\Tools\Users\Get_User_Meta::is_auth_sensitive( $key );
+    }
+
+    public static function redact_retained_row( array $row ): array {
+        if ( 'user_meta' !== ( $row['object_type'] ?? '' ) ) {
+            return $row;
+        }
+        $parts = explode( ':', (string) ( $row['object_id'] ?? '' ), 2 );
+        if ( ! isset( $parts[1] ) || ! self::user_meta_key_is_secret( $parts[1] ) ) {
+            return $row;
+        }
+        foreach ( array( 'before_value', 'after_value' ) as $side ) {
+            if ( isset( $row[ $side ] ) && '' !== $row[ $side ] ) {
+                $row[ $side ] = (string) wp_json_encode( array( 'value' => '[REDACTED]' ) );
+            }
+        }
+        return $row;
+    }
+
     public static function option_name_is_sensitive( $name ) {
         $name = strtolower( (string) $name );
         if ( self::is_sensitive( $name ) ) {

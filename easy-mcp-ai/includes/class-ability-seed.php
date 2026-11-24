@@ -9,29 +9,35 @@ class Ability_Seed {
 
     const PENDING_OPTION = 'easy_mcp_ai_abilities_seed_pending';
 
-    const EXCLUDED_PREFIXES = array( 'woocommerce/' );
-
     public static function mark_pending(): void {
         \add_option( self::PENDING_OPTION, 1 );
     }
 
     public static function maybe_run(): void {
-        if ( ! \delete_option( self::PENDING_OPTION ) ) {
-            return;
-        }
-        if ( ! \function_exists( 'wp_get_abilities' ) ) {
-            return;
-        }
-        $current = \get_option( 'easy_mcp_ai_enabled_abilities', array() );
-        if ( ! empty( $current ) ) {
-            return;
-        }
-        $seed = self::select( self::annotations_by_name( \wp_get_abilities() ) );
-        if ( empty( $seed ) ) {
-            return;
-        }
-        $write = static function () use ( $seed ) {
-            \update_option( 'easy_mcp_ai_enabled_abilities', $seed );
+        $write = static function () {
+            Tools\Tool_Policy::locked( static function () {
+                if ( ! \delete_option( self::PENDING_OPTION ) || ! \function_exists( 'wp_get_abilities' ) ) {
+                    return;
+                }
+                if ( ! empty( Config::read_uncached( 'easy_mcp_ai_enabled_abilities' ) ) ) {
+                    return;
+                }
+                $abilities = self::annotations_by_name( \wp_get_abilities() );
+                $seed      = self::select( $abilities );
+                if ( $seed ) {
+                    \update_option( 'easy_mcp_ai_enabled_abilities', $seed );
+                    if ( Config::read_uncached( 'easy_mcp_ai_enabled_abilities' ) !== $seed ) {
+                        self::mark_pending();
+                        return;
+                    }
+                }
+                if ( ! Tools\Tool_Policy::record_seed( array_keys( $abilities ) ) ) {
+                    if ( $seed ) {
+                        \update_option( 'easy_mcp_ai_enabled_abilities', array() );
+                    }
+                    self::mark_pending();
+                }
+            } );
         };
         if ( \class_exists( '\\Easy_MCP_AI\\MCP\\Option_Guard' ) ) {
             \Easy_MCP_AI\MCP\Option_Guard::while_suspended( $write );
@@ -58,21 +64,19 @@ class Ability_Seed {
         if ( '' === $name || Tools\Excluded_Abilities::excludes( $name ) ) {
             return false;
         }
-        foreach ( self::EXCLUDED_PREFIXES as $prefix ) {
-            if ( 0 === strpos( $name, $prefix ) ) {
-                return false;
-            }
-        }
-        $slash = strpos( $name, '/' );
-        if ( false !== $slash && null !== \Easy_MCP_AI\Compat\Vendor_Abilities::vendor_of( substr( $name, 0, $slash ) ) ) {
+        $slash  = strpos( $name, '/' );
+        $vendor = false === $slash ? null : Compat\Vendor_Abilities::vendor_of( substr( $name, 0, $slash ) );
+        if ( null !== $vendor && Compat\Elementor_Abilities::VENDOR !== $vendor ) {
             return false;
         }
         if ( Tools\Ability_Input_Policy::applies_to( $name ) ) {
             return false;
         }
-        return is_array( $annotations )
-            && array_key_exists( 'destructive', $annotations )
-            && false === $annotations['destructive'];
+        if ( ! is_array( $annotations ) ) {
+            return false;
+        }
+        $destructive = $annotations['destructive'] ?? null;
+        return false === $destructive || ( null === $destructive && true === ( $annotations['readonly'] ?? null ) );
     }
 
     private static function annotations_by_name( array $abilities ): array {

@@ -137,6 +137,7 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 			throw new \RuntimeException( 'You do not have permission to edit this post.' );
 		}
 		$post_type = ! empty( $arguments['post_type'] ) ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' ) : 'posts';
+		$this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
 		$fields    = $this->parse_json_param( $arguments['fields'], 'fields' );
 
 		if ( is_array( $fields ) && ! array_key_exists( 'default', $fields ) ) {

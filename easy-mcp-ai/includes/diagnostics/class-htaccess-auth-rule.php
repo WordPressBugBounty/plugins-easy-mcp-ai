@@ -26,6 +26,8 @@ class Htaccess_Auth_Rule {
 
     const OFFER_NOT_APPLICABLE = 'not_applicable';
 
+    const OFFER_UNREADABLE = 'unreadable';
+
     const OFFER_NONE = 'none';
 
     public static function rule_lines() {
@@ -97,6 +99,9 @@ class Htaccess_Auth_Rule {
         }
         if ( ! self::server_applies( $server_software ) ) {
             return array( 'offer' => self::OFFER_NOT_APPLICABLE, 'line' => null );
+        }
+        if ( $file_exists && null === $contents ) {
+            return array( 'offer' => self::OFFER_UNREADABLE, 'line' => null );
         }
         $site    = $site ?? Htaccess_Rewrite_Reader::default_site();
         $reading = Htaccess_Rewrite_Reader::read( $contents, $site );

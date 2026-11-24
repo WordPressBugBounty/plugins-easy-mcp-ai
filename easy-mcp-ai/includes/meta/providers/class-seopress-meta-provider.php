@@ -3,6 +3,8 @@
 namespace Easy_MCP_AI\Meta\Providers;
 
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
+use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
+use Easy_MCP_AI\Tools\SEO\Seopress_Update_Social;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -28,6 +30,14 @@ class Seopress_Meta_Provider extends Meta_Field_Provider {
 
     public function get_dedicated_tool() {
         return 'wp_seopress_update_post_title_desc';
+    }
+
+    public function after_write( $post_id, array $keys ) {
+        foreach ( Seopress_Update_Social::IMAGE_URLS as $field => $url_key ) {
+            if ( in_array( $url_key, $keys, true ) ) {
+                Image_Attachment_Id::store_for_post( (int) $post_id, Seopress_Update_Social::IMAGE_IDS[ $field ], (string) get_post_meta( (int) $post_id, $url_key, true ) );
+            }
+        }
     }
 
     public function get_fields() {

@@ -155,6 +155,10 @@ final class Latepoint_Abilities extends Vendor_Abilities {
         }
     }
 
+    public static function plugin_loaded(): bool {
+        return defined( self::ROOT_CONSTANT );
+    }
+
     protected static function ran_before_switches_dropped( string $slug ): bool {
         if ( ! self::switches_available() || true !== call_user_func( array( self::SETTINGS_CLASS, 'is_on' ), self::SWITCHES[0] ) ) {
             return false;

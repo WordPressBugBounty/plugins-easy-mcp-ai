@@ -31,7 +31,15 @@ class Rankmath_Update_Settings extends Base_Tool {
 
 	const BOOLEAN_WORDS = array( 'on', 'off', 'true', 'false' );
 
-	const TEXT_KINDS = array( 'text', 'handle', 'textarea', 'email', 'phone', 'secret', 'geo', 'business' );
+	const TEXT_KINDS = array( 'text', 'handle', 'textarea', 'email', 'phone', 'secret', 'geo', 'business', 'verify' );
+
+	const VERIFY_PATTERN = '/^[A-Za-z0-9_\-.+\/=]{1,255}\z/';
+
+	const ATTRIBUTE_PATTERN = '[\t\n\f\r ]+([^\t\n\f\r "\'>\/=]+)(?:[\t\n\f\r ]*=[\t\n\f\r ]*(?:"([^"]*)"|\'([^\']*)\'|([^\t\n\f\r "\'=<>`]+)))?';
+
+	const HTML_SPACE = " \t\n\f\r";
+
+	const MAX_META_TAG = 1024;
 
 	const PHONE_PATTERN = '/^[0-9+()\-. ]*[0-9][0-9+()\-. ]*\z/';
 
@@ -42,7 +50,7 @@ class Rankmath_Update_Settings extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates Rank Math SEO\'s site-wide settings, as Rank Math\'s settings screen saves them. Send only what changes; wp_rm_get_settings shows the current values and what /robots.txt serves. Covers the noindex switches for paginated pages, search results and password-protected pages, the 404 title, the social profiles used in the site\'s schema, the Image SEO formats (they need Rank Math\'s Image SEO module on), the custom robots.txt text, and the Local SEO tab (identity, logo, contact details, address, business type, opening hours, Google Maps API key, geo, About and Contact pages). A Local SEO value Rank Math\'s own settings screen would not offer (its module off, or a Person field on an Organization) is refused; clearing one ("", [], 0) is always accepted. A call that changes robots_txt always asks for approval while approvals are on, and robots_txt is refused wherever Rank Math\'s own screen locks it: a robots.txt file in the site root, search engines discouraged, DISALLOW_FILE_EDIT, or a user who is not a super admin. An unknown setting or a bad value is refused and nothing is changed. Returns { updated, changed_fields, unchanged_fields, stored_differently, not_saved, previous, warnings, settings }: updated is false when every value was already stored as Rank Math would store it; stored_differently lists settings Rank Math\'s sanitiser changed (it strips HTML, collapses whitespace and removes % followed by two digits from text); not_saved lists settings nothing was stored for; previous holds the old value of each changed setting. Calls made at the same moment are saved one after another. Pages already in a page cache keep the old output until it is cleared: use wp_clear_cache with scope "site"; a CDN may keep serving the old /robots.txt until it is purged there too. Requires Rank Math\'s rank_math_titles capability (administrators by default); the Image SEO and robots.txt settings also rank_math_general.';
+		return 'Updates Rank Math SEO\'s site-wide settings, as Rank Math\'s settings screen saves them. Send only what changes; wp_rm_get_settings shows the current values and what /robots.txt serves. Covers the noindex switches for paginated pages, search results and password-protected pages, the 404 title, the social profiles used in the site\'s schema, the Image SEO formats (they need Rank Math\'s Image SEO module on), the custom robots.txt text, the Local SEO tab (identity, logo, contact details, address, business type, opening hours, Google Maps API key, geo, About and Contact pages), the webmaster verification codes, and each post type archive\'s title and description (post_type_archives). A Local SEO value Rank Math\'s own settings screen would not offer (its module off, or a Person field on an Organization) is refused; clearing one ("", [], 0) is always accepted. A call that changes robots_txt always asks for approval while approvals are on, and robots_txt is refused wherever Rank Math\'s own screen locks it: a robots.txt file in the site root, search engines discouraged, DISALLOW_FILE_EDIT, or a user who is not a super admin. An unknown setting or a bad value is refused and nothing is changed. Returns { updated, changed_fields, unchanged_fields, stored_differently, not_saved, previous, warnings, settings }: updated is false when every value was already stored as Rank Math would store it; stored_differently lists settings Rank Math\'s sanitiser changed (it strips HTML, collapses whitespace and removes % followed by two digits from text); not_saved lists settings nothing was stored for; previous holds the old value of each changed setting. Calls made at the same moment are saved one after another. Pages already in a page cache keep the old output until it is cleared: use wp_clear_cache with scope "site"; a CDN may keep serving the old /robots.txt until it is purged there too. Requires Rank Math\'s rank_math_titles capability (administrators by default); the Image SEO, robots.txt and verification settings also rank_math_general.';
 	}
 
 	public function get_category() {
@@ -161,6 +169,10 @@ class Rankmath_Update_Settings extends Base_Tool {
 			case 'phones':
 			case 'info':
 				return self::checked_rows( $field, $kind, $value );
+			case 'verify':
+				return self::checked_verify( $field, $value );
+			case 'archives':
+				return self::checked_archives( $field, $value );
 		}
 		if ( 'toggle' === $kind ) {
 			if ( ! is_bool( $value ) ) {
@@ -205,6 +217,98 @@ class Rankmath_Update_Settings extends Base_Tool {
 			}
 		}
 		return $value;
+	}
+
+	private static function checked_verify( string $field, $value ): string {
+		if ( ! is_string( $value ) ) {
+			throw new \InvalidArgumentException( sprintf( '%s must be a string ("" clears it). Nothing was changed.', $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		$code = trim( $value );
+		if ( 0 === stripos( $code, '<meta' ) ) {
+			$tag        = Rankmath_Site_Settings::VERIFY_TAGS[ $field ];
+			$attributes = self::meta_attributes( $code );
+			if ( null === $attributes || '' === trim( $attributes['content'] ?? '', self::HTML_SPACE ) ) {
+				throw new \InvalidArgumentException( sprintf( '%s: send the verification code, or one <meta name="%s" content="…"> tag with its content. Nothing was changed.', $field, $tag ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$name = strtolower( trim( $attributes['name'] ?? $tag, self::HTML_SPACE ) );
+			if ( $name !== $tag ) {
+				$owner = array_search( $name, Rankmath_Site_Settings::VERIFY_TAGS, true );
+				throw new \InvalidArgumentException( sprintf( '%s takes the <meta name="%s"> tag; this one is named "%s"%s. Nothing was changed.', $field, $tag, sanitize_text_field( $attributes['name'] ), false !== $owner ? ', which is ' . $owner : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$code = trim( $attributes['content'], self::HTML_SPACE );
+		}
+		if ( '' !== $code && ! preg_match( self::VERIFY_PATTERN, $code ) ) {
+			throw new \InvalidArgumentException( sprintf( '%s must be the verification code the service gives (letters, digits and - _ . + / =), or its whole <meta> tag ("" clears it). Nothing was changed.', $field ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		return $code;
+	}
+
+	private static function meta_attributes( string $tag ): ?array {
+		if ( strlen( $tag ) > self::MAX_META_TAG || ! preg_match( '/^<meta((?:' . self::ATTRIBUTE_PATTERN . ')*)[\t\n\f\r ]*\/?>\z/i', $tag, $whole ) ) {
+			return null;
+		}
+		preg_match_all( '/' . self::ATTRIBUTE_PATTERN . '/', $whole[1], $found, PREG_SET_ORDER );
+		$attributes = array();
+		foreach ( $found as $attribute ) {
+			$name = strtolower( $attribute[1] );
+			if ( array_key_exists( $name, $attributes ) ) {
+				return null;
+			}
+			$attributes[ $name ] = html_entity_decode( implode( '', array_slice( $attribute, 2 ) ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		}
+		return $attributes;
+	}
+
+	private static function checked_archives( string $field, $value ): array {
+		$fields = Rankmath_Site_Settings::ARCHIVE_FIELDS;
+		if ( ! is_array( $value ) || array() === $value || array_values( $value ) !== $value ) {
+			throw new \InvalidArgumentException( sprintf( '%s must be a list of { post_type, %s }, with at least one row. Nothing was changed.', $field, implode( ', ', $fields ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
+		$offered = Rankmath_Site_Settings::archive_post_types();
+		$rows    = array();
+		foreach ( $value as $i => $row ) {
+			$unknown = is_array( $row ) ? array_diff( array_map( 'strval', array_keys( $row ) ), array_merge( array( 'post_type' ), $fields ) ) : array();
+			if ( ! is_array( $row ) || ! isset( $row['post_type'] ) || $unknown || ! array_intersect( $fields, array_keys( $row ) ) ) {
+				throw new \InvalidArgumentException( sprintf( '%s[%d] must be an object with post_type and at least one of %s, and nothing else. Nothing was changed.', $field, $i, implode( ', ', $fields ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$post_type = $row['post_type'];
+			if ( ! is_string( $post_type ) || ! in_array( $post_type, $offered, true ) ) {
+				throw new \InvalidArgumentException( sprintf( '%s[%d].post_type must be a post type Rank Math offers archive settings for: %s. Nothing was changed.', $field, $i, $offered ? implode( ', ', $offered ) : 'none on this site, since no post type it covers has an archive' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			if ( in_array( $post_type, array_column( $rows, 'post_type' ), true ) ) {
+				throw new \InvalidArgumentException( sprintf( '%s names post type %s more than once. Nothing was changed.', $field, $post_type ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+			}
+			$out = array( 'post_type' => $post_type );
+			foreach ( $fields as $name ) {
+				if ( ! array_key_exists( $name, $row ) ) {
+					continue;
+				}
+				if ( ! is_string( $row[ $name ] ) ) {
+					throw new \InvalidArgumentException( sprintf( '%s[%d].%s must be a string ("" goes back to Rank Math\'s fallback). Nothing was changed.', $field, $i, $name ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				}
+				$out[ $name ] = $row[ $name ];
+			}
+			$rows[] = $out;
+		}
+		return $rows;
+	}
+
+	private static function part( string $field, $value, $sent ) {
+		if ( 'archives' !== Rankmath_Site_Settings::FIELDS[ $field ]['kind'] ) {
+			return $value;
+		}
+		$stored = array_column( $value, null, 'post_type' );
+		$out    = array();
+		foreach ( $sent as $row ) {
+			$part = array( 'post_type' => $row['post_type'] );
+			foreach ( Rankmath_Site_Settings::ARCHIVE_FIELDS as $name ) {
+				if ( array_key_exists( $name, $row ) ) {
+					$part[ $name ] = $stored[ $row['post_type'] ][ $name ] ?? '';
+				}
+			}
+			$out[] = $part;
+		}
+		return $out;
 	}
 
 	private static function is_web_url( string $url ): bool {
@@ -479,7 +583,7 @@ class Rankmath_Update_Settings extends Base_Tool {
 		foreach ( $wanted as $field => $value ) {
 			list( $settings, $types ) = self::wire( $field, $value );
 			$clean                    = \RankMath\Admin\Sanitize_Settings::sanitize( $settings, $types );
-			$expected[ $field ]       = Rankmath_Site_Settings::value( $field, is_array( $clean ) ? $clean : array() );
+			$expected[ $field ]       = self::part( $field, Rankmath_Site_Settings::value( $field, is_array( $clean ) ? $clean : array() ), $value );
 		}
 		return $expected;
 	}
@@ -487,6 +591,10 @@ class Rankmath_Update_Settings extends Base_Tool {
 	private static function refuse_values_rank_math_would_not_use( array $expected ): void {
 		foreach ( $expected as $field => $value ) {
 			$kind = Rankmath_Site_Settings::FIELDS[ $field ]['kind'];
+			if ( 'archives' === $kind ) {
+				self::refuse_archive_switch_words( $field, $value );
+				continue;
+			}
 			if ( in_array( $kind, self::TEXT_KINDS, true ) && in_array( $value, self::SWITCH_WORDS, true ) ) {
 				$word = 'secret' === $kind ? 'one of ' . implode( ', ', self::SWITCH_WORDS ) : '"' . $value . '"';
 				throw new \InvalidArgumentException( sprintf( '%s cannot be %s: Rank Math reads that word as a switch value, not as text, so it would not use it. Nothing was changed.', $field, $word ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -508,11 +616,21 @@ class Rankmath_Update_Settings extends Base_Tool {
 		}
 	}
 
+	private static function refuse_archive_switch_words( string $field, array $rows ): void {
+		foreach ( $rows as $i => $row ) {
+			foreach ( Rankmath_Site_Settings::ARCHIVE_FIELDS as $name ) {
+				if ( isset( $row[ $name ] ) && in_array( $row[ $name ], self::SWITCH_WORDS, true ) ) {
+					throw new \InvalidArgumentException( sprintf( '%s[%d].%s cannot be "%s": Rank Math reads that word as a switch value, not as text, so it would not use it. Nothing was changed.', $field, $i, $name, $row[ $name ] ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+				}
+			}
+		}
+	}
+
 	private static function changes( array $wanted, array $expected, array $before ): array {
 		$changes = array();
 		foreach ( $expected as $field => $value ) {
 			$type = Rankmath_Site_Settings::FIELDS[ $field ]['type'];
-			if ( Rankmath_Site_Settings::value( $field, $before[ $type ] ) !== $value ) {
+			if ( self::part( $field, Rankmath_Site_Settings::value( $field, $before[ $type ] ), $wanted[ $field ] ) !== $value ) {
 				$changes[ $type ][ $field ] = $wanted[ $field ];
 			}
 		}
@@ -581,6 +699,19 @@ class Rankmath_Update_Settings extends Base_Tool {
 			case 'info':
 				$sent = $value;
 				break;
+			case 'archives':
+				$settings = array();
+				$types    = array();
+				foreach ( $value as $row ) {
+					foreach ( Rankmath_Site_Settings::ARCHIVE_FIELDS as $name ) {
+						if ( array_key_exists( $name, $row ) ) {
+							$archive_key              = sprintf( $key, $row['post_type'], $name );
+							$settings[ $archive_key ] = (string) $row[ $name ];
+							$types[ $archive_key ]    = $type;
+						}
+					}
+				}
+				return array( $settings, $types );
 			default:
 				$sent = (string) $value;
 		}
@@ -599,8 +730,8 @@ class Rankmath_Update_Settings extends Base_Tool {
 		$done = array();
 		$lost = array();
 		foreach ( $changes as $type => $fields ) {
-			foreach ( array_keys( $fields ) as $field ) {
-				if ( Rankmath_Site_Settings::value( $field, $after[ $type ] ) !== Rankmath_Site_Settings::value( $field, $before[ $type ] ) ) {
+			foreach ( $fields as $field => $sent ) {
+				if ( self::part( $field, Rankmath_Site_Settings::value( $field, $after[ $type ] ), $sent ) !== self::part( $field, Rankmath_Site_Settings::value( $field, $before[ $type ] ), $sent ) ) {
 					$done[] = $field;
 				} else {
 					$lost[] = $field;
@@ -621,8 +752,8 @@ class Rankmath_Update_Settings extends Base_Tool {
 		$previous    = array();
 		foreach ( $wanted as $field => $value ) {
 			$type = Rankmath_Site_Settings::FIELDS[ $field ]['type'];
-			$was  = Rankmath_Site_Settings::value( $field, $before[ $type ] );
-			$now  = Rankmath_Site_Settings::value( $field, $after[ $type ] );
+			$was  = self::part( $field, Rankmath_Site_Settings::value( $field, $before[ $type ] ), $value );
+			$now  = self::part( $field, Rankmath_Site_Settings::value( $field, $after[ $type ] ), $value );
 			if ( $was === $expected[ $field ] ) {
 				$unchanged[] = $field;
 			} elseif ( $now === $was ) {
@@ -734,6 +865,22 @@ class Rankmath_Update_Settings extends Base_Tool {
 						'required'   => array( $choice, $text ),
 					),
 					'description' => $where,
+				);
+			case 'verify':
+				return array( 'type' => 'string', 'description' => $where . ' The code the service gives, or its whole <meta> tag, whose content is stored;' . $clears );
+			case 'archives':
+				$row = array( 'post_type' => array( 'type' => 'string', 'description' => 'A post type with an archive, as wp_rm_get_settings lists it.' ) );
+				foreach ( Rankmath_Site_Settings::ARCHIVE_FIELDS as $name ) {
+					$row[ $name ] = array( 'type' => 'string' );
+				}
+				return array(
+					'type'        => 'array',
+					'items'       => array(
+						'type'       => 'object',
+						'properties' => $row,
+						'required'   => array( 'post_type' ),
+					),
+					'description' => $where . ' Send post_type with a title, a description or both.',
 				);
 			case 'email':
 				return array( 'type' => 'string', 'description' => $where . ' An email address;' . $clears );

@@ -14,7 +14,7 @@ class Add_Post_Terms extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Adds (or replaces) terms on a post in a taxonomy registered for its post type; another taxonomy is refused and nothing changes. Required: `post_id`, `taxonomy`, `terms` (array of integer IDs or string slugs/names — wp_set_object_terms() handles both). Optional: `append` (boolean, default true — when true ADDS to existing terms; when false REPLACES the term set), `by` (auto|slug|id, default auto). With `by` auto, a purely numeric string in `terms` (e.g. a year-based slug like \'2026\') is coerced to a term ID; `by` slug treats every value as a slug or name, so \'2026\' stays a slug; `by` id treats every value as a term ID and refuses an ID that is not in the taxonomy. A slug or name that matches no term creates the term, as WordPress does — refused unless you may create terms there (edit_terms in a hierarchical taxonomy such as category, assign_terms in a flat one such as post_tag, the rule the REST API applies). Returns { post_id, taxonomy, terms_input: array<int|string>, term_taxonomy_ids: array<int>, append: bool, changed: bool (false when the post already had exactly this result), created_terms: array<string> (the values that created a new term) }. Verifies edit_post on the post and the taxonomy\'s assign_terms cap.';
+        return 'Adds (or replaces) terms on a post in a taxonomy registered for its post type; another taxonomy is refused and nothing changes. Required: `post_id`, `taxonomy`, `terms` (array of integer IDs or string slugs/names — wp_set_object_terms() handles both). Optional: `append` (boolean, default true — when true ADDS to existing terms; when false REPLACES the term set), `by` (auto|slug|id, default auto). With `by` auto, a purely numeric string in `terms` (e.g. a year-based slug like \'2026\') is coerced to a term ID; `by` slug treats every value as a slug or name, so \'2026\' stays a slug; `by` id treats every value as a term ID and refuses an ID that is not in the taxonomy. A slug or name that matches no term creates the term, as WordPress does — refused unless you may create terms there (edit_terms in a hierarchical taxonomy such as category, assign_terms in a flat one such as post_tag, the rule the REST API applies). Returns { post_id, taxonomy, terms_input: array<int|string>, term_taxonomy_ids: array<int>, append: bool, changed: bool (false when the post already had exactly this result), created_terms: array<string> (the values that created a new term), post_terms: [{ id (term ID), name, slug }] (every term the post has in the taxonomy after the call, including ones it already had: with append true a default such as Uncategorized stays; null if it could not be read back) }. Verifies edit_post on the post and the taxonomy\'s assign_terms cap.';
     }
 
     public function get_category() {
@@ -129,7 +129,24 @@ class Add_Post_Terms extends Base_Tool {
             'append'            => $append,
             'changed'           => $changed,
             'created_terms'     => array_values( $to_create ),
+            'post_terms'        => self::post_terms( $post_id, $taxonomy ),
         );
+    }
+
+    private static function post_terms( int $post_id, string $taxonomy ): ?array {
+        $terms = wp_get_object_terms( $post_id, $taxonomy, array( 'update_term_meta_cache' => false ) );
+        if ( ! is_array( $terms ) ) {
+            return null;
+        }
+        $rows = array();
+        foreach ( $terms as $term ) {
+            $rows[] = array(
+                'id'   => (int) $term->term_id,
+                'name' => (string) $term->name,
+                'slug' => (string) $term->slug,
+            );
+        }
+        return $rows;
     }
 
     private static function assignable_taxonomy( string $taxonomy ): object {

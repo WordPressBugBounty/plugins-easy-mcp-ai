@@ -43,6 +43,8 @@ final class Cache_Noise {
         'xspeed_activity_log',
         'xspeed_stats',
         'xspeed_cloudflare_health',
+        'wpc_purge_all_at10',
+        'wpc_stale43_ver',
         'siteground_optimizer_file_cache_secret',
         'wpaas_cache_cnt',
         'gd_system_last_cache_flush',

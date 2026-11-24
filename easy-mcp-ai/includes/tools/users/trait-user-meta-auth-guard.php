@@ -11,6 +11,10 @@ trait User_Meta_Auth_Guard {
         return '/(_session|_token|_password|_app(lication)?_password|_reset|_login_attempts|_2fa|_totp|_otp|_recovery|_new_email|_passkey|_webauthn)/i';
     }
 
+    private static function two_factor_secret_pattern(): string {
+        return '/(priv_key|_secret|backup_codes|emergency_codes|trusted_devices|two_?factor_?nonce|two_factor_app_pass|gauth_key|auth_rnd_string|ga_qrcode|kba_challenge)/i';
+    }
+
     private static function auth_protected_keys(): array {
         return array(
             'session_tokens',
@@ -24,7 +28,8 @@ trait User_Meta_Auth_Guard {
         if ( in_array( $key, self::auth_protected_keys(), true ) ) {
             return true;
         }
-        return (bool) preg_match( self::auth_protected_pattern(), $key );
+        return (bool) preg_match( self::auth_protected_pattern(), $key )
+            || (bool) preg_match( self::two_factor_secret_pattern(), $key );
     }
 
     protected static function is_blocked_by_filter( string $key ): bool {

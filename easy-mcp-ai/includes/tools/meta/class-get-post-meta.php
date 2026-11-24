@@ -63,6 +63,7 @@ class Get_Post_Meta extends Base_Tool {
         $post_type = ! empty( $arguments['post_type'] )
             ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' )
             : 'posts';
+        $this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
 
         $key = isset( $arguments['key'] ) ? sanitize_text_field( (string) $arguments['key'] ) : '';
         if ( '' !== $key && \Easy_MCP_AI\Meta\Meta_Key::reads_every_row( $key ) ) {

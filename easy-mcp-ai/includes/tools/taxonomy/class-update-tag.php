@@ -14,7 +14,7 @@ class Update_Tag extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. An empty string for `slug` is also silently ignored (the existing slug is preserved), unlike `wp_update_term`, which rejects an empty slug with an error.';
+        return 'Updates an existing WordPress tag (PATCH semantics). Required: `tag_id`. Optional: `name`, `slug`, `description`. Returns { id, name, slug }. Tags have no hierarchy — `parent` is not a valid field. Changing the slug updates permalinks for the tag archive page. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. An empty string for `slug` is also silently ignored (the existing slug is preserved), unlike `wp_update_term`, which rejects an empty slug with an error. A call that sends no field to change (only empty values) is refused, with nothing saved.';
     }
 
     public function get_category() {
@@ -61,6 +61,12 @@ class Update_Tag extends Base_Tool {
 
     public function precheck( array $arguments ): void {
         $this->precheck_other_taxonomy( $arguments, 'tag_id', 'post_tag', 'update' );
+        try {
+            $this->parse_required_id( $arguments['tag_id'] ?? null, 'tag_id' );
+        } catch ( \InvalidArgumentException $e ) {
+            return;
+        }
+        $this->update_params( $arguments );
     }
 
     public function execute( array $arguments ) {
@@ -68,6 +74,18 @@ class Update_Tag extends Base_Tool {
 
         $tag_id = $this->parse_required_id( $arguments['tag_id'], 'tag_id' );
         $this->refuse_other_taxonomy( $tag_id, 'post_tag', 'update' );
+        $params = $this->update_params( $arguments );
+
+        $data = $this->rest_request( 'POST', '/wp/v2/tags/' . $tag_id, $params );
+
+        return array(
+            'id'   => $data['id'],
+            'name' => $data['name'],
+            'slug' => $data['slug'],
+        );
+    }
+
+    private function update_params( array $arguments ): array {
         $params = array();
 
         if ( isset( $arguments['name'] ) ) {
@@ -82,12 +100,9 @@ class Update_Tag extends Base_Tool {
             $params['description'] = self::markup_arg( $arguments, 'description' );
         }
 
-        $data = $this->rest_request( 'POST', '/wp/v2/tags/' . $tag_id, $params );
-
-        return array(
-            'id'   => $data['id'],
-            'name' => $data['name'],
-            'slug' => $data['slug'],
-        );
+        if ( array() === $params ) {
+            throw new \InvalidArgumentException( 'At least one updateable field (name, slug, description) must be provided; an empty slug or description is ignored. Nothing was changed.' );
+        }
+        return $params;
     }
 }

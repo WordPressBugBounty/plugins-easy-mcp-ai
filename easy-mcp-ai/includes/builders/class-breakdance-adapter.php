@@ -157,7 +157,7 @@ class Breakdance_Adapter extends Layout_Adapter {
             return array(
                 'changed'  => $changed,
                 'saved'    => false,
-                'results'  => $plan['results'],
+                'results'  => Text_Replacement::shown( $plan['results'], $plan['results'] ),
                 'warnings' => $warnings,
             );
         }
@@ -178,7 +178,7 @@ class Breakdance_Adapter extends Layout_Adapter {
         return array(
             'changed'  => true,
             'saved'    => true,
-            'results'  => self::read_back( $plan['results'], $stored, $warnings ),
+            'results'  => Text_Replacement::shown( self::read_back( $plan['results'], $stored, $warnings ), $plan['results'] ),
             'warnings' => $warnings,
         );
     }

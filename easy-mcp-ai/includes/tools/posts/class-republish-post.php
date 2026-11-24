@@ -43,7 +43,7 @@ class Republish_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Puts a reviewed draft copy live in place of its published original in one call, so the original keeps its ID, URL, comments and menu entries. Use it when the user approves a draft copy (from wp_duplicate_post, or Yoast Duplicate Post\'s Rewrite & Republish) and asks to put it live, publish it or make it replace the page: never publish the copy itself (that makes a second page at another URL), and never unpublish the original or move its slug. Required: `copy_id`. Optional: `original_id`, by default the post the copy records it was copied from; pass it for a draft made another way. Writes the copy\'s title, content, excerpt, featured image, template, format, terms and meta into the original; meta keys only the original has are kept. A copy built with Elementor brings its layout through Elementor\'s own save, and an Elementor original replaced by a copy built without Elementor is switched off Elementor. The original keeps its slug, status, date, author, parent, menu order and comment settings. Saves a revision of the original first, then moves the copy to the trash. When the title changes, block-theme menu links to the original still labelled with the old title get the new one (WordPress keeps their stored label); other labels are kept. Refuses when the copy is already published or scheduled, or the original is not published, when they are of different types, when the copy would change a field a plugin (Yoast SEO, Rank Math) restricts for your role, when someone else has the original open in an editor, or while a page builder edit of the original is being saved. Returns { changed, id, copy_id, post_type, title, link, revision_id, audit_id, copy_status, copied_meta_keys, restore (how to undo it) }, plus `kept_meta_keys`, `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template`, `builder`, `content_filtered`, `copy_error`, `warnings`, `navigation_labels_updated` (menus changed, each with the revision that undoes it) and `navigation_labels_kept` (links left as they are, and why) when they apply.';
+        return 'Puts a reviewed draft copy live in place of its published original in one call, so the original keeps its ID, URL, comments and menu entries. Use it when the user approves a draft copy (from wp_duplicate_post, or Yoast Duplicate Post\'s Rewrite & Republish) and asks to put it live, publish it or make it replace the page: never publish the copy itself (that makes a second page at another URL), and never unpublish the original or move its slug. Required: `copy_id`. Optional: `original_id`, by default the post the copy records it was copied from; pass it for a draft made another way. Writes the copy\'s title, content, excerpt, featured image, template, format, terms and meta into the original; meta keys only the original has are kept. A copy built with Elementor brings its layout through Elementor\'s own save, and an Elementor original replaced by a copy built without Elementor is switched off Elementor. The original keeps its slug, status, date, author, parent, menu order and comment settings. Saves a revision of the original first, then moves the copy to the trash. When the title changes, block-theme menu links to the original still labelled with the old title get the new one (WordPress keeps their stored label); other labels are kept. Refuses when the copy is already published or scheduled, or the original is not published, when they are of different types, when the copy would change a field a plugin (Yoast SEO, Rank Math) restricts for your role, when someone else has the original open in an editor, or while a page builder edit of the original is being saved. Returns { changed, id, copy_id, post_type, title, link, revision_id, audit_id, copy_status, copied_meta_keys, restore (how to undo it) }, plus `kept_meta_keys`, `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template`, `skipped_format`, `builder`, `content_filtered`, `copy_error`, `warnings`, `navigation_labels_updated` (menus changed, each with the revision that undoes it) and `navigation_labels_kept` (links left as they are, and why) when they apply.';
     }
 
     public function get_category() {
@@ -224,6 +224,7 @@ class Republish_Post extends Base_Tool {
             'skipped_meta_keys'  => $meta['skipped'],
             'skipped_taxonomies' => $fields['skipped_taxonomies'],
             'skipped_template'   => $fields['skipped_template'],
+            'skipped_format'     => $fields['skipped_format'],
             'builder'            => $builder,
             'warnings'           => $pair['warnings'],
         ) + $navigation;
@@ -449,28 +450,96 @@ class Republish_Post extends Base_Tool {
         };
     }
 
-    private static function save_guard( int $post_id, string $planned, callable $held ): callable {
-        $stopped = '';
-        return static function ( $maybe_empty, $postarr ) use ( $post_id, $planned, $held, &$stopped ) {
+    private static function save_guard( int $post_id, string $planned, array $placed, callable $held ): callable {
+        $verdict = array(
+            'reason' => '',
+            'blocks' => array(),
+            'cause'  => '',
+        );
+        return static function ( $maybe_empty, $postarr ) use ( $post_id, $planned, $placed, $held, &$verdict ) {
             if ( null === $maybe_empty ) {
-                return $stopped;
+                return $verdict;
             }
             if ( (int) ( $postarr['ID'] ?? 0 ) !== $post_id ) {
                 return (bool) $maybe_empty;
             }
             if ( ! $held() ) {
-                $stopped = 'lock';
+                $verdict['reason'] = 'lock';
                 return true;
             }
-            if ( wp_unslash( (string) ( $postarr['post_content'] ?? '' ) ) !== $planned ) {
-                $stopped = 'content';
+            $prepared = wp_unslash( (string) ( $postarr['post_content'] ?? '' ) );
+            if ( $prepared !== $planned ) {
+                $verdict['reason'] = 'content';
+                $verdict['cause']  = self::content_change_cause( $planned, $prepared );
+                return true;
+            }
+            $hidden = array();
+            foreach ( self::hooked_blocks_to_place( $post_id, $postarr ) as $block ) {
+                if ( ! in_array( $block, $placed, true ) && ! has_block( $block, $planned ) ) {
+                    $hidden[] = $block;
+                }
+            }
+            if ( array() !== $hidden ) {
+                $verdict = array(
+                    'reason' => 'hooked',
+                    'blocks' => $hidden,
+                );
                 return true;
             }
             return (bool) $maybe_empty;
         };
     }
 
-    private static function save_revision( int $post_id ): ?int {
+    private static function content_change_cause( string $planned, string $prepared ): string {
+        if ( self::without_hooked_metadata( $planned ) === self::without_hooked_metadata( $prepared ) ) {
+            return 'hooked_metadata';
+        }
+        if ( false !== has_filter( 'content_save_pre', 'wp_filter_post_kses' ) && wp_kses( $planned, 'post' ) !== $planned ) {
+            return 'kses';
+        }
+        return 'filters';
+    }
+
+    private static function without_hooked_metadata( string $content ): string {
+        $result = preg_replace_callback(
+            Navigation_Labels::DELIMITER,
+            static function ( array $match ): string {
+                $json  = $match['attrs'] ?? '';
+                $attrs = '' === $json ? null : json_decode( $json );
+                if ( ! $attrs instanceof \stdClass || ! isset( $attrs->metadata ) || ! $attrs->metadata instanceof \stdClass || ! property_exists( $attrs->metadata, 'ignoredHookedBlocks' ) ) {
+                    return $match[0];
+                }
+                unset( $attrs->metadata->ignoredHookedBlocks );
+                if ( array() === get_object_vars( $attrs->metadata ) ) {
+                    unset( $attrs->metadata );
+                }
+                $written = array() === get_object_vars( $attrs ) ? '' : serialize_block_attributes( $attrs ) . ' ';
+                return substr_replace( $match[0], $written, (int) strpos( $match[0], '{' ), strlen( $json ) );
+            },
+            $content
+        );
+        return is_string( $result ) ? $result : $content;
+    }
+
+    private static function placed_hooked_blocks( int $post_id ): array {
+        wp_cache_delete( $post_id, 'post_meta' );
+        return self::block_names( get_post_meta( $post_id, self::HOOKED_BLOCKS_META, true ) );
+    }
+
+    private static function hooked_blocks_to_place( int $post_id, array $postarr ): array {
+        $input = $postarr['meta_input'] ?? null;
+        if ( is_array( $input ) && array_key_exists( self::HOOKED_BLOCKS_META, $input ) ) {
+            return self::block_names( is_string( $input[ self::HOOKED_BLOCKS_META ] ) ? wp_unslash( $input[ self::HOOKED_BLOCKS_META ] ) : '' );
+        }
+        return self::placed_hooked_blocks( $post_id );
+    }
+
+    private static function block_names( $json ): array {
+        $names = is_string( $json ) ? json_decode( $json, true ) : null;
+        return is_array( $names ) ? array_values( array_filter( $names, 'is_string' ) ) : array();
+    }
+
+    private static function save_revision( int $post_id, ?string $content = null ): ?int {
         $post = get_post( $post_id );
         if ( ! is_object( $post ) || ! wp_revisions_enabled( $post ) ) {
             return null;
@@ -478,11 +547,33 @@ class Republish_Post extends Base_Tool {
         $always = static function () {
             return false;
         };
+        $state  = '';
+        $stored = wp_slash( (string) $post->post_content );
+        $build  = static function ( $fields, $data = null ) use ( $post_id, &$state ) {
+            $id = is_array( $data ) ? ( $data['ID'] ?? 0 ) : ( is_object( $data ) ? ( $data->ID ?? 0 ) : 0 );
+            if ( '' === $state && (int) $id === $post_id ) {
+                $state = 'pending';
+            }
+            return $fields;
+        };
+        $shown  = static function ( $value ) use ( $stored, $content, &$state ) {
+            if ( 'pending' !== $state || $value !== $stored ) {
+                return $value;
+            }
+            $state = 'done';
+            return wp_slash( (string) $content );
+        };
         add_filter( 'wp_save_post_revision_check_for_changes', $always, PHP_INT_MAX );
+        if ( null !== $content ) {
+            add_filter( '_wp_post_revision_fields', $build, PHP_INT_MAX, 2 );
+            add_filter( 'pre_post_content', $shown, PHP_INT_MIN );
+        }
         try {
             $revision = wp_save_post_revision( $post_id );
         } finally {
             remove_filter( 'wp_save_post_revision_check_for_changes', $always, PHP_INT_MAX );
+            remove_filter( '_wp_post_revision_fields', $build, PHP_INT_MAX );
+            remove_filter( 'pre_post_content', $shown, PHP_INT_MIN );
         }
         if ( ! is_int( $revision ) || $revision <= 0 ) {
             $why = is_wp_error( $revision ) ? ': ' . $revision->get_error_message() : '';
@@ -623,15 +714,17 @@ class Republish_Post extends Base_Tool {
     }
 
     private function write_fields( string $route, object $copy ): array {
-        $format   = get_post_format( (int) $copy->ID );
+        $format   = self::copied_format( $copy );
         $template = self::copied_template( $copy );
         $params   = array(
             'title'          => $copy->post_title,
             'content'        => $copy->post_content,
             'excerpt'        => $copy->post_excerpt,
             'featured_media' => (int) get_post_thumbnail_id( (int) $copy->ID ),
-            'format'         => is_string( $format ) && '' !== $format ? $format : 'standard',
         );
+        if ( ! isset( $format['skipped_format'] ) ) {
+            $params['format'] = $format['format'] ?? 'standard';
+        }
         if ( ! isset( $template['skipped_template'] ) ) {
             $params['template'] = $template['template'] ?? '';
         }
@@ -645,6 +738,7 @@ class Republish_Post extends Base_Tool {
             'link'               => (string) ( $updated['link'] ?? '' ),
             'skipped_taxonomies' => $terms['skipped'],
             'skipped_template'   => $template['skipped_template'] ?? '',
+            'skipped_format'     => $format['skipped_format'] ?? '',
         );
     }
 
@@ -741,18 +835,34 @@ class Republish_Post extends Base_Tool {
                 );
             }
             $route = Navigation_Labels::route( $holder );
-            $shown = '' === $route ? null : $this->shown_differently( $holder, $route, $before );
-            if ( null !== $shown ) {
-                return array(
-                    'updated' => array(),
-                    'kept'    => array_merge( $kept, self::not_saved( $menu, $plan['updated'], $shown ) ),
-                );
+            $shown = null;
+            if ( '' !== $route ) {
+                try {
+                    $view = $this->rest_view( $route );
+                } catch ( \RuntimeException $e ) {
+                    return array(
+                        'updated' => array(),
+                        'kept'    => array_merge( $kept, self::not_saved( $menu, $plan['updated'], 'WordPress did not show this menu as it would be saved (' . rtrim( $e->getMessage(), '.' ) . '), so its labels were left as they are.' ) ),
+                    );
+                }
+                if ( $view !== $before ) {
+                    $shown = $view;
+                    $plan  = Navigation_Labels::relabel( $view, $post_id, $old_titles, $title );
+                    $kept = self::kept_by_hand( $menu, $plan['kept'] );
+                    if ( array() === $plan['updated'] ) {
+                        return array(
+                            'updated' => array(),
+                            'kept'    => $kept,
+                        );
+                    }
+                }
             }
             $keep      = self::revision_keeper( $id );
             $keep_hook = 'wp_' . $holder->post_type . '_revisions_to_keep';
             $guard     = self::save_guard(
                 $id,
                 $plan['content'],
+                self::placed_hooked_blocks( $id ),
                 static function () use ( $id, $lock ): bool {
                     return Layout_Lock::holds( $id, $lock );
                 }
@@ -760,19 +870,17 @@ class Republish_Post extends Base_Tool {
             $revision  = null;
             $why       = null;
             $lost      = false;
-            $hooked    = null;
             add_filter( $keep_hook, $keep, PHP_INT_MAX, 2 );
             add_filter( 'wp_insert_post_empty_content', $guard, PHP_INT_MAX, 2 );
             try {
                 if ( '' === $route ) {
                     throw new \RuntimeException( sprintf( 'post type "%s" is not served over REST.', $holder->post_type ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
-                $revision = self::save_revision( $id );
+                $revision = self::save_revision( $id, $shown );
                 if ( ! Layout_Lock::holds( $id, $lock ) ) {
                     $lost = true;
                     throw new \RuntimeException( self::menu_taken_over() ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
                 }
-                $hooked = self::hooked_blocks_meta( $id );
                 $this->rest_request( 'POST', $route, array( 'content' => $plan['content'] ), 'id' );
             } catch ( \RuntimeException $e ) {
                 $why = $e->getMessage();
@@ -784,15 +892,9 @@ class Republish_Post extends Base_Tool {
                 $revision = null;
             }
             wp_cache_delete( $id, 'posts' );
-            $stored = (string) get_post_field( 'post_content', $id, 'raw' );
-            if ( null !== $hooked && $stored === $before ) {
-                $renewed = Layout_Lock::renew( $id, $lock );
-                if ( '' !== $renewed ) {
-                    $lock = $renewed;
-                    self::restore_hooked_blocks_meta( $id, $hooked );
-                }
-            }
-            $stopped = $guard( null, array() );
+            $stored  = (string) get_post_field( 'post_content', $id, 'raw' );
+            $verdict = $guard( null, array() );
+            $stopped = $verdict['reason'];
             if ( $lost || 'lock' === $stopped ) {
                 return self::after_lost_lock( $menu, $stored, $before, $plan['content'], ! $lost, $post_id, $old_titles, $title );
             }
@@ -815,7 +917,9 @@ class Republish_Post extends Base_Tool {
                 );
             }
             if ( 'content' === $stopped ) {
-                $why = 'WordPress\'s save filters would have stored something other than the planned labels in it for your account, so it was not saved.';
+                $why = self::content_reason( $verdict['cause'], (string) $holder->post_type );
+            } elseif ( 'hooked' === $stopped ) {
+                $why = sprintf( 'WordPress would have recorded %s, hooked into this menu by a plugin, as placed in it while the menu does not hold it, which would stop it showing, so it was not saved.', implode( ', ', $verdict['blocks'] ) );
             }
             return array(
                 'updated' => array(),
@@ -848,31 +952,22 @@ class Republish_Post extends Base_Tool {
         );
     }
 
-    private function shown_differently( object $holder, string $route, string $stored ): ?string {
-        try {
-            $view = $this->rest_request( 'GET', $route, array( 'context' => 'edit' ), 'content' );
-        } catch ( \RuntimeException $e ) {
-            return 'WordPress did not show this menu as it would be saved (' . rtrim( $e->getMessage(), '.' ) . '), so its labels were left as they are.';
+    private function rest_view( string $route ): string {
+        $view = $this->rest_request( 'GET', $route, array( 'context' => 'edit' ), 'content' );
+        if ( ! isset( $view['content']['raw'] ) || ! is_string( $view['content']['raw'] ) ) {
+            throw new \RuntimeException( 'its content was not in the answer' );
         }
-        if ( ( $view['content']['raw'] ?? null ) === $stored ) {
-            return null;
-        }
-        return 'WordPress shows this menu differently from how it is stored (it adds blocks other plugins hook into it, or rewrites its markup), and a save from here could change what it shows, so its labels were left as they are. ' . ( 'wp_navigation' === $holder->post_type ? 'wp_update_cpt_item with the content wp_get_cpt_item returns changes them.' : 'Change them in the Site Editor.' );
+        return $view['content']['raw'];
     }
 
-    private static function hooked_blocks_meta( int $post_id ): array {
-        wp_cache_delete( $post_id, 'post_meta' );
-        return array_values( array_map( 'strval', (array) get_post_meta( $post_id, self::HOOKED_BLOCKS_META, false ) ) );
-    }
-
-    private static function restore_hooked_blocks_meta( int $post_id, array $before ): void {
-        if ( self::hooked_blocks_meta( $post_id ) === $before ) {
-            return;
+    private static function content_reason( string $cause, string $post_type ): string {
+        if ( 'hooked_metadata' === $cause ) {
+            return 'WordPress would also have written into its links its record of the blocks other plugins hook next to them (metadata.ignoredHookedBlocks, which WordPress 6.5 and 6.6 add on every save of such a menu), and this call saves only the labels, so it was not saved. ' . ( 'wp_navigation' === $post_type ? 'wp_update_cpt_item with the content wp_get_cpt_item returns changes them.' : 'Change them in the Site Editor.' );
         }
-        delete_post_meta( $post_id, self::HOOKED_BLOCKS_META );
-        foreach ( $before as $value ) {
-            add_post_meta( $post_id, self::HOOKED_BLOCKS_META, wp_slash( $value ) );
+        if ( 'kses' === $cause ) {
+            return 'WordPress would have removed HTML from it that your account may not save (it lacks the unfiltered_html capability), which changes more than its labels, so it was not saved.';
         }
+        return 'A save filter on this site (a plugin\'s, or WordPress\'s own content fixes) would have stored something other than the planned labels in it, so it was not saved.';
     }
 
     private static function not_saved( array $menu, array $labels, string $why ): array {

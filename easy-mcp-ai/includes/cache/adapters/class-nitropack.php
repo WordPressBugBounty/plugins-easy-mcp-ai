@@ -177,11 +177,11 @@ final class Nitropack extends Cache_Adapter {
 
     private static function class_of( $callable ): string {
         if ( is_string( $callable ) && false !== strpos( $callable, '::' ) ) {
-            return strtolower( ltrim( (string) strstr( $callable, '::', true ), '\\' ) );
+            return \Easy_MCP_AI\Autoloader::lower( ltrim( (string) strstr( $callable, '::', true ), '\\' ) );
         }
         if ( is_array( $callable ) && isset( $callable[0] ) ) {
             $owner = is_object( $callable[0] ) ? get_class( $callable[0] ) : (string) $callable[0];
-            return strtolower( ltrim( $owner, '\\' ) );
+            return \Easy_MCP_AI\Autoloader::lower( ltrim( $owner, '\\' ) );
         }
         return '';
     }

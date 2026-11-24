@@ -11,6 +11,7 @@ class Gemini_Safe_Schema {
         $map    = array();
         $budget = self::MAX_TOTAL_NODES;
         $safe   = self::walk( $schema, '', $map, self::collect_defs( $schema ), 0, array(), $budget );
+        self::record_json_text( $schema, $map );
         self::warn_about_uncoercible_paths( $map );
         return array( 'schema' => $safe, 'map' => $map );
     }
@@ -48,6 +49,15 @@ class Gemini_Safe_Schema {
     }
 
     public static function unreachable_paths( array $map ): array {
+        $decoded = array();
+        foreach ( $map as $descriptors ) {
+            foreach ( (array) $descriptors as $descriptor ) {
+                if ( is_array( $descriptor ) && 'json_text' === ( $descriptor['kind'] ?? '' ) ) {
+                    $decoded = array_merge( $decoded, (array) $descriptor['from'] );
+                }
+            }
+        }
+
         $unreachable = array();
         foreach ( $map as $path => $descriptors ) {
             if ( ! self::is_uncoercible_path( (string) $path ) ) {
@@ -55,6 +65,9 @@ class Gemini_Safe_Schema {
             }
             foreach ( (array) $descriptors as $descriptor ) {
                 $kind = is_array( $descriptor ) && isset( $descriptor['kind'] ) ? $descriptor['kind'] : '';
+                if ( 'string_union' === $kind && in_array( (string) $path, $decoded, true ) ) {
+                    continue;
+                }
                 if ( in_array( $kind, self::CALL_TIME_KINDS, true ) ) {
                     $unreachable[] = (string) $path;
                     break;
@@ -125,6 +138,177 @@ class Gemini_Safe_Schema {
             return $type;
         }
         return 'number' === $declared && 'integer' === $type ? 'number' : null;
+    }
+
+    private static function record_json_text( array $schema, array &$map ) {
+        $from = array();
+        foreach ( $map as $path => $descriptors ) {
+            $target = self::branch_free_path( (string) $path );
+            if ( null === $target ) {
+                continue;
+            }
+            foreach ( $descriptors as $descriptor ) {
+                if ( 'string_union' === $descriptor['kind'] && self::is_structure_union( $descriptor['original_types'] ) ) {
+                    $from[ $target ][] = (string) $path;
+                    break;
+                }
+            }
+        }
+        $budget = self::MAX_TOTAL_NODES;
+        foreach ( $from as $target => $paths ) {
+            if ( false === self::accepts_text_at( $schema, explode( '.', (string) $target ), 0, $budget ) ) {
+                $map[ $target ][] = array( 'kind' => 'json_text', 'from' => $paths );
+            }
+        }
+    }
+
+    private static function branch_free_path( string $path ) {
+        $kept     = array();
+        $branched = false;
+        foreach ( explode( '.', $path ) as $segment ) {
+            if ( 1 === preg_match( '/^(oneOf|anyOf)\[\d+\]$/', $segment ) ) {
+                $branched = true;
+            } elseif ( ctype_digit( $segment ) ) {
+                return null;
+            } else {
+                $kept[] = $segment;
+            }
+        }
+        $target = implode( '.', $kept );
+        if ( ! $branched || self::is_uncoercible_path( $target ) ) {
+            return null;
+        }
+        return $target;
+    }
+
+    private static function is_structure_union( array $types ): bool {
+        foreach ( $types as $type ) {
+            if ( ! in_array( strtolower( $type ), array( 'object', 'array' ), true ) ) {
+                return false;
+            }
+        }
+        return array() !== $types;
+    }
+
+    private static function accepts_text_at( $node, array $segments, int $depth, int &$budget ) {
+        if ( $depth > self::MAX_WALK_DEPTH || --$budget < 0 ) {
+            return null;
+        }
+        if ( ! is_array( $node ) ) {
+            return true;
+        }
+        if ( isset( $node['$ref'] ) || ! empty( $node['patternProperties'] ) ) {
+            return null;
+        }
+
+        $own = self::own_keywords_accept_text_at( $node, $segments, $depth, $budget );
+        if ( false === $own && ! isset( $node['type'] ) && self::has_untyped_branch( $node ) ) {
+            $own = null;
+        }
+        $answers = array( $own );
+        foreach ( array( 'anyOf', 'oneOf' ) as $combinator ) {
+            if ( ! isset( $node[ $combinator ] ) || ! is_array( $node[ $combinator ] ) ) {
+                continue;
+            }
+            $some = false;
+            foreach ( $node[ $combinator ] as $branch ) {
+                $answer = self::accepts_text_at( $branch, $segments, $depth + 1, $budget );
+                if ( true === $answer ) {
+                    $some = true;
+                    break;
+                }
+                if ( null === $answer ) {
+                    $some = null;
+                }
+            }
+            $answers[] = $some;
+        }
+
+        if ( in_array( false, $answers, true ) ) {
+            return false;
+        }
+        return in_array( null, $answers, true ) ? null : true;
+    }
+
+    private static function has_untyped_branch( array $node ): bool {
+        foreach ( array( 'anyOf', 'oneOf' ) as $combinator ) {
+            foreach ( isset( $node[ $combinator ] ) && is_array( $node[ $combinator ] ) ? $node[ $combinator ] : array() as $branch ) {
+                if ( ! is_array( $branch ) || ! isset( $branch['type'] ) ) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static function own_keywords_accept_text_at( array $node, array $segments, int $depth, int &$budget ) {
+        $types = isset( $node['type'] ) ? (array) $node['type'] : null;
+        if ( null === $types && ! isset( $node['anyOf'] ) && ! isset( $node['oneOf'] ) ) {
+            return array() === $segments ? self::enum_accepts_text( $node, false ) : true;
+        }
+        if ( array() === $segments ) {
+            $as_list = null !== $types && self::reads_text_as_a_list( $types );
+            return ( null === $types || self::names_type( $types, 'string' ) || $as_list )
+                && self::enum_accepts_text( $node, $as_list );
+        }
+
+        if ( null !== $types && ! self::names_type( $types, 'object' ) ) {
+            return false;
+        }
+        $name       = array_shift( $segments );
+        $properties = isset( $node['properties'] ) && is_array( $node['properties'] ) ? $node['properties'] : array();
+        if ( array_key_exists( $name, $properties ) ) {
+            return self::accepts_text_at( $properties[ $name ], $segments, $depth + 1, $budget );
+        }
+        if ( ! isset( $node['additionalProperties'] ) ) {
+            return true;
+        }
+        if ( false === $node['additionalProperties'] ) {
+            return false;
+        }
+        return is_array( $node['additionalProperties'] )
+            ? self::accepts_text_at( $node['additionalProperties'], $segments, $depth + 1, $budget )
+            : true;
+    }
+
+    private static function reads_text_as_a_list( array $types ): bool {
+        $distinct = array_unique( array_map( 'strtolower', array_filter( $types, 'is_string' ) ) );
+        return self::names_type( $types, 'array' ) && ! ( count( $distinct ) > 1 && self::is_structure_union( $distinct ) );
+    }
+
+    private static function enum_accepts_text( array $node, bool $as_list ): bool {
+        if ( empty( $node['enum'] ) || ! is_array( $node['enum'] ) ) {
+            return true;
+        }
+        foreach ( $node['enum'] as $member ) {
+            if ( is_string( $member ) || ( $as_list && is_array( $member ) ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function names_type( array $types, string $name ): bool {
+        foreach ( $types as $type ) {
+            if ( ! is_string( $type ) || strtolower( $type ) === $name ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function is_scalar_union( array $members, array $node ): bool {
+        foreach ( array( 'enum', 'const', 'anyOf', 'properties', 'items' ) as $keyword ) {
+            if ( array_key_exists( $keyword, $node ) ) {
+                return false;
+            }
+        }
+        foreach ( $members as $member ) {
+            if ( ! in_array( strtolower( $member ), array( 'boolean', 'integer', 'number' ), true ) ) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static function with_allowed_values( $description, array $members ): string {
@@ -336,6 +520,14 @@ class Gemini_Safe_Schema {
                     if ( 'string' !== $distinct[0] && ! self::is_uncoercible_path( $path ) ) {
                         $map[ $path ][] = array( 'kind' => 'string_union', 'original_types' => $types );
                     }
+                } elseif ( self::is_uncoercible_path( $path ) && self::is_scalar_union( $distinct, $node ) ) {
+                    unset( $node['type'] );
+                    $node['anyOf'] = array_map(
+                        static function ( $member ) {
+                            return array( 'type' => $member );
+                        },
+                        $distinct
+                    );
                 } else {
                     $node['type'] = 'string';
                     if ( ! in_array( 'string', $types, true ) ) {
@@ -568,7 +760,7 @@ class Gemini_Safe_Schema {
             }
         }
 
-        foreach ( $map as $path => $transforms ) {
+        foreach ( self::parents_first( $map ) as $path => $transforms ) {
             if ( self::is_uncoercible_path( (string) $path ) ) {
                 continue;
             }
@@ -588,11 +780,31 @@ class Gemini_Safe_Schema {
                             return self::coerce_stringify_enum( $value, $transform['original_members'] );
                         } );
                         break;
+
+                    case 'json_text':
+                        $arguments = self::apply_at_path( $arguments, $path, function ( $value ) {
+                            return self::coerce_string_union( $value, array( 'object', 'array' ) );
+                        } );
+                        break;
                 }
             }
         }
 
         return $arguments;
+    }
+
+    private static function parents_first( array $map ): array {
+        $by_depth = array();
+        foreach ( $map as $path => $transforms ) {
+            $depth                       = '' === (string) $path ? 0 : substr_count( (string) $path, '.' ) + 1;
+            $by_depth[ $depth ][ $path ] = $transforms;
+        }
+        ksort( $by_depth );
+        $ordered = array();
+        foreach ( $by_depth as $paths ) {
+            $ordered += $paths;
+        }
+        return $ordered;
     }
 
     private static function apply_at_path( array $arguments, $path, callable $fn ) {

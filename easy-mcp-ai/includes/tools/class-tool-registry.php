@@ -7,6 +7,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Tool_Registry {
 
+    const NAMED_OTHERWISE = array(
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Head'          => 'wp_rm_get_head',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Post_Seo'      => 'wp_rm_get_post_seo',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Update_Post_Seo'   => 'wp_rm_update_post_seo',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_List_Redirects'    => 'wp_rm_list_redirects',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Redirect'      => 'wp_rm_get_redirect',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Create_Redirect'   => 'wp_rm_create_redirect',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Update_Redirect'   => 'wp_rm_update_redirect',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Delete_Redirects'  => 'wp_rm_delete_redirects',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Get_Settings'      => 'wp_rm_get_settings',
+        'Easy_MCP_AI\\Tools\\SEO\\Rankmath_Update_Settings'   => 'wp_rm_update_settings',
+        'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Title_Desc' => 'wp_seopress_update_post_title_desc',
+        'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Robots'     => 'wp_seopress_update_post_robots',
+        'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Social'     => 'wp_seopress_update_post_social',
+        'Easy_MCP_AI\\Tools\\SEO\\Seopress_Update_Keywords'   => 'wp_seopress_update_post_keywords',
+    );
+
     private $tools = array();
 
     private $lazy_classes = array();
@@ -55,15 +72,40 @@ class Tool_Registry {
             return $this->tools[ $name ];
         }
         foreach ( $this->lazy_classes as $key => $class ) {
-            $instance  = new $class();
-            $tool_name = $instance->get_name();
-            $this->tools[ $tool_name ] = $instance;
-            unset( $this->lazy_classes[ $key ] );
-            if ( $tool_name === $name ) {
+            $instance = $this->materialize( $key, $class );
+            if ( $instance->get_name() === $name ) {
                 return $instance;
             }
         }
         return null;
+    }
+
+    public function has_tool( string $name ): bool {
+        $this->ensure_loaded();
+        if ( isset( $this->tools[ $name ] ) ) {
+            return true;
+        }
+        foreach ( $this->lazy_classes as $key => $class ) {
+            if ( self::may_be_named( $class, $name ) && $this->materialize( $key, $class )->get_name() === $name ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function may_be_named( string $class, string $name ): bool {
+        if ( isset( self::NAMED_OTHERWISE[ $class ] ) ) {
+            return self::NAMED_OTHERWISE[ $class ] === $name;
+        }
+        $short = \Easy_MCP_AI\Autoloader::lower( substr( $class, (int) strrpos( '\\' . $class, '\\' ) ) );
+        return $name === $short || substr( $name, -strlen( $short ) - 1 ) === '_' . $short;
+    }
+
+    private function materialize( $key, string $class ): Base_Tool {
+        $instance                             = new $class();
+        $this->tools[ $instance->get_name() ] = $instance;
+        unset( $this->lazy_classes[ $key ] );
+        return $instance;
     }
 
     public function get_all_definitions() {
@@ -96,9 +138,7 @@ class Tool_Registry {
     private function materialize_all() {
         $this->ensure_loaded();
         foreach ( $this->lazy_classes as $key => $class ) {
-            $instance = new $class();
-            $this->tools[ $instance->get_name() ] = $instance;
-            unset( $this->lazy_classes[ $key ] );
+            $this->materialize( $key, $class );
         }
     }
 
@@ -285,6 +325,7 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\ACF\\Get_User_Fields',
             'Easy_MCP_AI\\Tools\\ACF\\Update_User_Fields',
             'Easy_MCP_AI\\Tools\\ACF\\Get_Term_Fields',
+            'Easy_MCP_AI\\Tools\\ACF\\Update_Term_Fields',
             'Easy_MCP_AI\\Tools\\ACF\\List_Field_Groups',
             'Easy_MCP_AI\\Tools\\Events_Calendar\\List_Events',
             'Easy_MCP_AI\\Tools\\Events_Calendar\\Get_Event',
@@ -322,10 +363,16 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Smart_Slider\\Reorder_Slides',
             'Easy_MCP_AI\\Tools\\Smart_Slider\\Duplicate_Slide',
             'Easy_MCP_AI\\Tools\\Smart_Slider\\Delete_Slide',
+            'Easy_MCP_AI\\Tools\\WPForms\\Delete_Field',
+            'Easy_MCP_AI\\Tools\\WPForms\\Move_Field',
+            'Easy_MCP_AI\\Tools\\WPForms\\Delete_Form',
+            'Easy_MCP_AI\\Tools\\WPForms\\Restore_Form',
 
             'Easy_MCP_AI\\Tools\\Loco_Translate\\List_Files',
             'Easy_MCP_AI\\Tools\\Loco_Translate\\Get_Translations',
             'Easy_MCP_AI\\Tools\\Loco_Translate\\Update_Translations',
+            'Easy_MCP_AI\\Tools\\Wordfence\\Get_Scan_Issues',
+            'Easy_MCP_AI\\Tools\\Wordfence\\Get_Live_Traffic',
             'Easy_MCP_AI\\Tools\\BuddyPress\\List_Members',
             'Easy_MCP_AI\\Tools\\BuddyPress\\Get_Member',
             'Easy_MCP_AI\\Tools\\BuddyPress\\List_Activity',
@@ -538,7 +585,9 @@ class Tool_Registry {
         'Easy_MCP_AI\\Tools\\Divi\\',
         'Easy_MCP_AI\\Tools\\Contact_Form_7\\',
         'Easy_MCP_AI\\Tools\\Smart_Slider\\',
+        'Easy_MCP_AI\\Tools\\WPForms\\',
         'Easy_MCP_AI\\Tools\\Loco_Translate\\',
+        'Easy_MCP_AI\\Tools\\Wordfence\\',
         'Easy_MCP_AI\\Tools\\BuddyPress\\',
         'Easy_MCP_AI\\Tools\\SEO\\',
         'Easy_MCP_AI\\Tools\\GSC\\',

@@ -54,7 +54,7 @@ class Scope_Map {
         'mcp:wc_webhooks:write'  => array( 'wp_wc_create_webhook', 'wp_wc_update_webhook', 'wp_wc_delete_webhook' ),
         'mcp:wc_store:write'     => array( 'wp_wc_update_store_settings', 'wp_wc_create_shipping_zone', 'wp_wc_update_shipping_zone', 'wp_wc_delete_shipping_zone', 'wp_wc_add_shipping_method', 'wp_wc_update_shipping_method', 'wp_wc_delete_shipping_method', 'wp_wc_create_shipping_class', 'wp_wc_update_shipping_class', 'wp_wc_delete_shipping_class', 'wp_wc_update_payment_gateway', 'wp_wc_create_tax_rate', 'wp_wc_update_tax_rate', 'wp_wc_delete_tax_rate', 'wp_wc_create_tax_class', 'wp_wc_delete_tax_class' ),
         'mcp:acf:read'           => array( 'wp_acf_get_fields', 'wp_acf_get_term_fields', 'wp_acf_get_user_fields', 'wp_acf_list_field_groups' ),
-        'mcp:acf:write'          => array( 'wp_acf_update_fields', 'wp_acf_update_user_fields' ),
+        'mcp:acf:write'          => array( 'wp_acf_update_fields', 'wp_acf_update_user_fields', 'wp_acf_update_term_fields' ),
         'mcp:acf_posts:write'    => array( 'wp_acf_update_fields' ),
         'mcp:buddypress:read'    => array( 'wp_bp_list_activity', 'wp_bp_list_groups', 'wp_bp_get_group', 'wp_bp_list_group_members', 'wp_bp_list_members', 'wp_bp_get_member', 'wp_bp_list_message_threads', 'wp_bp_get_message_thread' ),
         'mcp:buddypress:write'   => array( 'wp_bp_create_activity', 'wp_bp_delete_activity' ),
@@ -69,8 +69,10 @@ class Scope_Map {
         'mcp:cf7:write'          => array( 'wp_cf7_create_form', 'wp_cf7_update_form', 'wp_cf7_delete_form' ),
         'mcp:smartslider:read'   => array( 'wp_smartslider_list_sliders', 'wp_smartslider_get_slider', 'wp_smartslider_get_slide' ),
         'mcp:smartslider:write'  => array( 'wp_smartslider_update_slide', 'wp_smartslider_reorder_slides', 'wp_smartslider_duplicate_slide', 'wp_smartslider_delete_slide' ),
+        'mcp:wpforms:write'      => array( 'wp_wpforms_delete_field', 'wp_wpforms_move_field', 'wp_wpforms_delete_form', 'wp_wpforms_restore_form' ),
         'mcp:loco:read'          => array( 'wp_loco_list_files', 'wp_loco_get_translations' ),
         'mcp:loco:write'         => array( 'wp_loco_update_translations' ),
+        'mcp:wordfence:read'     => array( 'wp_wordfence_get_scan_issues', 'wp_wordfence_get_live_traffic' ),
         'mcp:yoast:read'         => array( 'wp_yoast_get_post_seo', 'wp_yoast_get_head', 'wp_yoast_get_term_seo', 'wp_yoast_get_settings' ),
         'mcp:yoast:write'        => array( 'wp_yoast_update_post_seo', 'wp_yoast_update_term_seo', 'wp_yoast_update_settings' ),
         'mcp:aioseo:read'        => array( 'wp_aioseo_get_post_seo', 'wp_aioseo_get_breadcrumb' ),
@@ -168,7 +170,9 @@ class Scope_Map {
         'divi'        => 'Divi',
         'cf7'         => 'Contact Form 7',
         'smartslider' => 'Smart Slider 3',
+        'wpforms'     => 'WPForms',
         'loco'        => 'Loco Translate',
+        'wordfence'   => 'Wordfence Security',
         'yoast'       => 'Yoast SEO',
         'aioseo'      => 'All in One SEO',
         'rankmath'    => 'Rank Math SEO',
@@ -196,7 +200,9 @@ class Scope_Map {
         'divi'        => array(),
         'cf7'         => array( 'WPCF7_ContactForm' ),
         'smartslider' => array( 'Nextend\\SmartSlider3\\SmartSlider3Info' ),
+        'wpforms'     => array( 'WPForms_Form_Handler' ),
         'loco'        => array( 'Loco_package_Plugin' ),
+        'wordfence'   => array( 'wordfence' ),
         'yoast'       => array( 'WPSEO_Options' ),
         'aioseo'      => array( 'AIOSEO\\Plugin\\AIOSEO' ),
         'rankmath'    => array( 'RankMath' ),
@@ -636,7 +642,9 @@ class Scope_Map {
             'divi'         => 'Divi',
             'cf7'          => 'Contact Form 7',
             'smartslider'  => 'Smart Slider 3',
+            'wpforms'      => 'WPForms',
             'loco'         => 'Loco Translate',
+            'wordfence'    => 'Wordfence Security',
             'yoast'        => __( 'Yoast SEO', 'easy-mcp-ai' ),
             'aioseo'       => __( 'All in One SEO', 'easy-mcp-ai' ),
             'rankmath'     => __( 'Rank Math SEO', 'easy-mcp-ai' ),
@@ -692,7 +700,9 @@ class Scope_Map {
             'divi'         => __( 'Divi performance settings and the Theme Builder list', 'easy-mcp-ai' ),
             'cf7'          => __( 'Write can change where form emails go', 'easy-mcp-ai' ),
             'smartslider'  => __( 'Write can delete slides; Smart Slider keeps no trash for them', 'easy-mcp-ai' ),
+            'wpforms'      => __( 'Write can delete fields and forms', 'easy-mcp-ai' ),
             'loco'         => __( 'Write changes the text plugins and themes show', 'easy-mcp-ai' ),
+            'wordfence'    => __( 'Visitors\' IP addresses, login names and the URLs they asked for', 'easy-mcp-ai' ),
             'yoast'        => __( 'Write also changes site-wide SEO settings', 'easy-mcp-ai' ),
             'dfs'          => __( 'Paid lookups, billed to your DataForSEO account', 'easy-mcp-ai' ),
             'semrush'      => __( 'Paid lookups, billed to your Semrush account', 'easy-mcp-ai' ),
@@ -754,7 +764,7 @@ class Scope_Map {
         foreach ( self::ability_prefixes( (array) $abilities ) as $norm_prefix => $display_label ) {
             $categories[] = array(
                 'slug'            => "abilities_{$norm_prefix}",
-                /* translators: %s: ability prefix (e.g. "Core", "Wpforms") */
+                /* translators: %s: the plugin behind an ability prefix (e.g. "Core", "WPForms", "All in One SEO (AIOSEO): aioseo-posts") */
                 'label'           => sprintf( __( 'Abilities — %s', 'easy-mcp-ai' ), $display_label ),
                 'note'            => 'core' === $norm_prefix
                     ? __( 'WordPress’s own abilities, and any without a plugin prefix', 'easy-mcp-ai' )
@@ -782,7 +792,7 @@ class Scope_Map {
             $parts = explode( '/', $name, 2 );
             if ( count( $parts ) > 1 ) {
                 $norm_prefix   = Dynamic_Tool_Registrar::normalize_identifier( $parts[0] );
-                $display_label = ucfirst( $parts[0] );
+                $display_label = \Easy_MCP_AI\Admin\Plugin_Integration_Registry::ability_source_label( $parts[0] ) ?? ucfirst( $parts[0] );
             } else {
                 $norm_prefix   = 'core';
                 $display_label = __( 'Core', 'easy-mcp-ai' );

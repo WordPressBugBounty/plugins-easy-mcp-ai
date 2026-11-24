@@ -36,6 +36,7 @@ final class Cache_Registry {
         'nitropack'            => 'Easy_MCP_AI\\Cache\\Adapters\\Nitropack',
         'clearfy'              => 'Easy_MCP_AI\\Cache\\Adapters\\Clearfy',
         'xspeed'               => 'Easy_MCP_AI\\Cache\\Adapters\\Xspeed',
+        'wp-compress'          => 'Easy_MCP_AI\\Cache\\Adapters\\Wp_Compress',
         'spinupwp'             => 'Easy_MCP_AI\\Cache\\Adapters\\Spinupwp',
         'nginx-helper'         => 'Easy_MCP_AI\\Cache\\Adapters\\Nginx_Helper',
         'proxy-cache-purge'    => 'Easy_MCP_AI\\Cache\\Adapters\\Proxy_Cache_Purge',

@@ -253,7 +253,7 @@ class Live_State {
                     : null;
 
             case 'user_meta':
-                if ( \Easy_MCP_AI\History\Change_Recorder::user_meta_is_blocked( $meta_key ) ) {
+                if ( \Easy_MCP_AI\History\Change_Recorder::user_meta_is_blocked( $meta_key ) || \Easy_MCP_AI\History\Change_Redactor::user_meta_key_is_secret( $meta_key ) ) {
                     return null;
                 }
                 $can_read = $can_view_all

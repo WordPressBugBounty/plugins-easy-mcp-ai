@@ -26,6 +26,8 @@ final class Meta_Exposure {
 
     private static $exposed = array();
 
+    private static $yielded = array();
+
     private static $hooked_types = array();
 
     private static $hooked_meta_writes = false;
@@ -89,7 +91,7 @@ final class Meta_Exposure {
             );
             add_filter( "rest_prepare_{$post_type}", array( __CLASS__, 'hide_meta_from_readers' ), 10, 2 );
         }
-        if ( ! empty( self::$exposed ) && ! self::$hooked_meta_writes ) {
+        if ( ( ! empty( self::$exposed ) || ! empty( self::$yielded ) ) && ! self::$hooked_meta_writes ) {
             self::$hooked_meta_writes = true;
             foreach ( array( 'added_post_meta', 'updated_post_meta', 'deleted_post_meta' ) as $action ) {
                 add_action( $action, array( __CLASS__, 'after_meta_write' ), 10, 3 );
@@ -99,10 +101,13 @@ final class Meta_Exposure {
 
     public static function after_meta_write( $meta_ids, $post_id, $meta_key ) {
         $post_type = get_post_type( (int) $post_id );
-        if ( ! is_string( $post_type ) || ! isset( self::$exposed[ $post_type ][ (string) $meta_key ] ) ) {
+        if ( ! is_string( $post_type ) ) {
             return;
         }
-        self::$exposed[ $post_type ][ (string) $meta_key ]->after_write( (int) $post_id, array( (string) $meta_key ) );
+        $provider = self::$exposed[ $post_type ][ (string) $meta_key ] ?? self::$yielded[ $post_type ][ (string) $meta_key ] ?? null;
+        if ( null !== $provider ) {
+            $provider->after_write( (int) $post_id, array( (string) $meta_key ) );
+        }
     }
 
     public static function guard_meta_write( $prepared_post, $request, $post_type ) {
@@ -212,6 +217,7 @@ final class Meta_Exposure {
         self::$report       = array();
         self::$providers    = null;
         self::$exposed      = array();
+        self::$yielded      = array();
         self::$hooked_types = array();
         self::$hooked_meta_writes = false;
     }
@@ -232,11 +238,13 @@ final class Meta_Exposure {
                 $slot = $post_type . ':' . $key;
 
                 if ( isset( $subtype[ $key ] ) ) {
-                    $report[ $slot ] = 'vendor';
+                    $report[ $slot ]                     = 'vendor';
+                    self::$yielded[ $post_type ][ $key ] = $provider;
                     continue;
                 }
                 if ( isset( $global[ $key ] ) && ! empty( $global[ $key ]['show_in_rest'] ) ) {
-                    $report[ $slot ] = 'vendor';
+                    $report[ $slot ]                     = 'vendor';
+                    self::$yielded[ $post_type ][ $key ] = $provider;
                     continue;
                 }
 

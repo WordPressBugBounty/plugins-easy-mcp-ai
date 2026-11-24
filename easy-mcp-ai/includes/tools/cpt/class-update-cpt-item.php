@@ -146,6 +146,14 @@ class Update_CPT_Item extends Base_Tool {
         Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
+                if ( isset( $arguments['rest_base'] ) && '' !== $arguments['rest_base'] ) {
+                    $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+                    $this->refuse_switched_off_dedicated_tool( $rest_base );
+                    $params = array();
+                    if ( $this->apply_meta_argument( $arguments, $params ) ) {
+                        self::refuse_meta_without_support( $rest_base );
+                    }
+                }
                 $this->refuse_switched_off_dedicated_tool( $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'POST' ) );
                 $this->precheck_featured_media( $arguments );
                 if ( isset( $arguments['rest_base'], $arguments['item_id'] ) && Translation_Write::asked( $arguments ) ) {
@@ -184,12 +192,13 @@ class Update_CPT_Item extends Base_Tool {
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
         $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
-
-        $post_type      = Create_CPT_Item::post_type_for_rest_base( $rest_base )[0];
-        $translation    = Translation_Write::plan( $arguments, $post_type, $item_id, true );
         $params         = self::content_params( $arguments );
         $meta_sent      = $this->apply_meta_argument( $arguments, $params );
         $meta_post_type = $meta_sent ? self::refuse_meta_without_support( $rest_base ) : '';
+        $this->refuse_other_post_type_base( $item_id, $rest_base, 'rest_base' );
+
+        $post_type      = Create_CPT_Item::post_type_for_rest_base( $rest_base )[0];
+        $translation    = Translation_Write::plan( $arguments, $post_type, $item_id, true );
         $this->apply_post_type_fields( $arguments, $rest_base, $params );
         $this->refuse_builder_owned_write( $item_id, array_key_exists( 'content', $params ), (array) ( $params['meta'] ?? array() ) );
 

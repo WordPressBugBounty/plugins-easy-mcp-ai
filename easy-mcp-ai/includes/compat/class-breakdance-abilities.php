@@ -43,6 +43,10 @@ final class Breakdance_Abilities extends Vendor_Abilities {
         );
     }
 
+    public static function plugin_loaded(): bool {
+        return defined( self::MODE_CONSTANT ) && 'breakdance' === constant( self::MODE_CONSTANT );
+    }
+
     protected static function ran_before_switches_dropped( string $slug ): bool {
         unset( $slug );
         $stored = \get_option( self::SETTING_OPTION, null );

@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Breakdance_Editor {
 
-    const OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields' );
+    const OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields', 'replace_text' );
 
     const MAX_OPS = 50;
 
@@ -109,17 +109,21 @@ final class Breakdance_Editor {
         $node['data']['properties'] = $properties;
         $single                     = 1 === count( $writes ) && 'set_fields' !== $name;
         $field                      = (string) array_key_first( $writes );
+        $result                     = array(
+            'op'      => $name,
+            'element' => $address,
+            'type'    => $type,
+            'field'   => $single ? $field : implode( ', ', array_keys( $writes ) ),
+            'before'  => $single ? $before[ $field ] : $before,
+            'after'   => $single ? $after[ $field ] : $after,
+            'changed' => $before !== $after,
+        );
+        if ( 'replace_text' === $name ) {
+            $result += Text_Replacement::result( (string) $before[ $field ], (string) $after[ $field ], (string) $op['search'], (string) $op['replace'] );
+        }
         return array(
             'tree'   => self::put( $tree, $path, $node ),
-            'result' => array(
-                'op'      => $name,
-                'element' => $address,
-                'type'    => $type,
-                'field'   => $single ? $field : implode( ', ', array_keys( $writes ) ),
-                'before'  => $single ? $before[ $field ] : $before,
-                'after'   => $single ? $after[ $field ] : $after,
-                'changed' => $before !== $after,
-            ),
+            'result' => $result,
         );
     }
 
@@ -138,6 +142,9 @@ final class Breakdance_Editor {
 
             case 'set_link':
                 return $this->link_writes( $op, $fields, $properties, $address );
+
+            case 'replace_text':
+                return $this->replace_writes( $op, $fields, $properties, $address );
 
             case 'set_image':
                 $field = $this->field( $op, $fields, array( 'image' ), $address, 'image' );
@@ -196,6 +203,48 @@ final class Breakdance_Editor {
             $writes[ $toggle ] = $new_tab;
         }
         return $writes;
+    }
+
+    private function replace_writes( array $op, array $fields, array $properties, string $address ) {
+        $args = Text_Replacement::arguments( $op );
+        if ( is_string( $args ) ) {
+            return $args;
+        }
+        $where = 'element ' . $address;
+        if ( isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ) {
+            $field = $this->field( $op, $fields, self::TEXT_KINDS, $address, 'text' );
+            if ( is_string( $field ) ) {
+                return $field;
+            }
+        } else {
+            $candidates = array();
+            $values     = array();
+            foreach ( $fields as $candidate ) {
+                if ( in_array( $candidate['kind'], self::TEXT_KINDS, true ) ) {
+                    $candidates[ $candidate['name'] ] = $candidate;
+                    $values[ $candidate['name'] ]     = self::text_at( $properties, $candidate['name'] );
+                }
+            }
+            if ( array() === $candidates ) {
+                return sprintf( 'element %s has no text field.', $address );
+            }
+            $holder = Text_Replacement::holder( $values, $args['search'], $where );
+            if ( is_string( $holder ) ) {
+                return $holder;
+            }
+            $field = $candidates[ $holder['field'] ];
+        }
+        $replaced = Text_Replacement::replaced( self::text_at( $properties, $field['name'] ), $args, $field['name'], $where );
+        if ( is_string( $replaced ) ) {
+            return $replaced;
+        }
+        $problem = $this->field_problem( $field, $properties, $replaced['value'] );
+        return null === $problem ? array( $field['name'] => $replaced['value'] ) : $problem;
+    }
+
+    private static function text_at( array $properties, string $path ): string {
+        $value = self::value_at( $properties, $path );
+        return is_string( $value ) ? $value : '';
     }
 
     private function field_writes( array $op, array $fields, array $properties ) {

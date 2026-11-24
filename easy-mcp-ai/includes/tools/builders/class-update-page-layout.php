@@ -20,7 +20,7 @@ class Update_Page_Layout extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with wp_get_page_layout first: required `post_id`, `version` (from that read; refused if stale) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default field: the element\'s main text; HTML where the field is HTML); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. `element` is the address from wp_get_page_layout: an Elementor id, a Breakdance id ("102"), or a path such as "0.1.2" for the other builders. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: sections and columns too, sized as its editor sizes them). Addresses mean the layout as read, even after earlier ops moved or removed elements; `ref` names a new element for later ops. Any op may carry `expect` (its required element type). `dry_run: true` saves nothing. Returns { changed, saved, version (send it with the next edit), results (one per op and per field written), parents?, revision_id?, warnings? }. Elementor V4 elements (flag `atomic`) are edited with Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities insert, move and remove elements. Breakdance, WPBakery, Flatsome and Divi are edited only on supported versions; the read says `editable` and why not. Requires edit access to the item.';
+        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with wp_get_page_layout first: required `post_id`, `version` (from that read; refused if stale) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default field: the element\'s main text); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor and Breakdance: `replace_text` { element, search, replace, field?, expected_count? } replaces exact stored text in one field without resending the field, if found `expected_count` times (default 1). Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, value?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: sections and columns too, sized as its editor sizes them). Addresses mean the layout as read, before any op; `ref` names a new element for later ops. Any op may carry `expect` (its required element type). `dry_run: true` saves nothing. Returns { changed, saved, version (send it with the next edit), results (one per op and per field written), parents?, revision_id?, warnings? }. Elementor V4 elements (flag `atomic`) are edited with Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities insert, move and remove elements. Breakdance, WPBakery, Flatsome and Divi are edited only on supported versions; the read says `editable` and why not. Requires edit access to the item.';
     }
 
     public function get_category() {
@@ -101,7 +101,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'children'      => array(
                                 'type'        => 'array',
-                                'description' => 'Elementor, insert of a container, section or column: elements to insert inside it, each { element_type, fields?, children?, ref? }; a section\'s are its columns.',
+                                'description' => 'Elementor, insert of a container, section or column: elements to insert inside it, each { element_type, fields?, value?, children?, ref? }; a section\'s are its columns.',
                                 'items'       => array( 'type' => 'object' ),
                             ),
                             'columns'       => array(
@@ -118,11 +118,24 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'field'         => array(
                                 'type'        => 'string',
-                                'description' => 'set_text, set_link, set_image: the field to write; default the element\'s main text, link or image ("content" is the HTML a WPBakery, Flatsome or Divi 4 element encloses; a Divi 5 field is a path such as "button.innerContent.text").',
+                                'description' => 'set_text, set_link, set_image, replace_text: the field to write; default the element\'s main text, link or image ("content" is the HTML a WPBakery, Flatsome or Divi 4 element encloses; a Divi 5 field is a path such as "button.innerContent.text"). Elementor: required on a widget with several such fields and no known main one; the refusal lists them. replace_text: default the one text, HTML or code field of the first tab (of an item, of its fields; Breakdance: the one text field) that holds `search`.',
                             ),
                             'value'         => array(
                                 'type'        => 'string',
-                                'description' => 'set_text, insert: the new text (HTML where the field is HTML).',
+                                'description' => 'set_text, insert: the new text (HTML where the field is HTML); on an insert, the new element\'s main text, written where set_text without `field` writes it.',
+                            ),
+                            'search'        => array(
+                                'type'        => 'string',
+                                'description' => 'replace_text (Elementor, Breakdance): the exact text to replace, as stored (HTML included, as wp_get_page_layout with `include_settings` shows it); case, spaces and entities must match.',
+                            ),
+                            'replace'       => array(
+                                'type'        => 'string',
+                                'description' => 'replace_text: the text written in place of each match; "" removes it.',
+                            ),
+                            'expected_count' => array(
+                                'type'        => 'integer',
+                                'description' => 'replace_text: how many times `search` occurs in the field; every one is replaced. Default 1. Any other number found is refused, with that number and where it occurs.',
+                                'minimum'     => 1,
                             ),
                             'url'           => array(
                                 'type'        => 'string',

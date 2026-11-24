@@ -96,7 +96,8 @@ class Change_Log_Repository {
         global $wpdb;
         $table = $this->table();
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; row read with prepared placeholder.
-        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", (int) $id ), ARRAY_A );
+        $row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", (int) $id ), ARRAY_A );
+        return is_array( $row ) ? Change_Redactor::redact_retained_row( $row ) : $row;
     }
 
     public function query( array $filters, $limit = 50, $offset = 0, $columns = null ) {
@@ -106,13 +107,14 @@ class Change_Log_Repository {
         $w      = self::build_where( $filters );
         $params = array_merge( $w['params'], array( (int) $limit, (int) $offset ) );
         // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; $cols/$table/$where are server-built from constant column lists, all user values bound via prepared placeholders. UnfinishedPrepare fires because the query text is returned by deferred_join_sql() rather than written inline, so the sniff cannot see the placeholders it contains.
-        return $wpdb->get_results(
+        $rows = $wpdb->get_results(
             $wpdb->prepare(
                 self::deferred_join_sql( $table, $cols, $w['sql'] ),
                 ...$params
             ),
             ARRAY_A
         );
+        return is_array( $rows ) ? array_map( array( Change_Redactor::class, 'redact_retained_row' ), $rows ) : $rows;
         // phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, PluginCheck.Security.DirectDB.UnescapedDBParameter
     }
 

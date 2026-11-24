@@ -60,7 +60,7 @@ class Duplicate_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Duplicates a post, page or custom post type item into a new one of the same type. Required: `post_id`. Optional: `title` (default: the original\'s title), `status` (draft/pending/private/publish, default draft; under Draft mode New content the copy is a draft, under Strict publish and private are refused). Copies the content, excerpt, terms of every taxonomy shown in the REST API, featured image, page template, post format, parent, menu order, comment and ping settings, password and post meta, page-builder layouts such as Elementor\'s included. Not copied: the date, slug (WordPress makes a new one), author (you become the author), sticky flag, comments, child pages and the original\'s editing history. Requires permission to edit the original and, for a custom post type item, the access wp_create_cpt_item needs. Refuses media, revisions, menu items, site editor entities and WooCommerce products. Returns { id, source_id, post_type, title, status, link, copied_meta_keys }, plus `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template` or `skipped_fields` (menu_order, parent) when something was left out, `content_filtered: true` when WordPress filtered HTML from the content because you cannot post unfiltered HTML, and `status_error` when the copy was created but stayed a draft. An error after the copy was created (a meta key WordPress refused) names the draft. To put a reviewed copy live in place of a published original, keeping its URL, use wp_republish_post, never a publish of the copy (`next` says so when it applies).';
+        return 'Duplicates a post, page or custom post type item into a new one of the same type. Required: `post_id`. Optional: `title` (default: the original\'s title), `status` (draft/pending/private/publish, default draft; under Draft mode New content the copy is a draft, under Strict publish and private are refused). Copies the content, excerpt, terms of every taxonomy shown in the REST API, featured image, page template, post format, parent, menu order, comment and ping settings, password and post meta, page-builder layouts such as Elementor\'s included. Not copied: the date, slug (WordPress makes a new one), author (you become the author), sticky flag, comments, child pages and the original\'s editing history. Requires permission to edit the original and, for a custom post type item, the access wp_create_cpt_item needs. Refuses media, revisions, menu items, site editor entities and WooCommerce products. Returns { id, source_id, post_type, title, status, link, copied_meta_keys }, plus `skipped_meta_keys`, `skipped_taxonomies`, `skipped_template`, `skipped_format` (a stored post format WordPress does not know) or `skipped_fields` (menu_order, parent) when something was left out, `content_filtered: true` when WordPress filtered HTML from the content because you cannot post unfiltered HTML, and `status_error` when the copy was created but stayed a draft. An error after the copy was created (a meta key WordPress refused) names the draft. To put a reviewed copy live in place of a published original, keeping its URL, use wp_republish_post, never a publish of the copy (`next` says so when it applies).';
     }
 
     public function get_category() {
@@ -256,8 +256,8 @@ class Duplicate_Post extends Base_Tool {
             'title'          => $title,
             'content'        => $source->post_content,
             'excerpt'        => $source->post_excerpt,
-            'comment_status' => $source->comment_status,
-            'ping_status'    => $source->ping_status,
+            'comment_status' => self::discussion_status( $source->comment_status ),
+            'ping_status'    => self::discussion_status( $source->ping_status ),
             'password'       => $source->post_password,
             'menu_order'     => (int) $source->menu_order,
             'parent'         => (int) $source->post_parent,
@@ -268,9 +268,11 @@ class Duplicate_Post extends Base_Tool {
         if ( $thumbnail > 0 ) {
             $params['featured_media'] = $thumbnail;
         }
-        $format = get_post_format( (int) $source->ID );
-        if ( is_string( $format ) && '' !== $format ) {
-            $params['format'] = $format;
+        $format = self::copied_format( $source );
+        if ( isset( $format['format'] ) ) {
+            $params['format'] = $format['format'];
+        } elseif ( isset( $format['skipped_format'] ) ) {
+            $skipped['skipped_format'] = $format['skipped_format'];
         }
         $template = self::copied_template( $source );
         if ( isset( $template['template'] ) ) {

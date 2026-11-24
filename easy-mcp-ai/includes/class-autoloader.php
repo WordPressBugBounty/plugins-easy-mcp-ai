@@ -12,6 +12,10 @@ final class Autoloader {
 
     const IDENTIFIER_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789_';
 
+    const ASCII_UPPER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    const ASCII_LOWER = 'abcdefghijklmnopqrstuvwxyz';
+
     const FILE_PREFIXES = array( 'class-', 'trait-', 'interface-' );
 
     const EXCEPTIONS = array(
@@ -82,8 +86,8 @@ final class Autoloader {
     }
 
     private static function candidates( string $class ): array {
-        $lower = strtolower( ltrim( $class, '\\' ) );
-        if ( 0 !== strpos( $lower, strtolower( self::PREFIX ) ) ) {
+        $lower = self::lower( ltrim( $class, '\\' ) );
+        if ( 0 !== strpos( $lower, self::lower( self::PREFIX ) ) ) {
             return array();
         }
         $includes = __DIR__ . '/';
@@ -106,5 +110,9 @@ final class Autoloader {
             $paths[] = $dir . $prefix . $short . '.php';
         }
         return $paths;
+    }
+
+    public static function lower( string $name ): string {
+        return strtr( $name, self::ASCII_UPPER, self::ASCII_LOWER );
     }
 }

@@ -87,10 +87,11 @@ abstract class Local_Block_Tool extends Cloud_Block_Tool {
         }
         $reply['raw'] = $texts[0] ?? '';
         if ( ! empty( $result['isError'] ) ) {
-            $reply['tool_error'] = true;
+            $reply['refused']    = ! empty( $out['refused'] );
+            $reply['tool_error'] = ! $reply['refused'];
             $first               = 0 === strpos( $reply['raw'], 'Error: ' ) ? substr( $reply['raw'], 7 ) : $reply['raw'];
             $reply['text']       = $tool . ': ' . trim( implode( "\n", array_merge( array( $first ), array_slice( $texts, 1 ) ) ) );
-            if ( null !== $target ) {
+            if ( null !== $target && $reply['tool_error'] ) {
                 $reply['text'] = $this->explain_other_type( $reply, $target );
             }
             return $reply;

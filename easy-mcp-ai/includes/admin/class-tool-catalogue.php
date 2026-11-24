@@ -290,7 +290,7 @@ class Tool_Catalogue {
             $tools  = self::active_names( $items, $disabled, $patterns );
             $rows[] = array(
                 'key'    => (string) $prefix,
-                'label'  => \Easy_MCP_AI\Compat\Vendor_Abilities::vendor_of( (string) $prefix ) ?? ucfirst( (string) $prefix ),
+                'label'  => self::ability_group_label( (string) $prefix ),
                 'status' => empty( $tools ) ? 'not_enabled' : 'active',
                 'counts' => self::counts( $items ),
                 'tools'  => $tools,
@@ -298,6 +298,14 @@ class Tool_Catalogue {
             );
         }
         return $rows;
+    }
+
+    private static function ability_group_label( string $prefix ): string {
+        $integration = Plugin_Integration_Registry::group_for_ability_prefix( $prefix );
+        if ( null !== $integration ) {
+            return $integration['name'];
+        }
+        return \Easy_MCP_AI\Compat\Vendor_Abilities::vendor_of( $prefix ) ?? ucfirst( $prefix );
     }
 
     private function metadata_registry() {
@@ -333,10 +341,14 @@ class Tool_Catalogue {
         $rows = array();
         foreach ( array( 'core', 'plugins', 'external', 'abilities' ) as $section ) {
             foreach ( $sections[ $section ] as $group ) {
+                $integration = 'abilities' === $section ? Plugin_Integration_Registry::group_for_ability_prefix( (string) $group['key'] ) : null;
                 foreach ( $group['items'] as $item ) {
                     $item['section'] = $section;
-                    $item['group'] = $group['key'];
+                    $item['group'] = null !== $integration ? $integration['slug'] : $group['key'];
                     $item['groupLabel'] = $group['label'];
+                    if ( 'abilities' === $section ) {
+                        $item['abilityGroup'] = $group['key'];
+                    }
                     $item['available'] = 'plugins' !== $section || ! empty( $group['installed'] );
                     $item['status'] = $group['status'] ?? 'active';
                     $rows[ $item['name'] ] = $item;
@@ -558,6 +570,10 @@ class Tool_Catalogue {
         if ( array_key_exists( 'tools', $body ) && ! is_array( $body['tools'] ) ) {
             return self::invalid( 'tools', \__( 'Expected a tool-choice object.', 'easy-mcp-ai' ) );
         }
+        $pending = self::run_pending_ability_steps();
+        if ( \is_wp_error( $pending ) ) {
+            return $pending;
+        }
         $sections = $this->sections( array(), false );
         $rows = array_column( $sections['policy']['tools'], null, 'name' );
         $choices = array();
@@ -609,7 +625,7 @@ class Tool_Catalogue {
                     $core_off[] = $name;
                 }
             } else {
-                $legacy[ $row['section'] ][ $row['group'] ]['tools'][ $name ] = $changed['enabled'];
+                $legacy[ $row['section'] ][ $row['abilityGroup'] ?? $row['group'] ]['tools'][ $name ] = $changed['enabled'];
             }
         }
         $writes = array();
@@ -625,12 +641,32 @@ class Tool_Catalogue {
         $this->sections( array() );
         $result = new \WP_Error( 'easy_mcp_ai_policy_not_saved', \__( 'Another save of the tool policy is still running. Nothing was changed; try again.', 'easy-mcp-ai' ), array( 'status' => 500 ) );
         \Easy_MCP_AI\Tools\Tool_Policy::locked( function () use ( $choices, $writes, $core_touched, $core_off, $namespaces, $body, &$result ) {
+            if ( self::ability_step_pending() ) {
+                return;
+            }
             $result = $this->write_policy( $choices, $writes, $core_touched, $core_off, $namespaces, isset( $body['namespaces'] ) );
         } );
         if ( true === $result ) {
             $this->list_tools_again();
         }
         return $result;
+    }
+
+    private static function run_pending_ability_steps() {
+        if ( self::ability_step_pending() ) {
+            \Easy_MCP_AI\Plugin::settle_vendor_ability_ticks();
+            \Easy_MCP_AI\Plugin::maybe_seed_abilities();
+        }
+        if ( ! self::ability_step_pending() ) {
+            return true;
+        }
+        return new \WP_Error( 'easy_mcp_ai_policy_not_saved', \__( 'The tool policy could not be saved. Nothing was changed; try again.', 'easy-mcp-ai' ), array( 'status' => 500 ) );
+    }
+
+    private static function ability_step_pending(): bool {
+        \Easy_MCP_AI\Config::read_uncached( \Easy_MCP_AI\Compat\Vendor_Abilities::TICKS_SETTLED_OPTION );
+        return \Easy_MCP_AI\Compat\Vendor_Abilities::settled_pass() < \Easy_MCP_AI\Compat\Vendor_Abilities::TICKS_SETTLED_VERSION
+            || null !== \Easy_MCP_AI\Config::read_uncached( \Easy_MCP_AI\Ability_Seed::PENDING_OPTION );
     }
 
     private function list_tools_again(): void {

@@ -14,9 +14,12 @@ class Self_Service_Keys {
     private $registry;
     private $forms = array();
 
-    public function __construct( Token_Manager $manager, Tool_Registry $registry ) {
+    public function __construct( Token_Manager $manager, Tool_Registry $registry, bool $hooks = true ) {
         $this->manager = $manager;
         $this->registry = $registry;
+        if ( ! $hooks ) {
+            return;
+        }
         \add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
         \add_action( 'show_user_profile', array( $this, 'render' ) );
         \add_action( 'admin_footer', array( $this, 'render_forms' ) );
@@ -29,6 +32,13 @@ class Self_Service_Keys {
         $base = 'assets/';
         \wp_enqueue_style( 'easy-mcp-ai-profile-keys', EASY_MCP_AI_PLUGIN_URL . $base . 'css/self-service-keys.css', array(), filemtime( EASY_MCP_AI_PLUGIN_DIR . $base . 'css/self-service-keys.css' ) );
         \wp_enqueue_script( 'easy-mcp-ai-profile-keys', EASY_MCP_AI_PLUGIN_URL . $base . 'js/self-service-keys.js', array(), filemtime( EASY_MCP_AI_PLUGIN_DIR . $base . 'js/self-service-keys.js' ), true );
+        \wp_localize_script( 'easy-mcp-ai-profile-keys', 'easyMcpSelfServiceKeys', array(
+            'toolsUrl' => \rest_url( Rest\Self_Service_Routes::NAMESPACE_V1 . Rest\Self_Service_Routes::TOOLS_ROUTE ),
+            'keysUrl'  => \rest_url( Rest\Self_Service_Routes::NAMESPACE_V1 . Rest\Self_Service_Routes::KEYS_ROUTE ),
+            'nonce'    => \wp_create_nonce( 'wp_rest' ),
+            'noTools'  => __( 'No tools are available for your account.', 'easy-mcp-ai' ),
+            'failed'   => __( 'The key could not be created. Reload your profile and try again.', 'easy-mcp-ai' ),
+        ) );
     }
 
     public static function enabled() {
@@ -68,12 +78,43 @@ class Self_Service_Keys {
 
     const NEVER_OFFERED = array( 'wp_cli_run' );
 
-    private function offered_tools(): array {
+    public function offered_tools(): array {
         return array_values( array_filter( Server::available_tools( $this->registry, true ), static function ( array $definition ): bool {
             return ! isset( $definition['_meta'][ \Easy_MCP_AI\Tools\Privileged_Tool::META_KEY ] )
                 && ! in_array( $definition['name'], self::NEVER_OFFERED, true )
                 && ! in_array( $definition['name'], \Easy_MCP_AI\Auth\Permission_Guard::EVERY_CREDENTIAL, true );
         } ) );
+    }
+
+    private function unlisted_vendors(): array {
+        if ( ! Config::tool_policy_valid() ) {
+            return array();
+        }
+        $patterns = (array) Config::get( 'allowed_tool_patterns' );
+        return \Easy_MCP_AI\Compat\Unseen_Abilities::vendors( array_values( array_filter( \Easy_MCP_AI\Compat\Unseen_Abilities::definitions(), static function ( array $definition ) use ( $patterns ): bool {
+            if ( empty( $definition['on'] ) || ! Server::matches_tool_patterns( $definition['name'], $patterns ) ) {
+                return false;
+            }
+            $cap = Server::effective_required_capability( $definition['category'], $definition['capability'] );
+            return ! $cap || \current_user_can( $cap );
+        } ) ) );
+    }
+
+    public function offered_rows(): array {
+        return array_map( static function ( array $definition ): array {
+            return array(
+                'name'        => (string) $definition['name'],
+                'description' => self::short_description( (string) ( $definition['description'] ?? '' ) ),
+            );
+        }, $this->offered_tools() );
+    }
+
+    public static function short_description( string $full ): string {
+        if ( '' === $full ) {
+            return '';
+        }
+        $short = preg_match( '/^(.+?[.!?])(\s|$)/u', $full, $sentence ) ? $sentence[1] : $full;
+        return mb_strlen( $short ) > 160 ? rtrim( mb_substr( $short, 0, 157 ) ) . '…' : $short;
     }
 
     public function revoke( $id ) {
@@ -123,6 +164,7 @@ class Self_Service_Keys {
         $more = count( $tokens ) > 20;
         $tokens = array_slice( $tokens, 0, 20 );
         $tools = $this->offered_tools();
+        $unlisted = $this->unlisted_vendors();
         $id = isset( $_GET['easy_mcp_key'] ) && is_scalar( $_GET['easy_mcp_key'] ) ? \absint( $_GET['easy_mcp_key'] ) : 0;
         $raw_token = $id ? Token_Manager::take_new_token( $id ) : false;
         $this->forms = array( 'easy-mcp-self-create' => array( 'action' => 'easy_mcp_ai_self_create_key', 'nonce' => 'easy_mcp_ai_self_create_key' ) );

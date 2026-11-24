@@ -81,7 +81,7 @@ class History_Diff extends Base_Tool {
                     'object_id'   => $row_a['object_id'],
                     'diff'        => array(),
                     'live_state'  => 'unreadable',
-                    'note'        => __( 'The current value could not be read — either this object type has no live reader, the plugin that owns it is not active, or reading it needs a capability you do not hold. No comparison was made; the absence of differences below does not mean nothing changed.', 'easy-mcp-ai' ),
+                    'note'        => __( 'The current value could not be read — either this object type has no live reader, the plugin that owns it is not active, reading it needs a capability you do not hold, or it is a secret no caller reads (a session token, a two-factor secret). No comparison was made; the absence of differences below does not mean nothing changed.', 'easy-mcp-ai' ),
                 );
                 if ( null !== $a_unknown ) {
                     $out['not_compared']      = $this->term_fields_not_compared( $row_a, $a_after, array(), $a_unknown );

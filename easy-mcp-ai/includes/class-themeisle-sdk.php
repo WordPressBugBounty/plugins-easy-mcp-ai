@@ -16,6 +16,8 @@ final class Themeisle_SDK {
 
     const MENU_SLUG = 'easy-mcp-ai';
 
+    const BLACK_FRIDAY_PRIORITY = 999;
+
     const CONSENT_OPTION = 'easy_mcp_ai_logger_flag';
 
     const USAGE_WINDOW_DAYS = 30;
@@ -39,7 +41,17 @@ final class Themeisle_SDK {
 
         \add_filter( self::PRODUCT_KEY . '_about_us_metadata', array( __CLASS__, 'about_us_metadata' ) );
         \add_filter( self::PRODUCT_KEY . '_logger_data', array( __CLASS__, 'logger_data' ) );
+        \add_filter( self::PRODUCT_KEY . '_support_hub_metadata', array( __CLASS__, 'support_hub_metadata' ) );
         \add_action( 'admin_menu', array( __CLASS__, 'move_about_us_submenu_last' ), 999 );
+        \add_filter( 'themeisle_sdk_blackfriday_data', array( __CLASS__, 'black_friday_data' ), self::BLACK_FRIDAY_PRIORITY );
+    }
+
+    public static function black_friday_data( $configs ) {
+        if ( is_array( $configs ) && isset( $configs['default'] ) && is_array( $configs['default'] ) ) {
+            $configs['default']['sale_url'] = '';
+        }
+
+        return $configs;
     }
 
     public static function move_about_us_submenu_last() {
@@ -74,6 +86,29 @@ final class Themeisle_SDK {
             'location'         => self::MENU_SLUG,
             'logo'             => \plugin_dir_url( self::$basefile ) . 'assets/images/icon-256x256.png',
             'has_upgrade_menu' => false,
+        );
+    }
+
+    public static function support_hub_metadata( $data = array() ) {
+        if ( self::is_white_labelled() ) {
+            return array();
+        }
+
+        return array(
+            'pages'  => array( 'easy-mcp-ai' ),
+            'is_pro' => false,
+            'links'  => array(
+                array(
+                    'icon' => 'book-alt',
+                    'text' => \__( 'Documentation', 'easy-mcp-ai' ),
+                    'url'  => 'https://easymcpai.com/docs',
+                ),
+                array(
+                    'icon' => 'groups',
+                    'text' => \__( 'Community Forum', 'easy-mcp-ai' ),
+                    'url'  => 'https://wordpress.org/support/plugin/easy-mcp-ai/',
+                ),
+            ),
         );
     }
 
@@ -234,8 +269,6 @@ final class Themeisle_SDK {
             'themeisle_sdk_ran_promos'                    => '__return_true',
 
             'themeisle_sdk_hide_notifications'            => '__return_true',
-
-            'themeisle_sdk_blackfriday_data'              => '__return_empty_array',
 
             self::PRODUCT_SLUG . '_sdk_should_review'     => '__return_false',
             self::PRODUCT_SLUG . '_sdk_enable_translate'  => '__return_false',

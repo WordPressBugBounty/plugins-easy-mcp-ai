@@ -98,11 +98,19 @@ class Self_Service_Connections {
         $privileged      = ! empty( $grant['privilegedScopes'] );
         $preset          = (string) ( $grant['preset'] ?? Access_Presets::CUSTOM );
         $count           = (int) ( $grant['toolCount'] ?? 0 );
-        $privileged_only = $privileged && Access_Presets::CUSTOM === $preset && 0 === $count;
+        $uncounted       = array_values( array_filter( array_map( 'strval', (array) ( $grant['uncounted'] ?? array() ) ) ) );
+        $privileged_only = $privileged && Access_Presets::CUSTOM === $preset && 0 === $count && array() === $uncounted;
         if ( $privileged_only ) {
             $scope = __( 'Privileged only', 'easy-mcp-ai' );
         } elseif ( Access_Presets::CUSTOM !== $preset ) {
             $scope = self::preset_label( $preset );
+        } elseif ( array() !== $uncounted ) {
+            $scope = sprintf(
+                /* translators: 1: number of tools, 2: comma-separated plugin names, e.g. "Elementor". */
+                _n( 'Custom (%1$d tool, not counting %2$s abilities)', 'Custom (%1$d tools, not counting %2$s abilities)', $count, 'easy-mcp-ai' ),
+                $count,
+                implode( ', ', $uncounted )
+            );
         } else {
             /* translators: %d: number of tools */
             $scope = sprintf( _n( 'Custom (%d tool)', 'Custom (%d tools)', $count, 'easy-mcp-ai' ), $count );

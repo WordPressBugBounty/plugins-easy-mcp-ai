@@ -120,8 +120,13 @@ class Htaccess_Plain_Routes {
         );
     }
 
-    public static function is_in_place(): bool {
-        return self::has_block( Htaccess_Auth_Rule::read( Htaccess_Auth_Rule::htaccess_path() ) );
+    public static function is_in_place(): ?bool {
+        $path     = Htaccess_Auth_Rule::htaccess_path();
+        $contents = Htaccess_Auth_Rule::read( $path );
+        if ( null === $contents && file_exists( $path ) ) {
+            return null;
+        }
+        return self::has_block( $contents );
     }
 
     public static function front_page_status(): int {
@@ -154,12 +159,13 @@ class Htaccess_Plain_Routes {
         );
     }
 
-    public static function remove( string $path ): bool {
+    public static function remove( string $path ): ?bool {
         if ( ! file_exists( $path ) ) {
             return true;
         }
         if ( ! is_writable( $path ) ) {
-            return ! self::has_block( Htaccess_Auth_Rule::read( $path ) );
+            $contents = Htaccess_Auth_Rule::read( $path );
+            return null === $contents ? null : ! self::has_block( $contents );
         }
         return Htaccess_Auth_Rule::mutate(
             $path,

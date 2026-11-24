@@ -10,12 +10,22 @@ use Easy_MCP_AI\Tools\Base_Tool;
 
 class Seopress_Update_Robots extends Base_Tool {
 
+	const META_KEYS = array(
+		'noindex'        => '_seopress_robots_index',
+		'nofollow'       => '_seopress_robots_follow',
+		'no_image_index' => '_seopress_robots_imageindex',
+		'no_snippet'     => '_seopress_robots_snippet',
+		'canonical'      => '_seopress_robots_canonical',
+		'primary_cat'    => '_seopress_robots_primary_cat',
+		'breadcrumbs'    => '_seopress_robots_breadcrumbs',
+	);
+
 	public function get_name() {
 		return 'wp_seopress_update_post_robots';
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress robots / indexing settings for a post or page via the seopress/v1 REST API (noindex, nofollow, no image index, no snippet, canonical URL, primary category and breadcrumbs). Only the fields you provide are changed.';
+		return 'Updates the SEOPress robots / indexing settings for a post or page via the seopress/v1 REST API (noindex, nofollow, no image index, no snippet, canonical URL, primary category and breadcrumbs). Only the fields you provide are changed. A field SEOPress does not offer for the post is refused and nothing is changed: free SEOPress 10.4 offers no breadcrumbs title.';
 	}
 
 	public function get_category() {
@@ -90,27 +100,23 @@ class Seopress_Update_Robots extends Base_Tool {
 
 		$body = array();
 
-		$bool_map = array(
-			'noindex'        => '_seopress_robots_index',
-			'nofollow'       => '_seopress_robots_follow',
-			'no_image_index' => '_seopress_robots_imageindex',
-			'no_snippet'     => '_seopress_robots_snippet',
-		);
-		foreach ( $bool_map as $arg => $key ) {
+		foreach ( array( 'noindex', 'nofollow', 'no_image_index', 'no_snippet' ) as $arg ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				$body[ $key ] = rest_sanitize_boolean( $arguments[ $arg ] ) ? 'yes' : '';
+				$body[ self::META_KEYS[ $arg ] ] = rest_sanitize_boolean( $arguments[ $arg ] ) ? 'yes' : '';
 			}
 		}
 
 		if ( isset( $arguments['canonical'] ) ) {
-			$body['_seopress_robots_canonical'] = esc_url_raw( (string) $arguments['canonical'] );
+			$body[ self::META_KEYS['canonical'] ] = esc_url_raw( (string) $arguments['canonical'] );
 		}
 		if ( isset( $arguments['primary_cat'] ) ) {
-			$body['_seopress_robots_primary_cat'] = sanitize_text_field( (string) $arguments['primary_cat'] );
+			$body[ self::META_KEYS['primary_cat'] ] = sanitize_text_field( (string) $arguments['primary_cat'] );
 		}
 		if ( isset( $arguments['breadcrumbs'] ) ) {
-			$body['_seopress_robots_breadcrumbs'] = Seo_Text::clean( (string) $arguments['breadcrumbs'] );
+			$body[ self::META_KEYS['breadcrumbs'] ] = Seo_Text::clean( (string) $arguments['breadcrumbs'] );
 		}
+
+		self::refuse_fields_seopress_drops( $post_id, array_keys( $body ) );
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/meta-robot-settings', $body );
 		if ( array() !== $body ) {
@@ -121,5 +127,30 @@ class Seopress_Update_Robots extends Base_Tool {
 			'post_id' => $post_id,
 			'updated' => true,
 		);
+	}
+
+	private static function refuse_fields_seopress_drops( int $post_id, array $keys ): void {
+		if ( array() === $keys ) {
+			return;
+		}
+		$helper = array( '\SEOPress\Helpers\Metas\RobotSettings', 'getMetaKeys' );
+		if ( ! is_callable( $helper ) ) {
+			throw new \InvalidArgumentException( 'This SEOPress version does not say which robots fields it saves (SEOPress\Helpers\Metas\RobotSettings::getMetaKeys() is missing), so nothing was sent. Nothing was changed.' );
+		}
+		$saved = array();
+		foreach ( (array) call_user_func( $helper, $post_id ) as $field ) {
+			if ( is_array( $field ) && isset( $field['key'] ) && is_string( $field['key'] ) ) {
+				$saved[] = $field['key'];
+			}
+		}
+		$dropped = array();
+		foreach ( $keys as $key ) {
+			if ( ! in_array( $key, $saved, true ) ) {
+				$dropped[] = (string) array_search( $key, self::META_KEYS, true );
+			}
+		}
+		if ( array() !== $dropped ) {
+			throw new \InvalidArgumentException( sprintf( 'SEOPress does not offer %s for this post, so its robots settings route would not save it. Nothing was changed.', implode( ', ', $dropped ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+		}
 	}
 }

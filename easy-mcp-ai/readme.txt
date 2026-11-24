@@ -4,7 +4,7 @@ Tags: mcp, claude, chatgpt, wordpress-mcp, connector
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.5.0
+Stable tag: 2.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -245,70 +245,37 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 
 == Changelog ==
 
-= 2.5.0 =
-- Added wp_find_in_post to count and locate text without opening posts.
-- Added site icon and logo controls to site settings.
-- Added Elementor section insertion and column management with automatic resizing.
-- Added section headings to the consent screen permissions table.
-- Added content hash and size to post read and write replies.
-- Added connected AI apps with Revoke to user profiles.
-- Added Loco Translate tools to read and update translation files.
-- Added Strict Draft mode to stop AI publishing live content.
-- Added language and translation linking tools for multilingual sites.
-- Added configurable limits for AI tool calls per user, site, or connection ([docs](https://docs.easymcpai.com/limit-ai-calls-per-user-site-or-connection)).
-- Added site-wide find for text in posts, custom fields and terms.
-- Added Smart Slider 3 tools that read and edit slides.
-- Added post language controls and translation tools for multilingual sites.
-- Improved Elementor template handling and inactive-widget cleanup messages.
-- Improved reliability of tool calls, text edits, widgets and WooCommerce tools.
-- Improved approval checks and Activity records for account and access changes.
-- Improved protection of sensitive data in file reads, commands, errors and logs.
-- Fixed agents not finding WP-CLI commands for settings and custom fields.
-- Fixed misleading tool replies to point agents to the correct action.
-- Fixed Edit scope marking approved categories the users role cannot use.
-- Fixed one address blocking all OAuth clients after too many sign-in requests.
-- Fixed Elementor containers, sections and columns accepting background images and settings.
-- Fixed Elementor containers and widgets accepting sizes, spacing and typography values.
-- Fixed Elementor slideshow backgrounds and image carousels accepting multiple images.
-- Fixed hiding Elementor containers and sections on mobile devices.
-- Fixed the consent screen with short labels, explanation lines and grouped sections.
-- Fixed switched-off tools staying active through REST route tools.
-- Fixed diagnostics naming the plugins own authentication filter as external interference.
-- Fixed Yoast social images showing different files for large uploads.
-- Fixed LatePoint booking tools missing or visible to unauthorized users.
-- Fixed delete replies to show whether items moved to Trash.
-- Fixed Rank Math social images staying on the old image after updates.
-- Fixed large tool replies by shortening pages, lists, products, health and layouts.
-- Fixed deleted batch items showing wrong status and added paging for large layouts.
-- Fixed failed OAuth token requests missing from the Audit Log.
-- Fixed customer tool pointing to store-wide report for order totals.
-- Fixed variation reads showing the parent image instead of no image.
-- Fixed tool replies sending indented JSON instead of compact JSON.
-- Fixed post search leaving out results well under size limit.
-- Fixed Site Health leaving out sections that fit the reply.
-- Fixed failed translation file saves returning unreadable responses.
-- Fixed translation updates accepting wrong placeholders and invalid locales.
-- Fixed event updates to refuse publishing without permission.
-- Fixed metadata tool recommending an ACF writer the connection cannot use.
-- Fixed translation linking reporting posts as unlinked incorrectly.
-- Fixed the media upload link offering a POST command when hosts refuse PUT
-- Fixed widget moves reporting success when the widget stayed in place
-- Fixed the Authorization header check wrongly reporting the rewrite as missing.
-- Fixed Google Search Console and Analytics errors hiding Googles actual reason.
-- Fixed Elementor container, section and column settings not saving.
-- Fixed Elementor sizes, spacing, gaps and typography not saving.
-- Fixed saved content edits reported as failed on pages with missing templates.
-- Fixed moved menu items losing descriptions, titles and dates.
-- Fixed moved menu items losing link addresses and display settings.
-- Fixed republishing failing over unchanged or equivalent custom fields.
-- Fixed republished posts keeping partial changes after refused custom fields.
-- Fixed the comment listing description for WooCommerce shops.
-- Fixed writing Elementor widget and container settings on every tab.
-- Fixed translation linking checks, file save errors and search totals.
-- Fixed AI client sign-in on hosts that block nested well-known paths
-- Fixed REST reads adding or changing site data during lookup
-- Fixed product search finding products by full or partial SKU.
-- Fixed SEO update tools deleting percent signs from text fields
+= 2.5.1 =
+- Fixed the add-terms reply listing every term afterwards.
+- Fixed text edits asking for the field instead of guessing wrong.
+- Fixed Rank Math llms.txt tool replying with wrong content type.
+- Fixed Elementor inserts ignoring the supplied text value.
+- Fixed text edits failing on Elementor pages with broken SVG icons.
+- Fixed WooCommerce Analytics routes missing from REST read results.
+- Fixed post tools naming the post type to send for other types.
+- Fixed user-meta tools revealing two-factor login secrets
+- Fixed refused tool calls returning as readable tool errors.
+- Fixed extra memory use on REST requests for other plugins routes.
+- Fixed Rank Math verification codes setup through the settings tool.
+- Fixed the SEOPress robots tool refusing unsupported breadcrumb fields.
+- Added Rank Math custom post type archive titles and descriptions.
+- Fixed SEOPress and TSF social images staying old after URL change.
+- Added stdin install for Claude Code token setup without command-line tokens.
+- Added updating ACF fields on taxonomy terms.
+- Fixed partial ACF updates refused for omitted required fields.
+- Fixed optional SCF fields becoming required when created through AI assistants.
+- Added author and date archive noindex settings to Yoast SEO tools.
+- Fixed REST requests failing under a Turkish PHP locale.
+- Fixed duplicating posts with empty comment or ping settings.
+- Fixed the login check offering a setup block when PHP cannot read .htaccess.
+- Fixed checks reporting an unreadable .htaccess file as missing rules
+- Fixed failed block-menu saves hiding hooked blocks on WordPress 6.5 and 6.6.
+- Added WPForms tools to trash, delete, and restore forms.
+- Added Wordfence tools for scan issues and live traffic.
+- Fixed wp_clear_cache to clear WP Compress page cache.
+- Fixed republishing pages relabelling block menus without hiding hooked blocks.
+- Added WPForms tools to delete and move fields and trash or restore forms.
+- Fixed WooCommerce and Elementor abilities staying off after install.
 
 [See changelog for all versions](https://easymcpai.com/changelog).
 

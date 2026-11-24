@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Route_Gate {
 
-    const OWN_NAMESPACES = array( 'easy-mcp-ai/v1', 'easy-mcp-ai-admin/v1' );
+    const OWN_NAMESPACES = array( 'easy-mcp-ai/v1', 'easy-mcp-ai-admin/v1', 'easy-mcp-ai-profile/v1' );
 
     const MAX_ROUTE_LENGTH = 2048;
 
@@ -88,9 +88,37 @@ final class Route_Gate {
         throw new \RuntimeException( sprintf( 'No REST route matches %s. Use wp_rest_routes to list the routes of a namespace.', $path ) );
     }
 
+    public static function resolve_loading( $server, string $method, string $path ): array {
+        if ( ! self::matches_path( $server, $path ) ) {
+            self::load_routes_for( $server, $path );
+        }
+        return self::resolve( $server, $method, $path );
+    }
+
+    public static function load_routes_for( $server, string $path ): void {
+        $refuse = static function ( $result ) {
+            return null !== $result ? $result : new \WP_Error( 'easy_mcp_ai_route_lookup_dispatch', 'A request dispatched while REST routes were being looked up was not run.', array( 'status' => 403 ) );
+        };
+        \add_filter( 'rest_dispatch_request', $refuse, PHP_INT_MIN );
+        try {
+            \apply_filters( 'rest_pre_dispatch', null, $server, new \WP_REST_Request( 'OPTIONS', $path ) );
+        } finally {
+            \remove_filter( 'rest_dispatch_request', $refuse, PHP_INT_MIN );
+        }
+    }
+
     public static function namespace_of( $server, string $route ): string {
         $options = $server->get_route_options( $route );
         return is_array( $options ) && isset( $options['namespace'] ) && is_string( $options['namespace'] ) ? $options['namespace'] : '';
+    }
+
+    private static function matches_path( $server, string $path ): bool {
+        foreach ( array_keys( self::candidate_routes( $server, $path ) ) as $route ) {
+            if ( preg_match( '@^' . $route . '$@i', $path ) ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static function candidate_routes( $server, string $path ): array {

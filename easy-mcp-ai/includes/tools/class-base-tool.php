@@ -53,7 +53,9 @@ abstract class Base_Tool {
             'wp_divi_'     => 'Divi',
             'wp_cf7_'      => 'Contact Form 7',
             'wp_smartslider_' => 'Smart Slider',
+            'wp_wpforms_'  => 'WPForms',
             'wp_loco_'     => 'Loco Translate',
+            'wp_wordfence_' => 'Wordfence',
             'wp_yoast_'    => 'Yoast',
             'wp_rm_'       => 'Rank Math',
             'wp_seranking_' => 'SE Ranking',
@@ -446,6 +448,9 @@ abstract class Base_Tool {
             }
         }
         self::post_type_route( $base, $id, ...$methods );
+        if ( null !== $id ) {
+            $this->refuse_other_post_type_base( $id, $base, $key );
+        }
         return $base;
     }
 
@@ -507,13 +512,26 @@ abstract class Base_Tool {
 
     protected function refuse_other_type( int $post_id, string $expected_type, string $verb ): void {
         $post = get_post( $post_id );
-        if ( ! is_object( $post ) || $expected_type === $post->post_type || ! get_post_type_object( $post->post_type ) || ! current_user_can( 'read_post', $post_id ) ) {
-            return;
-        }
-        if ( 'revision' === $post->post_type && ! current_user_can( 'edit_post', (int) $post->post_parent ) ) {
+        if ( ! is_object( $post ) || $expected_type === $post->post_type || ! self::may_name_post_type( $post ) ) {
             return;
         }
         throw new \InvalidArgumentException( Post_Type_Tool_Hint::other_type( $post, $expected_type, $verb, $this->get_name() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    protected function refuse_other_post_type_base( int $post_id, string $base, string $argument ): void {
+        $post   = get_post( $post_id );
+        $served = Post_Type_Rest_Base::served_type( $base ) ?? Hidden_Post_Types::open_type( $base );
+        if ( null === $served || ! is_object( $post ) || $served[0] === $post->post_type || ! Post_Type_Rest_Base::uses_core_get_post( $served[1] ) || ! self::may_name_post_type( $post ) ) {
+            return;
+        }
+        throw new \InvalidArgumentException( Post_Type_Tool_Hint::other_base( $post, $served[0], $argument, $this->get_name() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+    }
+
+    private static function may_name_post_type( object $post ): bool {
+        if ( ! get_post_type_object( $post->post_type ) || ! current_user_can( 'read_post', (int) $post->ID ) ) {
+            return false;
+        }
+        return 'revision' !== $post->post_type || current_user_can( 'edit_post', (int) $post->post_parent );
     }
 
     protected function precheck_other_type( array $arguments, string $id_key, string $expected_type, string $verb ): void {
@@ -1188,6 +1206,10 @@ abstract class Base_Tool {
         return array_map( 'strval', array_keys( $schema['properties'] ) );
     }
 
+    public static function discussion_status( $stored ): string {
+        return 'open' === $stored ? 'open' : 'closed';
+    }
+
     private static function rest_meta_names( string $object_type, string $post_type ): array {
         $fields = 'comment' === $object_type ? new \WP_REST_Comment_Meta_Fields() : new \WP_REST_Post_Meta_Fields( $post_type );
         return $fields->get_field_schema()['properties'];
@@ -1339,7 +1361,7 @@ abstract class Base_Tool {
     }
 
     private function dispatch_rest_response( \WP_REST_Request $request ) {
-        return self::refuse_rest_error( $request, rest_do_request( $request ) );
+        return \Easy_MCP_AI\Tools\Users\Customer_Meta_Filter::filter_response( $request->get_route(), self::refuse_rest_error( $request, rest_do_request( $request ) ) );
     }
 
     protected function dispatch_post_update( \WP_REST_Request $request, int $post_id, bool $resave ) {

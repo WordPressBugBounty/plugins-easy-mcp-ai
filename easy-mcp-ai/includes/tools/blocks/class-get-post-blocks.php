@@ -73,6 +73,7 @@ class Get_Post_Blocks extends Base_Tool {
         $post_type = ! empty( $arguments['post_type'] )
             ? $this->resolve_post_type_rest_base( $arguments['post_type'], 'post_type' )
             : 'posts';
+        $this->refuse_other_post_type_base( $post_id, $post_type, 'post_type' );
         $depth     = isset( $arguments['depth'] ) ? min( 10, max( 1, absint( $arguments['depth'] ) ) ) : 2;
         $segments  = ( isset( $arguments['path'] ) && '' !== $arguments['path'] )
             ? $this->parse_block_path( $arguments['path'] )

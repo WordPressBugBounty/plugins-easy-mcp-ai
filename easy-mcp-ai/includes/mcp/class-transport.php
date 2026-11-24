@@ -71,6 +71,7 @@ class Transport {
         \add_filter( 'rest_allowed_cors_headers', array( $this, 'filter_cors_allowed_headers' ), 10, 2 );
 
         \add_filter( 'rest_pre_serve_request', array( $this, 'serve_listen_stream' ), 10, 4 );
+        \add_filter( 'rest_pre_serve_request', array( $this, 'send_rest_content_type' ), 10, 4 );
     }
 
     public function filter_cors_allowed_headers( $headers, $request = null ) {
@@ -534,6 +535,26 @@ class Transport {
         unset( $this->listen_streams[ spl_object_id( $result ) ] );
         echo $stream['body']; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SSE frames of wp_json_encode() output.
         return true;
+    }
+
+    public function send_rest_content_type( $served, $result, $request = null, $server = null ) {
+        if ( $served || ! $request instanceof \WP_REST_Request || ! $server instanceof \WP_REST_Server ) {
+            return $served;
+        }
+        $handler = $request->get_attributes();
+        if ( array( $this, 'handle_post' ) !== ( $handler['callback'] ?? null ) ) {
+            return $served;
+        }
+        $own = array_change_key_case( (array) $result->get_headers() );
+        if ( ! isset( $own['content-type'] ) ) {
+            $server->send_header( 'Content-Type', self::rest_content_type() );
+        }
+        return $served;
+    }
+
+    private static function rest_content_type(): string {
+        $type = empty( $_GET['_jsonp'] ) ? 'application/json' : 'application/javascript';
+        return $type . '; charset=' . \get_option( 'blog_charset' );
     }
 
     private function process_single_message( $message, $token_id, $wp_user_id, $request, $batch_revalidated = null, $allowed_tools = null, $auth_source = null, $oauth_client_id = null ) {

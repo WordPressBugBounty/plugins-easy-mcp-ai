@@ -108,6 +108,11 @@ class Token_Manager {
         ) );
     }
 
+    public static function new_token_waiting( $token_id ): bool {
+        $stored = \get_user_meta( \get_current_user_id(), '_easy_mcp_ai_new_token_' . \get_current_blog_id() . '_' . (int) $token_id, true );
+        return is_array( $stored ) && ! empty( $stored['token'] ) && isset( $stored['expires'] ) && $stored['expires'] >= time();
+    }
+
     public static function take_new_token( $token_id ) {
         $key = '_easy_mcp_ai_new_token_' . \get_current_blog_id() . '_' . (int) $token_id;
         $stored = \get_user_meta( \get_current_user_id(), $key, true );

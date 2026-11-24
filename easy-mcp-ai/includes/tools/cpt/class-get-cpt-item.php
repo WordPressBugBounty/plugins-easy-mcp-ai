@@ -70,6 +70,7 @@ class Get_CPT_Item extends Base_Tool {
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
         $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
+        $this->refuse_other_post_type_base( $item_id, $rest_base, 'rest_base' );
 
         $request = new \WP_REST_Request( 'GET', self::post_type_route( $rest_base, $item_id, 'GET' ) );
         $request->set_param( 'context', 'edit' );

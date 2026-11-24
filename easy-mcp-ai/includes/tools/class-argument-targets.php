@@ -27,6 +27,11 @@ final class Argument_Targets {
             'post_id'      => 'own',
             'post_type'    => 'own',
         ),
+        'wp_acf_update_term_fields' => array(
+            'fields'   => 'own',
+            'taxonomy' => 'own',
+            'term_id'  => 'own',
+        ),
         'wp_acf_update_user_fields' => array(
             'fields'  => 'own',
             'user_id' => 'own',
@@ -983,8 +988,11 @@ final class Argument_Targets {
         ),
         'wp_rm_update_settings' => array(
             'additional_info'            => 'own',
+            'baidu_verify'               => 'own',
+            'bing_verify'                => 'own',
             'email'                      => 'own',
             'geo'                        => 'own',
+            'google_verify'              => 'own',
             'img_alt_format'             => 'own',
             'img_title_format'           => 'own',
             'knowledgegraph_logo'        => 'own',
@@ -996,11 +1004,14 @@ final class Argument_Targets {
             'local_seo_about_page'       => 'own',
             'local_seo_contact_page'     => 'own',
             'maps_api_key'               => 'own',
+            'norton_verify'              => 'own',
             'opening_hours'              => 'own',
             'opening_hours_format'       => 'own',
             'organization_description'   => 'own',
             'phone'                      => 'own',
             'phone_numbers'              => 'own',
+            'pinterest_verify'           => 'own',
+            'post_type_archives'         => 'own',
             'price_range'                => 'own',
             'robots_txt'                 => 'own',
             'social_additional_profiles' => 'own',
@@ -1010,6 +1021,7 @@ final class Argument_Targets {
             'url'                        => 'own',
             'website_alternate_name'     => 'own',
             'website_name'               => 'own',
+            'yandex_verify'              => 'own',
         ),
         'wp_run_cron_event' => array(
             'hook' => 'own',
@@ -1868,6 +1880,35 @@ final class Argument_Targets {
             'name'         => 'own',
             'status'       => 'own_type',
             'topic'        => 'own',
+        ),
+        'wp_wordfence_get_live_traffic' => array(
+            'ip'       => 'own',
+            'limit'    => 'own',
+            'offset'   => 'own',
+            'since'    => 'own',
+            'until'    => 'own',
+            'username' => 'own',
+            'view'     => 'own',
+        ),
+        'wp_wordfence_get_scan_issues' => array(
+            'limit'  => 'own',
+            'offset' => 'own',
+            'status' => 'own',
+        ),
+        'wp_wpforms_delete_field' => array(
+            'field_id' => 'own',
+            'form_id'  => 'own',
+        ),
+        'wp_wpforms_delete_form' => array(
+            'form_id' => 'own',
+        ),
+        'wp_wpforms_move_field' => array(
+            'field_id' => 'own',
+            'form_id'  => 'own',
+            'position' => 'own',
+        ),
+        'wp_wpforms_restore_form' => array(
+            'form_id' => 'own',
         ),
         'wp_yoast_get_head' => array(
             'url' => 'own',

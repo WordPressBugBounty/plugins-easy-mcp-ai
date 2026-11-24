@@ -2,6 +2,7 @@
 
 namespace Easy_MCP_AI\Tools\ACF;
 
+use Easy_MCP_AI\Tools\Narrow_Term_Write;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
 use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
@@ -39,7 +40,9 @@ trait Acf_Rest_Tool {
         if ( null === Post_Type_Rest_Base::served_type( $base ) ) {
             throw new \InvalidArgumentException( self::not_a_post_type( $base, $post_id, $verb ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        return self::post_type_route( $base, $post_id, 'get' === $verb ? 'GET' : 'POST' );
+        $route = self::post_type_route( $base, $post_id, 'get' === $verb ? 'GET' : 'POST' );
+        $this->refuse_other_post_type_base( $post_id, $base, 'post_type' );
+        return $route;
     }
 
     private static function not_a_post_type( string $base, int $id, string $verb ): string {
@@ -51,8 +54,9 @@ trait Acf_Rest_Tool {
             return 'This tool reaches ACF fields on posts only, and "users" is not a post type.';
         }
         if ( self::is_taxonomy_base( $base ) ) {
-            if ( 'get' === $verb && Post_Type_Tool_Hint::may_reach( 'wp_acf_get_term_fields' ) ) {
-                return sprintf( 'Use wp_acf_get_term_fields with term_id %1$d: this tool reaches ACF fields on posts only, and this post_type is a taxonomy: %2$s', $id, $base );
+            $tool = 'get' === $verb ? 'wp_acf_get_term_fields' : 'wp_acf_update_term_fields';
+            if ( Post_Type_Tool_Hint::may_reach( $tool ) ) {
+                return sprintf( 'Use %1$s with term_id %2$d: this tool reaches ACF fields on posts only, and this post_type is a taxonomy: %3$s', $tool, $id, $base );
             }
             return sprintf( 'This tool reaches ACF fields on posts only, and this post_type is a taxonomy: %s', $base );
         }
@@ -95,6 +99,16 @@ trait Acf_Rest_Tool {
                 if ( 'post' === $type ) {
                     return $this->rest_post_update( 'POST', $route, array( 'acf' => $fields ), null, (int) $id, $resave );
                 }
+                if ( 'term' === $type ) {
+                    $request = self::build_rest_request( 'POST', $route, array( 'acf' => $fields ) );
+                    return Narrow_Term_Write::dispatch(
+                        $request,
+                        (int) $id,
+                        function () use ( $request ) {
+                            return $this->dispatch_rest_request( $request );
+                        }
+                    );
+                }
                 return $this->rest_request( 'POST', $route, array( 'acf' => $fields ) );
             },
             $type,
@@ -102,6 +116,12 @@ trait Acf_Rest_Tool {
             $route,
             true
         );
+        if ( 'term' === $type && array() !== $call['saved'] ) {
+            $link = get_term_link( (int) $id );
+            if ( is_string( $link ) ) {
+                $this->clear_page_cache( array(), array( $link ) );
+            }
+        }
         return array( 'acf_fields' => $call['data']['acf'] ?? array() )
             + Acf_Rest_Call::write_report( $fields, $call['saved'], $call['data'], $call['opened'], $type );
     }

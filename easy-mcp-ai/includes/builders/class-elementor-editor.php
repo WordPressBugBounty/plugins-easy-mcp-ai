@@ -8,9 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Elementor_Editor {
 
-    const OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields', 'add_item', 'remove_item', 'move_item', 'insert', 'remove', 'move', 'duplicate' );
+    const OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields', 'replace_text', 'add_item', 'remove_item', 'move_item', 'insert', 'remove', 'move', 'duplicate' );
 
-    const SET_OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields' );
+    const SET_OPS = array( 'set_text', 'set_link', 'set_image', 'set_fields', 'replace_text' );
 
     const ITEM_OPS = array( 'add_item', 'remove_item', 'move_item' );
 
@@ -32,6 +32,8 @@ final class Elementor_Editor {
     );
 
     const TEXT_KINDS = array( 'text', 'html' );
+
+    const REPLACE_KINDS = array( 'text', 'html', 'code' );
 
     const FIELD_KINDS = array( 'text', 'html', 'code', 'select', 'number', 'boolean', 'color', 'size', 'spacing', 'gap', 'gallery' );
 
@@ -65,6 +67,8 @@ final class Elementor_Editor {
 
     private $kses;
 
+    private $v4_unavailable;
+
     private $refs = array();
 
     private $taken = array();
@@ -75,7 +79,7 @@ final class Elementor_Editor {
 
     private $widths_written = array();
 
-    public function __construct( callable $fields_of, callable $media, callable $nested, bool $unfiltered, bool $containers, ?callable $kses = null, ?callable $hidden = null ) {
+    public function __construct( callable $fields_of, callable $media, callable $nested, bool $unfiltered, bool $containers, ?callable $kses = null, ?callable $hidden = null, ?callable $v4_unavailable = null ) {
         $this->fields_of  = $fields_of;
         $this->media      = $media;
         $this->nested     = $nested;
@@ -83,6 +87,9 @@ final class Elementor_Editor {
         $this->containers = $containers;
         $this->kses       = $kses ?? 'wp_kses_post';
         $this->hidden     = $hidden ?? static function (): array {
+            return array();
+        };
+        $this->v4_unavailable = $v4_unavailable ?? static function (): array {
             return array();
         };
     }
@@ -191,7 +198,7 @@ final class Elementor_Editor {
         if ( in_array( $name, self::STRUCTURE_OPS, true ) ) {
             return $this->restructure( $name, $data, $op, $path, $element, $type, $address );
         }
-        $refusal = self::element_refusal( $element, $type, $address );
+        $refusal = $this->element_refusal( $element, $type, $address );
         if ( null !== $refusal ) {
             return $refusal;
         }
@@ -232,9 +239,13 @@ final class Elementor_Editor {
             $where  = sprintf( 'item "%s" of list "%s" in "%s"', $item, $rows['spec']['name'], $address );
         }
 
-        $changes = 'set_fields' === $name
-            ? $this->field_changes( $op, $specs, $owner, $hint, $target )
-            : $this->single_change( $name, $op, $specs, $target, $in_item ? '' : $type, $owner, $hint );
+        if ( 'replace_text' === $name ) {
+            $changes = $this->replaced_change( $op, $specs, $target, $in_item ? '' : $type, $owner, $hint, $where );
+        } elseif ( 'set_fields' === $name ) {
+            $changes = $this->field_changes( $op, $specs, $owner, $hint, $target );
+        } else {
+            $changes = $this->single_change( $name, $op, $specs, $target, $in_item ? '' : $type, $owner, $hint );
+        }
         if ( is_string( $changes ) ) {
             return $changes;
         }
@@ -269,6 +280,9 @@ final class Elementor_Editor {
             'after'   => 'set_fields' === $name ? $after : reset( $after ),
             'changed' => $before !== $after,
         );
+        if ( 'replace_text' === $name ) {
+            $result += Text_Replacement::result( (string) reset( $before ), (string) reset( $after ), (string) $op['search'], (string) $op['replace'] );
+        }
         if ( $in_item ) {
             $result['list']                    = $rows['spec']['name'];
             $result['item']                    = $item;
@@ -502,7 +516,7 @@ final class Elementor_Editor {
             return '`element_type` is required: a widget type from wp_list_layout_elements, or "container".';
         }
         if ( 0 === strpos( $type, 'e-' ) ) {
-            return sprintf( '"%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) adds those.', $type );
+            return $this->v4_refusal( sprintf( '"%s" is an Elementor V4 element', $type ), 'adds' );
         }
         $is_container = 'container' === $type;
         $is_structure = self::is_structure( $type );
@@ -535,6 +549,15 @@ final class Elementor_Editor {
             if ( is_string( $settings ) ) {
                 return $settings;
             }
+        }
+        if ( isset( $spec['value'] ) ) {
+            $text = $this->inserted_text( $spec['value'], $type, array_values( $fields ), $settings );
+            if ( is_string( $text ) ) {
+                return $text;
+            }
+            $settings += $text;
+        }
+        if ( array() !== $settings ) {
             $refusal = self::css_id_refusal( $settings ) ?? $this->hidden_refusal( $type, $settings, array_keys( $settings ), 'the new ' . $type );
             if ( null !== $refusal ) {
                 return $refusal;
@@ -581,6 +604,34 @@ final class Elementor_Editor {
             $element['elements'][] = $built;
         }
         return array() === $problems ? $element : implode( '; ', array_unique( $problems ) );
+    }
+
+    private function inserted_text( $value, string $type, array $fields, array $settings ) {
+        if ( self::is_structure( $type ) ) {
+            return sprintf( 'a %s holds no text of its own, so it takes no `value`; insert a widget in it with the text.', $type );
+        }
+        if ( ! is_string( $value ) ) {
+            return '`value` must be a string: the new widget\'s main text.';
+        }
+        $owner      = self::owner( $type );
+        $candidates = self::default_fields( $type, 'text', self::TEXT_KINDS, self::primary_fields( $fields, $type ) );
+        if ( array() === $candidates ) {
+            return sprintf( '%s have no text field, so an insert of one takes no `value`; set its fields with `fields` %s.', $owner, self::hint( $type ) );
+        }
+        if ( count( $candidates ) > 1 ) {
+            return self::ambiguous_field( $owner, 'text', $candidates, 'send the text in `fields`, under one of them ' . self::hint( $type ) );
+        }
+        $spec = self::field_spec( $fields, $candidates[0] );
+        if ( null === $spec ) {
+            return sprintf( '%s have no field "%s" %s.', $owner, $candidates[0], self::hint( $type ) );
+        }
+        if ( ! in_array( $spec['kind'], self::TEXT_KINDS, true ) ) {
+            return sprintf( 'field "%s" of %s holds %s, so an insert\'s `value` cannot fill it; set it with `fields` %s.', $spec['name'], $owner, $spec['kind'], self::hint( $type ) );
+        }
+        if ( array_key_exists( $spec['name'], $settings ) ) {
+            return sprintf( 'the text of the new %s is sent twice, in `value` and in `fields` as "%s"; send it once.', $type, $spec['name'] );
+        }
+        return $this->text_value( $spec, $value );
     }
 
     private function built_section( array $section, array $spec, array &$created ) {
@@ -723,7 +774,7 @@ final class Elementor_Editor {
 
     private function restructure( string $name, array $data, array $op, array $path, array $element, string $type, string $address ) {
         if ( 0 === strpos( $type, 'e-' ) || self::has_transformables( $element['settings'] ) ) {
-            return sprintf( 'element "%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) changes those.', $address );
+            return $this->v4_refusal( sprintf( 'element "%s" is an Elementor V4 element', $address ), 'changes' );
         }
         $parent_path = array_slice( $path, 0, -1 );
         $parent      = array() === $parent_path ? null : Elementor_Tree::at( $data, $parent_path );
@@ -989,10 +1040,19 @@ final class Elementor_Editor {
         return sprintf( '`index` must be a whole number from 0 to %d.', $max );
     }
 
-    private static function element_refusal( array $element, string $type, string $address ): ?string {
+    private function v4_refusal( string $subject, string $verb ): string {
+        $refusal     = sprintf( '%s; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) %s those.', $subject, $verb );
+        $unavailable = ( $this->v4_unavailable )();
+        if ( array() === $unavailable ) {
+            return $refusal;
+        }
+        return sprintf( '%s That tool cannot be called now: %s.', $refusal, implode( '; ', $unavailable ) );
+    }
+
+    private function element_refusal( array $element, string $type, string $address ): ?string {
         $settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : array();
         if ( 0 === strpos( $type, 'e-' ) || self::has_transformables( $settings ) ) {
-            return sprintf( 'element "%s" is an Elementor V4 element; Elementor\'s own manage-elements ability (wp_ability_elementor_manage_elements) edits those.', $address );
+            return $this->v4_refusal( sprintf( 'element "%s" is an Elementor V4 element', $address ), 'edits' );
         }
         if ( 'widget' !== ( $element['elType'] ?? '' ) && ! self::is_structure( $type ) ) {
             return sprintf( 'element "%s" is a %s; only widgets, containers, sections and columns have fields these operations write.', $address, $type );
@@ -1008,11 +1068,17 @@ final class Elementor_Editor {
         );
         list( $role, $kinds ) = $writes[ $name ];
 
-        $field = isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field']
-            ? $op['field']
-            : self::default_field( $roles_type, $role, $kinds, self::primary_fields( $fields, $roles_type ) );
-        if ( '' === $field ) {
-            return sprintf( '%s have no %s field; give `field` %s.', $owner, $role, $hint );
+        if ( isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ) {
+            $field = $op['field'];
+        } else {
+            $candidates = self::default_fields( $roles_type, $role, $kinds, self::primary_fields( $fields, $roles_type ) );
+            if ( array() === $candidates ) {
+                return sprintf( '%s have no %s field; give `field` %s.', $owner, $role, $hint );
+            }
+            if ( count( $candidates ) > 1 && '' !== $roles_type ) {
+                return self::ambiguous_field( $owner, $role, $candidates, 'give `field`, one of them ' . $hint );
+            }
+            $field = $candidates[0];
         }
         $spec = self::field_spec( $fields, $field );
         if ( null === $spec ) {
@@ -1026,20 +1092,75 @@ final class Elementor_Editor {
             if ( ! isset( $op['value'] ) || ! is_string( $op['value'] ) ) {
                 return 'set_text needs `value`, a string.';
             }
-            if ( ! empty( $spec['css'] ) && self::leaves_css_value( $op['value'] ) ) {
-                return sprintf( 'field "%s" %s.', $field, self::CSS_VALUE );
-            }
-            $font = self::font_refusal( $spec, $op['value'] );
-            if ( null !== $font ) {
-                return sprintf( 'field "%s" %s.', $field, $font );
-            }
-            $value = $this->html_value( $op['value'], $spec['kind'] );
-            return is_array( $value ) ? $value['error'] : array( $field => $value );
+            return $this->text_value( $spec, $op['value'] );
         }
         if ( 'set_link' === $name ) {
             return $this->link_value( $op, $settings[ $field ] ?? null, $field );
         }
         return $this->image_value( $op, $settings[ $field ] ?? null, $field );
+    }
+
+    private function replaced_change( array $op, array $fields, array $settings, string $roles_type, string $owner, string $hint, string $where ) {
+        $args = Text_Replacement::arguments( $op );
+        if ( is_string( $args ) ) {
+            return $args;
+        }
+        if ( isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ) {
+            $spec = self::field_spec( $fields, $op['field'] );
+            if ( null === $spec ) {
+                return sprintf( '%s have no field "%s" %s.', $owner, $op['field'], $hint );
+            }
+            if ( ! in_array( $spec['kind'], self::REPLACE_KINDS, true ) ) {
+                return sprintf( 'field "%s" holds %s, which replace_text does not write%s.', $op['field'], $spec['kind'], $this->writer_hint( $spec['kind'], $op['field'] ) );
+            }
+        } else {
+            $candidates = array();
+            $values     = array();
+            foreach ( self::primary_fields( $fields, $roles_type ) as $candidate ) {
+                if ( in_array( $candidate['kind'], self::REPLACE_KINDS, true ) ) {
+                    $candidates[ $candidate['name'] ] = $candidate;
+                    $values[ $candidate['name'] ]     = self::stored_text( $settings, $candidate['name'] );
+                }
+            }
+            if ( array() === $candidates ) {
+                return sprintf( '%s have no text, HTML or code field on their first tab; give `field` %s.', $owner, $hint );
+            }
+            $holder = Text_Replacement::holder( $values, $args['search'], $where );
+            if ( is_string( $holder ) ) {
+                return $holder;
+            }
+            $spec = $candidates[ $holder['field'] ];
+        }
+        $replaced = Text_Replacement::replaced( self::stored_text( $settings, $spec['name'] ), $args, $spec['name'], $where );
+        return is_string( $replaced ) ? $replaced : $this->text_value( $spec, $replaced['value'] );
+    }
+
+    private static function stored_text( array $settings, string $field ): string {
+        return isset( $settings[ $field ] ) && is_string( $settings[ $field ] ) ? $settings[ $field ] : '';
+    }
+
+    private function text_value( array $spec, string $text ) {
+        $field = $spec['name'];
+        if ( ! empty( $spec['css'] ) && self::leaves_css_value( $text ) ) {
+            return sprintf( 'field "%s" %s.', $field, self::CSS_VALUE );
+        }
+        $font = self::font_refusal( $spec, $text );
+        if ( null !== $font ) {
+            return sprintf( 'field "%s" %s.', $field, $font );
+        }
+        $value = $this->html_value( $text, $spec['kind'] );
+        return is_array( $value ) ? $value['error'] : array( $field => $value );
+    }
+
+    private static function ambiguous_field( string $owner, string $role, array $candidates, string $ask ): string {
+        return sprintf(
+            '%1$s have %2$d %3$s fields (%4$s) and none is known as the main one, so the field is not guessed; %5$s.',
+            $owner,
+            count( $candidates ),
+            $role,
+            implode( ', ', array_map( array( __CLASS__, 'quoted' ), $candidates ) ),
+            $ask
+        );
     }
 
     private function writer_hint( string $kind, string $field ): string {
@@ -1370,17 +1491,18 @@ final class Elementor_Editor {
         return $bound;
     }
 
-    private static function default_field( string $type, string $role, array $kinds, array $fields ): string {
+    private static function default_fields( string $type, string $role, array $kinds, array $fields ): array {
         $roles = Elementor_Adapter::ROLES[ $type ] ?? array();
         if ( isset( $roles[ $role ] ) ) {
-            return $roles[ $role ];
+            return array( $roles[ $role ] );
         }
+        $names = array();
         foreach ( $fields as $spec ) {
             if ( in_array( $spec['kind'], $kinds, true ) ) {
-                return $spec['name'];
+                $names[] = $spec['name'];
             }
         }
-        return '';
+        return $names;
     }
 
     private static function field_spec( array $fields, string $name ): ?array {

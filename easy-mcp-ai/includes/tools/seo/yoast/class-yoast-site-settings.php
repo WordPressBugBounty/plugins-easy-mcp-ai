@@ -22,6 +22,11 @@ final class Yoast_Site_Settings {
 		'social_description' => 'open_graph_frontpage_desc',
 	);
 
+	const NOINDEX = array(
+		'noindex_author_archive' => 'noindex-author-wpseo',
+		'noindex_date_archive'   => 'noindex-archive-wpseo',
+	);
+
 	const SPECIAL = array(
 		'home'           => 'home-wpseo',
 		'author_archive' => 'author-wpseo',
@@ -147,7 +152,7 @@ final class Yoast_Site_Settings {
 			$templates[] = $entry;
 		}
 
-		return array(
+		$out = array(
 			'separator'            => array(
 				'key'       => $separator,
 				'character' => $separators[ $separator ] ?? '',
@@ -155,8 +160,12 @@ final class Yoast_Site_Settings {
 			),
 			'templates'            => $templates,
 			'default_social_image' => self::image( $stored_soc, 'og_default_image', 'og_default_image_id' ),
-			'locked'               => self::locked( $titles, $social, $defaults ),
 		);
+		foreach ( self::NOINDEX as $name => $key ) {
+			$out[ $name ] = self::flag( $stored, $key );
+		}
+		$out['locked'] = self::locked( $titles, $social, $defaults );
+		return $out;
 	}
 
 	private static function separator_options( array $separators ): array {
@@ -178,6 +187,10 @@ final class Yoast_Site_Settings {
 		return isset( $stored[ $key ] ) && is_scalar( $stored[ $key ] ) ? (string) $stored[ $key ] : '';
 	}
 
+	private static function flag( array $stored, string $key ): bool {
+		return ! empty( $stored[ $key ] );
+	}
+
 	private static function locked( object $titles, object $social, array $defaults ): array {
 		$locked = array();
 		if ( $titles->is_disabled( 'separator' ) ) {
@@ -197,6 +210,11 @@ final class Yoast_Site_Settings {
 		}
 		if ( $social->is_disabled( 'og_default_image' ) || $social->is_disabled( 'og_default_image_id' ) ) {
 			$locked[] = 'default_social_image';
+		}
+		foreach ( self::NOINDEX as $name => $key ) {
+			if ( $titles->is_disabled( $key ) ) {
+				$locked[] = $name;
+			}
 		}
 		return $locked;
 	}

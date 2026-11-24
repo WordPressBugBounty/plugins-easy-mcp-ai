@@ -16,6 +16,8 @@ final class Elementor_Adapter extends Layout_Adapter {
 
     const V4_ABILITY = 'elementor/manage-elements';
 
+    const V4_TOOL = 'wp_ability_elementor_manage_elements';
+
     const ROLES = array(
         'heading'        => array( 'text' => 'title', 'link' => 'link' ),
         'text-editor'    => array( 'text' => 'editor' ),
@@ -627,7 +629,8 @@ final class Elementor_Adapter extends Layout_Adapter {
             current_user_can( 'unfiltered_html' ),
             self::containers_active(),
             null,
-            array( $this, 'hidden_fields' )
+            array( $this, 'hidden_fields' ),
+            array( __CLASS__, 'v4_unavailable' )
         );
         $plan     = $editor->plan( $original, $ops );
         if ( array() !== $plan['errors'] ) {
@@ -658,7 +661,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             return array(
                 'changed'  => $changed,
                 'saved'    => false,
-                'results'  => $plan['results'],
+                'results'  => Text_Replacement::shown( $plan['results'], $plan['results'] ),
                 'warnings' => $warnings,
             );
         }
@@ -681,7 +684,7 @@ final class Elementor_Adapter extends Layout_Adapter {
         return array(
             'changed'  => true,
             'saved'    => true,
-            'results'  => $results,
+            'results'  => Text_Replacement::shown( $results, $plan['results'] ),
             'warnings' => $warnings,
         );
     }
@@ -724,7 +727,7 @@ final class Elementor_Adapter extends Layout_Adapter {
         wp_cache_delete( $original_id, 'post_meta' );
         $after = wp_json_encode( array_values( self::tree( $original_id ) ) );
         $emptied = array() !== $layout && '[]' === $after;
-        if ( $emptied || ( $after === $before && ( ! is_array( $expected ) || wp_json_encode( array_values( $expected ) ) !== $before ) ) ) {
+        if ( $emptied || ( $after === $before && ( ! is_array( $expected ) || wp_json_encode( array_values( $expected['stored'] ) ) !== $before ) ) ) {
             throw new \RuntimeException( sprintf( 'Elementor reported post %1$d saved, but its stored layout %2$s: something stopped the write of %3$s (a plugin filter or a database error).', $original_id, $emptied ? 'is empty' : 'did not change', self::DATA_KEY ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
     }
@@ -769,7 +772,7 @@ final class Elementor_Adapter extends Layout_Adapter {
         $written = array();
         foreach ( $results as $result ) {
             $after = $result['after'];
-            if ( in_array( $result['op'], array( 'set_fields', 'set_text' ), true ) && ! isset( $result['list'] ) && ( is_array( $after ) ? array_key_exists( '_element_id', $after ) : '_element_id' === $result['field'] ) ) {
+            if ( in_array( $result['op'], array( 'set_fields', 'set_text', 'replace_text' ), true ) && ! isset( $result['list'] ) && ( is_array( $after ) ? array_key_exists( '_element_id', $after ) : '_element_id' === $result['field'] ) ) {
                 $written[] = $result['element'];
             }
             $written = array_merge( $written, $result['created'] ?? array() );
@@ -908,7 +911,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             return array( $predicted );
         }
         $planned   = self::inventory( $data );
-        $kept      = self::inventory( $predicted );
+        $kept      = self::inventory( $predicted['stored'] );
         $written   = self::written_fields( $results );
         $problems  = array();
         $untouched = array();
@@ -939,11 +942,11 @@ final class Elementor_Adapter extends Layout_Adapter {
         foreach ( array_diff_key( $kept, $planned ) as $id => $entry ) {
             $problems[] = sprintf( 'Elementor\'s save would add element "%s" (%s).', $id, $entry['type'] );
         }
-        foreach ( self::reordered( $data, $predicted, array_map( 'strval', array_keys( $planned ) ) ) as $parent ) {
+        foreach ( self::reordered( $data, $predicted['stored'], array_map( 'strval', array_keys( $planned ) ) ) as $parent ) {
             $problems[] = '' === $parent ? 'Elementor\'s save would reorder the top-level elements.' : sprintf( 'Elementor\'s save would reorder the elements inside "%s".', $parent );
         }
         if ( array() !== $untouched ) {
-            $untouched = self::resave_removals( $document, $original, $unfiltered, $untouched, $kept, $warnings );
+            $untouched = self::every_save_changes( $document, $original, $unfiltered, $untouched, $data, $predicted, $written, $warnings );
         }
         if ( array() !== $untouched ) {
             $problems[] = self::untouched_problem( $untouched, $kept, $unfiltered );
@@ -951,21 +954,32 @@ final class Elementor_Adapter extends Layout_Adapter {
         return $problems;
     }
 
-    private static function resave_removals( object $document, array $original, bool $unfiltered, array $untouched, array $kept, array &$warnings ): array {
+    private static function every_save_changes( object $document, array $original, bool $unfiltered, array $untouched, array $data, array $predicted, array $written, array &$warnings ): array {
         $resaved = self::predicted_save( $document, $original, $unfiltered );
         if ( is_string( $resaved ) ) {
             return $untouched;
         }
-        $resaved = self::inventory( $resaved );
-        $removed = array();
+        $planned   = self::settings_by_id( $data );
+        $filtered  = self::settings_by_id( $predicted['filtered'] );
+        $kept      = self::settings_by_id( $predicted['stored'] );
+        $resaved   = self::settings_by_id( $resaved['stored'] );
+        $removed   = array();
+        $rewritten = array();
         foreach ( $untouched as $id => $fields ) {
             $left = array();
             foreach ( $fields as $field ) {
-                if ( self::holds( $kept[ $id ]['leaves'], $field ) || ! isset( $resaved[ $id ] ) || self::holds( $resaved[ $id ]['leaves'], $field ) ) {
+                $sent   = self::field_values( $planned[ $id ] ?? array(), $field );
+                $stored = self::field_values( $kept[ $id ] ?? array(), $field );
+                $writes = array_intersect( array_keys( $sent + $stored ), $written[ $id ] ?? array() );
+                if ( array() !== $writes || ! isset( $resaved[ $id ] ) || self::field_values( $resaved[ $id ], $field ) !== $stored ) {
                     $left[] = $field;
-                    continue;
+                } elseif ( array() === $stored ) {
+                    $removed[ $field ] = ( $removed[ $field ] ?? 0 ) + 1;
+                } elseif ( isset( $filtered[ $id ] ) && self::field_values( $filtered[ $id ], $field ) === $sent ) {
+                    $rewritten[] = sprintf( '%s (%s)', $id, $field );
+                } else {
+                    $left[] = $field;
                 }
-                $removed[ $field ] = ( $removed[ $field ] ?? 0 ) + 1;
             }
             if ( array() === $left ) {
                 unset( $untouched[ $id ] );
@@ -980,16 +994,20 @@ final class Elementor_Adapter extends Layout_Adapter {
             }
             $warnings[] = sprintf( 'Elementor\'s save also removes fields this call does not write, as every save of this page does (Elementor\'s editor included): %s.', implode( ', ', $counts ) );
         }
+        if ( array() !== $rewritten ) {
+            $warnings[] = sprintf( 'Elementor\'s save also changes fields this call does not write, in each element\'s own save step, as every save of this page does (Elementor\'s editor included): %s.', implode( ', ', $rewritten ) );
+        }
         return $untouched;
     }
 
-    private static function holds( array $leaves, string $field ): bool {
-        foreach ( array_keys( $leaves ) as $path ) {
-            if ( (string) $path === $field || 0 === strpos( (string) $path, $field . '.' ) ) {
-                return true;
+    private static function field_values( array $settings, string $field ): array {
+        $held = array();
+        foreach ( $settings as $name => $value ) {
+            if ( (string) $name === $field || 0 === strpos( (string) $name, $field . '.' ) ) {
+                $held[ $name ] = $value;
             }
         }
-        return false;
+        return $held;
     }
 
     private static function untouched_problem( array $untouched, array $kept, bool $unfiltered ): string {
@@ -1092,7 +1110,10 @@ final class Elementor_Adapter extends Layout_Adapter {
         } catch ( \Throwable $e ) {
             return 'Elementor refused this layout before saving it: ' . $e->getMessage();
         }
-        return is_array( $kept ) ? $kept : array();
+        return array(
+            'filtered' => $elements,
+            'stored'   => is_array( $kept ) ? $kept : array(),
+        );
     }
 
     private static function kses_deep( array $data ): array {
@@ -1207,6 +1228,18 @@ final class Elementor_Adapter extends Layout_Adapter {
         if ( ! self::any_atomic( $nodes ) ) {
             return null;
         }
+        $off = self::v4_unavailable();
+        return array(
+            'elements'  => 'atomic',
+            'tool'      => self::V4_TOOL,
+            'ability'   => self::V4_ABILITY,
+            'available' => array() === $off,
+            'switch_on' => $off,
+            'note'      => 'Elements flagged `atomic` are Elementor V4 elements; Elementor’s own abilities read and edit them.',
+        );
+    }
+
+    public static function v4_unavailable(): array {
         $off = array();
         if ( ! self::ability_registered( self::V4_ABILITY ) ) {
             $off[] = 'Elementor’s abilities are not registered: they need Elementor 4.3 or later on WordPress 6.9 or later, and a change in Elementor’s code or an error while registering them also stops them (an error is written to the PHP error log)';
@@ -1215,14 +1248,22 @@ final class Elementor_Adapter extends Layout_Adapter {
         if ( ! in_array( self::V4_ABILITY, $enabled, true ) ) {
             $off[] = 'Elementor’s abilities are not switched on in Easy MCP AI › Tools';
         }
-        return array(
-            'elements'  => 'atomic',
-            'tool'      => 'wp_ability_elementor_manage_elements',
-            'ability'   => self::V4_ABILITY,
-            'available' => array() === $off,
-            'switch_on' => $off,
-            'note'      => 'Elements flagged `atomic` are Elementor V4 elements; Elementor’s own abilities read and edit them.',
-        );
+        if ( array() === $off ) {
+            $caller = self::v4_caller_reason();
+            if ( null !== $caller ) {
+                $off[] = $caller;
+            }
+        }
+        return $off;
+    }
+
+    private static function v4_caller_reason(): ?string {
+        if ( ! class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) || false !== \Easy_MCP_AI\MCP\Server::current_caller_may_reach( self::V4_TOOL ) ) {
+            return null;
+        }
+        $status = \Easy_MCP_AI\MCP\Server::current_call_tool_status( self::V4_TOOL );
+        $why    = null === $status ? '' : \Easy_MCP_AI\MCP\Tool_Status::predicate( $status );
+        return '' === $why ? 'this connection cannot call it' : 'it ' . rtrim( $why, '.' );
     }
 
     private static function ability_registered( string $name ): bool {

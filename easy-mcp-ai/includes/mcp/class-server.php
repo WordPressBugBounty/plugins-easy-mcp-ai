@@ -67,6 +67,7 @@ class Server {
     private $approval_mode       = null;
     private $last_approval       = array( 'kind' => 'run', 'approval_id' => null );
     private $last_audit_id       = null;
+    private $policy_refused      = false;
 
     private $approval_gate       = null;
     private $request_client_caps = null;
@@ -301,13 +302,20 @@ class Server {
     }
 
     public function call_tool_for_task( string $tool_name, array $arguments, $token_id, $allowed_tools ): array {
-        $previous        = $this->task_call;
-        $this->task_call = true;
+        $previous             = $this->task_call;
+        $this->task_call      = true;
+        $this->policy_refused = false;
         try {
-            return $this->call_tool_internal( 0, $tool_name, $arguments, $token_id, $allowed_tools, false, 'skip' );
+            $response = $this->call_tool_internal( 0, $tool_name, $arguments, $token_id, $allowed_tools, false, 'skip' );
         } finally {
             $this->task_call = $previous;
         }
+        if ( ! $this->policy_refused ) {
+            return $response;
+        }
+        $this->policy_refused = false;
+        $text                 = (string) ( $response['result']['content'][0]['text'] ?? '' );
+        return JSON_RPC::error_response( $response['id'] ?? 0, Error_Codes::FORBIDDEN, 0 === strpos( $text, 'Error: ' ) ? substr( $text, 7 ) : $text );
     }
 
     public function get_last_approval() {
@@ -318,10 +326,11 @@ class Server {
         if ( null === self::$active_call ) {
             return null;
         }
-        $server                = self::$active_call['server'];
-        $server->last_audit_id = null;
-        $server->last_approval = array( 'kind' => 'run', 'approval_id' => null );
-        $response              = $server->call_tool_internal(
+        $server                 = self::$active_call['server'];
+        $server->last_audit_id  = null;
+        $server->last_approval  = array( 'kind' => 'run', 'approval_id' => null );
+        $server->policy_refused = false;
+        $response               = $server->call_tool_internal(
             'composite-' . $tool_name,
             $tool_name,
             $arguments,
@@ -330,10 +339,13 @@ class Server {
             $count_rate_limit,
             'skip' === $approval ? 'skip' : null
         );
+        $refused                = $server->policy_refused;
+        $server->policy_refused = false;
         return array(
             'response' => $response,
             'approval' => $server->get_last_approval(),
             'audit_id' => $server->last_audit_id,
+            'refused'  => $refused,
         );
     }
 
@@ -382,6 +394,7 @@ class Server {
 
     const LEGACY_PROTOCOL_VERSIONS = array( '2025-11-25', '2025-06-18', '2025-03-26' );
     const SUPPORTED_PROTOCOL_VERSIONS = array( '2026-07-28', '2025-11-25', '2025-06-18', '2025-03-26' );
+    const REFUSAL_RESULT_PROTOCOL = '2025-11-25';
 
     public function handle_modern_message( $message, $token_id = null, $allowed_tools = null ) {
         $id = isset( $message['id'] ) ? $message['id'] : null;
@@ -913,7 +926,7 @@ class Server {
                 $this->log_refusal( $token_id, $tool_name, $arguments );
                 $step_up = $this->step_up_scope( $tool_name );
                 if ( null === $step_up ) {
-                    return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'Token does not have permission to use this tool' );
+                    return $this->allowlist_refusal( $id, $tool_name, 'Token does not have permission to use this tool' );
                 }
                 $refused = self::ability_refusal( $this->tool_registry->get_tool( $tool_name ), $arguments );
                 if ( null !== $refused ) {
@@ -921,12 +934,13 @@ class Server {
                 }
                 if ( null === self::$active_call && 'skip' !== $this->approval_mode ) {
                     $this->scope_challenge = $this->scope_challenge_for( $step_up );
+                    return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, sprintf( self::STEP_UP_MESSAGE, $step_up ) );
                 }
-                return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, sprintf( self::STEP_UP_MESSAGE, $step_up ) );
+                return $this->policy_refusal( $id, sprintf( self::STEP_UP_MESSAGE, $step_up ) );
             }
         } elseif ( ! $this->permission_guard->can_use_tool( $token_id, $tool_name ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
-            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, sprintf( self::KEY_REFUSAL_MESSAGE, \Easy_MCP_AI\Config::brand( Tool_Status::API_TOKENS_PATH ) ) );
+            return $this->allowlist_refusal( $id, $tool_name, sprintf( self::KEY_REFUSAL_MESSAGE, \Easy_MCP_AI\Config::brand( Tool_Status::API_TOKENS_PATH ) ) );
         }
 
         $tool                   = $this->tool_registry->get_tool( $tool_name );
@@ -940,7 +954,7 @@ class Server {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             $off = self::switched_off_ability( $tool_name );
             if ( null !== $off ) {
-                return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $off );
+                return $this->policy_refusal( $id, $off );
             }
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Unknown tool' );
         }
@@ -949,22 +963,22 @@ class Server {
         if ( $required_cap && ! \Easy_MCP_AI\Drafts\Strict_Ceiling::user_can( $required_cap ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
             $refusal = self::capability_refusal( $tool, $tool_name, (string) $required_cap );
-            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, in_array( $refusal['status'], array( 'capability', 'privileged' ), true ) ? self::INSUFFICIENT_PERMISSIONS : 'This tool ' . Tool_Status::predicate( $refusal ) );
+            return $this->policy_refusal( $id, in_array( $refusal['status'], array( 'capability', 'privileged' ), true ) ? self::INSUFFICIENT_PERMISSIONS : 'This tool ' . Tool_Status::predicate( $refusal ) );
         }
 
         if ( ! Tool_State::is_enabled( $tool ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
-            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool ' . Tool_Status::predicate( Tool_Status::off( $tool_name, (bool) $tool->is_disabled_by_default() ) ) );
+            return $this->policy_refusal( $id, 'This tool ' . Tool_Status::predicate( Tool_Status::off( $tool_name, (bool) $tool->is_disabled_by_default() ) ) );
         }
 
         if ( ! $this->tool_matches_pattern_filter( $tool_name ) ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
-            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool ' . Tool_Status::predicate( array( 'status' => 'pattern' ) ) );
+            return $this->policy_refusal( $id, 'This tool ' . Tool_Status::predicate( array( 'status' => 'pattern' ) ) );
         }
 
         if ( self::is_app_only_tool( $tool ) && ! $this->client_declared_apps() ) {
             $this->log_refusal( $token_id, $tool_name, $arguments );
-            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, 'This tool is only callable from an approval card.' );
+            return $this->policy_refusal( $id, 'This tool is only callable from an approval card.' );
         }
 
         $privileged_group = self::privileged_group( $tool_name );
@@ -972,7 +986,7 @@ class Server {
             $refusal = $this->privileged_refusal( $privileged_group );
             if ( null !== $refusal ) {
                 $this->log_refusal( $token_id, $tool_name, $arguments );
-                return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $refusal );
+                return $this->policy_refusal( $id, $refusal );
             }
             if ( ! $this->privileged_limit_replaced( $throttle['rules'] ) && ! $this->check_privileged_rate_limit( $token_id ) ) {
                 \Easy_MCP_AI\Throttle\Counters::refund( $this->throttle_receipt );
@@ -1533,6 +1547,28 @@ class Server {
 
     private static function is_argument_refusal( \Exception $e ): bool {
         return $e instanceof \InvalidArgumentException || ( $e instanceof Detailed_Runtime_Error && $e->is_validation() );
+    }
+
+    private function policy_refusal( $id, string $message ): array {
+        $protocol = $this->request_client_protocol;
+        if ( ! in_array( $protocol, self::SUPPORTED_PROTOCOL_VERSIONS, true ) || strcmp( $protocol, self::REFUSAL_RESULT_PROTOCOL ) < 0 ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $message );
+        }
+        $this->policy_refused = true;
+        return JSON_RPC::success_response(
+            $id,
+            array(
+                'content' => array( array( 'type' => 'text', 'text' => 'Error: ' . $message ) ),
+                'isError' => true,
+            )
+        );
+    }
+
+    private function allowlist_refusal( $id, string $tool_name, string $message ): array {
+        if ( ! $this->tool_registry->has_tool( $tool_name ) ) {
+            return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $message );
+        }
+        return $this->policy_refusal( $id, $message );
     }
 
     private static function error_result( \Exception $e ): array {

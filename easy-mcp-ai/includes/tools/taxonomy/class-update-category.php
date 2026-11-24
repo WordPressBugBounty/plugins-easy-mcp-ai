@@ -15,7 +15,7 @@ class Update_Category extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress category (PATCH semantics). Required: `category_id`. Optional: `name`, `slug`, `description`, `parent` (set to 0 to make top-level, or another category ID to re-nest). Returns { id, name, slug }. Changing `parent` restructures the category tree immediately. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. An empty string for `slug` is also silently ignored (the existing slug is preserved), unlike `wp_update_term`, which rejects an empty slug with an error.';
+        return 'Updates an existing WordPress category (PATCH semantics). Required: `category_id`. Optional: `name`, `slug`, `description`, `parent` (set to 0 to make top-level, or another category ID to re-nest). Returns { id, name, slug }. Changing `parent` restructures the category tree immediately. Passing an empty string for `description` preserves the existing value (it is not cleared) — omit the field, or edit in wp-admin, to blank it. An empty string for `slug` is also silently ignored (the existing slug is preserved), unlike `wp_update_term`, which rejects an empty slug with an error. A call that sends no field to change (only empty values) is refused, with nothing saved.';
     }
 
     public function get_category() {
@@ -67,6 +67,12 @@ class Update_Category extends Base_Tool {
     public function precheck( array $arguments ): void {
         $this->precheck_other_taxonomy( $arguments, 'category_id', 'category', 'update' );
         self::parent_param( $arguments );
+        try {
+            $this->parse_required_id( $arguments['category_id'] ?? null, 'category_id' );
+        } catch ( \InvalidArgumentException $e ) {
+            return;
+        }
+        $this->update_params( $arguments );
     }
 
     private static function parent_param( array $arguments ): ?int {
@@ -84,6 +90,18 @@ class Update_Category extends Base_Tool {
 
         $category_id = $this->parse_required_id( $arguments['category_id'], 'category_id' );
         $this->refuse_other_taxonomy( $category_id, 'category', 'update' );
+        $params = $this->update_params( $arguments );
+
+        $data = $this->rest_request( 'POST', '/wp/v2/categories/' . $category_id, $params );
+
+        return array(
+            'id'   => $data['id'],
+            'name' => $data['name'],
+            'slug' => $data['slug'],
+        );
+    }
+
+    private function update_params( array $arguments ): array {
         $parent = self::parent_param( $arguments );
         $params = array();
 
@@ -103,12 +121,9 @@ class Update_Category extends Base_Tool {
             $params['parent'] = $parent;
         }
 
-        $data = $this->rest_request( 'POST', '/wp/v2/categories/' . $category_id, $params );
-
-        return array(
-            'id'   => $data['id'],
-            'name' => $data['name'],
-            'slug' => $data['slug'],
-        );
+        if ( array() === $params ) {
+            throw new \InvalidArgumentException( 'At least one updateable field (name, slug, description, parent) must be provided; an empty slug or description is ignored. Nothing was changed.' );
+        }
+        return $params;
     }
 }

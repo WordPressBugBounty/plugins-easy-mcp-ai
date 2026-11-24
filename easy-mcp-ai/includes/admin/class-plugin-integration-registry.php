@@ -95,12 +95,14 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'ACF or Secure Custom Fields must be active. Field groups must have "Show in REST API" enabled.',
                 'detector'    => 'class:ACF',
+                'ability_prefixes' => array( 'scf' ),
                 'tools'       => array(
                     array( 'name' => 'wp_acf_get_fields',         'description' => 'Get all ACF field values for a post, a page or an options page.',                         'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_update_fields',      'description' => 'Update one or more ACF field values on a post, a page or an options page.',               'type' => 'write', 'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_get_user_fields',    'description' => 'Get ACF field values attached to a WordPress user.',                                      'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_update_user_fields', 'description' => 'Update ACF field values on a WordPress user.',                                            'type' => 'write', 'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_get_term_fields',    'description' => 'Get ACF field values attached to a taxonomy term.',                                       'type' => 'read',  'api' => 'wp_rest' ),
+                    array( 'name' => 'wp_acf_update_term_fields', 'description' => 'Update ACF field values on a taxonomy term.',                                            'type' => 'write', 'api' => 'wp_rest' ),
                     array( 'name' => 'wp_acf_list_field_groups',  'description' => 'List all registered ACF field groups with keys, labels, and field definitions, and the options pages.', 'type' => 'read',  'api' => 'php' ),
                 ),
             ),
@@ -201,6 +203,20 @@ class Plugin_Integration_Registry {
                 ),
             ),
             array(
+                'slug'        => 'wpforms',
+                'name'        => 'WPForms',
+                'description' => 'Delete and move the fields of WPForms forms, and trash, restore or delete forms, through WPForms\' own form handler and its own permissions. WPForms\' own abilities list, read, create and edit forms and fields.',
+                'status'      => 'stable',
+                'requires'    => 'WPForms (Lite or Pro) must be active.',
+                'detector'    => 'class:WPForms_Form_Handler',
+                'tools'       => array(
+                    array( 'name' => 'wp_wpforms_delete_field', 'description' => 'Delete one field from a form; the other fields keep their IDs.',            'type' => 'write', 'api' => 'php' ),
+                    array( 'name' => 'wp_wpforms_move_field',   'description' => 'Move a field to another place in its form.',                                 'type' => 'write', 'api' => 'php' ),
+                    array( 'name' => 'wp_wpforms_delete_form',  'description' => 'Move a form to the trash, or delete it permanently.',                         'type' => 'write', 'api' => 'php' ),
+                    array( 'name' => 'wp_wpforms_restore_form', 'description' => 'Restore a form from the trash.',                                              'type' => 'write', 'api' => 'php' ),
+                ),
+            ),
+            array(
                 'slug'        => 'loco-translate',
                 'name'        => 'Loco Translate',
                 'description' => 'Read and translate the interface strings of plugins, themes and WordPress core in the PO files Loco Translate manages, recompiling them as Loco\'s editor does. Translations that would break a page (placeholders past the source\'s, HTML the account may not publish) are refused.',
@@ -211,6 +227,18 @@ class Plugin_Integration_Registry {
                     array( 'name' => 'wp_loco_list_files',          'description' => 'List the PO files Loco knows, with how much of each is translated.',      'type' => 'read',  'api' => 'php' ),
                     array( 'name' => 'wp_loco_get_translations',    'description' => 'Read one PO file\'s strings, filtered by untranslated, fuzzy or text.',    'type' => 'read',  'api' => 'php' ),
                     array( 'name' => 'wp_loco_update_translations', 'description' => 'Translate strings in a PO file and recompile its MO, JSON and PHP files.', 'type' => 'write', 'api' => 'php' ),
+                ),
+            ),
+            array(
+                'slug'        => 'wordfence',
+                'name'        => 'Wordfence Security',
+                'description' => 'Read Wordfence\'s scan results and its Live Traffic log (visits, login attempts, lockouts and firewall blocks) through Wordfence\'s own code, without a Wordfence Central connection. Read only: scans, blocks and settings stay in Wordfence.',
+                'status'      => 'stable',
+                'requires'    => 'Wordfence must be active. Wordfence shows these only to accounts with manage_options, or manage_network on a network.',
+                'detector'    => 'class:wordfence',
+                'tools'       => array(
+                    array( 'name' => 'wp_wordfence_get_scan_issues', 'description' => 'Read the issues Wordfence\'s last scan found, and the scan\'s state.',                       'type' => 'read', 'api' => 'php' ),
+                    array( 'name' => 'wp_wordfence_get_live_traffic', 'description' => 'Read Live Traffic: visits, logins and failed logins, lockouts and firewall blocks.', 'type' => 'read', 'api' => 'php' ),
                 ),
             ),
             array(
@@ -277,6 +305,7 @@ class Plugin_Integration_Registry {
                 'status'      => 'stable',
                 'requires'    => 'AIOSEO 4.9.8+ — REST API is free in core; pre-4.9.8 free needs the legacy REST addon.',
                 'detector'    => 'function:aioseo',
+                'ability_prefixes' => array( 'aioseo-audit', 'aioseo-notifications', 'aioseo-posts', 'aioseo-robots', 'aioseo-settings' ),
                 'tools'       => array(
                     array( 'name' => 'wp_aioseo_get_post_seo',    'description' => 'Get AIOSEO SEO data for a post: title, description, OG fields, Twitter fields, no_index, canonical_url.',                                                        'type' => 'read',  'api' => 'wp_rest' ),
                     array( 'name' => 'wp_aioseo_update_post_seo', 'description' => 'Update AIOSEO SEO metadata on a post.',                                                                                                                            'type' => 'write', 'api' => 'wp_rest' ),
@@ -339,6 +368,30 @@ class Plugin_Integration_Registry {
             return function_exists( substr( $detector, 9 ) );
         }
         return true;
+    }
+
+    public static function group_for_ability_prefix( string $prefix ): ?array {
+        static $map = null;
+        if ( null === $map ) {
+            $map = array();
+            foreach ( self::get_groups() as $group ) {
+                $owned = array_merge( array( $group['slug'] ), (array) ( $group['ability_prefixes'] ?? array() ) );
+                foreach ( $owned as $owned_prefix ) {
+                    if ( ! isset( $map[ $owned_prefix ] ) ) {
+                        $map[ $owned_prefix ] = array( 'slug' => $group['slug'], 'name' => $group['name'] );
+                    }
+                }
+            }
+        }
+        return $map[ $prefix ] ?? null;
+    }
+
+    public static function ability_source_label( string $prefix ): ?string {
+        $group = self::group_for_ability_prefix( $prefix );
+        if ( null === $group ) {
+            return null;
+        }
+        return $group['slug'] === $prefix ? $group['name'] : $group['name'] . ': ' . $prefix;
     }
 
     public static function get_all_tool_names(): array {
