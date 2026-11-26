@@ -115,7 +115,12 @@ class Batch_Update_Orders extends Base_Tool {
 
         $reply = self::short_batch_reply( $this->strip_response_noise( $this->rest_request( 'POST', '/wc/v3/orders/batch', $body ) ), $body );
         if ( class_exists( OrderUtil::class ) && OrderUtil::custom_orders_table_usage_is_enabled() ) {
-            return $reply;
+            return self::refuse_kept_deletes(
+                $reply,
+                static function ( int $id ): ?string {
+                    return Delete_Outcome::hpos_order_kept( $id, 'order ' . $id );
+                }
+            );
         }
         return self::refuse_kept_deletes(
             $reply,

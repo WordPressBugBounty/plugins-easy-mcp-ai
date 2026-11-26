@@ -172,11 +172,11 @@ final class Divi4_Adapter extends Shortcode_Adapter {
         $atts   = isset( $item['atts'] ) && is_array( $item['atts'] ) ? $item['atts'] : array();
         $inside = (string) ( $atts['global_parent'] ?? '' );
         if ( '' !== $inside ) {
-            return sprintf( 'it is part of a global Divi element, which renders from Divi Library item %1$s; edit that item (wp_get_page_layout with post_id %1$s).', $inside );
+            return sprintf( 'it is part of a global Divi element, which renders from Divi Library item %1$s; edit that item%2$s.', $inside, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? sprintf( ' (wp_get_page_layout with post_id %s)', $inside ) : '' );
         }
         $global = (string) ( $atts['global_module'] ?? '' );
         if ( '' !== $global && 'own' !== $role ) {
-            return sprintf( 'it is %1$s global Divi element, which renders from Divi Library item %2$s; edit that item (wp_get_page_layout with post_id %2$s).', 'inside' === $role ? 'inside a' : 'a', $global );
+            return sprintf( 'it is %1$s global Divi element, which renders from Divi Library item %2$s; edit that item%3$s.', 'inside' === $role ? 'inside a' : 'a', $global, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? sprintf( ' (wp_get_page_layout with post_id %s)', $global ) : '' );
         }
         $locked = 'on' === ( $atts['locked'] ?? '' ) ? Divi_Access::lock_refusal( 'the ' . (string) $item['tag'] ) : null;
         if ( null === $locked && 'edit' === $role && '' === (string) ( $atts['_builder_version'] ?? '' ) ) {
@@ -207,7 +207,7 @@ final class Divi4_Adapter extends Shortcode_Adapter {
                     'address' => $node['address'],
                     'type'    => $node['type'],
                     'ref'     => 'post:' . $global,
-                    'note'    => 'A global Divi element: the page renders Divi Library item ' . $global . ', so edit that item with wp_get_page_layout and wp_update_page_layout.',
+                    'note'    => 'A global Divi element: the page renders Divi Library item ' . $global . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) && \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_update_page_layout' ) ? ', so edit that item with wp_get_page_layout and wp_update_page_layout.' : ', so it is edited in that item.' ),
                 );
                 continue;
             }

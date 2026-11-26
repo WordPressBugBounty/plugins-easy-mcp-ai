@@ -12,6 +12,7 @@ use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\Meta\Meta_Exposure;
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Menus\Navigation_Labels;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
 use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
@@ -136,6 +137,9 @@ class Republish_Post extends Base_Tool {
             $leave         = array_merge( $pair['layout_copy'] ? array( Elementor_Adapter::DATA_KEY ) : array(), $pair['restricted_alike'] );
             $snapshot  = Duplicate_Post::meta_snapshot( (int) $copy->ID, $id, $leave );
             $revision  = self::save_revision( $id );
+            if ( $pair['layout_copy'] && null === $revision ) {
+                $revision = Elementor_Adapter::put_revision( $id, (string) get_post_field( 'post_content', $id, 'raw' ) );
+            }
             $audit_id  = self::audit_id();
             $elementor = null !== $pair['elementor'];
             self::require_lock( $id, $lock );
@@ -212,7 +216,7 @@ class Republish_Post extends Base_Tool {
         );
         $reply      = array_merge( $reply, $this->trash_copy( $pair['rest_base'], $copy ) );
         $navigation = $this->relabel_navigation( $id, $titles );
-        if ( array() !== array_filter( array_column( $navigation['navigation_labels_updated'], 'revision_id' ) ) ) {
+        if ( array() !== array_filter( array_column( $navigation['navigation_labels_updated'], 'revision_id' ) ) && Post_Type_Tool_Hint::may_reach( 'wp_restore_revision' ) ) {
             $reply['restore'] .= ' wp_restore_revision with the revision_id of a navigation_labels_updated entry puts that menu\'s labels back.';
         }
         $now   = get_post( $id );
@@ -329,7 +333,8 @@ class Republish_Post extends Base_Tool {
             throw new \InvalidArgumentException( sprintf( 'You cannot republish post %d: that needs permission to edit it and move it to the trash.', (int) $copy->ID ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( ! in_array( $original->post_type, array( 'post', 'page' ), true ) && false === $this->caller_may_update_custom_items() ) {
-            throw new \InvalidArgumentException( sprintf( 'Republishing a "%s" item needs access to wp_update_cpt_item, which this connection does not have (for OAuth: the custom post types write permission).', $original->post_type ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            $tool = Post_Type_Tool_Hint::may_reach( 'wp_update_cpt_item' ) ? 'wp_update_cpt_item' : 'the custom post type tools';
+            throw new \InvalidArgumentException( sprintf( 'Republishing a "%1$s" item needs access to %2$s, which this connection does not have (for OAuth: the custom post types write permission).', $original->post_type, $tool ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
     }
 
@@ -606,22 +611,28 @@ class Republish_Post extends Base_Tool {
     }
 
     private static function restore_sentence( ?int $revision, ?int $audit_id, bool $elementor, ?array $not_restored, ?callable $fits = null ): string {
-        $parts = array();
-        if ( null !== $audit_id ) {
+        if ( null === $audit_id && null === $revision ) {
+            return 'No revision of this post and no change history entry are available, so this cannot be undone from here.';
+        }
+        $history = null !== $audit_id && Post_Type_Tool_Hint::may_reach( 'wp_history_apply' );
+        $revert  = null !== $revision && Post_Type_Tool_Hint::may_reach( 'wp_restore_revision' );
+        $parts   = array();
+        if ( $history ) {
             $parts[] = sprintf( 'wp_history_apply { "audit_id": %d } puts back the fields and the meta keys registered for the REST API', $audit_id );
         }
-        if ( null !== $revision ) {
+        if ( $revert ) {
             $parts[] = sprintf( '%1$swp_restore_revision { "revision_id": %2$d } puts back the title, content and excerpt%3$s', array() === $parts ? '' : 'then ', $revision, $elementor ? ', and the Elementor layout and whether the page is built with Elementor' : '' );
         }
         if ( array() === $parts ) {
-            return 'No revision of this post and no change history entry are available, so this cannot be undone from here.';
+            $kept = array_filter( array( null === $audit_id ? '' : sprintf( 'the change history (audit_id %d)', $audit_id ), null === $revision ? '' : sprintf( 'revision %d', $revision ) ) );
+            return sprintf( 'This connection cannot undo it from here; the earlier version is kept in %s.', implode( ' and ', $kept ) );
         }
         $sentence = 'To undo: ' . implode( '; ', $parts ) . '.';
-        if ( null === $audit_id ) {
+        if ( ! $history ) {
             return $sentence;
         }
         if ( null === $not_restored ) {
-            return $sentence . ' wp_history_apply names each meta key it does not put back, whose old value wp_history_get shows.';
+            return $sentence . ' wp_history_apply names each meta key it does not put back' . ( Post_Type_Tool_Hint::may_reach( 'wp_history_get' ) ? ', whose old value wp_history_get shows.' : '.' );
         }
         $fits = $fits ?? static function (): bool {
             return true;
@@ -677,7 +688,7 @@ class Republish_Post extends Base_Tool {
             if ( $more > 0 ) {
                 $groups[] = sprintf( array() === $groups ? '%d meta keys, which it names' : '%d more meta keys, which it names', $more );
             }
-            return 'wp_history_apply does not put back ' . implode( '; ', $groups ) . '; wp_history_get shows the old values.';
+            return 'wp_history_apply does not put back ' . implode( '; ', $groups ) . ( Post_Type_Tool_Hint::may_reach( 'wp_history_get' ) ? '; wp_history_get shows the old values.' : '.' );
         };
         $shown = array();
         $count = 0;
@@ -757,7 +768,7 @@ class Republish_Post extends Base_Tool {
                 'copy_error'  => 'The original is live; moving the copy to the trash failed: ' . $e->getMessage(),
             );
         }
-        return array( 'copy_status' => (string) ( $trashed['status'] ?? get_post_status( (int) $copy->ID ) ) );
+        return array( 'copy_status' => (string) ( isset( $trashed['status'] ) ? Status_Taxonomy::status_of( $trashed + array( 'id' => (int) $copy->ID ) ) : get_post_status( (int) $copy->ID ) ) );
     }
 
     private function relabel_navigation( int $post_id, array $old_titles ): array {
@@ -817,7 +828,9 @@ class Republish_Post extends Base_Tool {
             $lock = Layout_Lock::acquire_waiting( $id, self::MENU_LOCK_WAIT );
         } catch ( \RuntimeException $e ) {
             $kept   = self::kept_by_hand( $menu, $by_hand );
-            $kept[] = $menu + array( 'reason' => sprintf( 'It still shows the old title: another save of this menu was still running after %1$d seconds, or the database refused its lock, so its labels were left as they are. %2$s changes them.', self::MENU_LOCK_WAIT, 'wp_navigation' === $holder->post_type ? 'wp_update_cpt_item with rest_base "navigation"' : 'wp_update_template' ) );
+            $block = 'wp_navigation' === $holder->post_type;
+            $reach = $block ? Post_Type_Tool_Hint::may_reach( 'wp_update_cpt_item' ) : Post_Type_Tool_Hint::may_reach( 'wp_update_template' );
+            $kept[] = $menu + array( 'reason' => sprintf( 'It still shows the old title: another save of this menu was still running after %1$d seconds, or the database refused its lock, so its labels were left as they are.%2$s', self::MENU_LOCK_WAIT, $reach ? ' ' . ( $block ? 'wp_update_cpt_item with rest_base "navigation"' : 'wp_update_template' ) . ' changes them.' : '' ) );
             return array(
                 'updated' => array(),
                 'kept'    => $kept,
@@ -962,7 +975,7 @@ class Republish_Post extends Base_Tool {
 
     private static function content_reason( string $cause, string $post_type ): string {
         if ( 'hooked_metadata' === $cause ) {
-            return 'WordPress would also have written into its links its record of the blocks other plugins hook next to them (metadata.ignoredHookedBlocks, which WordPress 6.5 and 6.6 add on every save of such a menu), and this call saves only the labels, so it was not saved. ' . ( 'wp_navigation' === $post_type ? 'wp_update_cpt_item with the content wp_get_cpt_item returns changes them.' : 'Change them in the Site Editor.' );
+            return 'WordPress would also have written into its links its record of the blocks other plugins hook next to them (metadata.ignoredHookedBlocks, which WordPress 6.5 and 6.6 add on every save of such a menu), and this call saves only the labels, so it was not saved. ' . ( 'wp_navigation' === $post_type && Post_Type_Tool_Hint::may_reach( 'wp_update_cpt_item' ) && Post_Type_Tool_Hint::may_reach( 'wp_get_cpt_item' ) ? 'wp_update_cpt_item with the content wp_get_cpt_item returns changes them.' : 'Change them in the Site Editor.' );
         }
         if ( 'kses' === $cause ) {
             return 'WordPress would have removed HTML from it that your account may not save (it lacks the unfiltered_html capability), which changes more than its labels, so it was not saved.';
@@ -985,7 +998,7 @@ class Republish_Post extends Base_Tool {
         if ( null === $revision ) {
             $undo = ' No revision of it is available to undo it.';
         } elseif ( $held ) {
-            $undo = ' wp_restore_revision with this revision_id puts it back as it was.';
+            $undo = Post_Type_Tool_Hint::may_reach( 'wp_restore_revision' ) ? ' wp_restore_revision with this revision_id puts it back as it was.' : ' This revision_id holds it as it was.';
         } else {
             $undo     = ' Another edit may have saved it since, so no revision is offered to undo it.';
             $revision = null;

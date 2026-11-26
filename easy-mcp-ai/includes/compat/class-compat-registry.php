@@ -14,10 +14,13 @@ final class Compat_Registry {
         'tec-no-duplicate-reuse'       => 'Easy_MCP_AI\\Compat\\Shims\\Tec_No_Duplicate_Reuse',
         'learnpress-mcp-auth'          => 'Easy_MCP_AI\\Compat\\Shims\\Learnpress_Mcp_Auth',
         'astra-customizer-loader'      => 'Easy_MCP_AI\\Compat\\Shims\\Astra_Customizer_Loader',
+        'blocksy-customizer-loader'    => 'Easy_MCP_AI\\Compat\\Shims\\Blocksy_Customizer_Loader',
         'sitekit-user-binding'         => 'Easy_MCP_AI\\Compat\\Shims\\Sitekit_User_Binding',
         'elementor-frontend-controls'  => 'Easy_MCP_AI\\Compat\\Shims\\Elementor_Frontend_Controls',
         'latepoint-abilities-switch'   => 'Easy_MCP_AI\\Compat\\Shims\\Latepoint_Abilities_Switch',
         'navigation-hooked-blocks-meta' => 'Easy_MCP_AI\\Compat\\Shims\\Navigation_Hooked_Blocks_Meta',
+        'avada-megamenu-fields'         => 'Easy_MCP_AI\\Compat\\Shims\\Avada_Megamenu_Fields',
+        'image-editor-stale-answer'     => 'Easy_MCP_AI\\Compat\\Shims\\Image_Editor_Stale_Answer',
     );
 
     private static $shims = null;

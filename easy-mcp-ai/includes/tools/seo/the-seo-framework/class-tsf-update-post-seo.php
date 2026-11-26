@@ -113,8 +113,15 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 
 		$qubits   = self::qubit_values( $arguments );
 		$image_id = self::social_image_id( $arguments );
+		$urls     = array();
+		foreach ( array( 'canonical' => '_genesis_canonical_uri', 'social_image_url' => '_social_image_url' ) as $arg => $key ) {
+			if ( isset( $arguments[ $arg ] ) ) {
+				$urls[ $key ] = Seo_Url::to_send( $arg, $arguments[ $arg ] );
+			}
+		}
 
 		$updated   = array();
+		$writes    = array();
 		$id_before = (string) get_post_meta( $post_id, '_social_image_id', true );
 
 		$text_map = array(
@@ -127,35 +134,23 @@ class Tsf_Update_Post_Seo extends Base_Tool {
 		);
 		foreach ( $text_map as $arg => $key ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				update_post_meta( $post_id, $key, wp_slash( Seo_Text::clean( (string) $arguments[ $arg ] ) ) );
-				$updated[] = $key;
+				$writes[ $key ] = wp_slash( Seo_Text::clean( (string) $arguments[ $arg ] ) );
 			}
 		}
-
-		$url_map = array(
-			'canonical'        => '_genesis_canonical_uri',
-			'social_image_url' => '_social_image_url',
-		);
-		foreach ( $url_map as $arg => $key ) {
-			if ( isset( $arguments[ $arg ] ) ) {
-				update_post_meta( $post_id, $key, esc_url_raw( (string) $arguments[ $arg ] ) );
+		$writes += $urls + $qubits;
+		foreach ( $writes as $key => $value ) {
+			if ( Seo_Post_Meta::update( $post_id, $key, $value ) ) {
 				$updated[] = $key;
 			}
-		}
-
-		foreach ( $qubits as $key => $value ) {
-			update_post_meta( $post_id, $key, $value );
-			$updated[] = $key;
 		}
 
 		if ( null !== $image_id ) {
 			update_post_meta( $post_id, '_social_image_id', $image_id );
+		} elseif ( isset( $urls['_social_image_url'] ) ) {
+			Image_Attachment_Id::store_for_post( $post_id, '_social_image_id', $urls['_social_image_url'] );
+		}
+		if ( ( null !== $image_id || isset( $urls['_social_image_url'] ) ) && (string) get_post_meta( $post_id, '_social_image_id', true ) !== $id_before ) {
 			$updated[] = '_social_image_id';
-		} elseif ( isset( $arguments['social_image_url'] ) ) {
-			Image_Attachment_Id::store_for_post( $post_id, '_social_image_id', esc_url_raw( (string) $arguments['social_image_url'] ) );
-			if ( (string) get_post_meta( $post_id, '_social_image_id', true ) !== $id_before ) {
-				$updated[] = '_social_image_id';
-			}
 		}
 
 		if ( array() !== $updated ) {

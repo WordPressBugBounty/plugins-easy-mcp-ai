@@ -127,6 +127,24 @@ final class Delete_Outcome {
         return null === $status ? null : self::stopped( $label, $status, true, $after );
     }
 
+    public static function hpos_order_kept( int $id, string $label ): ?string {
+        global $wpdb;
+        $store = 'Automattic\\WooCommerce\\Internal\\DataStores\\Orders\\OrdersTableDataStore';
+        if ( ! is_callable( array( $store, 'get_orders_table_name' ) ) ) {
+            return sprintf( 'WooCommerce answered that %s was deleted, but its orders table could not be named to confirm it. Check the order under WooCommerce › Orders.', $label );
+        }
+        $table = (string) call_user_func( array( $store, 'get_orders_table_name' ) );
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- the stored row is the answer; the table name is WooCommerce's own.
+        $row = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE id = %d LIMIT 1", $id ) );
+        if ( '' !== (string) $wpdb->last_error ) {
+            return sprintf( 'WooCommerce answered that %s was deleted, but a database error stopped the orders table being read to confirm it. Check the order under WooCommerce › Orders.', $label );
+        }
+        if ( null !== $row ) {
+            return sprintf( 'WooCommerce answered that %s was deleted, but it is still in the orders table: WooCommerce does not check its own database delete. Some of the order\'s other data may already be gone; check the order under WooCommerce › Orders.', $label );
+        }
+        return null;
+    }
+
     public static function require_term_gone( int $term_id, string $taxonomy, string $label ): void {
         wp_cache_delete( $term_id, 'terms' );
         $term = self::read_back(

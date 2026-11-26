@@ -62,7 +62,7 @@ class List_Group_Members extends Base_Tool {
             throw new \RuntimeException( 'BuddyPress is not active on this site. Please install and activate BuddyPress to use this tool.' );
         }
 
-        if ( function_exists( 'bp_is_active' ) && ! bp_is_active( 'groups' ) ) {
+        if ( \Easy_MCP_AI\Tools\Integration_State::buddypress_component_off( 'groups' ) ) {
             throw new \RuntimeException( 'The BuddyPress Groups component is not enabled. Go to Settings → BuddyPress → Components and enable it.' );
         }
 

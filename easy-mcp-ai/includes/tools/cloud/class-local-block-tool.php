@@ -6,6 +6,7 @@ use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\MCP\Error_Codes;
 use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\MCP\Tool_Status;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -19,7 +20,7 @@ abstract class Local_Block_Tool extends Cloud_Block_Tool {
         'product' => 'product',
     );
 
-    private const REFUSED_BEFORE_APPROVAL = array( 'off', 'off_locked', 'integration_off', 'integration_off_locked', 'not_registered' );
+    private const REFUSED_BEFORE_APPROVAL = array( 'off', 'off_locked', 'integration_off', 'integration_off_locked', 'integration_inactive', 'needs_block_theme', 'needs_widget_areas', 'needs_theme_json', 'needs_cloud_salts', 'needs_comment_trash', 'needs_direct_filesystem', 'needs_filesystem_access', 'needs_bp_groups', 'needs_bp_messages', 'needs_bp_activity', 'needs_rank_math_loaded', 'needs_rank_math_setup', 'needs_rank_math_redirections', 'needs_rank_math_headless', 'needs_aioseo_rest_writes', 'needs_sitekit_analytics', 'needs_tec_rest', 'needs_yoast_head_endpoint', 'needs_loco_classes', 'needs_loco_tested_version', 'needs_sitekit_connection', 'needs_redirection_groups', 'needs_wc_shipping', 'needs_unfiltered_html', 'needs_mailsmtp_store', 'needs_image_editor', 'needs_builder_version', 'not_registered' );
 
     const OTHER_TYPE = '/^Error: (?:Use wp_\w+ for that ID, which has post type|ID \d+ has post type) "([a-z0-9_-]{1,20})", not "[a-z0-9_-]{1,20}"/';
 
@@ -195,7 +196,7 @@ abstract class Local_Block_Tool extends Cloud_Block_Tool {
             return null;
         }
         $facts    = array();
-        $status   = $data['status'] ?? null;
+        $status   = $is_product ? ( $data['status'] ?? null ) : Status_Taxonomy::status_of( $data + array( 'id' => $post_id ) );
         $modified = self::modified_of( $data );
         if ( is_string( $status ) && '' !== $status ) {
             $facts[] = 'publish' === $status ? 'published' : ( 'future' === $status ? 'scheduled' : self::short( $status, 20 ) );

@@ -3,6 +3,7 @@
 namespace Easy_MCP_AI\Meta\Providers;
 
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
 use Easy_MCP_AI\Tools\SEO\Rankmath_Get_Post_Seo;
 use Easy_MCP_AI\Tools\SEO\Rankmath_Update_Post_Seo;
@@ -35,6 +36,10 @@ class Rank_Math_Meta_Provider extends Meta_Field_Provider {
         return 'wp_rm_update_post_seo';
     }
 
+    public function get_dedicated_tool_class(): string {
+        return Rankmath_Update_Post_Seo::class;
+    }
+
     public function after_write( $post_id, array $keys ) {
         foreach ( Rankmath_Update_Post_Seo::SOCIAL_IMAGES as $image_keys ) {
             if ( in_array( $image_keys['url'], $keys, true ) ) {
@@ -45,7 +50,7 @@ class Rank_Math_Meta_Provider extends Meta_Field_Provider {
 
     public function value_refusal( $key, $value, $post_id ) {
         if ( in_array( $key, self::X_CARD_KEYS, true ) && ( (int) $post_id <= 0 || current_user_can( 'edit_post', (int) $post_id ) ) && Rankmath_Update_Post_Seo::copies_facebook( (int) $post_id ) ) {
-            return sprintf( '"%s" is not shown while the X card copies Facebook (Rank Math\'s default). Set it with wp_rm_update_post_seo and twitter_use_facebook: false.', $key );
+            return sprintf( '"%s" is not shown while the X card copies Facebook (Rank Math\'s default).', $key ) . ( Post_Type_Tool_Hint::may_reach( 'wp_rm_update_post_seo' ) ? ' Set it with wp_rm_update_post_seo and twitter_use_facebook: false.' : '' );
         }
         if ( ! in_array( $key, array_column( Rankmath_Update_Post_Seo::SOCIAL_IMAGES, 'url' ), true ) || null === $value || ( is_string( $value ) && '' === trim( $value ) ) ) {
             return '';
@@ -55,7 +60,7 @@ class Rank_Math_Meta_Provider extends Meta_Field_Provider {
         if ( Rankmath_Update_Post_Seo::is_readable_image( $id ) ) {
             return '';
         }
-        return sprintf( '"%s" is not a Media Library image, and Rank Math shows no other. Upload it with wp_upload_media_from_url first.', $key );
+        return sprintf( '"%1$s" is not a Media Library image, and Rank Math shows no other. Upload it %2$s first.', $key, Post_Type_Tool_Hint::may_reach( 'wp_upload_media_from_url' ) ? 'with wp_upload_media_from_url' : 'to the Media Library' );
     }
 
     public function reads_alike( $key, $stored, $other ) {

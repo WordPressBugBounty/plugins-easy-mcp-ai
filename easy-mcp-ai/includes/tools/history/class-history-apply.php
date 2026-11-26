@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\History;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 use Easy_MCP_AI\History\Change_Log_Repository;
 use Easy_MCP_AI\History\Rebuild_Planner;
 
@@ -74,6 +75,43 @@ class History_Apply extends Base_Tool {
         $this->dispatcher = $dispatcher;
     }
 
+    public function previews_as_caller(): bool {
+        return true;
+    }
+
+    public function precheck( array $arguments ): void {
+        $out     = $this->run( $arguments, true );
+        $reasons = array();
+        foreach ( $out['entries'] as $entry ) {
+            if ( in_array( $entry['entry_id'], $out['unreachable'], true ) ) {
+                $reasons[] = sprintf( 'entry %d: %s', $entry['entry_id'], $entry['reason'] ?? '' );
+            } elseif ( 'not_run' !== $entry['status'] ) {
+                return;
+            }
+        }
+        if ( array() === $reasons ) {
+            return;
+        }
+        $class = $this->sees_every_entry( $arguments ) ? \Easy_MCP_AI\MCP\Plan_Refusal::class : \Easy_MCP_AI\MCP\Detailed_Tool_Error::class;
+        throw new $class(
+            'This connection cannot make the calls that put these entries back, so nothing was sent for approval. Nothing was changed.',
+            implode( '; ', $reasons ) . '.'
+        );
+    }
+
+    private function sees_every_entry( array $arguments ): bool {
+        if ( ! isset( $arguments['audit_id'] ) || '' === $arguments['audit_id'] || \current_user_can( 'easy_mcp_ai_view_all_history' ) ) {
+            return true;
+        }
+        $me = (int) \get_current_user_id();
+        foreach ( (array) ( new Change_Log_Repository() )->query( array( 'audit_id' => (int) $arguments['audit_id'] ), Rebuild_Planner::MAX_CALLS + 1, 0 ) as $row ) {
+            if ( (int) ( $row['wp_user_id'] ?? 0 ) !== $me ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public function describe( array $arguments ) {
         try {
             $out = $this->run( $arguments, true, true );
@@ -123,9 +161,10 @@ class History_Apply extends Base_Tool {
             return null;
         }
         return sprintf(
-            'This plan is %1$d characters long and the approval page shows %2$d, so it was not sent for approval: a person must see every write they approve. Apply fewer entries: one entry_id at a time, newest first. A single entry this long cannot be approved here; read it with wp_history_get and make its calls one at a time.',
+            'This plan is %1$d characters long and the approval page shows %2$d, so it was not sent for approval: a person must see every write they approve. Apply fewer entries: one entry_id at a time, newest first. A single entry this long cannot be approved here; %3$s and make its calls one at a time.',
             $length,
-            \Easy_MCP_AI\Approvals\Approval_Gate::PREVIEW_MAX
+            \Easy_MCP_AI\Approvals\Approval_Gate::PREVIEW_MAX,
+            Post_Type_Tool_Hint::may_reach( 'wp_history_get' ) ? 'read it with wp_history_get' : 'read the entry'
         );
     }
 
@@ -215,7 +254,9 @@ class History_Apply extends Base_Tool {
 
     public function execute( array $arguments ) {
         $dry_run = isset( $arguments['dry_run'] ) && \rest_sanitize_boolean( $arguments['dry_run'] );
-        return $this->run( $arguments, $dry_run );
+        $out     = $this->run( $arguments, $dry_run );
+        unset( $out['unreachable'] );
+        return $out;
     }
 
     private function run( array $arguments, $dry_run, $with_calls = false ) {
@@ -240,8 +281,9 @@ class History_Apply extends Base_Tool {
 
         $approval = ( ! $dry_run && 'redeem' === \Easy_MCP_AI\MCP\Server::current_call_approval_kind() ) ? 'skip' : null;
 
-        $entries = array();
-        $touched = array();
+        $entries     = array();
+        $unreachable = array();
+        $touched     = array();
         $stopped = false;
         foreach ( $rows as $row ) {
             $entry = array(
@@ -263,6 +305,18 @@ class History_Apply extends Base_Tool {
                     $entry['not_restored'] = $plan['not_restored'];
                 }
                 $entries[] = $entry;
+                continue;
+            }
+            $unusable = self::unusable_calls( $plan['calls'] );
+            if ( null !== $unusable ) {
+                $entry['status'] = 'refused';
+                $entry['reason'] = $unusable;
+                if ( $plan['not_restored'] ) {
+                    $entry['not_restored'] = $plan['not_restored'];
+                }
+                $entries[]     = $entry;
+                $unreachable[] = $entry['entry_id'];
+                $stopped       = null !== $plan['new_id_kind'];
                 continue;
             }
             $entry['calls'] = array_column( $plan['calls'], 'tool' );
@@ -312,11 +366,30 @@ class History_Apply extends Base_Tool {
             $summary[ $entry['status'] ] = ( $summary[ $entry['status'] ] ?? 0 ) + 1;
         }
         return array(
-            'dry_run' => $dry_run,
-            'force'   => $force,
-            'entries' => $entries,
-            'summary' => $summary,
+            'dry_run'     => $dry_run,
+            'force'       => $force,
+            'entries'     => $entries,
+            'summary'     => $summary,
+            'unreachable' => $unreachable,
         );
+    }
+
+    private static function unusable_calls( array $calls ): ?string {
+        $unusable = array();
+        foreach ( array_unique( array_column( $calls, 'tool' ) ) as $tool ) {
+            if ( false === \Easy_MCP_AI\MCP\Server::current_call_may_use( (string) $tool ) ) {
+                $unusable[] = (string) $tool;
+            }
+        }
+        if ( array() === $unusable ) {
+            return null;
+        }
+        if ( count( array_filter( $unusable, array( Post_Type_Tool_Hint::class, 'may_reach' ) ) ) === count( $unusable ) ) {
+            $scopes = array_unique( array_filter( array_map( array( \Easy_MCP_AI\OAuth\Scope_Map::class, 'scope_for_tool' ), $unusable ) ) );
+            /* translators: 1: tool names, 2: OAuth scopes */
+            return sprintf( __( 'this entry needs %1$s, which this connection cannot call: it needs the OAuth scope %2$s; ask the user to reconnect this app to the site and approve it', 'easy-mcp-ai' ), implode( ' and ', $unusable ), implode( ' ', $scopes ) );
+        }
+        return __( 'this connection cannot call the tools that put this entry back', 'easy-mcp-ai' );
     }
 
     private function run_plan( array $row, array $plan, Rebuild_Planner $planner, $approval, array $entry ) {
@@ -356,7 +429,8 @@ class History_Apply extends Base_Tool {
                 $entry['new_id'] = $new_id;
             }
             if ( isset( $call['ignored_key'] ) && in_array( $call['ignored_key'], (array) ( $payload['ignored_keys'] ?? array() ), true ) ) {
-                $entry['not_restored'][ $call['ignored_key'] ] = __( 'not registered for the REST API, so wp_update_post_meta could not write it', 'easy-mcp-ai' );
+                /* translators: %s: the tool that just ran */
+                $entry['not_restored'][ $call['ignored_key'] ] = sprintf( __( 'not registered for the REST API, so %s could not write it', 'easy-mcp-ai' ), $call['tool'] );
                 $entry['partial'] = true;
             }
         }

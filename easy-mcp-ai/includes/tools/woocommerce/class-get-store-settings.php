@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\WooCommerce;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -16,15 +17,24 @@ class Get_Store_Settings extends Base_Tool {
     const OPTIONS_LIMIT = 25;
 
     const UNUSED = array(
-        'woocommerce_tax_classes' => 'Tax classes are not a setting since WooCommerce 3.7: use wp_wc_list_tax_classes, wp_wc_create_tax_class and wp_wc_delete_tax_class.',
+        'woocommerce_tax_classes' => 'Tax classes are not a setting since WooCommerce 3.7',
     );
+
+    const UNUSED_TOOLS = array(
+        'woocommerce_tax_classes' => array( 'wp_wc_list_tax_classes', 'wp_wc_create_tax_class', 'wp_wc_delete_tax_class' ),
+    );
+
+    public static function unused_refusal( string $id ): string {
+        $tools = Post_Type_Tool_Hint::reachable_list( self::UNUSED_TOOLS[ $id ] ?? array() );
+        return self::UNUSED[ $id ] . ( '' === $tools ? '.' : ': use ' . $tools . '.' );
+    }
 
     public function get_name() {
         return 'wp_wc_get_store_settings';
     }
 
     public function get_description() {
-        return 'Reads WooCommerce store settings. Required: `group`: "general" (store address, selling and shipping countries, taxes and coupons on or off, currency, currency position, thousand and decimal separators, number of decimals), "tax" (prices entered with tax, tax based on, display) or "shipping" (shipping calculator, hide rates when free shipping is available, ship to billing or shipping address). Optional: `id` to read one setting with all its allowed values. Returns { group, settings: [{ id, label, description, type, value, options }] }; a select with more than 25 choices (currencies, countries) shows `options_count` instead of `options` unless `id` names it. Checkbox values are "yes"/"no". Change them with wp_wc_update_store_settings. Requires WooCommerce active.';
+        return 'Reads WooCommerce store settings. Required: `group`: "general" (store address, selling and shipping countries, taxes and coupons on or off, currency, currency position, thousand and decimal separators, number of decimals), "tax" (prices entered with tax, tax based on, display) or "shipping" (shipping calculator, hide rates when free shipping is available, ship to billing or shipping address). Optional: `id` to read one setting with all its allowed values. Returns { group, settings: [{ id, label, description, type, value, options }] }; a select with more than 25 choices (currencies, countries) shows `options_count` instead of `options` unless `id` names it. Checkbox values are "yes"/"no".' . ( Post_Type_Tool_Hint::may_describe( 'wp_wc_update_store_settings' ) ? ' Change them with wp_wc_update_store_settings.' : '' ) . ' Requires WooCommerce active.';
     }
 
     public function get_category() {

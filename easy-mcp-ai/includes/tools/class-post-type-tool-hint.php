@@ -124,6 +124,15 @@ final class Post_Type_Tool_Hint {
         return ! class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) || false !== \Easy_MCP_AI\MCP\Server::current_caller_may_reach( $tool );
     }
 
+    public static function reachable_list( array $tools ): string {
+        $named = array_values( array_filter( $tools, array( self::class, 'may_reach' ) ) );
+        $last  = array_pop( $named );
+        if ( null === $last ) {
+            return '';
+        }
+        return array() === $named ? $last : implode( ', ', $named ) . ' and ' . $last;
+    }
+
     private static function candidates( object $post, string $verb ): array {
         $type   = (string) $post->post_type;
         $id     = (int) $post->ID;

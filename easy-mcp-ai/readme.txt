@@ -1,10 +1,10 @@
 === Easy MCP AI – Connect Claude to WordPress: MCP Server for ChatGPT & AI Agents ===
 Contributors: easymcpai
 Tags: mcp, claude, chatgpt, wordpress-mcp, connector
-Requires at least: 6.0
+Requires at least: 6.2
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 2.5.1
+Stable tag: 2.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -245,37 +245,26 @@ Flexible SSL sends requests to your server over plain HTTP, so the OAuth sign-in
 
 == Changelog ==
 
-= 2.5.1 =
-- Fixed the add-terms reply listing every term afterwards.
-- Fixed text edits asking for the field instead of guessing wrong.
-- Fixed Rank Math llms.txt tool replying with wrong content type.
-- Fixed Elementor inserts ignoring the supplied text value.
-- Fixed text edits failing on Elementor pages with broken SVG icons.
-- Fixed WooCommerce Analytics routes missing from REST read results.
-- Fixed post tools naming the post type to send for other types.
-- Fixed user-meta tools revealing two-factor login secrets
-- Fixed refused tool calls returning as readable tool errors.
-- Fixed extra memory use on REST requests for other plugins routes.
-- Fixed Rank Math verification codes setup through the settings tool.
-- Fixed the SEOPress robots tool refusing unsupported breadcrumb fields.
-- Added Rank Math custom post type archive titles and descriptions.
-- Fixed SEOPress and TSF social images staying old after URL change.
-- Added stdin install for Claude Code token setup without command-line tokens.
-- Added updating ACF fields on taxonomy terms.
-- Fixed partial ACF updates refused for omitted required fields.
-- Fixed optional SCF fields becoming required when created through AI assistants.
-- Added author and date archive noindex settings to Yoast SEO tools.
-- Fixed REST requests failing under a Turkish PHP locale.
-- Fixed duplicating posts with empty comment or ping settings.
-- Fixed the login check offering a setup block when PHP cannot read .htaccess.
-- Fixed checks reporting an unreadable .htaccess file as missing rules
-- Fixed failed block-menu saves hiding hooked blocks on WordPress 6.5 and 6.6.
-- Added WPForms tools to trash, delete, and restore forms.
-- Added Wordfence tools for scan issues and live traffic.
-- Fixed wp_clear_cache to clear WP Compress page cache.
-- Fixed republishing pages relabelling block menus without hiding hooked blocks.
-- Added WPForms tools to delete and move fields and trash or restore forms.
-- Fixed WooCommerce and Elementor abilities staying off after install.
+= 2.5.2 =
+- Fixed Google service account key errors naming the exact signing failure cause.
+- Added tools to read and update WP Mail SMTP settings.
+- Fixed replies naming tools the connection cannot reach.
+- Fixed moving menu items that use empty links as dropdown parents.
+- Fixed menu updates clearing Avada mega-menu settings.
+- Added dry-run mode to preview Additional CSS updates before saving.
+- Fixed wp_update_theme_mod to edit Blocksy header and footer placements.
+- Fixed the dashboard explaining load failures and expired sessions clearly.
+- Fixed switched-on integrations listing tools after their plugin was deactivated.
+- Fixed inserts that silently dropped text sent in two places.
+- Fixed the dashboard showing Connected for an unfinished client approval.
+- Added Search Console tools to submit and delete sitemaps in batches.
+- Fixed ACF calls sending one field twice by name and key.
+- Added Elementor layout start for block-editor and classic drafts.
+- Fixed listing post types whose taxonomy uses the status field.
+- Fixed rate limits and sign-in lockouts never clearing on sites using LiteSpeed Caches object cache.
+- Fixed Customizer tools failing when menus contain a WPML language switcher.
+- Fixed admin screens staying empty on WordPress 6.2 to 6.5.
+- Update Dependencies
 
 [See changelog for all versions](https://easymcpai.com/changelog).
 

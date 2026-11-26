@@ -371,6 +371,8 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\Loco_Translate\\List_Files',
             'Easy_MCP_AI\\Tools\\Loco_Translate\\Get_Translations',
             'Easy_MCP_AI\\Tools\\Loco_Translate\\Update_Translations',
+            'Easy_MCP_AI\\Tools\\WP_Mail_SMTP\\Get_Settings',
+            'Easy_MCP_AI\\Tools\\WP_Mail_SMTP\\Update_Settings',
             'Easy_MCP_AI\\Tools\\Wordfence\\Get_Scan_Issues',
             'Easy_MCP_AI\\Tools\\Wordfence\\Get_Live_Traffic',
             'Easy_MCP_AI\\Tools\\BuddyPress\\List_Members',
@@ -420,6 +422,8 @@ class Tool_Registry {
             'Easy_MCP_AI\\Tools\\GSC\\List_Sitemaps',
             'Easy_MCP_AI\\Tools\\GSC\\Get_Sitemap',
             'Easy_MCP_AI\\Tools\\GSC\\Inspect_Url',
+            'Easy_MCP_AI\\Tools\\GSC\\Submit_Sitemap',
+            'Easy_MCP_AI\\Tools\\GSC\\Delete_Sitemap',
 
             'Easy_MCP_AI\\Tools\\GA\\List_Account_Summaries',
             'Easy_MCP_AI\\Tools\\GA\\Get_Property',
@@ -554,7 +558,8 @@ class Tool_Registry {
 
         );
 
-        $dirs = null === $dirs ? Tool_Directories::enabled() : $dirs;
+        $dirs_given = null !== $dirs;
+        $dirs       = null === $dirs ? Tool_Directories::enabled() : $dirs;
         foreach ( $tool_classes as $class ) {
             if ( self::is_withheld( $class ) ) {
                 continue;
@@ -568,6 +573,9 @@ class Tool_Registry {
                 continue;
             }
             if ( ! in_array( $dir, $dirs, true ) ) {
+                continue;
+            }
+            if ( ! $dirs_given && Tool_Directories::is_prerequisite_gated( $class ) ) {
                 continue;
             }
             $this->lazy_classes[] = $class;
@@ -587,6 +595,7 @@ class Tool_Registry {
         'Easy_MCP_AI\\Tools\\Smart_Slider\\',
         'Easy_MCP_AI\\Tools\\WPForms\\',
         'Easy_MCP_AI\\Tools\\Loco_Translate\\',
+        'Easy_MCP_AI\\Tools\\WP_Mail_SMTP\\',
         'Easy_MCP_AI\\Tools\\Wordfence\\',
         'Easy_MCP_AI\\Tools\\BuddyPress\\',
         'Easy_MCP_AI\\Tools\\SEO\\',

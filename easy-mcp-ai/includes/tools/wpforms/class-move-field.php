@@ -17,7 +17,7 @@ class Move_Field extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Moves one field of a WPForms form to another place, as dragging it in the WPForms builder followed by Save. WPForms\' wpforms/add-field ability puts a new field last; call this after it to place the field. Required: `form_id`, `field_id` (WPForms\' wpforms/get-form ability lists a form\'s fields) and `position`, the place the field takes counting from 1 (1 = the first field). A form with a page break, layout or repeater field is refused: move fields there in the WPForms builder. Returns { updated, form_id, field_id, position, fields, also_changed }: updated is false when the field was already there (nothing is saved), fields is the form\'s fields in their new order as WPForms stored them, and also_changed lists what WPForms\' own save changed besides the move, as paths in the form\'s data. A move on a form holding HTML is refused for an account without unfiltered_html, since WPForms would strip it from the whole form. Requires the capability WPForms requires to manage forms (manage_options by default).';
+        return 'Moves one field of a WPForms form to another place, as dragging it in the WPForms builder followed by Save. ' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_ability_wpforms_add_field' ) ? 'WPForms\' wpforms/add-field ability puts a new field last; call this after it to place the field. ' : '' ) . 'Required: `form_id`, `field_id`' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_ability_wpforms_get_form' ) ? ' (WPForms\' wpforms/get-form ability lists a form\'s fields)' : '' ) . ' and `position`, the place the field takes counting from 1 (1 = the first field). A form with a page break, layout or repeater field is refused: move fields there in the WPForms builder. Returns { updated, form_id, field_id, position, fields, also_changed }: updated is false when the field was already there (nothing is saved), fields is the form\'s fields in their new order as WPForms stored them, and also_changed lists what WPForms\' own save changed besides the move, as paths in the form\'s data. A move on a form holding HTML is refused for an account without unfiltered_html, since WPForms would strip it from the whole form. Requires the capability WPForms requires to manage forms (manage_options by default).';
     }
 
     public function get_annotations() {
@@ -40,7 +40,7 @@ class Move_Field extends Base_Tool {
                 ),
                 'field_id' => array(
                     'type'        => 'integer',
-                    'description' => 'The ID of the field to move, as WPForms\' wpforms/get-form ability lists it (WPForms numbers fields from 0).',
+                    'description' => 'The ID of the field to move' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_ability_wpforms_get_form' ) ? ', as WPForms\' wpforms/get-form ability lists it' : '' ) . ' (WPForms numbers fields from 0).',
                 ),
                 'position' => array(
                     'type'        => 'integer',

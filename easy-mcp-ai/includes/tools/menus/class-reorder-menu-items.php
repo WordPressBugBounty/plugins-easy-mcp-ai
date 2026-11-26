@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Menus;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -10,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Reorder_Menu_Items extends Base_Tool {
 
     use Menu_Item_Refusal;
+    use Menu_Item_Update;
 
     const IDS_IN_MESSAGE = 8;
 
@@ -100,18 +102,13 @@ class Reorder_Menu_Items extends Base_Tool {
         $applied = array();
         foreach ( $writes as $index => $row ) {
             try {
-                Menu_Item_Stored_Fields::around(
-                    function () use ( $row ) {
-                        return $this->rest_request(
-                            'POST',
-                            '/wp/v2/menu-items/' . $row['id'],
-                            array(
-                                'parent'     => $row['parent'],
-                                'menu_order' => $row['menu_order'],
-                            ),
-                            array( 'id' )
-                        );
-                    }
+                $this->update_menu_item(
+                    $row['id'],
+                    $current[ $row['id'] ],
+                    array(
+                        'parent'     => $row['parent'],
+                        'menu_order' => $row['menu_order'],
+                    )
                 );
                 $applied[] = $row['id'];
             } catch ( \RuntimeException $e ) {
@@ -235,7 +232,7 @@ class Reorder_Menu_Items extends Base_Tool {
         }
         $labels = array();
         foreach ( $missing as $id ) {
-            $labels[] = ( isset( $current[ $id ]['status'] ) && 'draft' === $current[ $id ]['status'] ) ? $id . ' (draft)' : (string) $id;
+            $labels[] = ( isset( $current[ $id ]['status'] ) && 'draft' === Status_Taxonomy::status_of( $current[ $id ] + array( 'id' => $id ) ) ) ? $id . ' (draft)' : (string) $id;
         }
         $this->refuse( sprintf( 'strict mode, %d item(s) of menu %d not listed: %%s.', count( $missing ), $menu_id ), $labels, 'List every item of the menu, or pass strict=false to move only the listed ones.' );
     }
@@ -355,7 +352,7 @@ class Reorder_Menu_Items extends Base_Tool {
             $this->refuse( 'you are not allowed to edit menu item(s) %s.', $denied );
         }
         if ( $unsaveable ) {
-            $this->refuse( 'WordPress will not re-save menu item(s) %s as stored.', $unsaveable, 'A custom link with an empty title or URL, or an archive link to a post type that is no longer registered, cannot be re-saved. Fix them with wp_update_menu_item first.' );
+            $this->refuse( 'WordPress will not re-save menu item(s) %s as stored.', $unsaveable, 'An archive link to a post type that is no longer registered cannot be re-saved. Fix them with wp_update_menu_item first.' );
         }
     }
 
@@ -410,7 +407,7 @@ class Reorder_Menu_Items extends Base_Tool {
                 'type'       => $item['type'] ?? '',
                 'object'     => $item['object'] ?? '',
                 'object_id'  => (int) ( $item['object_id'] ?? 0 ),
-                'status'     => $item['status'] ?? '',
+                'status'     => Status_Taxonomy::status_of( $item ) ?? '',
             );
         }
         return $out;

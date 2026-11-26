@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Pages;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -67,7 +68,7 @@ class Delete_Page extends Base_Tool {
         return sprintf(
             /* translators: 1: page title, 2: page id, 3: page status, 4: what happens */
             __( "Delete page '%1\$s' (ID %2\$d, %3\$s) — %4\$s.", 'easy-mcp-ai' ),
-            self::rest_title( $page ), $id, isset( $page['status'] ) ? $page['status'] : 'unknown',
+            self::rest_title( $page ), $id, isset( $page['status'] ) ? Status_Taxonomy::status_of( $page + array( 'id' => $id ) ) : 'unknown',
             $force ? __( 'permanently, bypassing the trash', 'easy-mcp-ai' ) : __( 'moves it to the trash', 'easy-mcp-ai' )
         );
     }

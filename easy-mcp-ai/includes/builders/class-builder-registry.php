@@ -32,6 +32,15 @@ final class Builder_Registry {
         return array() !== self::present();
     }
 
+    public static function any_writes_here(): bool {
+        foreach ( self::present() as $adapter ) {
+            if ( $adapter->writes_here() ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static function for_post( object $post ): ?Layout_Adapter {
         foreach ( self::present() as $adapter ) {
             if ( $adapter->owns( $post ) ) {

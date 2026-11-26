@@ -3,6 +3,7 @@ namespace Easy_MCP_AI\Tools\GA;
 
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\GA\GA_Client;
+use Easy_MCP_AI\MCP\Detailed_Runtime_Error;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -15,7 +16,7 @@ class Delete_Key_Event extends Base_Tool {
     public function get_name() { return 'wp_ga_delete_key_event'; }
 
     public function get_description() {
-        return 'Removes a key event (a conversion) from a Google Analytics 4 property. The event is still collected; it stops counting as a key event from now on. Give exactly one of `event_name` (e.g. "generate_lead") or `key_event` (its ID or full resource name "properties/{id}/keyEvents/{id}", from wp_ga_list_conversion_events). Returns { deleted: true, key_event } with the key event as it was. Refused when no such key event exists, and when Google marks it as not deletable. Recreate it with wp_ga_create_key_event. The configured service account needs the Editor role on the property.';
+        return 'Removes a key event (a conversion) from a Google Analytics 4 property. The event is still collected; it stops counting as a key event from now on. Give exactly one of `event_name` (e.g. "generate_lead") or `key_event` (its ID or full resource name "properties/{id}/keyEvents/{id}", from wp_ga_list_conversion_events). Returns { deleted: true, key_event } with the key event as it was, once the property\'s key events no longer list it. Refused when no such key event exists, and when Google marks it as not deletable. Recreate it with wp_ga_create_key_event. The configured service account needs the Editor role on the property.';
     }
 
     public function get_category() { return 'ga'; }
@@ -67,7 +68,7 @@ class Delete_Key_Event extends Base_Tool {
             ? self::by_resource_name( self::resource_name( $key_event, $arguments ) )
             : self::by_event_name( self::property( $arguments ), $event_name );
 
-        if ( ! preg_match( self::NAME_PATTERN, $existing['name'] ) ) {
+        if ( ! preg_match( self::NAME_PATTERN, $existing['name'], $parts ) ) {
             throw new \RuntimeException( 'Google Analytics returned an unexpected key event name; nothing was changed.' );
         }
         if ( isset( $existing['deletable'] ) && false === $existing['deletable'] ) {
@@ -78,10 +79,31 @@ class Delete_Key_Event extends Base_Tool {
         }
 
         GA_Client::edit( 'DELETE', 'https://analyticsadmin.googleapis.com/v1beta/' . $existing['name'] );
+        self::confirm_deleted( 'properties/' . $parts[1], $existing );
         return array(
             'deleted'   => true,
             'key_event' => $existing,
         );
+    }
+
+    private static function confirm_deleted( string $property, array $deleted ): void {
+        $label = isset( $deleted['eventName'] ) && is_string( $deleted['eventName'] ) ? " (\"{$deleted['eventName']}\")" : '';
+        $list = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_ga_list_conversion_events' );
+        try {
+            $left = GA_Client::key_events( $property );
+        } catch ( \RuntimeException $e ) {
+            $reason = str_ireplace(
+                array( 'Google Analytics refused the change: ', 'Google Analytics found nothing to change: ', 'Nothing was changed; retry', '; nothing was changed.' ),
+                array( 'Google Analytics refused the read: ', 'Google Analytics found nothing to read: ', 'Retry', '.' ),
+                $e->getMessage()
+            );
+            throw Detailed_Runtime_Error::fitted( "Google Analytics answered success for deleting {$deleted['name']}{$label}, but reading the key events back failed, so the delete is not confirmed: {$reason}" . ( $list ? ' Check with wp_ga_list_conversion_events.' : '' ) );
+        }
+        foreach ( $left as $event ) {
+            if ( isset( $event['name'] ) && $event['name'] === $deleted['name'] ) {
+                throw Detailed_Runtime_Error::fitted( "Google Analytics answered success, but {$deleted['name']}{$label} is still a key event on {$property}." . ( $list ? ' Check with wp_ga_list_conversion_events before retrying.' : '' ) );
+            }
+        }
     }
 
     private static function property( array $arguments ): string {

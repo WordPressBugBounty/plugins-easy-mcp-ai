@@ -33,6 +33,15 @@ abstract class Layout_Adapter {
         return null;
     }
 
+    protected static function caller_reason( string $tool ): ?string {
+        if ( ! class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) || false !== \Easy_MCP_AI\MCP\Server::current_caller_may_reach( $tool ) ) {
+            return null;
+        }
+        $status = \Easy_MCP_AI\MCP\Server::current_call_tool_status( $tool );
+        $why    = null === $status ? '' : \Easy_MCP_AI\MCP\Tool_Status::predicate( $status );
+        return '' === $why ? 'this connection cannot call it' : 'it ' . rtrim( $why, '.' );
+    }
+
     public function references( array $nodes ): array {
         unset( $nodes );
         return array();
@@ -56,9 +65,17 @@ abstract class Layout_Adapter {
         return substr( sha1( $this->id() . '|' . $post->post_modified_gmt . '|' . $this->source( $post ) ), 0, 16 );
     }
 
+    public static function unbuilt_version( object $post, string $extra = '' ): string {
+        return substr( sha1( 'none|' . $post->post_modified_gmt . '|' . $post->post_content . '|' . $extra ), 0, 16 );
+    }
+
     public function edit_refusal( object $post ): ?string {
         unset( $post );
-        return sprintf( 'Editing %1$s layouts is not available yet: it has not been checked against a live %1$s site. Read the layout with wp_get_page_layout.', $this->label() );
+        return sprintf( 'Editing %1$s layouts is not available yet: it has not been checked against a live %1$s site.%2$s', $this->label(), \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' Read the layout with wp_get_page_layout.' : '' );
+    }
+
+    public function writes_here(): bool {
+        return true;
     }
 
     public static function writes_on( string $version, array $measured, array $broken ): bool {

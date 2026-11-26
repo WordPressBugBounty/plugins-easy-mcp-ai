@@ -99,6 +99,18 @@ class Cli_Run extends Base_Tool {
         return ! self::classify( $arguments )->write;
     }
 
+    public function previews_as_caller(): bool {
+        return true;
+    }
+
+    public function precheck( array $arguments ): void {
+        $classification = self::classify( $arguments );
+        $refusal        = Router::unreachable_call( $classification );
+        if ( null !== $refusal ) {
+            throw new \Easy_MCP_AI\MCP\Plan_Refusal( 'This connection cannot make every call this command plans, so nothing was sent for approval. Nothing was changed.', $refusal );
+        }
+    }
+
     public function describe( array $arguments ) {
         $classification = self::classify( $arguments );
         return Router::describe( $classification );
@@ -126,6 +138,15 @@ class Cli_Run extends Base_Tool {
             $arguments['command'] = Redactor::mask_command( $arguments['command'] )[0];
         }
         return $arguments;
+    }
+
+    public function masked_comparisons( array $arguments, array $recorded ): array {
+        $parts = isset( $arguments['command'] ) && is_string( $arguments['command'] ) ? Redactor::readable_parts( $arguments['command'] ) : null;
+        if ( null === $parts ) {
+            return parent::masked_comparisons( $arguments, $recorded );
+        }
+        unset( $arguments['command'], $recorded['command'] );
+        return array_merge( array( array( $arguments, $recorded ) ), $parts );
     }
 
     public function execute( array $arguments ) {

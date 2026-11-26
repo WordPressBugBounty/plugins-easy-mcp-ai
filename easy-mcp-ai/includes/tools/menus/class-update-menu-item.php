@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Menus;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -144,10 +145,16 @@ class Update_Menu_Item extends Base_Tool {
             }
         }
 
+        $lent = Menu_Item_Stored_Fields::lend( $before, $request->get_params() );
+        foreach ( $lent as $param => $value ) {
+            $request->set_param( $param, $value );
+        }
         $response = Menu_Item_Stored_Fields::around(
             static function () use ( $request ) {
                 return rest_do_request( $request );
-            }
+            },
+            $request,
+            array_keys( $lent )
         );
 
         if ( $response->is_error() ) {
@@ -165,6 +172,9 @@ class Update_Menu_Item extends Base_Tool {
         );
         foreach ( self::RESULT_DEFAULTS as $field => $default ) {
             $result[ $field ] = $data[ $field ] ?? $default;
+        }
+        if ( isset( $data['status'] ) ) {
+            $result['status'] = Status_Taxonomy::status_of( $data );
         }
         $result['changed'] = self::comparable( $before ) !== self::comparable( $data );
         return $result;

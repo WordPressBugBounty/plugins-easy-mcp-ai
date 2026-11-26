@@ -38,7 +38,7 @@ trait Comment_Moderation {
     }
 
     protected function empty_trash_days() {
-        return defined( 'EMPTY_TRASH_DAYS' ) ? EMPTY_TRASH_DAYS : 30;
+        return \Easy_MCP_AI\Tools\Trash_State::empty_trash_days();
     }
 
     protected function refuse_trash_when_disabled() {

@@ -24,15 +24,12 @@ trait Package_Guard {
     }
 
     protected function refuse_unless_direct_filesystem( string $context, string $where ): void {
-        if ( ! function_exists( 'get_filesystem_method' ) ) {
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-        }
         $checks = array( array( $context, $where ) );
         if ( rtrim( str_replace( '\\', '/', $context ), '/' ) !== rtrim( str_replace( '\\', '/', (string) WP_CONTENT_DIR ), '/' ) ) {
             $checks[] = array( (string) WP_CONTENT_DIR, 'wp-content' );
         }
         foreach ( $checks as $check ) {
-            $method = get_filesystem_method( array(), $check[0] );
+            $method = Filesystem_State::method( $check[0] );
             if ( 'direct' !== $method ) {
                 throw new \RuntimeException(
                     sprintf( 'WordPress cannot write to %s directly (filesystem method "%s"). This tool requires the "direct" method: the web server user must be able to write the files.', $check[1], is_string( $method ) ? $method : 'unknown' ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped

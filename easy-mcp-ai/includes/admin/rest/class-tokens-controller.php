@@ -230,11 +230,20 @@ class Tokens_Controller extends Admin_Rest_Controller {
             $data['unattended'] = $unattended;
         }
 
-        if ( ! empty( $data ) ) {
-            $this->token_manager->update_token( (int) $row['id'], $data );
+        if ( empty( $data ) ) {
+            $fresh = $this->token_manager->get_token_by_id( (int) $row['id'] );
+            return $this->ok( array( 'token' => $this->shape( is_array( $fresh ) ? $fresh : $row ) ) );
         }
-        $fresh = $this->token_manager->get_token_by_id( (int) $row['id'] );
-        return $this->ok( array( 'token' => $this->shape( is_array( $fresh ) ? $fresh : array_merge( $row, $data ) ) ) );
+        $result = $this->token_manager->update_token( (int) $row['id'], $data );
+        if ( false === $result ) {
+            return $this->fail(
+                'easy_mcp_ai_token_update_failed',
+                \__( 'The key was not updated: the database refused the change, so it works as before. Please try again.', 'easy-mcp-ai' ),
+                500
+            );
+        }
+        $fresh = $this->written_row( $result, (int) $row['id'], array_merge( $row, $data ) );
+        return \is_wp_error( $fresh ) ? $fresh : $this->ok( array( 'token' => $this->shape( $fresh ) ) );
     }
 
     public function revoke_token( $request ) {
@@ -242,9 +251,16 @@ class Tokens_Controller extends Admin_Rest_Controller {
         if ( \is_wp_error( $row ) ) {
             return $row;
         }
-        $this->token_manager->revoke_token( (int) $row['id'] );
-        $fresh = $this->token_manager->get_token_by_id( (int) $row['id'] );
-        return $this->ok( array( 'token' => $this->shape( is_array( $fresh ) ? $fresh : array_merge( $row, array( 'is_active' => 0 ) ) ) ) );
+        $result = $this->token_manager->revoke_token( (int) $row['id'] );
+        if ( false === $result ) {
+            return $this->fail(
+                'easy_mcp_ai_token_revoke_failed',
+                \__( 'The key was not revoked: the database refused the change. Please try again.', 'easy-mcp-ai' ),
+                500
+            );
+        }
+        $fresh = $this->written_row( $result, (int) $row['id'], array_merge( $row, array( 'is_active' => 0 ) ) );
+        return \is_wp_error( $fresh ) ? $fresh : $this->ok( array( 'token' => $this->shape( $fresh ) ) );
     }
 
     public function rebind_token( $request ) {
@@ -263,8 +279,27 @@ class Tokens_Controller extends Admin_Rest_Controller {
                 500
             );
         }
-        $fresh = $this->token_manager->get_token_by_id( (int) $row['id'] );
-        return $this->ok( array( 'token' => $this->shape( is_array( $fresh ) ? $fresh : $row ) ) );
+        $fresh = $this->written_row( $result, (int) $row['id'], array_merge( $row, array( 'site_host_hash' => \Easy_MCP_AI\Site_Host::current_hash() ) ) );
+        return \is_wp_error( $fresh ) ? $fresh : $this->ok( array( 'token' => $this->shape( $fresh ) ) );
+    }
+
+    private function written_row( $result, int $id, array $fallback ) {
+        $fresh = $this->token_manager->read_token_by_id( $id );
+        if ( is_array( $fresh ) ) {
+            return $fresh;
+        }
+        if ( is_numeric( $result ) && (int) $result > 0 ) {
+            return $fallback;
+        }
+        global $wpdb;
+        if ( is_object( $wpdb ) && ! empty( $wpdb->last_error ) ) {
+            return $this->fail(
+                'easy_mcp_ai_token_unconfirmed',
+                \__( 'The change could not be confirmed: the database refused reading the key back. Reload the keys to see whether it is still there and what it allows.', 'easy-mcp-ai' ),
+                500
+            );
+        }
+        return $this->fail( 'easy_mcp_ai_token_not_found', \__( 'Token not found: it was deleted meanwhile, so nothing was changed.', 'easy-mcp-ai' ), 404 );
     }
 
     public function delete_token( $request ) {
@@ -272,7 +307,13 @@ class Tokens_Controller extends Admin_Rest_Controller {
         if ( \is_wp_error( $row ) ) {
             return $row;
         }
-        $this->token_manager->delete_token( (int) $row['id'] );
+        if ( false === $this->token_manager->delete_token( (int) $row['id'] ) ) {
+            return $this->fail(
+                'easy_mcp_ai_token_delete_failed',
+                \__( 'The key was not deleted: the database refused the delete, so it still works if it was active. Please try again.', 'easy-mcp-ai' ),
+                500
+            );
+        }
         return $this->ok( array( 'deleted' => true, 'id' => (int) $row['id'] ) );
     }
 
@@ -467,7 +508,8 @@ class Tokens_Controller extends Admin_Rest_Controller {
                 return 'expired';
             }
         }
-        return 'active';
+        $refusal = \Easy_MCP_AI\Auth\Usable_Credentials::key_refusal( $row, null === $now ? time() : (int) $now );
+        return null === $refusal ? 'active' : $refusal;
     }
 
     private static function assignable_users_query(): array {

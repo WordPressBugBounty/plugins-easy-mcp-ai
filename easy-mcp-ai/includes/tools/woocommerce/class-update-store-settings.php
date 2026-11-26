@@ -65,7 +65,7 @@ class Update_Store_Settings extends Base_Tool {
 
         foreach ( array_keys( $sent ) as $id ) {
             if ( isset( Get_Store_Settings::UNUSED[ $id ] ) ) {
-                throw new \InvalidArgumentException( Get_Store_Settings::UNUSED[ $id ] );
+                throw new \InvalidArgumentException( Get_Store_Settings::unused_refusal( $id ) );
             }
         }
         $before = Get_Store_Settings::settings_of( $this->rest_request( 'GET', '/wc/v3/settings/' . $group ) );

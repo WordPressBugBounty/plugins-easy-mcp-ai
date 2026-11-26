@@ -71,13 +71,10 @@ trait Lifecycle_Guard {
     }
 
     protected function assert_filesystem_available( string $context ) {
-        if ( 'direct' === get_filesystem_method( array(), $context ) ) {
+        if ( 'direct' === Filesystem_State::method( $context ) ) {
             return;
         }
-        ob_start();
-        $stored = request_filesystem_credentials( self_admin_url(), '', false, $context );
-        ob_end_clean();
-        if ( ! $stored ) {
+        if ( ! Filesystem_State::stored_credentials( $context ) ) {
             throw new \RuntimeException( 'Filesystem credentials required: WordPress cannot write here directly and no FTP/SSH credentials are stored (FTP_HOST, FTP_USER, FTP_PASS in wp-config.php). wp-admin would prompt; MCP cannot.' );
         }
     }
@@ -170,10 +167,10 @@ trait Lifecycle_Guard {
     }
 
     protected function redact_urls( $text ) {
-        $redacted = preg_replace_callback(
-            '~(?:\b([a-z][a-z0-9+.\-]*):)?//(?:[^\s/?#<>"\']*@)?([a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?|\[[0-9a-f:.]+\])(:\d+)?(?:(?!&\#\d+;)[^\s<>"\'])*~i',
+        $redacted = \Easy_MCP_AI\Ascii::replace_callback(
+            '~(?:(?<![a-z0-9_])([a-z][a-z0-9+.\-]*):)?//(?:[^\s/?#<>"\']*@)?([a-z0-9](?:[a-z0-9.\-]*[a-z0-9])?|\[[0-9a-f:.]+\])(:\d+)?(?:(?!&\#\d+;)[^\s<>"\'])*~',
             function ( $m ) {
-                $scheme = '' !== $m[1] ? strtolower( $m[1] ) . ':' : '';
+                $scheme = '' !== $m[1] ? \Easy_MCP_AI\Ascii::lower( $m[1] ) . ':' : '';
                 $port   = isset( $m[3] ) ? $m[3] : '';
                 return $scheme . '//' . $m[2] . $port . '/[redacted]';
             },

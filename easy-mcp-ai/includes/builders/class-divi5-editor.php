@@ -158,7 +158,7 @@ final class Divi5_Editor {
 
     private function resolve( string $key ) {
         if ( '' === $key ) {
-            return '`element` is required: the element\'s address from wp_get_page_layout, such as "0.1.2", or the `ref` of an element added earlier in the call.';
+            return '`element` is required: the element\'s address' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' from wp_get_page_layout' : '' ) . ', such as "0.1.2", or the `ref` of an element added earlier in the call.';
         }
         if ( '$' === $key[0] ) {
             $parts = explode( '.', $key );
@@ -172,7 +172,7 @@ final class Divi5_Editor {
         } else {
             $block = $this->read[ $key ] ?? null;
             if ( null === $block ) {
-                return sprintf( 'no element "%s" in this layout. Read it again with wp_get_page_layout.', $key );
+                return sprintf( 'no element "%s" in this layout.%s', $key, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' Read it again with wp_get_page_layout.' : '' );
             }
         }
         $removed = $this->removed_by( $block );
@@ -302,7 +302,7 @@ final class Divi5_Editor {
     private function insert( array $op, int $number ) {
         $type = isset( $op['element_type'] ) && is_string( $op['element_type'] ) ? trim( $op['element_type'] ) : '';
         if ( '' === $type || ! $this->rules->insertable( $type ) ) {
-            return sprintf( '`element_type` "%s" is not an element insert writes; give a module type wp_list_layout_elements lists (rows and sections are copied with duplicate).', $type );
+            return sprintf( '`element_type` "%s" is not an element insert writes; give a module type%s (rows and sections are copied with duplicate).', $type, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? ' wp_list_layout_elements lists' : '' );
         }
         if ( in_array( $type, self::CODE_MODULES, true ) ) {
             return sprintf( 'a %s holds code (HTML or script), which insert never creates; add it in the Divi Builder.', $type );
@@ -323,6 +323,10 @@ final class Divi5_Editor {
         $attrs->builderVersion = $this->version; // phpcs:ignore WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase -- Divi's own attribute name.
         $block                 = Divi5_Block::make( $type, $attrs, ! $this->rules->holds_elements( $type ) );
         $results               = array( array_merge( self::moved( 'insert', $ref['text'], $block, true ), array( 'ref' => $ref['text'] ) ) );
+        $text = ( $this->roles_of )( $type )['text'] ?? '';
+        if ( isset( $op['value'] ) && '' !== $text && isset( $op['fields'] ) && is_array( $op['fields'] ) && array_key_exists( $text, $op['fields'] ) ) {
+            return sprintf( 'the text of the new %s is sent twice, in `value` and in `fields` as "%s"; send it once.', $type, $text );
+        }
         foreach ( $this->follow( $op, $type ) as $edit ) {
             $set = $this->set_op( $block, $edit, $ref['text'] );
             if ( is_string( $set ) ) {
@@ -549,7 +553,7 @@ final class Divi5_Editor {
         }
         if ( Divi5_Rules::GLOBAL_LAYOUT === $block->name ) {
             $id = $block->get( array( 'globalModule' ) );
-            return sprintf( 'it is a global Divi element, which renders from Divi Library item %1$s; edit that item (wp_get_page_layout with post_id %1$s).', is_scalar( $id ) ? (string) $id : '?' );
+            return sprintf( 'it is a global Divi element, which renders from Divi Library item %1$s; edit that item%2$s.', is_scalar( $id ) ? (string) $id : '?', \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? sprintf( ' (wp_get_page_layout with post_id %s)', is_scalar( $id ) ? (string) $id : '?' ) : '' );
         }
         if ( Divi5_Rules::SHORTCODE_MODULE === $block->name ) {
             return 'it is a Divi 4 module kept as a shortcode inside this Divi 5 page; convert it in the Divi Builder first.';
@@ -568,11 +572,11 @@ final class Divi5_Editor {
         )[ $name ];
         $field = isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ? $op['field'] : ( ( $this->roles_of )( $block->name )[ $role ] ?? '' );
         if ( '' === $field ) {
-            return sprintf( '%s elements have no %s field; give `field` (see wp_list_layout_elements with type "%s").', $block->name, $role, $block->name );
+            return sprintf( '%s elements have no %s field; give `field`%s.', $block->name, $role, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $block->name ) : '' );
         }
         $spec = self::spec( $fields, $field );
         if ( null === $spec ) {
-            return sprintf( '%s elements have no field "%s" (see wp_list_layout_elements with type "%s").', $block->name, $field, $block->name );
+            return sprintf( '%s elements have no field "%s"%s.', $block->name, $field, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $block->name ) : '' );
         }
         $kinds = 'set_text' === $name ? array( 'text', 'html' ) : array( $role );
         if ( ! in_array( $spec['kind'] ?? '', $kinds, true ) ) {
@@ -587,7 +591,7 @@ final class Divi5_Editor {
         }
         $id = isset( $op['attachment_id'] ) && is_numeric( $op['attachment_id'] ) ? (int) $op['attachment_id'] : 0;
         if ( $id <= 0 ) {
-            return 'set_image needs `attachment_id`, the ID of an image in the media library (wp_list_media, or upload one first).';
+            return 'set_image needs `attachment_id`, the ID of an image in the media library' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_media' ) ? ' (wp_list_media, or upload one first).' : ' (upload one first if it is not there).' );
         }
         $media = ( $this->media )( $id );
         if ( null === $media ) {
@@ -641,7 +645,7 @@ final class Divi5_Editor {
             $changes[ $field ] = $checked;
         }
         if ( array() !== $problems ) {
-            return implode( '; ', $problems ) . sprintf( ' (see wp_list_layout_elements with type "%s").', $type );
+            return implode( '; ', $problems ) . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $type ) : '' ) . '.';
         }
         return $changes;
     }

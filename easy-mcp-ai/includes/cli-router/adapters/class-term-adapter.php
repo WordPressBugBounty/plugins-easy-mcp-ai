@@ -114,7 +114,7 @@ final class Term_Adapter extends Command_Handler {
 
     const NOT_A_LIST = '--%s=%s is not a list of term IDs: wp_cli_run passes only whole numbers above 0, separated by commas or spaces.';
 
-    const TEXT_REWRITTEN = '--%s=%s is not available through wp_cli_run: wp_list_terms cleans it with sanitize_text_field() into %s, so it would search for something else.';
+    const TEXT_REWRITTEN = '--%s=%s is not available through wp_cli_run: wp_list_terms cleans it with sanitize_text_field(), which would change it (for example by removing tags or percent-encoded characters, or by joining line breaks and runs of spaces), so it would search for something else.';
 
     const MIGRATE_CAP = "wp_cli_run cannot migrate a term of '%s': the migration deletes the old term, and that needs the %s capability.";
 
@@ -473,7 +473,7 @@ final class Term_Adapter extends Command_Handler {
 
     private static function query_text( string $key, string $value, array &$errors ): array {
         if ( 'search' === $key && function_exists( 'sanitize_text_field' ) && \sanitize_text_field( $value ) !== $value ) {
-            $errors[] = ' ' . sprintf( self::TEXT_REWRITTEN, $key, $value, "'" . \sanitize_text_field( $value ) . "'" );
+            $errors[] = ' ' . sprintf( self::TEXT_REWRITTEN, $key, $value );
             return array();
         }
         if ( '' === $value && in_array( $key, array( 'search', 'name__like', 'description__like' ), true ) ) {

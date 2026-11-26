@@ -48,11 +48,6 @@ class Dynamic_Tool_Registrar {
                 $description .= ' ' . $policy_note;
             }
 
-            $overlap_note = Ability_Notes::describe( $slug );
-            if ( '' !== $overlap_note ) {
-                $description .= ' ' . $overlap_note;
-            }
-
             $raw_input_schema  = method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : null;
             $raw_input_schema  = Ability_Input_Policy::strip_schema( $slug, $raw_input_schema );
             $input_needs_wrap  = self::schema_needs_value_wrapper( $raw_input_schema );

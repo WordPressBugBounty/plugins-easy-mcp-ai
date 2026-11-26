@@ -80,7 +80,7 @@ final class Preview_Values {
     }
 
     private static function is_secret_name( string $key ): bool {
-        return 1 === preg_match( \Easy_MCP_AI\MCP\Server::SENSITIVE_ARG_PATTERN, $key ) || in_array( strtolower( $key ), self::SECRET_NAMES, true );
+        return \Easy_MCP_AI\MCP\Server::is_sensitive_argument( $key ) || in_array( \Easy_MCP_AI\Ascii::lower( $key ), self::SECRET_NAMES, true );
     }
 
     public static function split( array $values ): array {

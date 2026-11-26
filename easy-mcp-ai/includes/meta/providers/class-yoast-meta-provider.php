@@ -33,6 +33,10 @@ class Yoast_Meta_Provider extends Meta_Field_Provider {
         return 'wp_yoast_update_post_seo';
     }
 
+    public function get_dedicated_tool_class(): string {
+        return Yoast_Update_Post_Seo::class;
+    }
+
     public function read_tool_for( $key ) {
         foreach ( Yoast_Get_Post_Seo::STORED_FIELDS as $field ) {
             if ( Yoast_Get_Post_Seo::META_KEYS[ $field ] === (string) $key ) {

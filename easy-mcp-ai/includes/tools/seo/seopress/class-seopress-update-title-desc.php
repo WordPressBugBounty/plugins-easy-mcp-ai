@@ -15,7 +15,7 @@ class Seopress_Update_Title_Desc extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress SEO title and/or meta description for a post or page via the seopress/v1 REST API. Only the fields you provide are changed.';
+		return 'Updates the SEOPress SEO title and/or meta description for a post or page via the seopress/v1 REST API. Only the fields you provide are changed. Returns { post_id, updated }; updated is false, with a reason, when no field was sent or SEOPress already stored these values.';
 	}
 
 	public function get_category() {
@@ -76,14 +76,27 @@ class Seopress_Update_Title_Desc extends Base_Tool {
 			$body['description'] = Seo_Text::clean( (string) $arguments['description'] );
 		}
 
+		Seopress_Stored_Meta::refuse_values_stored_as_nothing(
+			array(
+				'title'       => 'text',
+				'description' => 'textarea',
+			),
+			array(
+				'title'       => 'title',
+				'description' => 'description',
+			),
+			$body,
+			$arguments,
+			'title'
+		);
+		$keys   = array_values( array_intersect_key( array( 'title' => '_seopress_titles_title', 'description' => '_seopress_titles_desc' ), $body ) );
+		$before = Seopress_Stored_Meta::read( $post_id, $keys );
+
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/title-description-metas', $body );
 		if ( array() !== $body ) {
 			$this->clear_page_cache( array( $post_id ) );
 		}
 
-		return array(
-			'post_id' => $post_id,
-			'updated' => true,
-		);
+		return Seopress_Stored_Meta::reply( $post_id, $before );
 	}
 }

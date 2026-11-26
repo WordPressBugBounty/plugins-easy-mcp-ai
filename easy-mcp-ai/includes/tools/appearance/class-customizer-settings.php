@@ -42,6 +42,8 @@ final class Customizer_Settings {
         ', so this tool cannot run on this site. Nothing was changed.',
     );
 
+    const MENU_ITEM_SETTING_ID_PATTERN = '/^nav_menu_item\[(?P<id>-?\d+)\]$/';
+
     const MANAGER_FILE = 'class-wp-customize-manager.php';
 
     const NO_CUSTOMIZER = 'This site has no Customizer (WordPress\'s Customizer files are missing), so theme mods and Additional CSS cannot be changed with these tools. Nothing was changed.';
@@ -131,7 +133,14 @@ final class Customizer_Settings {
                 }
 
                 $GLOBALS['wp_customize'] = $manager;
-                $manager->wp_loaded();
+                $menu_filter             = empty( $manager->nav_menus ) ? null : self::leave_out_unregistrable_menu_items();
+                try {
+                    $manager->wp_loaded();
+                } finally {
+                    if ( null !== $menu_filter ) {
+                        remove_filter( 'wp_get_nav_menu_items', $menu_filter, PHP_INT_MAX );
+                    }
+                }
             } finally {
                 self::release_wp_die( $wp_die_filter );
             }
@@ -153,6 +162,25 @@ final class Customizer_Settings {
             self::restore_request();
             self::unwind_current_filter( $filter_depth );
         }
+    }
+
+    private static function leave_out_unregistrable_menu_items(): \Closure {
+        $filter = static function ( $items ) {
+            if ( ! is_array( $items ) ) {
+                return $items;
+            }
+            return array_values(
+                array_filter(
+                    $items,
+                    static function ( $item ): bool {
+                        $id = isset( $item->ID ) && is_scalar( $item->ID ) ? (string) $item->ID : '';
+                        return 1 === preg_match( self::MENU_ITEM_SETTING_ID_PATTERN, 'nav_menu_item[' . $id . ']' );
+                    }
+                )
+            );
+        };
+        add_filter( 'wp_get_nav_menu_items', $filter, PHP_INT_MAX );
+        return $filter;
     }
 
     private static function refuse_second_manager(): void {

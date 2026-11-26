@@ -60,7 +60,7 @@ final class Resolver {
         foreach ( $denied_dirs as $dir ) {
             $real = self::real_dir( (string) $dir );
             if ( null !== $real ) {
-                $this->denied_dirs[] = strtolower( $real );
+                $this->denied_dirs[] = \Easy_MCP_AI\Ascii::lower( $real );
             }
         }
         $this->include_mu_plugins = $include_mu_plugins;
@@ -191,7 +191,7 @@ final class Resolver {
     }
 
     public function denied( string $rel, string $real ): bool {
-        $segments = array_values( array_filter( explode( '/', strtolower( $rel ) ), 'strlen' ) );
+        $segments = array_values( array_filter( explode( '/', \Easy_MCP_AI\Ascii::lower( $rel ) ), 'strlen' ) );
         foreach ( $segments as $i => $segment ) {
             if ( '.' === $segment[0] ) {
                 return true;
@@ -204,7 +204,7 @@ final class Resolver {
         if ( false !== $last && ( 0 === strpos( $last, 'wp-config' ) || self::is_credential_file( $last, $real ) ) ) {
             return true;
         }
-        $real = strtolower( rtrim( $real, '/' ) . '/' );
+        $real = \Easy_MCP_AI\Ascii::lower( rtrim( $real, '/' ) . '/' );
         foreach ( $this->denied_dirs as $dir ) {
             if ( 0 === strpos( $real, $dir ) ) {
                 return true;
@@ -214,7 +214,7 @@ final class Resolver {
     }
 
     private static function is_credential_file( string $name, string $real ): bool {
-        return in_array( strtolower( $name ), self::CREDENTIAL_FILES, true ) && ! is_dir( $real );
+        return in_array( \Easy_MCP_AI\Ascii::lower( $name ), self::CREDENTIAL_FILES, true ) && ! is_dir( $real );
     }
 
     public function extensions(): array {

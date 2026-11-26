@@ -209,7 +209,7 @@ final class Unregistered_Meta {
         if ( null !== Meta_Exposure::provider_for_key( $key ) ) {
             return '';
         }
-        $lower = strtolower( $key );
+        $lower = \Easy_MCP_AI\Ascii::lower( $key );
         if ( null !== Meta_Exposure::provider_for_key( $lower ) ) {
             return self::case_reason( $key, $lower, $value, $context, $hint );
         }
@@ -349,7 +349,7 @@ final class Unregistered_Meta {
     }
 
     private static function fold( string $key ): string {
-        return strtolower( rtrim( $key, ' ' ) );
+        return \Easy_MCP_AI\Ascii::lower( rtrim( $key, ' ' ) );
     }
 
     private static function rough_fold( string $key ): string {

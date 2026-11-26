@@ -35,6 +35,8 @@ class OAuth_Controller extends Admin_Rest_Controller {
 
     private $site_move_rows = false;
 
+    private $foreign_live = null;
+
     private $tool_registry;
 
     private $availability = array();
@@ -192,12 +194,13 @@ class OAuth_Controller extends Admin_Rest_Controller {
         $tokens  = $this->wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
         $now     = \current_time( 'mysql', true );
         $document = Client_Metadata_Support::schema_ready() ? ' c.metadata_url,' : '';
+        $users = isset( $this->wpdb->users ) ? $this->wpdb->users : $this->wpdb->prefix . 'users';
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned tables; names prefixed by $wpdb->prefix.
         $rows = (array) $this->wpdb->get_results(
             $this->wpdb->prepare(
                 "SELECT c.id, c.client_id, c.client_name, c.redirect_uris, c.grant_types, c.token_endpoint_auth_method, c.client_secret_hash, c.created_at,{$document}
-                        (SELECT COUNT(*) FROM {$tokens} t WHERE t.client_id = c.client_id AND t.is_active = 1 AND t.expires_at > %s) AS active_tokens
+                        (SELECT COUNT(*) FROM {$tokens} t WHERE t.client_id = c.client_id AND t.is_active = 1 AND t.expires_at > %s AND EXISTS (SELECT 1 FROM {$users} u WHERE u.ID = t.wp_user_id)) AS active_tokens
                  FROM {$clients} c
                  WHERE c.is_active = 1
                  ORDER BY c.created_at DESC, c.id DESC
@@ -215,8 +218,9 @@ class OAuth_Controller extends Admin_Rest_Controller {
         $flagged = OAuth_Site_Move::flagged_clients( $this->site_move_rows() );
         $out     = array();
         foreach ( $rows as $row ) {
-            $row   = (array) $row;
-            $out[] = self::shape_client( $row, isset( $flagged[ (string) $row['client_id'] ] ) );
+            $row                   = (array) $row;
+            $row['foreign_tokens'] = (int) ( $row['active_tokens'] ?? 0 ) > 0 ? $this->foreign_live_tokens()['clients'][ (string) $row['client_id'] ] ?? 0 : 0;
+            $out[]                 = self::shape_client( $row, isset( $flagged[ (string) $row['client_id'] ] ) );
         }
         return $this->ok( array(
             'clients'       => $out,
@@ -233,11 +237,15 @@ class OAuth_Controller extends Admin_Rest_Controller {
         if ( '' === $client_id || ! $this->client_exists( $client_id ) ) {
             return $this->fail( 'easy_mcp_ai_client_not_found', \__( 'Client not found.', 'easy-mcp-ai' ), 404 );
         }
-        if ( ! OAuth_Admin::revoke_client( $client_id ) ) {
+        $revoked = OAuth_Admin::revoke_client( $client_id );
+        if ( \is_wp_error( $revoked ) ) {
+            return $this->fail( $revoked->get_error_code(), $revoked->get_error_message(), 500 );
+        }
+        if ( ! $revoked ) {
             if ( 0 === $this->active_client_count( $client_id ) ) {
                 return $this->fail( 'easy_mcp_ai_client_not_found', \__( 'Client not found.', 'easy-mcp-ai' ), 404 );
             }
-            return $this->fail( 'easy_mcp_ai_client_not_deleted', \__( 'The client was not deleted: a database write failed. Try again.', 'easy-mcp-ai' ), 500 );
+            return $this->fail( 'easy_mcp_ai_client_not_deleted', \__( 'The client was not deleted: the database deleted no client row, yet the client still reads as listed. Try again.', 'easy-mcp-ai' ), 500 );
         }
         return $this->ok( array( 'deleted' => true, 'clientId' => $client_id ) );
     }
@@ -279,7 +287,7 @@ class OAuth_Controller extends Admin_Rest_Controller {
             'grantTypes'   => $grants,
             'redirectUris' => array_values( array_map( 'strval', $uris ) ),
             'createdAt'    => Dashboard_Controller::iso8601( $row['created_at'] ?? null ),
-            'activeTokens' => (int) ( $row['active_tokens'] ?? 0 ),
+            'activeTokens' => self::usable_token_count( $row ),
             'status'       => 'active',
             'issuedElsewhere' => (bool) $issued_elsewhere,
             'metadataUrl'  => isset( $row['metadata_url'] ) && '' !== (string) $row['metadata_url'] ? (string) $row['metadata_url'] : null,
@@ -313,7 +321,10 @@ class OAuth_Controller extends Admin_Rest_Controller {
         if ( \is_wp_error( $row ) ) {
             return $row;
         }
-        OAuth_Admin::revoke_grant( (int) $row['consent_id'] );
+        $revoked = OAuth_Admin::revoke_grant( (int) $row['consent_id'] );
+        if ( \is_wp_error( $revoked ) ) {
+            return $this->fail( $revoked->get_error_code(), $revoked->get_error_message(), 500 );
+        }
         return $this->ok( array( 'deleted' => true, 'id' => (int) $row['consent_id'] ) );
     }
 
@@ -353,7 +364,13 @@ class OAuth_Controller extends Admin_Rest_Controller {
             );
         }
 
-        OAuth_Admin::save_scope( (int) $row['consent_id'], $scopes );
+        $saved = OAuth_Admin::save_scope( (int) $row['consent_id'], $scopes );
+        if ( \is_wp_error( $saved ) ) {
+            return $this->fail( $saved->get_error_code(), $saved->get_error_message(), 500 );
+        }
+        if ( true !== $saved ) {
+            return $this->fail( 'easy_mcp_ai_grant_not_found', \__( 'Grant not found: it was revoked meanwhile, so nothing was narrowed.', 'easy-mcp-ai' ), 404 );
+        }
 
         $fresh = $this->find_grant( $request );
         return $this->ok( array( 'grant' => $this->shape_grant( \is_wp_error( $fresh ) ? array_merge( $row, array( 'scope' => implode( ' ', $scopes ) ) ) : $fresh ) ) );
@@ -394,6 +411,9 @@ class OAuth_Controller extends Admin_Rest_Controller {
     }
 
     public function shape_grant( array $row, array $names = array(), $issued_elsewhere = false ) {
+        $row['foreign_tokens'] = (int) ( $row['active_tokens'] ?? 0 ) > 0
+            ? $this->foreign_live_tokens()['pairs'][ (string) ( $row['client_id'] ?? '' ) . ':' . (int) ( $row['wp_user_id'] ?? 0 ) ] ?? 0
+            : 0;
         $scope   = (string) ( $row['scope'] ?? '' );
         $parts   = self::scope_parts( $scope );
         list( $privileged, $ordinary ) = Privileged_Groups::split_scopes( $parts );
@@ -424,9 +444,38 @@ class OAuth_Controller extends Admin_Rest_Controller {
             'grantedAt'    => Dashboard_Controller::iso8601( $row['granted_at'] ?? null ),
             'updatedAt'    => Dashboard_Controller::iso8601( $row['updated_at'] ?? null ),
             'lastUsedAt'   => Dashboard_Controller::iso8601( $row['last_used'] ?? null ),
-            'activeTokens' => (int) ( $row['active_tokens'] ?? 0 ),
+            'activeTokens' => self::usable_token_count( $row ),
             'issuedElsewhere' => (bool) $issued_elsewhere,
         );
+    }
+
+    private static function usable_token_count( array $row ): int {
+        if ( ! \Easy_MCP_AI\Auth\Usable_Credentials::oauth_enabled() ) {
+            return 0;
+        }
+        if ( isset( $row['wp_user_id'] ) && ! \Easy_MCP_AI\Auth\Usable_Credentials::user_exists( (int) $row['wp_user_id'] ) ) {
+            return 0;
+        }
+        return max( 0, (int) ( $row['active_tokens'] ?? 0 ) - (int) ( $row['foreign_tokens'] ?? 0 ) );
+    }
+
+    private function foreign_live_tokens(): array {
+        if ( null === $this->foreign_live ) {
+            $now = \current_time( 'mysql', true );
+            $out = array( 'clients' => array(), 'pairs' => array() );
+            foreach ( (array) OAuth_Site_Move::foreign_rows( false, $this->site_move_rows() ) as $token ) {
+                if ( (string) $token['expires_at'] <= $now ) {
+                    continue;
+                }
+                $pair                  = $token['client_id'] . ':' . $token['wp_user_id'];
+                $out['pairs'][ $pair ] = ( $out['pairs'][ $pair ] ?? 0 ) + 1;
+                if ( \Easy_MCP_AI\Auth\Usable_Credentials::user_exists( (int) $token['wp_user_id'] ) ) {
+                    $out['clients'][ $token['client_id'] ] = ( $out['clients'][ $token['client_id'] ] ?? 0 ) + 1;
+                }
+            }
+            $this->foreign_live = $out;
+        }
+        return $this->foreign_live;
     }
 
     private function availability_payload( int $user_id, $stored, array $parts ): ?array {

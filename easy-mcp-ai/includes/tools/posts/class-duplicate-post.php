@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Tools\Posts;
 use Easy_MCP_AI\Drafts\Strict_Ceiling;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
 use Easy_MCP_AI\Tools\Stored_Meta;
 
@@ -138,7 +139,7 @@ class Duplicate_Post extends Base_Tool {
             'source_id'        => (int) $source->ID,
             'post_type'        => $source->post_type,
             'title'            => $fields['title'],
-            'status'           => (string) $created['status'],
+            'status'           => (string) Status_Taxonomy::status_of( $created ),
             'link'             => (string) ( $created['link'] ?? '' ),
             'copied_meta_keys' => $meta['copied'],
         );
@@ -188,7 +189,8 @@ class Duplicate_Post extends Base_Tool {
         $status = self::checked_status( $arguments, get_post_type_object( $post->post_type ) );
         $params = array( 'status' => $status );
         $this->maybe_force_draft( $params );
-        if ( 'draft' !== $params['status'] ) {
+        Status_Taxonomy::take_status( $params, (string) $post->post_type, 'draft', sprintf( 'Copies of %s items are saved as drafts', $post->post_type ), 'Send no status, or draft. Nothing was written.' );
+        if ( 'draft' !== ( $params['status'] ?? 'draft' ) ) {
             $this->refuse_switched_off_post_type_route( 'POST', $rest_base, true );
         }
         return array( $post, $rest_base, $status );
@@ -290,6 +292,9 @@ class Duplicate_Post extends Base_Tool {
                 }
             }
             $params = array_intersect_key( $params, array_flip( array_merge( $item_fields, array( 'status' ) ) ) );
+        }
+        if ( '' !== Status_Taxonomy::of( (string) $source->post_type ) ) {
+            unset( $params['status'] );
         }
 
         $terms = $this->copied_terms( $source );
@@ -610,7 +615,7 @@ class Duplicate_Post extends Base_Tool {
             return array( 'status_error' => sprintf( 'The copy was created as a draft; setting status "%1$s" failed: %2$s', $status, $e->getMessage() ) );
         }
         return array(
-            'status' => (string) $updated['status'],
+            'status' => (string) Status_Taxonomy::status_of( $updated ),
             'link'   => (string) ( $updated['link'] ?? '' ),
         );
     }

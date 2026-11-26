@@ -154,6 +154,10 @@ $headings        = array(
                 $status = __( 'Revoked', 'easy-mcp-ai' );
             } elseif ( $expired ) {
                 $status = __( 'Expired', 'easy-mcp-ai' );
+            } elseif ( ! \Easy_MCP_AI\Auth\Token_Manager::key_is_held( $token ) ) {
+                $status = __( 'Token key removed', 'easy-mcp-ai' );
+            } elseif ( \Easy_MCP_AI\Auth\Token_Manager::is_bound_elsewhere( $token ) ) {
+                $status = __( 'Refused on this site', 'easy-mcp-ai' );
             } else {
                 $status = __( 'Active', 'easy-mcp-ai' );
             }

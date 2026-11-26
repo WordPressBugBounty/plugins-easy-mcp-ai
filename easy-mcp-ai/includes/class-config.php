@@ -105,7 +105,7 @@ class Config {
     }
 
     public static function constant_name( $option ) {
-        return 'EASY_MCP_AI_' . strtoupper( self::suffix( $option ) );
+        return 'EASY_MCP_AI_' . Ascii::upper( self::suffix( $option ) );
     }
 
     public static function source( $option ) {

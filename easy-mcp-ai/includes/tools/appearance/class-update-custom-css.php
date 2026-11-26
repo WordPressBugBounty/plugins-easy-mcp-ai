@@ -14,7 +14,7 @@ class Update_Custom_Css extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Changes the active theme\'s Additional CSS through the Customizer\'s own checks. `mode`: `replace` (default) overwrites it all, `append` adds to the end. Only the active theme\'s CSS can be changed (read any theme\'s with wp_get_custom_css). CSS containing part of a `</style>` tag is refused and nothing is saved. Requires the edit_css capability (on multisite, super admins only). Every save keeps a revision. Returns { stylesheet, mode, post_id, revision_id, length }.';
+        return 'Changes the active theme\'s Additional CSS through the Customizer\'s own checks. `mode`: `replace` (default) overwrites it all, `append` adds to the end. Only the active theme\'s CSS can be changed (read any theme\'s with wp_get_custom_css). CSS containing part of a `</style>` tag is refused and nothing is saved. Requires the edit_css capability (on multisite, super admins only). Every save keeps a revision. Returns { changed, stylesheet, mode, post_id, revision_id, length }; `changed` is false when WordPress stored the same CSS (and a preprocessor plugin\'s source) as before. `dry_run: true` runs the same checks and saves nothing: { dry_run: true, saved: false, stylesheet, mode, post_id, changed, length }, where `changed` says whether saving would change the CSS and `length` is that of the CSS it would save.';
     }
 
     public function get_category() {
@@ -52,9 +52,26 @@ class Update_Custom_Css extends Base_Tool {
                     'type'        => 'string',
                     'description' => 'Optional. Must be the active theme\'s folder name if given; other themes are refused.',
                 ),
+                'dry_run'    => array(
+                    'type'        => 'boolean',
+                    'description' => 'When true, check the CSS as a save would and report the result without saving. Default false.',
+                    'default'     => false,
+                ),
             ),
             'required'   => array( 'css' ),
         );
+    }
+
+    public function get_approval_policy( array $arguments ) {
+        return self::is_dry_run( $arguments ) ? 'never' : 'inherit';
+    }
+
+    public function is_read_only_call( array $arguments ) {
+        return self::is_dry_run( $arguments );
+    }
+
+    private static function is_dry_run( array $arguments ): bool {
+        return isset( $arguments['dry_run'] ) && rest_is_boolean( $arguments['dry_run'] ) && rest_sanitize_boolean( $arguments['dry_run'] );
     }
 
     public function approval_details( array $arguments ): ?array {
@@ -97,10 +114,12 @@ class Update_Custom_Css extends Base_Tool {
             }
         }
 
+        $dry_run = self::boolean_arg( $arguments, 'dry_run', false, 'Nothing was changed.' );
+
         Customizer_Settings::assert_can_customize();
 
         return Customizer_Settings::with_manager(
-            static function ( $manager ) use ( $css, $mode, $active ) {
+            static function ( $manager ) use ( $css, $mode, $active, $dry_run ) {
                 $id      = sprintf( 'custom_css[%s]', $active );
                 $setting = $manager->get_setting( $id );
                 if ( ! $setting ) {
@@ -113,12 +132,26 @@ class Update_Custom_Css extends Base_Tool {
                     throw new \RuntimeException( 'Additional CSS belongs to a theme feature the active theme does not support, so the Customizer does not offer it.' );
                 }
 
-                $value = $css;
-                if ( 'append' === $mode ) {
-                    $existing = (string) $setting->value();
-                    $value    = '' === $existing ? $css : $existing . "\n" . $css;
+                $existing = 'append' === $mode || $dry_run ? (string) $setting->value() : '';
+                $value    = 'append' === $mode && '' !== $existing ? $existing . "\n" . $css : $css;
+
+                if ( $dry_run ) {
+                    Customizer_Settings::validate_value( $manager, $setting, $value );
+                    $sanitized = $setting->sanitize( $value );
+                    $stored    = empty( $sanitized ) ? '' : (string) $sanitized;
+                    $post   = wp_get_custom_css_post( $active );
+                    return array(
+                        'dry_run'    => true,
+                        'saved'      => false,
+                        'stylesheet' => $active,
+                        'mode'       => $mode,
+                        'post_id'    => $post ? (int) $post->ID : null,
+                        'changed'    => $stored !== $existing,
+                        'length'     => strlen( $stored ),
+                    );
                 }
 
+                $before        = self::stored_css( wp_get_custom_css_post( $active ) );
                 $saved_post_id = 0;
                 $listener      = static function ( $post_id ) use ( &$saved_post_id ) {
                     $saved_post_id = (int) $post_id;
@@ -143,6 +176,7 @@ class Update_Custom_Css extends Base_Tool {
                 $post = get_post( $saved_post_id );
 
                 return array(
+                    'changed'     => self::stored_css( $post ) !== $before,
                     'stylesheet'  => $active,
                     'mode'        => $mode,
                     'post_id'     => $saved_post_id,
@@ -150,6 +184,16 @@ class Update_Custom_Css extends Base_Tool {
                     'length'      => $post ? strlen( (string) $post->post_content ) : 0,
                 );
             }
+        );
+    }
+
+    private static function stored_css( $post ): array {
+        if ( ! is_object( $post ) ) {
+            return array( '', '' );
+        }
+        return array(
+            isset( $post->post_content ) ? (string) $post->post_content : '',
+            isset( $post->post_content_filtered ) ? (string) $post->post_content_filtered : '',
         );
     }
 }

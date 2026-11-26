@@ -55,6 +55,7 @@ abstract class Base_Tool {
             'wp_smartslider_' => 'Smart Slider',
             'wp_wpforms_'  => 'WPForms',
             'wp_loco_'     => 'Loco Translate',
+            'wp_mailsmtp_' => 'WP Mail SMTP',
             'wp_wordfence_' => 'Wordfence',
             'wp_yoast_'    => 'Yoast',
             'wp_rm_'       => 'Rank Math',
@@ -138,6 +139,14 @@ abstract class Base_Tool {
 
     public function redact_for_record( array $arguments ) {
         return $arguments;
+    }
+
+    public function previews_as_caller(): bool {
+        return false;
+    }
+
+    public function masked_comparisons( array $arguments, array $recorded ): array {
+        return array( array( $arguments, $recorded ) );
     }
 
     public function describe( array $arguments ) {
@@ -617,13 +626,22 @@ abstract class Base_Tool {
         if ( null === $adapter ) {
             return;
         }
+        $refusal = '';
         if ( $content && ! $adapter->renders_post_content( $post ) && ! $adapter->released_by( $meta ) ) {
-            throw new \InvalidArgumentException( sprintf( 'Post %d is built with %s, which shows its own layout, not the post content, so this content edit would not appear. Edit the layout with wp_update_page_layout.', $post_id, $adapter->label() ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            $refusal = sprintf( 'Post %d is built with %s, which shows its own layout, not the post content, so this content edit would not appear.', $post_id, $adapter->label() );
+        } else {
+            $layout = self::split_layout_meta( $meta, $adapter->layout_meta_keys() )[1];
+            if ( array() !== $layout ) {
+                $refusal = sprintf( 'Post %d is built with %s: writing %s directly leaves the page showing its old layout.', $post_id, $adapter->label(), implode( ', ', $layout ) );
+            }
         }
-        $layout = self::split_layout_meta( $meta, $adapter->layout_meta_keys() )[1];
-        if ( array() !== $layout ) {
-            throw new \InvalidArgumentException( sprintf( 'Post %d is built with %s: writing %s directly leaves the page showing its old layout. Edit the layout with wp_update_page_layout.', $post_id, $adapter->label(), implode( ', ', $layout ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        if ( '' === $refusal ) {
+            return;
         }
+        if ( Post_Type_Tool_Hint::may_reach( 'wp_update_page_layout' ) ) {
+            $refusal .= ' Edit the layout with wp_update_page_layout.';
+        }
+        throw new \InvalidArgumentException( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
     }
 
     protected static function split_layout_meta( array $meta, array $layout_keys ): array {
@@ -642,10 +660,18 @@ abstract class Base_Tool {
         if ( array() === $left_out ) {
             return array( 'meta' => $meta );
         }
+        $reads = array();
+        if ( Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ) {
+            $reads[] = 'the layout with wp_get_page_layout';
+        }
+        if ( Post_Type_Tool_Hint::may_reach( 'wp_get_post_meta' ) ) {
+            $reads[] = sprintf( 'the raw value with wp_get_post_meta (key %1$s, post_type %2$s)', implode( ' or ', $left_out ), $rest_base );
+        }
+        $note = sprintf( 'Left out of meta: %s, the page builder\'s stored layout.', implode( ', ', $left_out ) );
         return array(
             'meta'               => $kept,
             'meta_left_out'      => $left_out,
-            'meta_left_out_note' => sprintf( 'Left out of meta: %1$s, the page builder\'s stored layout. Read the layout with wp_get_page_layout, or the raw value with wp_get_post_meta (key %2$s, post_type %3$s).', implode( ', ', $left_out ), implode( ' or ', $left_out ), $rest_base ),
+            'meta_left_out_note' => array() === $reads ? $note : $note . ' Read ' . implode( ', or ', $reads ) . '.',
         );
     }
 
@@ -1283,12 +1309,12 @@ abstract class Base_Tool {
         throw new \Easy_MCP_AI\MCP\Detailed_Tool_Error( // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             sprintf( '%1$s "%2$s" already exists (ID %3$d). Nothing was changed.', ucfirst( $noun ), $label, $id ),
             sprintf(
-                'Existing %1$s %2$d%3$s. %4$s To create a second %1$s with the same name anyway, call this tool again with `allow_duplicate` set to true. Use `%5$s` with `search` to see every match.',
+                'Existing %1$s %2$d%3$s. %4$s To create a second %1$s with the same name anyway, call this tool again with `allow_duplicate` set to true.%5$s',
                 $noun,
                 $id,
                 $details ? ' (' . implode( ', ', $details ) . ')' : '',
                 $usage,
-                $list_tool
+                Post_Type_Tool_Hint::may_reach( $list_tool ) ? sprintf( ' Use `%s` with `search` to see every match.', $list_tool ) : ''
             )
         );
     }

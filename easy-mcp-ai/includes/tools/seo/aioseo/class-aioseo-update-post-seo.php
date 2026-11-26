@@ -101,15 +101,7 @@ class Aioseo_Update_Post_Seo extends Base_Tool {
 
 		$aioseo_instance = aioseo();
 
-		$rest_in_core = ( defined( 'AIOSEO_VERSION' ) && version_compare( AIOSEO_VERSION, '4.9.8', '>=' ) )
-			|| ( $aioseo_instance && isset( $aioseo_instance->version ) && version_compare( (string) $aioseo_instance->version, '4.9.8', '>=' ) );
-
-		$addon_active = $aioseo_instance
-			&& isset( $aioseo_instance->addons )
-			&& method_exists( $aioseo_instance->addons, 'isAddonActive' )
-			&& $aioseo_instance->addons->isAddonActive( 'aioseo-rest-api' );
-
-		if ( ! $rest_in_core && ! $addon_active ) {
+		if ( \Easy_MCP_AI\Tools\Integration_State::aioseo_rest_writes_unavailable() ) {
 			$plan = 'free';
 			if ( $aioseo_instance && isset( $aioseo_instance->license ) ) {
 				$license = $aioseo_instance->license;

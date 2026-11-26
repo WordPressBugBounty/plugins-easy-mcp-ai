@@ -158,7 +158,7 @@ class Device_Verification {
 
         return $this->render_result(
             true,
-            __( 'Device connected', 'easy-mcp-ai' ),
+            __( 'Device approved', 'easy-mcp-ai' ),
             __( 'You can close this page and return to the application. It will finish connecting on its own within a few seconds.', 'easy-mcp-ai' )
         );
     }

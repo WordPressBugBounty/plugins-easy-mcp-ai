@@ -17,7 +17,7 @@ class Check_Discovery {
             $mirrors = array();
             $roots   = array();
             foreach ( self::mirror_urls() as $name => $url ) {
-                $mirrors[ $name ] = self::probe( $url );
+                $mirrors[ $name ] = self::read_mirror( $url, self::MIRROR_ROUTE . $name );
             }
             $slashed = array();
             foreach ( self::root_urls() as $name => $url ) {
@@ -28,9 +28,9 @@ class Check_Discovery {
             }
             foreach ( self::mirror_urls() as $name => $url ) {
                 if ( self::needs_second_read( $mirrors[ $name ] ?? null, $roots[ $name ] ?? null, $slashed[ $name ] ?? null ) ) {
-                    $again = self::probe( $url );
+                    $again = self::probe( $mirrors[ $name ]['read_url'] ?? $url );
                     if ( self::is_our_document( $again ) && self::only_self_changing_keys_differ( $mirrors[ $name ], $again ) ) {
-                        $mirrors[ $name ] = $again;
+                        $mirrors[ $name ] = $again + array_intersect_key( $mirrors[ $name ], array_flip( array( 'read_url', 'pretty_status' ) ) );
                     }
                 }
             }
@@ -190,9 +190,46 @@ class Check_Discovery {
 
     public static function mirror_urls() {
         return array(
-            'oauth-protected-resource'   => \rest_url( 'easy-mcp-ai/v1/discovery/oauth-protected-resource' ),
-            'oauth-authorization-server' => \rest_url( 'easy-mcp-ai/v1/discovery/oauth-authorization-server' ),
+            'oauth-protected-resource'   => \rest_url( self::MIRROR_ROUTE . 'oauth-protected-resource' ),
+            'oauth-authorization-server' => \rest_url( self::MIRROR_ROUTE . 'oauth-authorization-server' ),
         );
+    }
+
+    const MIRROR_ROUTE = 'easy-mcp-ai/v1/discovery/';
+
+    public static function copy_url( string $name, array $evidence ): string {
+        $url = self::mirror_urls()[ $name ];
+        if ( isset( $evidence[ $name . '_mirror_read' ] ) && 'rest_route' === $evidence[ $name . '_mirror_read' ] ) {
+            $form = \Easy_MCP_AI\Rest_Route_Form::of( $url, self::MIRROR_ROUTE . $name );
+            if ( '' !== $form ) {
+                return $form;
+            }
+        }
+        return $url;
+    }
+
+    private static function read_mirror( string $url, string $route ): ?array {
+        $first = self::probe( $url );
+        if ( ! self::wants_rest_route_retry( $first ) ) {
+            return $first;
+        }
+        $form = \Easy_MCP_AI\Rest_Route_Form::of( $url, $route );
+        if ( '' === $form ) {
+            return $first;
+        }
+        $second = self::probe( $form );
+        if ( self::is_our_document( $second ) ) {
+            return $second + array( 'read_url' => $form, 'pretty_status' => (int) $first['status'] );
+        }
+        return $first + array( 'rest_route_status' => is_array( $second ) ? (int) $second['status'] : 'no response' );
+    }
+
+    public static function wants_rest_route_retry( $result ): bool {
+        if ( ! is_array( $result ) || (int) $result['status'] < 400 || (int) $result['status'] >= 500 || self::is_our_document( $result ) ) {
+            return false;
+        }
+        $data = json_decode( (string) $result['body'], true );
+        return ! ( is_array( $data ) && isset( $data['code'], $data['message'] ) && is_string( $data['code'] ) );
     }
 
     public static function sign_in_fields_that_differ( array $root, array $mirror ) {
@@ -264,7 +301,15 @@ class Check_Discovery {
 
             if ( ! self::is_our_document( $mirror ) ) {
                 $evidence[ $name . '_mirror' ] = is_array( $mirror ) ? $mirror['status'] : 'no response';
+                if ( is_array( $mirror ) && isset( $mirror['rest_route_status'] ) ) {
+                    $evidence[ $name . '_mirror_rest_route' ] = $mirror['rest_route_status'];
+                }
                 continue;
+            }
+            if ( isset( $mirror['pretty_status'] ) ) {
+                $evidence[ $name . '_mirror' ]            = $mirror['pretty_status'];
+                $evidence[ $name . '_mirror_rest_route' ] = (int) $mirror['status'];
+                $evidence[ $name . '_mirror_read' ] = 'rest_route';
             }
             ++$measured;
 

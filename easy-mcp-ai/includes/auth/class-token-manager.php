@@ -134,7 +134,7 @@ class Token_Manager {
         $cache_key  = self::cache_key( $token_hash );
         $cached     = wp_cache_get( $cache_key, 'easy_mcp_ai' );
         if ( false !== $cached ) {
-            if ( empty( $cached['expires_at'] ) || strtotime( $cached['expires_at'] . ' UTC' ) >= time() ) {
+            if ( self::key_is_live( $cached, time() ) ) {
                 return $this->refuse_unless_bound_here( $cached );
             }
             return false;
@@ -145,7 +145,7 @@ class Token_Manager {
         if ( ! $token ) {
             return false;
         }
-        if ( ! empty( $token['expires_at'] ) && strtotime( $token['expires_at'] . ' UTC' ) < time() ) {
+        if ( ! self::key_is_live( $token, time() ) ) {
             return false;
         }
         \wp_cache_set( $cache_key, $token, 'easy_mcp_ai', 60 );
@@ -153,15 +153,29 @@ class Token_Manager {
         return $this->refuse_unless_bound_here( $token );
     }
 
+    public static function key_is_live( array $row, int $now ): bool {
+        return empty( $row['expires_at'] ) || ! ( strtotime( $row['expires_at'] . ' UTC' ) < $now );
+    }
+
+    public static function key_id_of( array $row ): string {
+        $prefix = isset( $row['token_prefix'] ) ? (string) $row['token_prefix'] : '';
+        if ( 1 !== preg_match( '/^' . preg_quote( self::TOKEN_PREFIX, '/' ) . '(' . Token_Keys::ID_FRAGMENT . ')_/', $prefix, $m ) ) {
+            return '';
+        }
+        return $m[1];
+    }
+
+    public static function key_is_held( array $row ): bool {
+        $key_id = self::key_id_of( $row );
+        return '' === $key_id || Token_Keys::has_key( $key_id );
+    }
+
     public function get_last_validation_error() {
         return $this->last_validation_error;
     }
 
     private function refuse_unless_bound_here( array $token ) {
-        if ( ! array_key_exists( 'site_host_hash', $token ) ) {
-            return $token;
-        }
-        if ( \Easy_MCP_AI\Site_Host::matches_hash( $token['site_host_hash'] ) ) {
+        if ( ! self::is_bound_elsewhere( $token ) ) {
             return $token;
         }
         $this->last_validation_error = new \WP_Error(
@@ -204,12 +218,16 @@ class Token_Manager {
         if ( false !== $cached ) {
             return $cached;
         }
+        return $this->read_token_by_id( $token_id );
+    }
+
+    public function read_token_by_id( $token_id ) {
         global $wpdb;
         $table = esc_sql( $wpdb->prefix . 'easy_mcp_ai_tokens' );
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- cached above; table name is plugin-controlled, not user input.
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- cached below; table name is plugin-controlled, not user input.
         $token = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE id = %d", absint( $token_id ) ), ARRAY_A );
         if ( null !== $token ) {
-            \wp_cache_set( $cache_key, $token, 'easy_mcp_ai', 60 );
+            \wp_cache_set( 'token_id_' . absint( $token_id ), $token, 'easy_mcp_ai', 60 );
         }
         return $token;
     }

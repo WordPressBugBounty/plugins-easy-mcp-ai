@@ -229,17 +229,21 @@ class List_Menu_Items extends Base_Tool {
     }
 
     public static function unsaveable( array $item ): bool {
-        $type = isset( $item['type'] ) ? (string) $item['type'] : '';
-        if ( 'custom' === $type ) {
-            $title = '';
-            if ( isset( $item['title'] ) ) {
-                $title = is_array( $item['title'] ) ? (string) ( $item['title']['raw'] ?? '' ) : (string) $item['title'];
-            }
-            return '' === $title || empty( $item['url'] );
+        if ( 'post_type_archive' !== ( $item['type'] ?? '' ) ) {
+            return false;
         }
-        if ( 'post_type_archive' === $type ) {
-            return ! post_type_exists( isset( $item['object'] ) ? (string) $item['object'] : '' );
+        return ! post_type_exists( isset( $item['object'] ) ? (string) $item['object'] : '' );
+    }
+
+    public static function shows_no_url( array $item ): bool {
+        return 'custom' === ( $item['type'] ?? '' ) && empty( $item['url'] );
+    }
+
+    public static function shows_no_title( array $item ): bool {
+        if ( 'custom' !== ( $item['type'] ?? '' ) ) {
+            return false;
         }
-        return false;
+        $title = $item['title'] ?? '';
+        return '' === ( is_array( $title ) ? (string) ( $title['raw'] ?? '' ) : (string) $title );
     }
 }

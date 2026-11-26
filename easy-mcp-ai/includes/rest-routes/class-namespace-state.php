@@ -17,7 +17,7 @@ final class Namespace_State {
     const STRICT_ENTRY = '*';
 
     public static function normalize( string $namespace ): string {
-        return strtolower( trim( trim( $namespace ), '/' ) );
+        return \Easy_MCP_AI\Ascii::lower( trim( trim( $namespace ), '/' ) );
     }
 
     public static function override_source(): string {
@@ -60,7 +60,7 @@ final class Namespace_State {
             if ( ! is_string( $entry ) ) {
                 return null;
             }
-            $entry = self::normalize( $entry );
+            $entry = self::normalize( strtr( $entry, "\xFD", 'i' ) );
             if ( '' !== $entry ) {
                 $off[] = $entry;
             }

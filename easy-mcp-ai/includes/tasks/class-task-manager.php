@@ -178,7 +178,15 @@ class Task_Manager {
                     $this->server->call_tool_for_task( $cancel_tool, array( 'job_id' => (string) $row['job_id'] ), $token_id, $allowed_tools );
                 }
             }
-            $this->finish( $row, 'cancelled', 'Cancelled by the client.', null, null );
+            if ( ! $this->finish( $row, 'cancelled', 'Cancelled by the client.', null, null ) ) {
+                $fresh = $this->store->find( $row['task_id'] );
+                if ( ! is_array( $fresh ) ) {
+                    return JSON_RPC::error_response( $id, Error_Codes::INTERNAL_ERROR, 'Failed to cancel task: the database could not confirm the cancellation, so the task may still be working. Please try again.' );
+                }
+                if ( 'working' === $fresh['status'] ) {
+                    return JSON_RPC::error_response( $id, Error_Codes::INTERNAL_ERROR, 'Failed to cancel task: the database refused the change, so the task is still working. Please try again.' );
+                }
+            }
         }
         return JSON_RPC::success_response( $id, array() );
     }
@@ -352,10 +360,11 @@ class Task_Manager {
             ) );
         }
         if ( ! $this->store->update_working( $row['task_id'], $fields, $lock ) ) {
-            return;
+            return false;
         }
         Task_Scheduler::clear( $row['task_id'] );
         $this->server->audit_task_event( (int) $row['token_id'], '_task_' . $status, array( 'task_id' => $row['task_id'], 'tool' => $row['tool_name'] ) );
+        return true;
     }
 
     private function schedule( $task_id, $delay ) {

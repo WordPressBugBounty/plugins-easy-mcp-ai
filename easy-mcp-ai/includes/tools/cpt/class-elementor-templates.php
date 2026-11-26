@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\CPT;
 
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -13,7 +14,7 @@ final class Elementor_Templates {
 
     const TYPE_META = '_elementor_template_type';
 
-    const ADMIN_ONLY = 'Elementor lets only administrators reach its templates through the REST API. wp_update_page_layout edits a template\'s layout for anyone who may edit it. Nothing was changed.';
+    const ADMIN_ONLY = 'Elementor lets only administrators reach its templates through the REST API.%s Nothing was changed.';
 
     const KIT = 'Item %d is Elementor\'s Site Settings (kit), which Elementor deletes only after its own confirmation in wp-admin. Nothing was deleted.';
 
@@ -24,7 +25,11 @@ final class Elementor_Templates {
             || current_user_can( 'manage_options' ) ) {
             return;
         }
-        throw new \RuntimeException( self::ADMIN_ONLY );
+        throw new \RuntimeException( self::admin_only() );
+    }
+
+    public static function admin_only(): string {
+        return sprintf( self::ADMIN_ONLY, Post_Type_Tool_Hint::may_reach( 'wp_update_page_layout' ) ? ' wp_update_page_layout edits a template\'s layout for anyone who may edit it.' : '' );
     }
 
     public static function refuse_kit_delete( string $rest_base, int $id ): void {

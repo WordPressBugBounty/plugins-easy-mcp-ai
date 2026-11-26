@@ -85,6 +85,13 @@ class Slimseo_Update_Post_Seo extends Base_Tool {
 			throw new \RuntimeException( 'You do not have permission to edit this post.' );
 		}
 
+		$urls = array();
+		foreach ( array( 'facebook_image', 'twitter_image', 'canonical' ) as $field ) {
+			if ( isset( $arguments[ $field ] ) ) {
+				$urls[ $field ] = Seo_Url::to_send( $field, $arguments[ $field ] );
+			}
+		}
+
 		$base = $this->resolve_post_rest_base( $post_id );
 
 		$current = $this->rest_request( 'GET', '/wp/v2/' . $base . '/' . $post_id, array( '_fields' => 'meta.slim_seo' ) );
@@ -100,12 +107,7 @@ class Slimseo_Update_Post_Seo extends Base_Tool {
 			}
 		}
 
-		$url_fields = array( 'facebook_image', 'twitter_image', 'canonical' );
-		foreach ( $url_fields as $field ) {
-			if ( isset( $arguments[ $field ] ) ) {
-				$merged[ $field ] = esc_url_raw( (string) $arguments[ $field ] );
-			}
-		}
+		$merged = array_merge( $merged, $urls );
 
 		if ( isset( $arguments['noindex'] ) ) {
 			$merged['noindex'] = (bool) $arguments['noindex'];

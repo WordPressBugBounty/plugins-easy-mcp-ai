@@ -72,6 +72,36 @@ final class Router {
         return self::plan_pauses( $c->plan ) ? 'always' : 'never';
     }
 
+    public static function unreachable_call( Classification $c ): ?string {
+        if ( 'delegate' !== $c->kind || null === $c->invocation ) {
+            return null;
+        }
+        if ( null === $c->plan ) {
+            $needed = $c->write ? array_values( array_filter( $c->tools, array( self::class, 'writes' ) ) ) : $c->tools;
+            foreach ( $needed as $tool ) {
+                if ( false !== \Easy_MCP_AI\MCP\Server::current_call_may_use( $tool ) ) {
+                    return null;
+                }
+            }
+            return array() === $needed ? null : Fetchers::tool_unavailable( new Context( new Output() ), $c->invocation->command, $needed[0] );
+        }
+        foreach ( array_unique( array_column( $c->plan, 'tool' ) ) as $tool ) {
+            if ( 'wp_cli_run' !== $tool && false === \Easy_MCP_AI\MCP\Server::current_call_may_use( (string) $tool ) ) {
+                return Fetchers::tool_unavailable( new Context( new Output() ), $c->invocation->command, (string) $tool );
+            }
+        }
+        return null;
+    }
+
+    private static function writes( string $name ): bool {
+        $tool = self::tool( $name );
+        if ( ! is_object( $tool ) || ! method_exists( $tool, 'get_annotations' ) ) {
+            return true;
+        }
+        $annotations = (array) $tool->get_annotations();
+        return empty( $annotations['readOnlyHint'] );
+    }
+
     private static function plan_pauses( array $plan ): bool {
         foreach ( $plan as $call ) {
             $tool = self::tool( (string) $call['tool'] );
@@ -220,7 +250,8 @@ final class Router {
     private static function cache_key( string $command ): string {
         $user = function_exists( 'get_current_user_id' ) ? (int) \get_current_user_id() : 0;
         $blog = function_exists( 'get_current_blog_id' ) ? (int) \get_current_blog_id() : 0;
-        return $user . ':' . $blog . ':' . $command;
+        $caller = class_exists( '\\Easy_MCP_AI\\MCP\\Server', false ) && method_exists( '\\Easy_MCP_AI\\MCP\\Server', 'current_caller_key' ) ? \Easy_MCP_AI\MCP\Server::current_caller_key() : '';
+        return $user . ':' . $blog . ':' . $caller . ':' . $command;
     }
 
     private static function build( string $command ): Classification {

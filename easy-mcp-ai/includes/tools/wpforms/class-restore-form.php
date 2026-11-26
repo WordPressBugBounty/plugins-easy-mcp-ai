@@ -18,7 +18,7 @@ class Restore_Form extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Restores a WPForms form (or form template) from the trash, as Restore under WPForms › All Forms › Trash: WPForms publishes it again, with its fields, settings and entries as they were, and pages that embed it show it again. Required: `form_id` (WPForms\' wpforms/list-forms ability lists trashed forms with status "trash"). A form that is not in the trash is refused naming its status. Returns { restored: true, status: "publish", form: { id, title } }. Requires the capability WPForms requires to manage forms (manage_options by default).';
+        return 'Restores a WPForms form (or form template) from the trash, as Restore under WPForms › All Forms › Trash: WPForms publishes it again, with its fields, settings and entries as they were, and pages that embed it show it again. Required: `form_id`' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_ability_wpforms_list_forms' ) ? ' (WPForms\' wpforms/list-forms ability lists trashed forms with status "trash")' : '' ) . '. A form that is not in the trash is refused naming its status. Returns { restored: true, status: "publish", form: { id, title } }. Requires the capability WPForms requires to manage forms (manage_options by default).';
     }
 
     public function get_annotations() {

@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Tools\Pages;
 use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\CPT\List_CPT_Items;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -106,6 +107,10 @@ class List_Pages extends Base_Tool {
         );
         $schema['properties'] += Translation_Read::properties();
         return $schema;
+    }
+
+    public function precheck( array $arguments ): void {
+        Status_Taxonomy::refuse_unlistable( 'page', self::status_and_paging_params( $arguments )['status'] ?? null );
     }
 
     public function execute( array $arguments ) {
@@ -230,7 +235,7 @@ class List_Pages extends Base_Tool {
         $row = array(
             'id'         => $page['id'],
             'title'      => wp_strip_all_tags( $page['title']['rendered'] ),
-            'status'     => $page['status'],
+            'status'     => Status_Taxonomy::status_of( $page ),
             'date'       => $page['date'],
             'modified'   => $page['modified'],
             'slug'       => $page['slug'],

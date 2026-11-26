@@ -108,7 +108,7 @@ class Blocker_Copy {
                 $copy = array(
                     __( 'No working token or OAuth grant', 'easy-mcp-ai' ),
                     __( 'there’s no working token or OAuth grant', 'easy-mcp-ai' ),
-                    __( 'Every API token and OAuth grant has expired or been revoked.', 'easy-mcp-ai' ),
+                    __( 'Every API token and OAuth grant has expired, been revoked or was issued for a previous site address, or a client was approved but never finished connecting.', 'easy-mcp-ai' ),
                     __( 'Create a new API token, or reconnect your AI client to issue a fresh OAuth grant.', 'easy-mcp-ai' ),
                 );
                 break;

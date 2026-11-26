@@ -17,6 +17,7 @@ class Approval_Gate {
     const REQUEST_KEY = 'approve';
     const FORM_PROTOCOL = '2026-07-28';
     const META_KEY = 'easy-mcp-ai/approval';
+    const INNER_TOOLS_META = 'easy-mcp-ai/inner_tools';
     const PREVIEW_MAX = 2000;
     const DETAILS_MAX = 200000;
 
@@ -50,7 +51,7 @@ class Approval_Gate {
             $route_pattern = null;
             if ( 1 === preg_match( '/^(\S+)\s+(\S+)$/', $pattern, $parts ) ) {
                 $pattern       = $parts[1];
-                $route_pattern = strtolower( $parts[2] );
+                $route_pattern = \Easy_MCP_AI\Ascii::lower( $parts[2] );
             }
             if ( '' === $pattern || ! self::name_matches( $pattern, (string) $tool_name ) ) {
                 continue;
@@ -58,7 +59,7 @@ class Approval_Gate {
             if ( null === $route_pattern ) {
                 return true;
             }
-            if ( is_string( $route ) && self::route_glob_matches( $route_pattern, strtolower( $route ) ) ) {
+            if ( is_string( $route ) && self::route_glob_matches( $route_pattern, \Easy_MCP_AI\Ascii::lower( $route ) ) ) {
                 return true;
             }
         }
@@ -259,6 +260,26 @@ class Approval_Gate {
         return array( 'kind' => $this->offers_form_for( $pending, $client_caps, $client_protocol ) ? 'ask_form' : 'ask', 'row' => $pending );
     }
 
+    public function stored_replay( $tool, array $arguments, array $identity, array $params = array() ): ?array {
+        if ( $this->is_unattended( $identity ) ) {
+            return null;
+        }
+        $tool_name = $tool->get_name();
+        $hash      = self::args_hash( $tool_name, $arguments );
+        if ( ! isset( $params['requestState'] ) && ! isset( $params['inputResponses'] ) ) {
+            return $this->consumed_replay( $identity, $tool_name, $hash );
+        }
+        $state = $this->verify_state( isset( $params['requestState'] ) ? $params['requestState'] : '' );
+        if ( null === $state || $state['sub'] !== self::principal( $identity ) || $state['h'] !== $hash ) {
+            return null;
+        }
+        $row = $this->store->find( $state['op'] );
+        if ( ! $row || ! $this->row_is_valid( $row, $identity ) || self::STATUS_CONSUMED !== $row['status'] ) {
+            return null;
+        }
+        return $this->replay_of( $row );
+    }
+
     private function consumed_replay( array $identity, string $tool_name, string $hash ): ?array {
         $consumed = $this->store->find_latest( $identity, $tool_name, $hash, self::STATUS_CONSUMED );
         return $consumed && $this->row_is_valid( $consumed, $identity ) ? $this->replay_of( $consumed ) : null;
@@ -356,7 +377,11 @@ class Approval_Gate {
     public function finish( array $row, $result, $status, $executed_audit_id = null ) {
         $encoded = \wp_json_encode( $result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
         if ( ! is_string( $encoded ) || strlen( $encoded ) > 65535 ) {
-            $encoded = \wp_json_encode( array( 'content' => array( array( 'type' => 'text', 'text' => 'Executed; the result was too large to keep.' ) ), 'isError' => 'success' !== $status ) );
+            $kept = array( 'content' => array( array( 'type' => 'text', 'text' => 'Executed; the result was too large to keep.' ) ), 'isError' => 'success' !== $status );
+            if ( is_array( $result ) && isset( $result['_meta'][ self::INNER_TOOLS_META ] ) ) {
+                $kept['_meta'] = array( self::INNER_TOOLS_META => $result['_meta'][ self::INNER_TOOLS_META ] );
+            }
+            $encoded = \wp_json_encode( $kept );
         }
         $this->store->update( $row['approval_id'], array(
             'result'            => $encoded,

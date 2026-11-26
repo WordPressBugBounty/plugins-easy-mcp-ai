@@ -108,6 +108,10 @@ class Breakdance_Adapter extends Layout_Adapter {
         return $this->fields[ $type ];
     }
 
+    public function writes_here(): bool {
+        return null === $this->version_refusal( self::TESTED_VERSIONS );
+    }
+
     public function edit_refusal( object $post ): ?string {
         if ( ! $this->is_present() ) {
             return 'Breakdance is not active, so this layout can be read but not saved.';
@@ -167,7 +171,7 @@ class Breakdance_Adapter extends Layout_Adapter {
         }
         wp_cache_delete( $post_id, 'post_meta' );
         if ( wp_json_encode( $this->stored_tree( $post_id ) ) !== wp_json_encode( $original ) ) {
-            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again with wp_get_page_layout and redo the edit.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again%s and redo the edit.', $post_id, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $this->save_tree( $post_id, $encoded );
         wp_cache_delete( $post_id, 'post_meta' );
@@ -495,6 +499,12 @@ class Breakdance_Adapter extends Layout_Adapter {
         }
         if ( ! current_user_can( \Easy_MCP_AI\Compat\Breakdance_Abilities::CAPABILITY ) ) {
             $off[] = sprintf( 'Breakdance\'s abilities need the %s capability, which this account does not have', \Easy_MCP_AI\Compat\Breakdance_Abilities::CAPABILITY );
+        }
+        if ( array() === $off ) {
+            $caller = self::caller_reason( 'wp_ability_breakdance_edit_post' );
+            if ( null !== $caller ) {
+                $off[] = $caller;
+            }
         }
         return array(
             'elements'  => 'structure',

@@ -515,10 +515,10 @@ class Check_Tool_Visibility {
     }
 
     public static function evaluate_grant_scopes( $grants ) {
-        $label = __( 'Connected clients have usable permissions', 'easy-mcp-ai' );
+        $label = __( 'Approved clients have usable permissions', 'easy-mcp-ai' );
 
         if ( ! is_array( $grants ) ) {
-            return Diagnostic_Result::unknown( 'd5', Diagnostic_Result::TIER_WARNING, $label, __( 'Could not read the connected clients.', 'easy-mcp-ai' ) );
+            return Diagnostic_Result::unknown( 'd5', Diagnostic_Result::TIER_WARNING, $label, __( 'Could not read the approved clients.', 'easy-mcp-ai' ) );
         }
 
         $empty       = array();
@@ -537,8 +537,8 @@ class Check_Tool_Visibility {
 
         $scope = ! empty( $grants[0]['truncated'] )
             ? ' ' . sprintf(
-                /* translators: %d: number of connected clients examined. */
-                __( '(Only the first %d connected clients were checked.)', 'easy-mcp-ai' ),
+                /* translators: %d: number of approved clients examined. */
+                __( '(Only the first %d approved clients were checked.)', 'easy-mcp-ai' ),
                 self::GRANT_SCAN_LIMIT
             )
             : '';
@@ -560,7 +560,7 @@ class Check_Tool_Visibility {
                 $label,
                 sprintf(
                     /* translators: %s: comma-separated OAuth client names. */
-                    __( 'These connected clients were granted permissions that resolve to no tools: %s. They can sign in and will see an empty tool list.', 'easy-mcp-ai' ),
+                    __( 'These approved clients were granted permissions that resolve to no tools: %s. When they sign in they will see an empty tool list.', 'easy-mcp-ai' ),
                     implode( ', ', $empty )
                 ) . $unseen . $scope,
                 __( 'Disconnect the client and reconnect it, approving broader permissions on the consent screen.', 'easy-mcp-ai' ),
@@ -863,10 +863,9 @@ class Check_Tool_Visibility {
         }
 
         $table = $wpdb->prefix . 'easy_mcp_ai_tokens';
-        $probe_limit = self::TOKEN_SCAN_LIMIT + 1;
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table; diagnostics must read live state.
         $rows = $wpdb->get_results(
-            "SELECT name, wp_user_id, allowed_tools FROM `{$table}` WHERE is_active = 1 AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()) ORDER BY id LIMIT {$probe_limit}",
+            "SELECT * FROM `{$table}` WHERE is_active = 1 AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()) ORDER BY id",
             ARRAY_A
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
@@ -874,6 +873,11 @@ class Check_Tool_Visibility {
         if ( ! is_array( $rows ) ) {
             return null;
         }
+
+        $now  = time();
+        $rows = array_values( array_filter( $rows, static function ( $row ) use ( $now ) {
+            return is_array( $row ) && null === \Easy_MCP_AI\Auth\Usable_Credentials::key_refusal( $row, $now );
+        } ) );
 
         $truncated = count( $rows ) > self::TOKEN_SCAN_LIMIT;
         if ( $truncated ) {

@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Media;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\CPT\List_CPT_Items;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -135,6 +136,10 @@ class List_Media extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        Status_Taxonomy::refuse_unlistable( 'attachment', $this->status_param( $arguments ) );
+    }
+
     public function execute( array $arguments ) {
         $params = array();
 
@@ -261,6 +266,15 @@ class List_Media extends Base_Tool {
             array( 'media' => $result ),
             $this->pagination_meta( $response, $params['page'], $params['per_page'], count( $media ) )
         );
+    }
+
+    private function status_param( array $arguments ): ?array {
+        $status = self::statuses( $arguments );
+        if ( ! empty( $arguments['taxonomy_filters'] ) ) {
+            $filters = $this->parse_taxonomy_filter( $arguments['taxonomy_filters'], 'taxonomy_filters', $this->rest_taxonomies_for( 'attachment' ) );
+            $status  = $filters[ Status_Taxonomy::FIELD ] ?? $status;
+        }
+        return $status;
     }
 
     private static function statuses( array $arguments ): ?array {

@@ -179,7 +179,7 @@ class Transport {
     private function inject_basic_api_key( \WP_REST_Request $request ) {
         $header = $request->get_header( 'authorization' );
         if ( $header ) {
-            if ( 0 !== stripos( $header, 'Basic ' ) ) {
+            if ( 0 !== strncasecmp( $header, 'Basic ', 6 ) ) {
                 return;
             }
             $key = \Easy_MCP_AI\Auth_Header::api_key_from_basic( $header );
@@ -307,8 +307,7 @@ class Transport {
             $cache_key = 'easy_mcp_ai_auth_fail_' . md5( $ip );
 
             if ( \wp_using_ext_object_cache() ) {
-                \wp_cache_add( $cache_key, 0, 'easy_mcp_ai', 60 );
-                $new_fails = \wp_cache_incr( $cache_key, 1, 'easy_mcp_ai' );
+                $new_fails = \Easy_MCP_AI\Cache_Window_Counter::hit( $cache_key, 60 )['count'];
             } else {
                 $new_fails = (int) \get_transient( $cache_key ) + 1;
                 \set_transient( $cache_key, $new_fails, 60 );
@@ -1014,7 +1013,7 @@ class Transport {
 
     private function set_current_user( $user_id ) {
         $user_id = (int) $user_id;
-        if ( $user_id > 0 && \get_userdata( $user_id ) ) {
+        if ( \Easy_MCP_AI\Auth\Usable_Credentials::user_exists( $user_id ) ) {
             \wp_set_current_user( $user_id );
             return true;
         }
@@ -1022,7 +1021,7 @@ class Transport {
     }
 
     private function is_oauth_available() {
-        if ( ! \apply_filters( 'easy_mcp_ai_oauth_enabled', \Easy_MCP_AI\Config::get( 'oauth_enabled' ) ) ) {
+        if ( ! \Easy_MCP_AI\Auth\Usable_Credentials::oauth_enabled() ) {
             return false;
         }
         $file = EASY_MCP_AI_PLUGIN_DIR . 'includes/oauth/class-oauth-token-validator.php';
@@ -1059,8 +1058,7 @@ class Transport {
         $key = $family . $subject;
 
         if ( \wp_using_ext_object_cache() ) {
-            \wp_cache_add( $key, 0, 'easy_mcp_ai', 60 );
-            return (int) \wp_cache_incr( $key, 1, 'easy_mcp_ai' ) <= $limit;
+            return \Easy_MCP_AI\Cache_Window_Counter::hit( $key, 60 )['count'] <= $limit;
         }
         $written = (int) \get_transient( $key );
         if ( $written >= $limit ) {

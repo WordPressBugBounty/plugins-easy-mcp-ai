@@ -25,7 +25,7 @@ class Seopress_Update_Social extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress social (Open Graph / Twitter) settings for a post or page via the seopress/v1 REST API. Only the fields you provide are changed; an image URL is stored with the id of its Media Library image, as SEOPress\'s own editor stores it.';
+		return 'Updates the SEOPress social (Open Graph / Twitter) settings for a post or page via the seopress/v1 REST API. Only the fields you provide are changed; an image URL is stored with the id of its Media Library image, as SEOPress\'s own editor stores it. A text field sent as "0", which SEOPress would delete instead of storing, is refused, and an image URL must be an http or https URL or a path starting with "/"; send "" to clear one. Returns { post_id, updated }; updated is false, with a reason, when no field was sent or SEOPress already stored these values.';
 	}
 
 	public function get_category() {
@@ -110,7 +110,7 @@ class Seopress_Update_Social extends Base_Tool {
 
 		foreach ( self::IMAGE_URLS as $arg => $key ) {
 			if ( isset( $arguments[ $arg ] ) ) {
-				$url          = esc_url_raw( (string) $arguments[ $arg ] );
+				$url          = Seo_Url::to_send( $arg, $arguments[ $arg ] );
 				$body[ $key ] = $url;
 				$attachment_id                   = Image_Attachment_Id::for_url( $url );
 				$body[ self::IMAGE_IDS[ $arg ] ] = $attachment_id > 0 ? (string) $attachment_id : '';
@@ -118,16 +118,25 @@ class Seopress_Update_Social extends Base_Tool {
 		}
 
 		self::refuse_fields_seopress_drops( $post_id, $body );
+		Seopress_Stored_Meta::refuse_values_stored_as_nothing(
+			array(
+				'og_title'            => 'text',
+				'og_description'      => 'textarea',
+				'twitter_title'       => 'text',
+				'twitter_description' => 'textarea',
+			),
+			$text_map,
+			$body,
+			$arguments
+		);
+		$before = Seopress_Stored_Meta::read( $post_id, array_keys( $body ) );
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/social-settings', $body );
 		if ( array() !== $body ) {
 			$this->clear_page_cache( array( $post_id ) );
 		}
 
-		return array(
-			'post_id' => $post_id,
-			'updated' => true,
-		);
+		return Seopress_Stored_Meta::reply( $post_id, $before );
 	}
 
 	private static function refuse_fields_seopress_drops( int $post_id, array $body ): void {

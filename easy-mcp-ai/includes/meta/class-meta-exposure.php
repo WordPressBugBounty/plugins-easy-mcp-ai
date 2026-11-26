@@ -75,20 +75,53 @@ final class Meta_Exposure {
         return self::$report;
     }
 
+    public static function while_registered( callable $run ) {
+        if ( self::$registered ) {
+            return $run();
+        }
+        try {
+            self::register_for_request();
+            return $run();
+        } finally {
+            self::unregister_for_request();
+        }
+    }
+
+    private static function unregister_for_request() {
+        if ( function_exists( 'unregister_post_meta' ) ) {
+            foreach ( self::$exposed as $post_type => $keys ) {
+                foreach ( array_keys( $keys ) as $key ) {
+                    unregister_post_meta( $post_type, $key );
+                }
+            }
+        }
+        foreach ( self::$hooked_types as $post_type => $guard ) {
+            remove_filter( "rest_pre_insert_{$post_type}", $guard, 10 );
+            remove_filter( "rest_prepare_{$post_type}", array( __CLASS__, 'hide_meta_from_readers' ), 10 );
+        }
+        if ( self::$hooked_meta_writes ) {
+            foreach ( array( 'added_post_meta', 'updated_post_meta', 'deleted_post_meta' ) as $action ) {
+                remove_action( $action, array( __CLASS__, 'after_meta_write' ), 10 );
+            }
+        }
+        self::$registered         = false;
+        self::$report             = array();
+        self::$exposed            = array();
+        self::$yielded            = array();
+        self::$hooked_types       = array();
+        self::$hooked_meta_writes = false;
+    }
+
     private static function hook_rest_filters() {
         foreach ( array_keys( self::$exposed ) as $post_type ) {
             if ( isset( self::$hooked_types[ $post_type ] ) ) {
                 continue;
             }
-            self::$hooked_types[ $post_type ] = true;
-            add_filter(
-                "rest_pre_insert_{$post_type}",
-                static function ( $prepared_post, $request ) use ( $post_type ) {
-                    return self::guard_meta_write( $prepared_post, $request, $post_type );
-                },
-                10,
-                2
-            );
+            $guard                            = static function ( $prepared_post, $request ) use ( $post_type ) {
+                return self::guard_meta_write( $prepared_post, $request, $post_type );
+            };
+            self::$hooked_types[ $post_type ] = $guard;
+            add_filter( "rest_pre_insert_{$post_type}", $guard, 10, 2 );
             add_filter( "rest_prepare_{$post_type}", array( __CLASS__, 'hide_meta_from_readers' ), 10, 2 );
         }
         if ( ( ! empty( self::$exposed ) || ! empty( self::$yielded ) ) && ! self::$hooked_meta_writes ) {
@@ -371,7 +404,7 @@ final class Meta_Exposure {
                     $key,
                     $label,
                     $label,
-                    '' !== $tool ? ' and ' . $tool . ' becomes available' : ''
+                    self::off_tool_follows( $provider ) ? ' and ' . $tool . ' becomes available' : ''
                 );
                 continue;
             }
@@ -390,9 +423,30 @@ final class Meta_Exposure {
                 $key,
                 $label,
                 $label,
-                '' !== $tool ? ' — use ' . $tool : ''
+                '' !== $tool && \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( $tool ) ? ' — use ' . $tool : ''
             );
         }
         return $out;
+    }
+
+    private static function off_tool_follows( Meta_Field_Provider $provider ): bool {
+        $tool = $provider->get_dedicated_tool();
+        if ( '' === $tool || ! class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) ) {
+            return false;
+        }
+        $status = \Easy_MCP_AI\MCP\Server::current_call_tool_status( $tool );
+        return null !== $status && 'integration_off' === $status['status']
+            && \Easy_MCP_AI\Tools\Tool_State::resolve( $tool, false )[0]
+            && \Easy_MCP_AI\MCP\Server::matches_tool_patterns( $tool, (array) \Easy_MCP_AI\Config::get( 'allowed_tool_patterns' ) )
+            && self::holds_capability_of( $provider->get_dedicated_tool_class() );
+    }
+
+    private static function holds_capability_of( string $class ): bool {
+        if ( '' === $class || ! class_exists( $class ) || ! is_subclass_of( $class, 'Easy_MCP_AI\\Tools\\Base_Tool' ) ) {
+            return false;
+        }
+        $tool = new $class();
+        $cap  = \Easy_MCP_AI\MCP\Server::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
+        return '' === (string) $cap || \current_user_can( $cap );
     }
 }

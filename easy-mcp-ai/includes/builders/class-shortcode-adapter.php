@@ -107,6 +107,10 @@ abstract class Shortcode_Adapter extends Layout_Adapter {
         return $this->decode_content( $tag, $content );
     }
 
+    public function writes_here(): bool {
+        return null === $this->version_refusal( $this->tested_versions() );
+    }
+
     public function edit_refusal( object $post ): ?string {
         if ( ! $this->is_present() ) {
             return sprintf( '%s is not active, so this layout can be read but not saved.', $this->label() );
@@ -162,7 +166,7 @@ abstract class Shortcode_Adapter extends Layout_Adapter {
             $fence();
         }
         if ( self::stored_content( $post_id ) !== $original ) {
-            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again with wp_get_page_layout and redo the edit.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again%s and redo the edit.', $post_id, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $saved = wp_update_post(
             wp_slash(
@@ -260,7 +264,7 @@ abstract class Shortcode_Adapter extends Layout_Adapter {
         $planned_items = $this->layout_items( $planned );
         $stored_items  = $this->layout_items( $stored );
         if ( Shortcode_Structure::skeleton( $planned_items ) !== Shortcode_Structure::skeleton( $stored_items ) ) {
-            $warnings[] = 'WordPress stored a layout holding different elements than planned (a plugin filter changed it on save); read it again with wp_get_page_layout.';
+            $warnings[] = 'WordPress stored a layout holding different elements than planned (a plugin filter changed it on save)' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '; read it again with wp_get_page_layout.' : '.' );
         }
         $last = array();
         foreach ( $results as $index => $result ) {

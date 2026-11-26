@@ -821,6 +821,27 @@ final class Argument_Targets {
             'path'         => 'own',
             'translations' => 'own_type',
         ),
+        'wp_mailsmtp_get_settings' => array(
+            'mailer' => 'own',
+        ),
+        'wp_mailsmtp_update_settings' => array(
+            'brevo'        => 'own',
+            'elasticemail' => 'own',
+            'general'      => 'own',
+            'mail'         => 'own',
+            'mailersend'   => 'own',
+            'mailgun'      => 'own',
+            'mailjet'      => 'own',
+            'mandrill'     => 'own',
+            'postmark'     => 'own',
+            'resend'       => 'own',
+            'sendgrid'     => 'own',
+            'sendlayer'    => 'own',
+            'smtp'         => 'own',
+            'smtp2go'      => 'own',
+            'smtpcom'      => 'own',
+            'sparkpost'    => 'own',
+        ),
         'wp_privileged_files_read_query' => array(
             'action'      => 'own',
             'extensions'  => 'own',
@@ -1353,6 +1374,7 @@ final class Argument_Targets {
         ),
         'wp_update_page_layout' => array(
             'post_id' => 'own',
+            'start'   => 'own',
             'version' => 'own',
         ),
         'wp_update_plugin' => array(

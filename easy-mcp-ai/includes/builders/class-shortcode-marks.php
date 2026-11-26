@@ -86,14 +86,14 @@ final class Shortcode_Marks {
                 return sprintf( 'element "%s" was removed by operation %d.', $key, $op );
             }
             if ( 'joined' === $why ) {
-                return sprintf( 'element "%s" is text that became one with the text next to it when operation %d took away the element between them; read the layout again with wp_get_page_layout.', $key, $op );
+                return sprintf( 'element "%s" is text that became one with the text next to it when operation %d took away the element between them%s.', $key, $op, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '; read the layout again with wp_get_page_layout' : '' );
             }
             return sprintf( 'element "%s" was replaced by an earlier operation in this call.', $key );
         }
         if ( ! isset( $this->at[ $key ] ) ) {
             return 0 === strpos( $key, '$' )
                 ? sprintf( 'no earlier operation in this call named an element "%s".', $key )
-                : sprintf( 'no element "%s" in this layout. Read it again with wp_get_page_layout.', $key );
+                : sprintf( 'no element "%s" in this layout.%s', $key, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' Read it again with wp_get_page_layout.' : '' );
         }
         $found = self::locate( $items, $this->at[ $key ], '' );
         if ( null === $found ) {

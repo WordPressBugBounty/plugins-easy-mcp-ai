@@ -239,7 +239,7 @@ final class Flatsome_Adapter extends Shortcode_Adapter {
                     'address' => $node['address'],
                     'type'    => 'block',
                     'ref'     => (string) $node['settings']['id'],
-                    'note'    => 'A UX Block (post type `blocks`), referenced by ID or slug; read it with wp_get_page_layout on that post.',
+                    'note'    => 'A UX Block (post type `blocks`), referenced by ID or slug' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '; read it with wp_get_page_layout on that post.' : '.' ),
                 );
             }
             $refs = array_merge( $refs, $this->references( $node['children'] ) );

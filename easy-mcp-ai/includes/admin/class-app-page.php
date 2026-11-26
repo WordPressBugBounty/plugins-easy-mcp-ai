@@ -12,6 +12,8 @@ class App_Page {
     const HANDLE      = 'easy-mcp-ai-app';
     const ROOT_ID     = 'easy-mcp-ai-app';
 
+    const JSX_RUNTIME_HANDLE = 'react-jsx-runtime';
+
     const MENU_POSITION = 59.5;
 
     const GENERIC_MENU_ICON = 'dashicons-rest-api';
@@ -312,6 +314,7 @@ class App_Page {
             $deps[] = self::HANDLE . '-runtime';
         }
 
+        self::register_jsx_runtime( $build );
         \wp_enqueue_script( self::HANDLE, EASY_MCP_AI_PLUGIN_URL . 'assets/build/index.js', $deps, $ver, true );
         if ( file_exists( $build . 'index.css' ) ) {
             \wp_enqueue_style( self::HANDLE, EASY_MCP_AI_PLUGIN_URL . 'assets/build/index.css', array(), $ver );
@@ -326,6 +329,24 @@ class App_Page {
             self::HANDLE,
             'window.easyMcpAi = ' . \wp_json_encode( self::bootstrap() ) . ';',
             'before'
+        );
+    }
+
+    private static function register_jsx_runtime( $build ) {
+        if ( \wp_script_is( self::JSX_RUNTIME_HANDLE, 'registered' ) ) {
+            return;
+        }
+        $asset_file = $build . 'vendor/react-jsx-runtime.asset.php';
+        if ( ! is_readable( $asset_file ) ) {
+            return;
+        }
+        $asset = require $asset_file;
+        \wp_register_script(
+            self::JSX_RUNTIME_HANDLE,
+            EASY_MCP_AI_PLUGIN_URL . 'assets/build/vendor/react-jsx-runtime.js',
+            isset( $asset['dependencies'] ) && is_array( $asset['dependencies'] ) ? $asset['dependencies'] : array( 'react' ),
+            isset( $asset['version'] ) ? (string) $asset['version'] : EASY_MCP_AI_VERSION,
+            true
         );
     }
 
@@ -372,10 +393,12 @@ class App_Page {
     }
 
     public static function bootstrap() {
-        $user = \wp_get_current_user();
+        $user     = \wp_get_current_user();
+        $rest_url = \rest_url( Rest\Admin_Rest_Controller::REST_NAMESPACE . '/' );
 
         return array(
-            'restUrl'           => \esc_url_raw( \rest_url( Rest\Admin_Rest_Controller::REST_NAMESPACE . '/' ) ),
+            'restUrl'           => \esc_url_raw( $rest_url ),
+            'restFallbackUrl'   => self::rest_fallback_url( $rest_url ),
             'nonce'             => \wp_create_nonce( 'wp_rest' ),
             'slugPrefix'        => self::SLUG_PREFIX,
             'siteKind'          => Site_Kind::detect( \home_url() ),
@@ -389,6 +412,10 @@ class App_Page {
             'whiteLabel'        => \Easy_MCP_AI\Config::is_white_labelled(),
             'asidePages'        => self::ASIDE_PAGES,
         );
+    }
+
+    private static function rest_fallback_url( string $rest_url ): string {
+        return \Easy_MCP_AI\Rest_Route_Form::of( $rest_url, Rest\Admin_Rest_Controller::REST_NAMESPACE . '/' );
     }
 
     private static function site_timezone() {

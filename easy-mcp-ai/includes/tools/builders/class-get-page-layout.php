@@ -2,10 +2,12 @@
 namespace Easy_MCP_AI\Tools\Builders;
 
 use Easy_MCP_AI\Builders\Builder_Registry;
+use Easy_MCP_AI\Builders\Elementor_Adapter;
 use Easy_MCP_AI\Builders\Layout_Adapter;
 use Easy_MCP_AI\MCP\Server;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 use Easy_MCP_AI\Rest_Routes\Route_Gate;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -24,7 +26,8 @@ class Get_Page_Layout extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Reads the layout of a post, page, template, UX Block or Divi Theme Builder layout built with a page builder (Elementor, Breakdance, WPBakery, Flatsome UX Builder, Divi 4 or Divi 5) from the builder\'s own stored data, which post tools do not show. Detects the builder per item. Required: `post_id`. Optional: `element` (an address from a previous read; returns that element with its settings), `depth` (levels to expand, default 4, max 12), `include_settings` (each element\'s stored settings; default false). Returns { post_id, builder, builder_version, version, editable, element_count, elements: [{ address, type, label, text (excerpt), image, link, flags, lists, children_count, children | has_children }] }; `lists` are an Elementor widget\'s lists of items (repeaters such as accordion tabs or icon-list items): [{ list, label, items: [{ item, label }], flags? }], where `item` is the id wp_update_page_layout takes with `list` (flags: `not_stored`, `no_ids`, `hidden`). `editable` says whether wp_update_page_layout can change the item (`edit_note` says why not), and `version` is what that edit sends. Addresses are Elementor or Breakdance element ids, or dot-joined zero-based paths for the other builders. `references` lists the reply\'s elements that render another post (a Flatsome UX Block, a Divi global module from its Divi Library item): edit that post instead. Flag `atomic` marks Elementor V4 elements, which Elementor\'s own abilities edit (see `vendor_route`, which for Breakdance names its own abilities for inserting, moving and removing elements); `code` marks elements that run HTML or script. A reply is cut to ' . number_format( self::REPLY_BUDGET ) . ' characters: deeper levels stop expanding first (has_children), then settings below the root, then an element read pages its children and lists, a list read its root elements (`*_omitted`); a cut list gives `next_offset` for `list_offset`; a cut reply has `truncated: true` and a `hint`. For a Gutenberg or classic post `builder` is null and `use` names the tool to read it. Requires edit access to the item.';
+        $edit = Post_Type_Tool_Hint::may_describe( 'wp_update_page_layout' ) ? 'wp_update_page_layout' : 'a layout edit';
+        return 'Reads the layout of a post, page, template, UX Block or Divi Theme Builder layout built with a page builder (Elementor, Breakdance, WPBakery, Flatsome UX Builder, Divi 4 or 5) from the builder\'s own stored data, which post tools do not show. Detects the builder per item. Required: `post_id`. Optional: `element` (an address from a previous read; returns it with its settings), `depth` (levels to expand, default 4, max 12), `include_settings` (each element\'s stored settings). Returns { post_id, builder, builder_version, version, editable, element_count, elements: [{ address, type, label, text (excerpt), image, link, flags, lists, children_count, children | has_children }] }; `lists`: an Elementor widget\'s lists of items (repeaters: accordion tabs, icon-list items): [{ list, label, items: [{ item, label }], flags? }], where `item` is the id ' . $edit . ' takes with `list` (flags: `not_stored`, `no_ids`, `hidden`). `editable` says whether ' . $edit . ' can change the item (`edit_note`: why not), and `version` is what that edit sends. Addresses are Elementor or Breakdance ids, or zero-based paths ("0.1") for the other builders. `references` lists the reply\'s elements that render another post (a Flatsome UX Block, a Divi global module): edit that post instead. Flag `atomic` marks Elementor V4 elements, which Elementor\'s own abilities edit (see `vendor_route`, which for Breakdance names its abilities that insert, move and remove elements); `code` marks elements that run HTML or script. A reply is cut to ' . number_format( self::REPLY_BUDGET ) . ' characters: deeper levels stop expanding first (has_children), then settings below the root, then an element read pages its children and lists, a list read its root elements (`*_omitted`); a cut list gives `next_offset` for `list_offset`; a cut reply has `truncated: true` and a `hint`. For a Gutenberg or classic post `builder` is null, `use` names the tool to read it, and `start` whether ' . $edit . ' can make it an Elementor page, from which `elements`. Requires edit access to the item.';
     }
 
     public function get_category() {
@@ -674,17 +677,44 @@ class Get_Page_Layout extends Base_Tool {
             },
             Builder_Registry::present()
         );
-        $blocks  = function_exists( 'has_blocks' ) && has_blocks( $post->post_content );
-        return array(
+        $blocks    = function_exists( 'has_blocks' ) && has_blocks( $post->post_content );
+        $elementor = Builder_Registry::get( 'elementor' );
+        $reply     = array(
             'post_id'          => (int) $post->ID,
             'post_type'        => $post->post_type,
             'title'            => $post->post_title,
             'builder'          => null,
             'builders_on_site' => $present,
+            'version'          => $elementor instanceof Elementor_Adapter ? $elementor->start_version( $post ) : Layout_Adapter::unbuilt_version( $post ),
             'use'              => $blocks ? 'wp_get_post_blocks' : 'wp_get_post',
             'note'             => $blocks
                 ? 'This item is not built with a supported page builder; its content is Gutenberg blocks.'
                 : 'This item is not built with a supported page builder; its content is classic post content.',
+        );
+        if ( $elementor instanceof Elementor_Adapter ) {
+            $reply['start'] = self::start_offer( $elementor, $post );
+        }
+        return $reply;
+    }
+
+    private static function start_offer( Elementor_Adapter $elementor, object $post ): array {
+        $refusal = $elementor->start_refusal( $post );
+        if ( null !== $refusal ) {
+            return array(
+                'builder'   => 'elementor',
+                'available' => false,
+                'note'      => $refusal,
+            );
+        }
+        $elements = array();
+        foreach ( $elementor->seed_nodes( $post ) as $node ) {
+            $elements[] = self::item( $node, 1, self::MAX_DEPTH, 0 );
+        }
+        return array(
+            'builder'   => 'elementor',
+            'available' => true,
+            'note'      => ( Post_Type_Tool_Hint::may_reach( 'wp_update_page_layout' ) ? 'wp_update_page_layout with `start: "elementor"`, this `version` and `ops` makes' : 'A layout edit with `start: "elementor"`, this `version` and `ops` would make' ) . ' this item an Elementor page. The ops apply to `elements`, the layout Elementor\'s editor makes from the post content when it first opens the item (empty when there is no content), so they may edit, remove or add beside it by these addresses. As in Elementor\'s own first open, block markup, dynamic blocks and synced patterns included, is stored as saved in a Text Editor widget, and Elementor renders those blocks when it prints the page. Elementor then replaces the post content with the layout\'s plain text.',
+            'elements'  => $elements,
         );
     }
 

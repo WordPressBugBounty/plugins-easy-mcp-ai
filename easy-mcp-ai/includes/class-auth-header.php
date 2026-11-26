@@ -16,7 +16,7 @@ class Auth_Header {
             if ( 0 !== strcasecmp( (string) $name, 'Authorization' ) ) {
                 continue;
             }
-            if ( is_string( $value ) && 0 === stripos( $value, $scheme . ' ' ) ) {
+            if ( is_string( $value ) && 0 === strncasecmp( $value, $scheme . ' ', strlen( $scheme ) + 1 ) ) {
                 return $value;
             }
             return null;
@@ -52,11 +52,11 @@ class Auth_Header {
     }
 
     public static function api_key_from_basic( $header ) {
-        if ( ! is_string( $header ) || 0 !== stripos( $header, 'Basic ' ) ) {
+        if ( ! is_string( $header ) || 0 !== strncasecmp( $header, 'Basic ', 6 ) ) {
             return null;
         }
         $token = trim( substr( $header, 6 ) );
-        if ( '' === $token || ! preg_match( '%^[a-z\d/+]*={0,2}$%i', $token ) ) {
+        if ( '' === $token || ! preg_match( '%^[A-Za-z0-9/+]*={0,2}$%', $token ) ) {
             return null;
         }
         $decoded = base64_decode( $token, true );

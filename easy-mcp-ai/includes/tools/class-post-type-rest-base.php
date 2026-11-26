@@ -66,7 +66,7 @@ final class Post_Type_Rest_Base {
         }
         $found['base'] = self::text( $object, 'rest_base', $post_type );
         $custom        = ! self::is_builtin( $post_type );
-        if ( ! preg_match( '/^[A-Za-z0-9_-]+\z/', $found['base'] ) || ( $custom && in_array( strtolower( $found['base'] ), self::RESERVED_REST_BASES, true ) ) ) {
+        if ( ! preg_match( '/^[A-Za-z0-9_-]+\z/', $found['base'] ) || ( $custom && in_array( \Easy_MCP_AI\Ascii::lower( $found['base'] ), self::RESERVED_REST_BASES, true ) ) ) {
             $found['reason'] = self::UNSAFE_BASE;
             return $found;
         }

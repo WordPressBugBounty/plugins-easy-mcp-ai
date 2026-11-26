@@ -216,8 +216,9 @@ abstract class Rest_Route_Tool extends Base_Tool {
         if ( null === $refusal ) {
             $refusal = $this->namespace_refusal( $resolved['namespace'] );
         }
+        $params = self::params_as_read( $query, $body );
         if ( null === $refusal ) {
-            $switched_off = self::switched_off_tool_refusal( $method, $resolved, self::params_as_read( $query, $body ) );
+            $switched_off = self::switched_off_tool_refusal( $method, $resolved, $params );
             if ( null !== $switched_off ) {
                 throw Detailed_Runtime_Error::for_validation( $switched_off ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
@@ -226,7 +227,8 @@ abstract class Rest_Route_Tool extends Base_Tool {
             throw new \RuntimeException( $refusal ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $this->refuse_builder_owned_route_write( $path, $query, $body );
-        $secret = \Easy_MCP_AI\Tools\Users\Customer_Meta_Filter::write_refusal( $method, $path, self::params_as_read( $query, $body ) );
+        self::refuse_duplicate_acf_fields( $method, $params );
+        $secret = \Easy_MCP_AI\Tools\Users\Customer_Meta_Filter::write_refusal( $method, $path, $params );
         if ( null !== $secret ) {
             throw Detailed_Runtime_Error::for_validation( $secret ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
@@ -257,6 +259,13 @@ abstract class Rest_Route_Tool extends Base_Tool {
             return;
         }
         $this->refuse_builder_owned_write( (int) $post->ID, array_key_exists( 'content', $sent ), isset( $sent['meta'] ) && is_array( $sent['meta'] ) ? $sent['meta'] : array() );
+    }
+
+    private static function refuse_duplicate_acf_fields( string $method, array $params ): void {
+        if ( ! in_array( $method, array( 'POST', 'PUT', 'PATCH' ), true ) || ! isset( $params['acf'] ) || ! is_array( $params['acf'] ) || ! function_exists( 'acf_is_field_key' ) ) {
+            return;
+        }
+        \Easy_MCP_AI\Tools\ACF\Acf_Sent_Fields::refuse_rest_duplicates( $params['acf'] );
     }
 
     private static function switched_off_tool_refusal( string $method, array $resolved, array $params ): ?string {

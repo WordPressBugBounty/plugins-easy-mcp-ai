@@ -94,6 +94,7 @@ trait Acf_Rest_Tool {
     }
 
     protected function acf_write( $type, $id, $route, array $fields, bool $resave = false ) {
+        Acf_Sent_Fields::refuse_rest_duplicates( $fields );
         $call = Acf_Rest_Call::run(
             function () use ( $type, $id, $route, $fields, $resave ) {
                 if ( 'post' === $type ) {

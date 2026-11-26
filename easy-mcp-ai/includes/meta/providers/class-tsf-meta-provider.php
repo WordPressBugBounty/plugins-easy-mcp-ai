@@ -5,6 +5,7 @@ namespace Easy_MCP_AI\Meta\Providers;
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
 use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
 use Easy_MCP_AI\Tools\SEO\Tsf_Get_Post_Seo;
+use Easy_MCP_AI\Tools\SEO\Tsf_Update_Post_Seo;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -30,6 +31,10 @@ class Tsf_Meta_Provider extends Meta_Field_Provider {
 
     public function get_dedicated_tool() {
         return 'wp_tsf_update_post_seo';
+    }
+
+    public function get_dedicated_tool_class(): string {
+        return Tsf_Update_Post_Seo::class;
     }
 
     public function read_tool_for( $key ) {

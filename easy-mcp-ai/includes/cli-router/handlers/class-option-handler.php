@@ -585,9 +585,9 @@ class Option_Handler extends Command_Handler {
     }
 
     public static function site_setting_argument( string $key ): ?string {
-        $lc = strtolower( trim( $key ) );
+        $lc = \Easy_MCP_AI\Ascii::lower( trim( $key ) );
         foreach ( self::SITE_SETTINGS as $option => $argument ) {
-            if ( strtolower( $option ) === $lc ) {
+            if ( \Easy_MCP_AI\Ascii::lower( $option ) === $lc ) {
                 return $argument;
             }
         }
@@ -595,7 +595,7 @@ class Option_Handler extends Command_Handler {
     }
 
     public static function key_is_secret( string $key ): bool {
-        if ( class_exists( '\\Easy_MCP_AI\\Text_Redactor' ) && preg_match( \Easy_MCP_AI\Text_Redactor::SENSITIVE_KEY_PATTERN, $key ) ) {
+        if ( class_exists( '\\Easy_MCP_AI\\Text_Redactor' ) && \Easy_MCP_AI\Text_Redactor::is_sensitive_key( $key ) ) {
             return true;
         }
         if ( class_exists( '\\Easy_MCP_AI\\History\\Change_Redactor' ) && \Easy_MCP_AI\History\Change_Redactor::option_name_is_sensitive( $key ) ) {
@@ -605,7 +605,7 @@ class Option_Handler extends Command_Handler {
     }
 
     public static function names_credential( string $key ): bool {
-        $flat = (string) preg_replace( '/[^a-z0-9]+/', '', strtolower( $key ) );
+        $flat = (string) preg_replace( '/[^a-z0-9]+/', '', \Easy_MCP_AI\Ascii::lower( $key ) );
         if ( 'key' === substr( $flat, -3 ) ) {
             return true;
         }
@@ -625,7 +625,7 @@ class Option_Handler extends Command_Handler {
         if ( 1 !== preg_match( '/^[\x21-\x7E]+\z/', $trimmed ) ) {
             return 'bytes';
         }
-        $lc = strtolower( $trimmed );
+        $lc = \Easy_MCP_AI\Ascii::lower( $trimmed );
         if ( isset( Self_Protection::SECRET_OPTIONS[ $lc ] ) || isset( Self_Protection::CONFIRMATION_OPTIONS[ $lc ] ) ) {
             return 'secret';
         }

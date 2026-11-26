@@ -162,6 +162,8 @@ class Create_CPT_Item extends Base_Tool {
             $arguments['rest_base'] ?? null,
             function () use ( $arguments ): void {
                 list( $rest_base, $post_type ) = $this->checked_custom_type( $arguments );
+                $params                        = self::content_params( $arguments );
+                self::take_new_status( $params, $post_type );
                 self::post_type_route( $rest_base, null, 'POST' );
                 Translation_Write::plan( $arguments, $post_type, null );
             }
@@ -182,10 +184,13 @@ class Create_CPT_Item extends Base_Tool {
         $translation = Translation_Write::plan( $arguments, $post_type, null, true );
 
         $params    = self::content_params( $arguments );
+        $taxonomy  = self::take_new_status( $params, $post_type );
         $meta_sent = $this->apply_checked_fields( $arguments, $params, $post_type, $post_type_object );
         self::refuse_future_without_date( $params );
 
-        $this->maybe_force_draft( $params );
+        if ( '' === $taxonomy ) {
+            $this->maybe_force_draft( $params );
+        }
 
         $params += $translation->create_params();
         $data    = $translation->save(
@@ -197,7 +202,7 @@ class Create_CPT_Item extends Base_Tool {
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status' => $data['status'],
+            'status' => Status_Taxonomy::status_of( $data ),
             'link'   => $data['link'] ?? '',
         );
         if ( $meta_sent ) {
@@ -276,8 +281,12 @@ class Create_CPT_Item extends Base_Tool {
         return $meta_sent;
     }
 
+    private static function take_new_status( array &$params, string $post_type ): string {
+        return Status_Taxonomy::take_status( $params, $post_type, 'draft', sprintf( 'New %s items are saved as drafts', $post_type ), 'Send no status, or draft. Nothing was written.' );
+    }
+
     private static function refuse_future_without_date( array $params ): void {
-        if ( 'future' === $params['status'] && empty( $params['date'] ) && empty( $params['date_gmt'] ) ) {
+        if ( 'future' === ( $params['status'] ?? '' ) && empty( $params['date'] ) && empty( $params['date_gmt'] ) ) {
             throw new \InvalidArgumentException( 'The "date" or "date_gmt" field is required when status is "future".' );
         }
     }

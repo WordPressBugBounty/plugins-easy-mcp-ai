@@ -268,7 +268,7 @@ class Install_Plugin extends Base_Tool {
 
     private static function is_own_folder( string $folder ): bool {
         $own = defined( 'EASY_MCP_AI_PLUGIN_BASENAME' ) ? (string) EASY_MCP_AI_PLUGIN_BASENAME : '';
-        return '' !== $own && false !== strpos( $own, '/' ) && strtolower( dirname( $own ) ) === strtolower( $folder );
+        return '' !== $own && false !== strpos( $own, '/' ) && \Easy_MCP_AI\Ascii::lower( dirname( $own ) ) === \Easy_MCP_AI\Ascii::lower( $folder );
     }
 
     private static function plugin_in_folder( array $installed, string $slug ): ?string {

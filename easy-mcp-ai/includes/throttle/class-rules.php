@@ -161,7 +161,7 @@ final class Rules {
 
     private static function parse_entry( string $entry ): ?array {
         $parts    = explode( '=', $entry, 2 );
-        $selector = (string) preg_replace( '/^category\s*:\s*/', 'category:', strtolower( trim( $parts[0] ) ) );
+        $selector = (string) preg_replace( '/^category\s*:\s*/', 'category:', \Easy_MCP_AI\Ascii::lower( trim( $parts[0] ) ) );
         $kind     = self::kind_of( $selector );
         if ( null === $kind ) {
             return null;
@@ -176,7 +176,7 @@ final class Rules {
             'scope'    => '',
             'readable' => false,
         );
-        $value = isset( $parts[1] ) ? array_map( 'trim', explode( '/', strtolower( $parts[1] ) ) ) : array();
+        $value = isset( $parts[1] ) ? array_map( 'trim', explode( '/', \Easy_MCP_AI\Ascii::lower( $parts[1] ) ) ) : array();
         if ( 3 !== count( $value ) || ! ctype_digit( $value[0] ) || ! isset( self::WINDOWS[ $value[1] ] ) || ! in_array( $value[2], self::SCOPES, true ) ) {
             return $rule;
         }

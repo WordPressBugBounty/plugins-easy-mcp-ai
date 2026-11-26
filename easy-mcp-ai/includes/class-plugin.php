@@ -535,6 +535,7 @@ class Plugin {
     }
 
     public function register_rest_routes() {
+        Rest_Header_Names::register();
         $route = isset( $GLOBALS['wp'] ) && is_object( $GLOBALS['wp'] ) && isset( $GLOBALS['wp']->query_vars['rest_route'] ) ? (string) $GLOBALS['wp']->query_vars['rest_route'] : '';
         if ( Compat\Vendor_Abilities::is_our_rest_route( $route ) ) {
             Compat\Vendor_Abilities::serve();

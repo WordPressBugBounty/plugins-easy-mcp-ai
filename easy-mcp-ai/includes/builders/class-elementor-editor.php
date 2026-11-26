@@ -183,11 +183,11 @@ final class Elementor_Editor {
         }
         $address = $this->resolve( $op, 'element' );
         if ( '' === $address ) {
-            return '`element` is required: the element\'s address from wp_get_page_layout.';
+            return '`element` is required: the element\'s address' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' from wp_get_page_layout' : '' ) . '.';
         }
         $path = Elementor_Tree::path( $data, $address );
         if ( null === $path ) {
-            return $this->no_element( $data, $address, '. Read it again with wp_get_page_layout.' );
+            return $this->no_element( $data, $address, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '. Read it again with wp_get_page_layout.' : '.' );
         }
         $element = Elementor_Tree::at( $data, $path );
         $type    = self::type_of( $element );
@@ -228,9 +228,10 @@ final class Elementor_Editor {
             $item  = self::text_arg( $op, 'item' );
             $index = self::row_index( $rows['rows'], $item );
             if ( null === $index ) {
+                $read = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' );
                 return '' === $item
-                    ? '`item` is required with `list`: the id of one item, from wp_get_page_layout.'
-                    : sprintf( 'list "%s" of "%s" has no item "%s". Read the layout again with wp_get_page_layout.', $rows['spec']['name'], $address, $item );
+                    ? '`item` is required with `list`: the id of one item' . ( $read ? ', from wp_get_page_layout' : '' ) . '.'
+                    : sprintf( 'list "%s" of "%s" has no item "%s".%s', $rows['spec']['name'], $address, $item, $read ? ' Read the layout again with wp_get_page_layout.' : '' );
             }
             $target = $rows['rows'][ $index ];
             $specs  = $rows['spec']['item_fields'] ?? array();
@@ -340,7 +341,8 @@ final class Elementor_Editor {
             $item  = self::text_arg( $op, 'item' );
             $index = self::row_index( $rows['rows'], $item );
             if ( null === $index ) {
-                return '' === $item ? sprintf( '`item` is required for %s: the id of one item, from wp_get_page_layout.', $name ) : sprintf( '%s has no item "%s". Read the layout again with wp_get_page_layout.', $where, $item );
+                $read = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' );
+                return '' === $item ? sprintf( '`item` is required for %s: the id of one item%s.', $name, $read ? ', from wp_get_page_layout' : '' ) : sprintf( '%s has no item "%s".%s', $where, $item, $read ? ' Read the layout again with wp_get_page_layout.' : '' );
             }
             $row = $rows['rows'][ $index ];
             array_splice( $rows['rows'], $index, 1 );
@@ -431,11 +433,11 @@ final class Elementor_Editor {
     private function rows( array $op, array $fields, array $settings, string $type, string $address ) {
         $name = self::text_arg( $op, 'list' );
         if ( '' === $name ) {
-            return sprintf( '`list` is required: the name of a list of items in %s %s.', self::owner( $type ), self::hint( $type ) );
+            return sprintf( '`list` is required: the name of a list of items in %s%s.', self::owner( $type ), self::hint( $type ) );
         }
         $spec = self::field_spec( $fields, $name );
         if ( null === $spec ) {
-            return sprintf( '%s have no list "%s" %s.', self::owner( $type ), $name, self::hint( $type ) );
+            return sprintf( '%s have no list "%s"%s.', self::owner( $type ), $name, self::hint( $type ) );
         }
         if ( 'gallery' === $spec['kind'] ) {
             return sprintf( 'field "%s" of %s is a gallery of images, not a list of items: set it whole with set_fields and a list of image attachment IDs.', $name, self::owner( $type ) );
@@ -513,7 +515,7 @@ final class Elementor_Editor {
         }
         $type = self::text_arg( $spec, 'element_type' );
         if ( '' === $type ) {
-            return '`element_type` is required: a widget type from wp_list_layout_elements, or "container".';
+            return '`element_type` is required: a widget type' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? ' from wp_list_layout_elements' : '' ) . ', or "container".';
         }
         if ( 0 === strpos( $type, 'e-' ) ) {
             return $this->v4_refusal( sprintf( '"%s" is an Elementor V4 element', $type ), 'adds' );
@@ -616,17 +618,17 @@ final class Elementor_Editor {
         $owner      = self::owner( $type );
         $candidates = self::default_fields( $type, 'text', self::TEXT_KINDS, self::primary_fields( $fields, $type ) );
         if ( array() === $candidates ) {
-            return sprintf( '%s have no text field, so an insert of one takes no `value`; set its fields with `fields` %s.', $owner, self::hint( $type ) );
+            return sprintf( '%s have no text field, so an insert of one takes no `value`; set its fields with `fields`%s.', $owner, self::hint( $type ) );
         }
         if ( count( $candidates ) > 1 ) {
-            return self::ambiguous_field( $owner, 'text', $candidates, 'send the text in `fields`, under one of them ' . self::hint( $type ) );
+            return self::ambiguous_field( $owner, 'text', $candidates, 'send the text in `fields`, under one of them' . self::hint( $type ) );
         }
         $spec = self::field_spec( $fields, $candidates[0] );
         if ( null === $spec ) {
-            return sprintf( '%s have no field "%s" %s.', $owner, $candidates[0], self::hint( $type ) );
+            return sprintf( '%s have no field "%s"%s.', $owner, $candidates[0], self::hint( $type ) );
         }
         if ( ! in_array( $spec['kind'], self::TEXT_KINDS, true ) ) {
-            return sprintf( 'field "%s" of %s holds %s, so an insert\'s `value` cannot fill it; set it with `fields` %s.', $spec['name'], $owner, $spec['kind'], self::hint( $type ) );
+            return sprintf( 'field "%s" of %s holds %s, so an insert\'s `value` cannot fill it; set it with `fields`%s.', $spec['name'], $owner, $spec['kind'], self::hint( $type ) );
         }
         if ( array_key_exists( $spec['name'], $settings ) ) {
             return sprintf( 'the text of the new %s is sent twice, in `value` and in `fields` as "%s"; send it once.', $type, $spec['name'] );
@@ -1073,16 +1075,16 @@ final class Elementor_Editor {
         } else {
             $candidates = self::default_fields( $roles_type, $role, $kinds, self::primary_fields( $fields, $roles_type ) );
             if ( array() === $candidates ) {
-                return sprintf( '%s have no %s field; give `field` %s.', $owner, $role, $hint );
+                return sprintf( '%s have no %s field; give `field`%s.', $owner, $role, $hint );
             }
             if ( count( $candidates ) > 1 && '' !== $roles_type ) {
-                return self::ambiguous_field( $owner, $role, $candidates, 'give `field`, one of them ' . $hint );
+                return self::ambiguous_field( $owner, $role, $candidates, 'give `field`, one of them' . $hint );
             }
             $field = $candidates[0];
         }
         $spec = self::field_spec( $fields, $field );
         if ( null === $spec ) {
-            return sprintf( '%s have no field "%s" %s.', $owner, $field, $hint );
+            return sprintf( '%s have no field "%s"%s.', $owner, $field, $hint );
         }
         if ( ! in_array( $spec['kind'], $kinds, true ) ) {
             return sprintf( 'field "%s" holds %s, which %s does not write%s.', $field, $spec['kind'], $name, $this->writer_hint( $spec['kind'], $field ) );
@@ -1108,7 +1110,7 @@ final class Elementor_Editor {
         if ( isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ) {
             $spec = self::field_spec( $fields, $op['field'] );
             if ( null === $spec ) {
-                return sprintf( '%s have no field "%s" %s.', $owner, $op['field'], $hint );
+                return sprintf( '%s have no field "%s"%s.', $owner, $op['field'], $hint );
             }
             if ( ! in_array( $spec['kind'], self::REPLACE_KINDS, true ) ) {
                 return sprintf( 'field "%s" holds %s, which replace_text does not write%s.', $op['field'], $spec['kind'], $this->writer_hint( $spec['kind'], $op['field'] ) );
@@ -1123,7 +1125,7 @@ final class Elementor_Editor {
                 }
             }
             if ( array() === $candidates ) {
-                return sprintf( '%s have no text, HTML or code field on their first tab; give `field` %s.', $owner, $hint );
+                return sprintf( '%s have no text, HTML or code field on their first tab; give `field`%s.', $owner, $hint );
             }
             $holder = Text_Replacement::holder( $values, $args['search'], $where );
             if ( is_string( $holder ) ) {
@@ -1215,17 +1217,17 @@ final class Elementor_Editor {
             $changes[ $field ] = $checked;
         }
         if ( array() !== $problems ) {
-            return implode( '; ', $problems ) . ' ' . $hint . '.';
+            return implode( '; ', $problems ) . $hint . '.';
         }
         return self::with_stored_sides( $changes, $fields, $stored );
     }
 
     private static function hint( string $type ): string {
-        return sprintf( '(see wp_list_layout_elements with type "%s")', $type );
+        return \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $type ) : '';
     }
 
     private static function item_hint( string $type, string $list ): string {
-        return sprintf( '(see `item_fields` of "%s" in wp_list_layout_elements with type "%s")', $list, $type );
+        return \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see `item_fields` of "%s" in wp_list_layout_elements with type "%s")', $list, $type ) : '';
     }
 
     private function field_value( array $spec, $value ) {
@@ -1452,7 +1454,7 @@ final class Elementor_Editor {
     private function image_value( array $op, $current, string $field ) {
         $id = isset( $op['attachment_id'] ) && is_numeric( $op['attachment_id'] ) ? (int) $op['attachment_id'] : 0;
         if ( $id <= 0 ) {
-            return 'set_image needs `attachment_id`, the ID of an image in the media library (wp_list_media, or upload one first).';
+            return 'set_image needs `attachment_id`, the ID of an image in the media library' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_media' ) ? ' (wp_list_media, or upload one first).' : ' (upload one first if it is not there).' );
         }
         $media = ( $this->media )( $id );
         if ( null === $media ) {

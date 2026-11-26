@@ -71,7 +71,7 @@ class Site_Meta_Handler extends Meta_Command {
         if ( null !== $refusal ) {
             return $refusal;
         }
-        if ( preg_match( Self_Protection::NAMESPACE_PATTERN, strtolower( trim( $key ) ) ) ) {
+        if ( preg_match( Self_Protection::NAMESPACE_PATTERN, \Easy_MCP_AI\Ascii::lower( trim( $key ) ) ) ) {
             return sprintf( self::PLUGIN_KEY, trim( $key ) );
         }
         return null;

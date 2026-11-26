@@ -15,7 +15,7 @@ class Seopress_Update_Keywords extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress target keywords used for content analysis on a post or page via the seopress/v1 REST API. Pass a comma-separated string (e.g. "wordpress mcp, ai assistant, seo tools").';
+		return 'Updates the SEOPress target keywords used for content analysis on a post or page via the seopress/v1 REST API. Pass a comma-separated string (e.g. "wordpress mcp, ai assistant, seo tools"). Returns { post_id, updated }; updated is false, with a reason, when SEOPress already stored these keywords.';
 	}
 
 	public function get_category() {
@@ -64,7 +64,9 @@ class Seopress_Update_Keywords extends Base_Tool {
 			throw new \RuntimeException( 'You do not have permission to edit this post.' );
 		}
 
-		$this->validate_required( $arguments, array( 'target_keywords' ) );
+		if ( ! isset( $arguments['target_keywords'] ) ) {
+			throw new \InvalidArgumentException( 'Missing required parameters: target_keywords' );
+		}
 
 		$keywords = $arguments['target_keywords'];
 		if ( is_array( $keywords ) ) {
@@ -75,13 +77,18 @@ class Seopress_Update_Keywords extends Base_Tool {
 		}
 
 		$body = array( '_seopress_analysis_target_kw' => $keywords );
+		Seopress_Stored_Meta::refuse_values_stored_as_nothing(
+			array( 'target_keywords' => 'text' ),
+			array( 'target_keywords' => '_seopress_analysis_target_kw' ),
+			$body,
+			$arguments,
+			'keywords'
+		);
+		$before = Seopress_Stored_Meta::read( $post_id, array_keys( $body ) );
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/target-keywords', $body );
 		$this->clear_page_cache( array( $post_id ) );
 
-		return array(
-			'post_id' => $post_id,
-			'updated' => true,
-		);
+		return Seopress_Stored_Meta::reply( $post_id, $before );
 	}
 }

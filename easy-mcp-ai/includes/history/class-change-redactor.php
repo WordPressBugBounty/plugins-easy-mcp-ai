@@ -8,6 +8,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Change_Redactor {
     const MAX_BYTES = 262144;
 
+    const MASK = '[REDACTED]';
+
     private static $exact_keys = array(
         'user_pass', 'user_activation_key', 'session_tokens', 'user_email',
         'customer_ip_address', 'customer_user_agent',
@@ -17,7 +19,7 @@ class Change_Redactor {
         '_secret', '_token', 'api_key', 'apikey', 'password', 'secret',
     );
 
-    private static $pattern_keys = '/pass|token|private|_hash$|api_?key/i';
+    private static $pattern_keys = '/pass|token|private|_hash$|api_?key/';
 
     private static $sensitive_option_names = array(
         'ninja_forms_settings',
@@ -35,7 +37,7 @@ class Change_Redactor {
     );
 
     private static $address_flat_pattern =
-        '/^_?(?:billing|shipping)_(?:first_name|last_name|company|address_1|address_2|address_index|postcode|email|phone)$/i';
+        '/^_?(?:billing|shipping)_(?:first_name|last_name|company|address_1|address_2|address_index|postcode|email|phone)$/';
 
     private static $table_personal_columns = array(
         'wc_orders'           => array( 'ip_address', 'user_agent' ),
@@ -53,13 +55,13 @@ class Change_Redactor {
         }
         $out = array();
         foreach ( $value as $k => $v ) {
-            $out[ $k ] = in_array( strtolower( (string) $k ), $columns, true ) ? '[REDACTED]' : $v;
+            $out[ $k ] = in_array( \Easy_MCP_AI\Ascii::lower( (string) $k ), $columns, true ) ? self::MASK : $v;
         }
         return self::redact( $out );
     }
 
     private static function personal_columns_for( $table ) {
-        $table = strtolower( (string) $table );
+        $table = \Easy_MCP_AI\Ascii::lower( (string) $table );
         if ( '' === $table ) {
             return array();
         }
@@ -71,9 +73,14 @@ class Change_Redactor {
             }
         }
         foreach ( $map as $name => $columns ) {
-            $name = strtolower( (string) $name );
+            $name = \Easy_MCP_AI\Ascii::lower( (string) $name );
             if ( $table === $name || substr( $table, -strlen( '_' . $name ) ) === '_' . $name ) {
-                return array_map( 'strtolower', (array) $columns );
+                return array_map(
+                    static function ( $column ): string {
+                        return \Easy_MCP_AI\Ascii::lower( (string) $column );
+                    },
+                    (array) $columns
+                );
             }
         }
         return array();
@@ -106,7 +113,7 @@ class Change_Redactor {
                 && self::is_sensitive( $value['key'] )
             ) {
                 $pair          = $value;
-                $pair['value'] = '[REDACTED]';
+                $pair['value'] = self::MASK;
                 return $pair;
             }
 
@@ -114,11 +121,15 @@ class Change_Redactor {
             foreach ( $value as $k => $v ) {
                 $key = (string) $k;
                 if ( self::is_sensitive( $key ) ) {
-                    $out[ $k ] = '[REDACTED]';
+                    $out[ $k ] = self::MASK;
                     continue;
                 }
                 if ( $in_address && in_array( $key, $personal, true ) ) {
-                    $out[ $k ] = '[REDACTED]';
+                    $out[ $k ] = self::MASK;
+                    continue;
+                }
+                if ( 'license' === \Easy_MCP_AI\Ascii::lower( (string) $parent_key ) && 'key' === \Easy_MCP_AI\Ascii::lower( $key ) ) {
+                    $out[ $k ] = self::MASK;
                     continue;
                 }
                 $out[ $k ] = self::walk( $v, $truncated, $size, $key, $blocks, $personal );
@@ -176,14 +187,14 @@ class Change_Redactor {
         }
         foreach ( array( 'before_value', 'after_value' ) as $side ) {
             if ( isset( $row[ $side ] ) && '' !== $row[ $side ] ) {
-                $row[ $side ] = (string) wp_json_encode( array( 'value' => '[REDACTED]' ) );
+                $row[ $side ] = (string) wp_json_encode( array( 'value' => self::MASK ) );
             }
         }
         return $row;
     }
 
     public static function option_name_is_sensitive( $name ) {
-        $name = strtolower( (string) $name );
+        $name = \Easy_MCP_AI\Ascii::lower( (string) $name );
         if ( self::is_sensitive( $name ) ) {
             return true;
         }
@@ -192,12 +203,12 @@ class Change_Redactor {
         }
         $known = (array) \apply_filters( 'easy_mcp_ai_change_log_sensitive_option_names', self::$sensitive_option_names );
         foreach ( $known as $entry ) {
-            if ( strtolower( (string) $entry ) === $name ) {
+            if ( \Easy_MCP_AI\Ascii::lower( (string) $entry ) === $name ) {
                 return true;
             }
         }
         foreach ( self::$sensitive_option_prefixes as $prefix ) {
-            if ( 0 === strpos( $name, strtolower( $prefix ) ) ) {
+            if ( 0 === strpos( $name, \Easy_MCP_AI\Ascii::lower( $prefix ) ) ) {
                 return true;
             }
         }
@@ -205,7 +216,7 @@ class Change_Redactor {
     }
 
     private static function is_sensitive( $key ) {
-        $lc = strtolower( $key );
+        $lc = \Easy_MCP_AI\Ascii::lower( (string) $key );
         if ( in_array( $lc, self::$exact_keys, true ) ) {
             return true;
         }

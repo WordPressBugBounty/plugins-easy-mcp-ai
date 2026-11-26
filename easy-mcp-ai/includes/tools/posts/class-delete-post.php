@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Posts;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Delete_Outcome;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -67,7 +68,7 @@ class Delete_Post extends Base_Tool {
         return sprintf(
             /* translators: 1: post title, 2: post id, 3: post status, 4: what happens */
             __( "Delete post '%1\$s' (ID %2\$d, %3\$s) — %4\$s.", 'easy-mcp-ai' ),
-            self::rest_title( $post ), $id, isset( $post['status'] ) ? $post['status'] : 'unknown',
+            self::rest_title( $post ), $id, isset( $post['status'] ) ? Status_Taxonomy::status_of( $post + array( 'id' => $id ) ) : 'unknown',
             $force ? __( 'permanently, bypassing the trash', 'easy-mcp-ai' ) : __( 'moves it to the trash', 'easy-mcp-ai' )
         );
     }

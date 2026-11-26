@@ -64,8 +64,8 @@ trait Local_Image {
         $message  = str_replace( $prefixes, '', $message );
         $patterns = array(
             '~([\'"`])(?:[A-Za-z]:[\\\\/]|/)[^\'"`]*[\\\\/]([^\\\\/\'"`]*)\\1~' => '$1$2$1',
-            '~(?<![\\w.:/\\\\])[A-Za-z]:[\\\\/](?:[^\\\\/\\s\'"`]+[\\\\/])+~' => '',
-            '~(?<![\\w.:/])/(?:[^/\\s\'"`]+/)+~'                             => '',
+            '~(?<![A-Za-z0-9_.:/\\\\])[A-Za-z]:[\\\\/](?:[^\\\\/\\s\'"`]+[\\\\/])+~' => '',
+            '~(?<![A-Za-z0-9_.:/])/(?:[^/\\s\'"`]+/)+~'                     => '',
         );
         return (string) preg_replace( array_keys( $patterns ), array_values( $patterns ), $message );
     }
@@ -124,7 +124,7 @@ trait Local_Image {
     }
 
     protected function editor_supports( string $mime ): bool {
-        return (bool) \wp_image_editor_supports( array( 'mime_type' => $mime ) );
+        return \Easy_MCP_AI\Tools\Image_Editor_State::supports( array( 'mime_type' => $mime ) );
     }
 
     protected function attachment_metadata( int $media_id ) {

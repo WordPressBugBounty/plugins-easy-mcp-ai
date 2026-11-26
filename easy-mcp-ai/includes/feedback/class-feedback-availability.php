@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Feedback;
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Tools\Switched_Off_Inventory;
 use Easy_MCP_AI\MCP\Tool_Status;
+use Easy_MCP_AI\Tools\Tool_Directories;
 use Easy_MCP_AI\Tools\Tool_State;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -41,6 +42,7 @@ class Feedback_Availability {
         'smart-slider-3'      => array( 'smart slider', 'smartslider' ),
         'wpforms'             => array( 'wpforms' ),
         'loco-translate'      => array( 'loco translate', 'loco' ),
+        'wp-mail-smtp'        => array( 'wp mail smtp', 'mail smtp' ),
         'wordfence'           => array( 'wordfence' ),
         'buddypress'          => array( 'buddypress' ),
         'yoast-seo'           => array( 'yoast' ),
@@ -93,21 +95,42 @@ class Feedback_Availability {
             if ( 'available' === $status['status'] ) {
                 continue;
             }
-            $found[] = in_array( $status['status'], array( 'off', 'off_locked' ), true )
-                ? array(
-                    'case'  => self::OFF,
-                    'name'  => $name,
-                    'label' => $name,
-                    'where' => 'off' === $status['status'] ? Tool_Status::in_admin( $status['where'] ) : self::IN_CONFIGURATION,
-                )
-                : array(
-                    'case'  => self::access_case( $status['status'] ),
-                    'name'  => $name,
-                    'label' => $name,
-                    'why'   => rtrim( Tool_Status::predicate( $status ), '.' ),
-                );
+            $found[] = self::tool_match( $name, $status );
+        }
+        $registered = array_map( 'strval', (array) $registry->get_all_tool_names() );
+        foreach ( Tool_Directories::hidden_tools() as $name => $tool ) {
+            if ( $name === $self || in_array( $name, $registered, true ) || ! self::name_matches( $name, $text, $words ) ) {
+                continue;
+            }
+            $status = null !== $status_of ? $status_of( $name ) : null;
+            if ( null === $status ) {
+                if ( Tool_State::is_enabled( $tool ) ) {
+                    continue;
+                }
+                $status = Tool_Status::off( $name, $tool->is_disabled_by_default() );
+            }
+            if ( in_array( $status['status'], array( 'available', 'not_registered', 'integration_inactive' ), true ) || 0 === strpos( $status['status'], 'needs_' ) ) {
+                continue;
+            }
+            $found[] = self::tool_match( $name, $status );
         }
         return $found;
+    }
+
+    private static function tool_match( string $name, array $status ): array {
+        return in_array( $status['status'], array( 'off', 'off_locked' ), true )
+            ? array(
+                'case'  => self::OFF,
+                'name'  => $name,
+                'label' => $name,
+                'where' => 'off' === $status['status'] ? Tool_Status::in_admin( $status['where'] ) : self::IN_CONFIGURATION,
+            )
+            : array(
+                'case'  => self::access_case( $status['status'] ),
+                'name'  => $name,
+                'label' => $name,
+                'why'   => rtrim( Tool_Status::predicate( $status ), '.' ),
+            );
     }
 
     public static function out_of_reach( string $query, ?object $registry, callable $status_of, string $self ): array {

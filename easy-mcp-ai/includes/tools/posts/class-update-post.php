@@ -4,6 +4,8 @@ namespace Easy_MCP_AI\Tools\Posts;
 use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Content_Hash;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -20,7 +22,7 @@ class Update_Post extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress post (only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — "trash" is NOT accepted here and throws; to move a post to trash use `wp_delete_post`), `date` (ISO 8601 site time, use with status="future" to reschedule), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `tag_names` (array of tag names or slugs; with `tags` they replace the post\'s tags, and a missing tag is created), `tax_input` (object: taxonomy slug → array of term IDs; each list replaces that taxonomy\'s terms), `password` (an empty string removes it), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`, `clear` (array of title/content/excerpt to set to an empty string). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, modified, updated, ' . Content_Hash::WRITE_FIELDS . ' }, where `updated` maps each sent field among slug, date, date_gmt, author, sticky, comment_status, ping_status, format, template, featured_media, categories, tags and excerpt to the value WordPress stored (a taken slug comes back with its suffix), plus `created_tag_ids` when `tag_names` was given. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — name the field in `clear` to blank it. For CPT items use `wp_update_cpt_item` instead. Meta, terms, the featured image, sticky, template or format sent alone are written without the post itself being saved (its modified date stays); `resave: true` saves it too.' . Translation_Write::description();
+        return 'Updates an existing WordPress post (only supplied fields change). Required: `post_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future, or any other non-internal status registered on this site — "trash" is NOT accepted here and throws' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_post' ) ? '; to move a post to trash use `wp_delete_post`' : '' ) . '), `date` (ISO 8601 site time, use with status="future" to reschedule), `date_gmt` (ISO 8601 GMT; send `date` or `date_gmt`, not both), `excerpt`, `categories` (array of IDs, replaces existing), `tags` (array of IDs, replaces existing), `tag_names` (array of tag names or slugs; with `tags` they replace the post\'s tags, and a missing tag is created), `tax_input` (object: taxonomy slug → array of term IDs; each list replaces that taxonomy\'s terms), `password` (an empty string removes it), `featured_media`, `slug`, `format`, `author`, `template` (theme file slug for the post template), `comment_status`, `ping_status`, `sticky`, `clear` (array of title/content/excerpt to set to an empty string). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, link, modified, updated, ' . Content_Hash::WRITE_FIELDS . ' }, where `updated` maps each sent field among slug, date, date_gmt, author, sticky, comment_status, ping_status, format, template, featured_media, categories, tags and excerpt to the value WordPress stored (a taken slug comes back with its suffix), plus `created_tag_ids` when `tag_names` was given. Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — name the field in `clear` to blank it. For CPT items use `wp_update_cpt_item` instead. Meta, terms, the featured image, sticky, template or format sent alone are written without the post itself being saved (its modified date stays); `resave: true` saves it too.' . Translation_Write::description();
     }
 
     public function get_redacted_arguments() {
@@ -62,7 +64,7 @@ class Update_Post extends Base_Tool {
                 ),
                 'status'         => array(
                     'type'        => 'string',
-                    'description' => 'The new status for the post. Besides the core statuses, any non-internal status registered on this site (a custom status) is accepted. To move a post to trash, use wp_delete_post instead.',
+                    'description' => 'The new status for the post. Besides the core statuses, any non-internal status registered on this site (a custom status) is accepted.' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_post' ) ? ' To move a post to trash, use wp_delete_post instead.' : '' ),
                     'enum'        => Create_Post::status_enum(),
                 ),
                 'excerpt'        => array(
@@ -157,6 +159,7 @@ class Update_Post extends Base_Tool {
 
     public function precheck( array $arguments ): void {
         $this->precheck_other_type( $arguments, 'post_id', 'post', 'update' );
+        Status_Taxonomy::refuse_unwritable( 'post', $arguments['post_id'] ?? 0, self::text_params( $arguments )['status'] ?? null );
         $params = $this->term_and_media_params( $arguments );
         Create_Post::prepare_term_arguments( $arguments, $params );
         if ( isset( $arguments['post_id'] ) && Translation_Write::asked( $arguments ) ) {
@@ -168,7 +171,7 @@ class Update_Post extends Base_Tool {
         $this->validate_required( $arguments, array( 'post_id' ) );
 
         if ( isset( $arguments['status'] ) && 'trash' === $arguments['status'] ) {
-            throw new \InvalidArgumentException( 'Cannot set status to "trash" via wp_update_post. To move a post to trash, use wp_delete_post instead.' );
+            throw new \InvalidArgumentException( 'Cannot set status to "trash" via wp_update_post.' . ( Post_Type_Tool_Hint::may_reach( 'wp_delete_post' ) ? ' To move a post to trash, use wp_delete_post instead.' : '' ) );
         }
 
         $this->validate_title_length( $arguments['title'] ?? null );
@@ -326,7 +329,7 @@ class Update_Post extends Base_Tool {
         $result = array(
             'id'       => $data['id'],
             'title'    => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status'   => $data['status'],
+            'status'   => Status_Taxonomy::status_of( $data ),
             'modified' => $data['modified'],
             'link'     => $data['link'],
         );

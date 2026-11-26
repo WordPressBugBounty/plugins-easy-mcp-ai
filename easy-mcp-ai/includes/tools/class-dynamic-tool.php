@@ -44,7 +44,11 @@ class Dynamic_Tool extends Base_Tool {
     }
 
     public function get_name()                 { return $this->name; }
-    public function get_description()          { return $this->description; }
+    public function get_description() {
+        $note = null === $this->ability ? '' : Ability_Notes::describe( $this->ability );
+        return '' === $note ? $this->description : $this->description . ' ' . $note;
+    }
+
     public function get_category()             { return $this->category; }
     public function get_required_capability()  { return $this->capability; }
     public function get_input_schema()         { return $this->input_schema; }

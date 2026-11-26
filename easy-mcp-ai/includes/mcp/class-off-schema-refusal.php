@@ -69,13 +69,13 @@ final class Off_Schema_Refusal {
         return $out;
     }
 
-    public static function refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $refused, array $arguments ): Detailed_Tool_Error {
+    public static function refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $refused, array $arguments, ?array $recorded = null ): Detailed_Tool_Error {
         $tool_name          = $tool->get_name();
         list( $properties ) = self::declared( $tool );
         $ending             = ' Nothing was changed.';
         $reasons            = array();
         foreach ( $refused as $finding ) {
-            $reasons[] = self::reason( $finding, $arguments, isset( $properties[ $finding['name'] ] ) ? $properties[ $finding['name'] ] : null );
+            $reasons[] = self::reason( $finding, $arguments, isset( $properties[ $finding['name'] ] ) ? $properties[ $finding['name'] ] : null, $recorded );
         }
         list( $format, $parts, $index, $whole ) = $reasons[0];
         $message                                = Refusal_Text::fit( $format . $ending, $parts, $index );
@@ -96,9 +96,9 @@ final class Off_Schema_Refusal {
         return new Detailed_Tool_Error( $message, $header . "\n- " . implode( "\n- ", $lines ) );
     }
 
-    private static function reason( array $finding, array $arguments, $property ): array {
+    private static function reason( array $finding, array $arguments, $property, ?array $recorded ): array {
         $name     = $finding['name'];
-        $shown    = self::shown( $name, $arguments );
+        $shown    = self::shown( $name, $arguments, $recorded );
         $property = $property instanceof \stdClass ? (array) $property : $property;
         $type     = is_array( $property ) && isset( $property['type'] ) && is_string( $property['type'] ) ? $property['type'] : null;
         if ( 'boolean' === $finding['refuse'] ) {
@@ -142,10 +142,11 @@ final class Off_Schema_Refusal {
         return array( is_array( $properties ) ? $properties : array(), $required );
     }
 
-    private static function shown( string $name, array $arguments ): string {
-        $value = array_key_exists( $name, $arguments ) ? $arguments[ $name ] : null;
-        $shown = wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION );
-        if ( is_string( $shown ) && Server::sanitize_error_message( $shown, PHP_INT_MAX ) === $shown ) {
+    private static function shown( string $name, array $arguments, ?array $recorded ): string {
+        $value  = array_key_exists( $name, $arguments ) ? $arguments[ $name ] : null;
+        $masked = null !== $recorded && ( ! array_key_exists( $name, $recorded ) || $recorded[ $name ] !== $value );
+        $shown  = wp_json_encode( $value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION );
+        if ( ! $masked && is_string( $shown ) && Server::sanitize_error_message( $shown, PHP_INT_MAX ) === $shown ) {
             return $shown;
         }
         if ( is_string( $value ) ) {

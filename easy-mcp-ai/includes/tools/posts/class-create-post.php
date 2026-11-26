@@ -3,6 +3,7 @@ namespace Easy_MCP_AI\Tools\Posts;
 
 use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -158,6 +159,8 @@ class Create_Post extends Base_Tool {
             self::detail_params( $arguments )
         );
 
+        $taxonomy = self::take_new_status( $params );
+
         self::apply_date_gmt_and_password( $arguments, $params );
 
         $meta_sent = $this->apply_meta_argument( $arguments, $params );
@@ -166,7 +169,9 @@ class Create_Post extends Base_Tool {
 
         $tag_names = self::prepare_term_arguments( $arguments, $params );
 
-        $this->maybe_force_draft( $params );
+        if ( '' === $taxonomy ) {
+            $this->maybe_force_draft( $params );
+        }
 
         $created_tag_ids = null === $tag_names ? null : self::resolve_tag_names( $tag_names, $params );
 
@@ -180,7 +185,7 @@ class Create_Post extends Base_Tool {
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status' => $data['status'],
+            'status' => Status_Taxonomy::status_of( $data ),
             'link'   => $data['link'],
             'date'   => $data['date'],
         );
@@ -203,6 +208,10 @@ class Create_Post extends Base_Tool {
         }
     }
 
+    private static function take_new_status( array &$params ): string {
+        return Status_Taxonomy::take_status( $params, 'post', 'draft', 'New post items are saved as drafts', 'Send no status, or draft. Nothing was written.' );
+    }
+
     private static function body_params( array $arguments, bool $has_title ): array {
         $params = array(
             'status' => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'draft',
@@ -222,6 +231,8 @@ class Create_Post extends Base_Tool {
     }
 
     public function precheck( array $arguments ): void {
+        $body = self::body_params( $arguments, false );
+        self::take_new_status( $body );
         $params = $this->term_and_media_params( $arguments );
         self::prepare_term_arguments( $arguments, $params );
         Translation_Write::plan( $arguments, 'post', null );

@@ -135,7 +135,7 @@ final class Shortcode_Editor {
         }
         $key = isset( $op['element'] ) && is_scalar( $op['element'] ) ? trim( (string) $op['element'] ) : '';
         if ( '' === $key ) {
-            return '`element` is required: the element\'s address from wp_get_page_layout, such as "0.1.2".';
+            return '`element` is required: the element\'s address' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' from wp_get_page_layout' : '' ) . ', such as "0.1.2".';
         }
         $items = $this->adapter->layout_items( $content );
         $found = $marks->find( $key, $items );
@@ -288,7 +288,7 @@ final class Shortcode_Editor {
         $items   = $this->adapter->layout_items( $content );
         $path  = self::path( $items, $address );
         if ( null === $path ) {
-            return sprintf( 'no element "%s" in this layout. Read it again with wp_get_page_layout.', $address );
+            return sprintf( 'no element "%s" in this layout.%s', $address, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' Read it again with wp_get_page_layout.' : '' );
         }
         $item   = $path[ count( $path ) - 1 ];
         $type   = $item['tag'];
@@ -438,11 +438,11 @@ final class Shortcode_Editor {
         $kinds = 'set_text' === $name ? self::TEXT_KINDS : array( $role );
         $field = isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ? $op['field'] : ( $roles[ $role ] ?? '' );
         if ( '' === $field ) {
-            return sprintf( '%s elements have no %s field; give `field` (see wp_list_layout_elements with type "%s").', $type, $role, $type );
+            return sprintf( '%s elements have no %s field; give `field`%s.', $type, $role, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $type ) : '' );
         }
         $spec = self::field_spec( $fields, $field );
         if ( null === $spec ) {
-            return sprintf( '%s elements have no field "%s" (see wp_list_layout_elements with type "%s").', $type, $field, $type );
+            return sprintf( '%s elements have no field "%s"%s.', $type, $field, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $type ) : '' );
         }
         if ( ! in_array( $spec['kind'] ?? '', $kinds, true ) ) {
             return sprintf( 'field "%s" holds %s, which %s does not write.', $field, (string) ( $spec['kind'] ?? 'other' ), $name );
@@ -471,7 +471,7 @@ final class Shortcode_Editor {
         }
         $id = isset( $op['attachment_id'] ) && is_numeric( $op['attachment_id'] ) ? (int) $op['attachment_id'] : 0;
         if ( $id <= 0 ) {
-            return 'set_image needs `attachment_id`, the ID of an image in the media library (wp_list_media, or upload one first).';
+            return 'set_image needs `attachment_id`, the ID of an image in the media library' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_media' ) ? ' (wp_list_media, or upload one first).' : ' (upload one first if it is not there).' );
         }
         $media = ( $this->media )( $id );
         if ( null === $media ) {
@@ -501,7 +501,7 @@ final class Shortcode_Editor {
             $changes[ $field ] = $checked;
         }
         if ( array() !== $problems ) {
-            return implode( '; ', $problems ) . sprintf( ' (see wp_list_layout_elements with type "%s").', $type );
+            return implode( '; ', $problems ) . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? sprintf( ' (see wp_list_layout_elements with type "%s")', $type ) : '' ) . '.';
         }
         return $changes;
     }

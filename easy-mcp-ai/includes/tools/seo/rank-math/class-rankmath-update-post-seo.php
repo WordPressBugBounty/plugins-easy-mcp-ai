@@ -8,6 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 use Easy_MCP_AI\MCP\Detailed_Tool_Error;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 class Rankmath_Update_Post_Seo extends Base_Tool {
 
@@ -177,6 +178,9 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 		$this->primary_term( $arguments );
 		self::social_images( $arguments );
 		self::overlays( $arguments );
+		if ( isset( $arguments['canonical_url'] ) ) {
+			Seo_Url::to_send( 'canonical_url', $arguments['canonical_url'] );
+		}
 		$post_id = isset( $arguments['post_id'] ) && is_scalar( $arguments['post_id'] ) ? (int) $arguments['post_id'] : 0;
 		if ( $post_id > 0 && get_post( $post_id ) && current_user_can( 'edit_post', $post_id ) ) {
 			self::refuse_copied_twitter_fields( $post_id, $arguments );
@@ -204,6 +208,7 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 		$images       = self::social_images( $arguments );
 		$overlays     = self::overlays( $arguments );
 		self::refuse_copied_twitter_fields( $post_id, $arguments );
+		$canonical = isset( $arguments['canonical_url'] ) ? Seo_Url::to_send( 'canonical_url', $arguments['canonical_url'] ) : null;
 
 		$meta_map = array(
 			'title'                => 'rank_math_title',
@@ -220,10 +225,8 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 
 		foreach ( $meta_map as $arg_key => $meta_key ) {
 			if ( isset( $arguments[ $arg_key ] ) ) {
-				$value = 'canonical_url' === $arg_key
-					? esc_url_raw( $arguments[ $arg_key ] )
-					: Seo_Text::clean( $arguments[ $arg_key ] );
-				if ( false !== update_post_meta( $post_id, $meta_key, wp_slash( $value ) ) ) {
+				$value = 'canonical_url' === $arg_key ? $canonical : Seo_Text::clean( $arguments[ $arg_key ] );
+				if ( Seo_Post_Meta::update( $post_id, $meta_key, wp_slash( $value ) ) ) {
 					$updated[] = $arg_key;
 				}
 			}
@@ -235,39 +238,32 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 			}
 		}
 
+		$writes = array();
 		if ( null !== $robots ) {
-			update_post_meta( $post_id, 'rank_math_robots', $robots );
-			$updated[] = 'robots';
+			$writes['robots'] = array( 'rank_math_robots', $robots );
 		}
-
 		if ( null !== $advanced ) {
-			update_post_meta( $post_id, 'rank_math_advanced_robots', wp_slash( $advanced ) );
-			$updated[] = 'advanced_robots';
+			$writes['advanced_robots'] = array( 'rank_math_advanced_robots', wp_slash( $advanced ) );
 		}
-
 		if ( isset( $arguments['breadcrumb_title'] ) ) {
-			update_post_meta( $post_id, 'rank_math_breadcrumb_title', wp_slash( Seo_Text::clean( $arguments['breadcrumb_title'] ) ) );
-			$updated[] = 'breadcrumb_title';
+			$writes['breadcrumb_title'] = array( 'rank_math_breadcrumb_title', wp_slash( Seo_Text::clean( $arguments['breadcrumb_title'] ) ) );
 		}
-
 		if ( isset( $arguments['pillar_content'] ) ) {
-			update_post_meta( $post_id, 'rank_math_pillar_content', (bool) $arguments['pillar_content'] ? 'on' : '' );
-			$updated[] = 'pillar_content';
+			$writes['pillar_content'] = array( 'rank_math_pillar_content', (bool) $arguments['pillar_content'] ? 'on' : '' );
 		}
-
 		if ( null !== $primary_term ) {
-			update_post_meta( $post_id, 'rank_math_primary_' . $primary_term['taxonomy'], (string) $primary_term['term'] );
-			$updated[] = 'primary_term';
+			$writes['primary_term'] = array( 'rank_math_primary_' . $primary_term['taxonomy'], (string) $primary_term['term'] );
 		}
-
 		foreach ( self::SWITCHES as $field => $meta_key ) {
-			if ( isset( $arguments[ $field ] ) && false !== update_post_meta( $post_id, $meta_key, (bool) $arguments[ $field ] ? 'on' : 'off' ) ) {
-				$updated[] = $field;
+			if ( isset( $arguments[ $field ] ) ) {
+				$writes[ $field ] = array( $meta_key, (bool) $arguments[ $field ] ? 'on' : 'off' );
 			}
 		}
-
 		foreach ( $overlays as $field => $overlay ) {
-			if ( false !== update_post_meta( $post_id, self::OVERLAYS[ $field ], $overlay ) ) {
+			$writes[ $field ] = array( self::OVERLAYS[ $field ], $overlay );
+		}
+		foreach ( $writes as $field => $write ) {
+			if ( Seo_Post_Meta::update( $post_id, $write[0], $write[1] ) ) {
 				$updated[] = $field;
 			}
 		}
@@ -389,7 +385,7 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 		$id  = '' === $url ? 0 : Image_Attachment_Id::for_url( $url );
 		if ( ! self::is_readable_image( $id ) ) {
 			throw new Detailed_Tool_Error(
-				sprintf( '%1$s is not a Media Library image, and Rank Math shows no other. Nothing was changed. Upload it with wp_upload_media_from_url, or send %2$s.', $field, $id_field ),
+				sprintf( '%1$s is not a Media Library image, and Rank Math shows no other. Nothing was changed. Upload it %2$s, or send %3$s.', $field, Post_Type_Tool_Hint::may_reach( 'wp_upload_media_from_url' ) ? 'with wp_upload_media_from_url' : 'to the Media Library', $id_field ),
 				sprintf( '%1$s: %2$s is not an image in this site\'s Media Library that you can read. Rank Math builds the social image from the attachment and never prints an image URL, so the page would keep its current image.', $field, '' === $url ? substr( $value, 0, 100 ) : $url )
 			);
 		}
@@ -483,14 +479,20 @@ class Rankmath_Update_Post_Seo extends Base_Tool {
 	}
 
 	private static function write_image( int $post_id, array $keys, array $image ): bool {
+		$before = self::stored_image( $post_id, $keys );
 		if ( 0 === $image['id'] ) {
-			$url_removed = delete_post_meta( $post_id, $keys['url'] );
-			$id_removed  = delete_post_meta( $post_id, $keys['id'] );
-			return $url_removed || $id_removed;
+			delete_post_meta( $post_id, $keys['url'] );
+			delete_post_meta( $post_id, $keys['id'] );
+		} else {
+			update_post_meta( $post_id, $keys['url'], $image['url'] );
+			update_post_meta( $post_id, $keys['id'], (string) $image['id'] );
 		}
-		$url_changed = false !== update_post_meta( $post_id, $keys['url'], $image['url'] );
-		$id_changed  = false !== update_post_meta( $post_id, $keys['id'], (string) $image['id'] );
-		return $url_changed || $id_changed;
+		return self::stored_image( $post_id, $keys ) !== $before;
+	}
+
+	private static function stored_image( int $post_id, array $keys ): array {
+		$meta_id = (int) ( wp_is_post_revision( $post_id ) ?: $post_id );
+		return array( get_post_meta( $meta_id, $keys['url'], true ), get_post_meta( $meta_id, $keys['id'], true ) );
 	}
 
 	private static function stored_fields( int $post_id, array $arguments, array $text_keys ): array {

@@ -4,7 +4,9 @@ namespace Easy_MCP_AI\Tools\Pages;
 use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Content_Hash;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 use Easy_MCP_AI\Tools\CPT\Create_CPT_Item;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Posts\Update_Post;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -19,7 +21,7 @@ class Update_Page extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future or a custom status registered on this site — "trash" is NOT accepted here and is rejected by the WordPress REST API as an internal status; to move a page to trash use `wp_delete_page`), `date` (ISO 8601, site time, use with status="future" to reschedule) or `date_gmt` (UTC) — never both, `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`, `password` (an empty string removes the password), `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms; only taxonomies registered on pages and shown in the REST API). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, modified, link, updated, ' . Content_Hash::WRITE_FIELDS . ' }, where `updated` maps each sent field among slug, date, date_gmt, author, parent, menu_order, template, featured_media, comment_status, ping_status and excerpt to the value WordPress stored (a taken slug comes back with its suffix). Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — to blank one, list it in `clear` (e.g. `clear: ["excerpt"]`). For CPT items use `wp_update_cpt_item` instead. A call that changes only meta, the featured image or the template writes just those and does not save the page itself (its modified date and revisions stay as they are); send `resave: true` to save the whole page too.' . Translation_Write::description();
+        return 'Updates an existing WordPress page (PATCH semantics — only supplied fields change). Required: `page_id`. Optional: `title`, `content` (HTML/Gutenberg blocks), `status` (publish/draft/pending/private/future or a custom status registered on this site — "trash" is NOT accepted here and is rejected by the WordPress REST API as an internal status' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_page' ) ? '; to move a page to trash use `wp_delete_page`' : '' ) . '), `date` (ISO 8601, site time, use with status="future" to reschedule) or `date_gmt` (UTC) — never both, `excerpt`, `parent` (re-parent the page — 0 for top-level), `template`, `menu_order`, `slug`, `author`, `featured_media`, `comment_status`, `ping_status`, `password` (an empty string removes the password), `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms; only taxonomies registered on pages and shown in the REST API). Optional `meta` (object of meta key-value pairs; only REST-registered keys persist, including the SEO keys of enabled plugin integrations, and dropped keys are reported back as `meta_ignored` with a `notice`). Returns { id, title, status, modified, link, updated, ' . Content_Hash::WRITE_FIELDS . ' }, where `updated` maps each sent field among slug, date, date_gmt, author, parent, menu_order, template, featured_media, comment_status, ping_status and excerpt to the value WordPress stored (a taken slug comes back with its suffix). Passing an empty string for a text field (`title`, `content`, `excerpt`) preserves the existing value (it is not cleared) — to blank one, list it in `clear` (e.g. `clear: ["excerpt"]`). For CPT items use `wp_update_cpt_item` instead. A call that changes only meta, the featured image or the template writes just those and does not save the page itself (its modified date and revisions stay as they are); send `resave: true` to save the whole page too.' . Translation_Write::description();
     }
 
     public function get_category() {
@@ -61,7 +63,7 @@ class Update_Page extends Base_Tool {
                 ),
                 'status'     => array(
                     'type'        => 'string',
-                    'description' => 'The new status for the page: any status the REST API accepts on this site (core: publish, draft, pending, private, future; plus custom statuses plugins registered). To move a page to trash, use wp_delete_page instead.',
+                    'description' => 'The new status for the page: any status the REST API accepts on this site (core: publish, draft, pending, private, future; plus custom statuses plugins registered).' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_page' ) ? ' To move a page to trash, use wp_delete_page instead.' : '' ),
                     'enum'        => Create_CPT_Item::status_enum(),
                 ),
                 'parent'     => array(
@@ -140,7 +142,7 @@ class Update_Page extends Base_Tool {
 
     public function precheck( array $arguments ): void {
         $this->precheck_other_type( $arguments, 'page_id', 'page', 'update' );
-        self::content_params( $arguments );
+        Status_Taxonomy::refuse_unwritable( 'page', $arguments['page_id'] ?? 0, self::content_params( $arguments )['status'] ?? null );
         self::detail_params( $arguments );
         if ( isset( $arguments['page_id'] ) && Translation_Write::asked( $arguments ) ) {
             Translation_Write::plan( $arguments, 'page', $this->parse_required_id( $arguments['page_id'], 'page_id' ) );
@@ -179,7 +181,7 @@ class Update_Page extends Base_Tool {
         $result = array(
             'id'       => $data['id'],
             'title'    => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status'   => $data['status'],
+            'status'   => Status_Taxonomy::status_of( $data ),
             'modified' => $data['modified'],
             'link'     => $data['link'],
         );

@@ -62,6 +62,7 @@ class Tool_Groups {
             'smart-slider-3'  => array( 'label' => 'Smart Slider 3',              'class' => 'Nextend\\SmartSlider3\\SmartSlider3Info', 'fn' => '' ),
             'wpforms'         => array( 'label' => 'WPForms',                     'class' => 'WPForms_Form_Handler',    'fn' => '' ),
             'loco-translate'  => array( 'label' => 'Loco Translate',              'class' => '',                        'fn' => 'loco_plugin_version' ),
+            'wp-mail-smtp'    => array( 'label' => 'WP Mail SMTP',                'class' => '',                        'fn' => 'wp_mail_smtp' ),
             'wordfence'       => array( 'label' => 'Wordfence Security',          'class' => 'wordfence',               'fn' => '' ),
             'buddypress'      => array( 'label' => 'BuddyPress',                  'class' => 'BuddyPress',              'fn' => 'bp_is_active' ),
             'yoast-seo'       => array( 'label' => 'Yoast SEO',                   'class' => 'WPSEO_Options',           'fn' => '' ),

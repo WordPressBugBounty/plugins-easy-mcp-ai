@@ -18,7 +18,9 @@ class Delete_Form extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Moves a WPForms form (or form template) to the trash, or with `force: true` deletes it permanently, as Trash and Delete Permanently under WPForms › All Forms. Required: `form_id` (WPForms\' wpforms/list-forms ability lists the forms). A trashed form can be restored with wp_wpforms_restore_form or under WPForms › All Forms › Trash; a deleted one cannot, and WPForms Pro deletes its entries with it. Pages and widgets that embed the form show nothing in its place: `locations` lists those WPForms found, but for posts this account cannot read, which `locations_withheld` counts. Returns { status: "trash" or "deleted", form: { id, title }, locations, locations_withheld }. Requires the capability WPForms requires to manage forms (manage_options by default).';
+        return 'Moves a WPForms form (or form template) to the trash, or with `force: true` deletes it permanently, as Trash and Delete Permanently under WPForms › All Forms. Required: `form_id`' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_ability_wpforms_list_forms' ) ? ' (WPForms\' wpforms/list-forms ability lists the forms)' : '' ) . '. A trashed form can be restored '
+            . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_describe( 'wp_wpforms_restore_form' ) ? 'with wp_wpforms_restore_form or ' : '' )
+            . 'under WPForms › All Forms › Trash; a deleted one cannot, and WPForms Pro deletes its entries with it. Pages and widgets that embed the form show nothing in its place: `locations` lists those WPForms found, but for posts this account cannot read, which `locations_withheld` counts. Returns { status: "trash" or "deleted", form: { id, title }, locations, locations_withheld }. Requires the capability WPForms requires to manage forms (manage_options by default).';
     }
 
     public function get_annotations() {

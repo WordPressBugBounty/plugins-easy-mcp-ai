@@ -24,14 +24,11 @@ class Dashboard_Controller extends Admin_Rest_Controller {
 
     private $repository;
 
-    private $token_manager;
-
     private $tool_registry;
 
-    public function __construct( $db, $repository, $token_manager, $tool_registry = null ) {
+    public function __construct( $db, $repository, $tool_registry = null ) {
         $this->db            = $db;
         $this->repository    = $repository;
-        $this->token_manager = $token_manager;
         $this->tool_registry = $tool_registry;
     }
 
@@ -64,7 +61,14 @@ class Dashboard_Controller extends Admin_Rest_Controller {
             $last_call = self::build_last_call( $this->attach_labels( array( $last_call ) )[0] );
         }
 
-        $clients = self::merge_clients( $this->legacy_client_rows( $bounds ), $this->oauth_client_rows( $bounds ) );
+        $usable_keys   = \Easy_MCP_AI\Auth\Usable_Credentials::api_keys();
+        $usable_grants = \Easy_MCP_AI\Auth\Usable_Credentials::grants();
+        $key_rows      = $this->legacy_client_rows( $bounds );
+        $grant_rows    = $this->oauth_client_rows( $bounds );
+        $clients       = self::merge_clients(
+            self::usable_key_rows( $key_rows ?? array(), $usable_keys ),
+            self::usable_grant_rows( $grant_rows ?? array(), $usable_grants )
+        );
 
         $changes   = array();
         $attention = array( 'count' => 0, 'since' => null );
@@ -95,8 +99,9 @@ class Dashboard_Controller extends Admin_Rest_Controller {
             'access'        => array(
                 'draftMode'      => \Easy_MCP_AI\Drafts\Draft_Mode::drafts_new(),
                 'draftModeValue' => \Easy_MCP_AI\Drafts\Draft_Mode::mode(),
-                'tokens'       => (int) $this->token_manager->count_tokens(),
-                'grants'       => $this->count_grants(),
+                'tokens'       => null === $usable_keys ? 0 : count( $usable_keys ),
+                'grants'       => null === $usable_grants ? 0 : count( $usable_grants ),
+                'known'        => null !== $usable_keys && null !== $usable_grants && null !== $key_rows && null !== $grant_rows,
                 'toolsEnabled' => $tools,
                 'preset'       => null,
             ),
@@ -512,33 +517,39 @@ class Dashboard_Controller extends Admin_Rest_Controller {
         return ( new \Easy_MCP_AI\Audit_Log_Repository() )->attach_labels( $rows );
     }
 
-    private function legacy_client_rows( array $b ) {
+    private function legacy_client_rows( array $b ): ?array {
         $table = $this->db->prefix . 'easy_mcp_ai_tokens';
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin-owned table.
-        $rows = $this->db->get_results(
+        return $this->client_rows(
             $this->db->prepare(
                 "SELECT id, name, wp_user_id, last_used_at FROM `{$table}` WHERE is_active = 1 AND last_used_at >= %s AND last_used_at <= %s",
                 $b['from'],
                 $b['to']
-            ),
-            ARRAY_A
+            )
         );
-        return is_array( $rows ) ? $rows : array();
     }
 
-    private function oauth_client_rows( array $b ) {
+    private function oauth_client_rows( array $b ): ?array {
         $tokens  = $this->db->prefix . 'easy_mcp_ai_oauth_access_tokens';
         $clients = $this->db->prefix . 'easy_mcp_ai_oauth_clients';
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin-owned tables.
-        $rows = $this->db->get_results(
+        return $this->client_rows(
             $this->db->prepare(
                 "SELECT t.client_id, t.wp_user_id, MAX(t.last_used_at) AS last_used_at, cl.client_name FROM `{$tokens}` t LEFT JOIN `{$clients}` cl ON cl.client_id = t.client_id WHERE t.is_active = 1 AND t.last_used_at >= %s AND t.last_used_at <= %s GROUP BY t.client_id, t.wp_user_id, cl.client_name",
                 $b['from'],
                 $b['to']
-            ),
-            ARRAY_A
+            )
         );
-        return is_array( $rows ) ? $rows : array();
+    }
+
+    private function client_rows( string $sql ): ?array {
+        if ( property_exists( $this->db, 'last_error' ) ) {
+            $this->db->last_error = '';
+        }
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- prepared by the caller; plugin-owned tables; the list must be live.
+        $rows = $this->db->get_results( $sql, ARRAY_A );
+        if ( ! is_array( $rows ) || ( property_exists( $this->db, 'last_error' ) && '' !== (string) $this->db->last_error ) ) {
+            return null;
+        }
+        return $rows;
     }
 
     private function attention_rows( array $b ) {
@@ -560,13 +571,16 @@ class Dashboard_Controller extends Admin_Rest_Controller {
         return $rows;
     }
 
-    private function count_grants() {
-        $consents = $this->db->prefix . 'easy_mcp_ai_oauth_consents';
-        $clients  = $this->db->prefix . 'easy_mcp_ai_oauth_clients';
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin-owned tables, no user input.
-        return (int) $this->db->get_var(
-            "SELECT COUNT(*) FROM `{$consents}` con INNER JOIN `{$clients}` cl ON cl.client_id = con.client_id AND cl.is_active = 1"
-        );
+    public static function usable_key_rows( array $rows, ?array $usable ): array {
+        return array_values( array_filter( $rows, static function ( $row ) use ( $usable ) {
+            return null !== $usable && isset( $usable[ (int) ( $row['id'] ?? 0 ) ] );
+        } ) );
+    }
+
+    public static function usable_grant_rows( array $rows, ?array $usable ): array {
+        return array_values( array_filter( $rows, static function ( $row ) use ( $usable ) {
+            return null !== $usable && isset( $usable[ \Easy_MCP_AI\Auth\Usable_Credentials::pair_key( (string) ( $row['client_id'] ?? '' ), (int) ( $row['wp_user_id'] ?? 0 ) ) ] );
+        } ) );
     }
 
     private function recent_changes( array $b ) {

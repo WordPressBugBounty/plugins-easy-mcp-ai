@@ -80,7 +80,7 @@ final class WPForms_Store {
         wp_cache_delete( $form_id, 'posts' );
         $post = get_post( $form_id );
         if ( ! is_object( $post ) || ! isset( $post->post_type ) || ! in_array( $post->post_type, self::post_types(), true ) ) {
-            throw new \InvalidArgumentException( sprintf( 'WPForms has no form %d. WPForms\' wpforms/list-forms ability and WPForms › All Forms list the forms. %s', $form_id, self::NOTHING_CHANGED ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \InvalidArgumentException( sprintf( 'WPForms has no form %d. %s %s', $form_id, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_ability_wpforms_list_forms' ) ? 'WPForms\' wpforms/list-forms ability and WPForms › All Forms list the forms.' : 'WPForms › All Forms lists the forms.', self::NOTHING_CHANGED ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         if ( ! \wpforms_current_user_can( $capability, $form_id ) ) {
             throw new \RuntimeException( sprintf( 'WPForms does not let this account %s form %d (WPForms checks %s). %s', 'delete_form_single' === $capability ? 'delete' : 'edit', $form_id, $capability, self::NOTHING_CHANGED ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
@@ -142,7 +142,7 @@ final class WPForms_Store {
             if ( array() === $fields ) {
                 $ids = 'it has none';
             } elseif ( strlen( $listed ) > self::LISTED_IN_REFUSAL ) {
-                $ids = sprintf( 'its %d fields are listed by WPForms\' wpforms/get-form ability', count( $fields ) );
+                $ids = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_ability_wpforms_get_form' ) ? sprintf( 'its %d fields are listed by WPForms\' wpforms/get-form ability', count( $fields ) ) : sprintf( 'it has %d fields', count( $fields ) );
             } else {
                 $ids = 'its fields are ' . $listed;
             }
@@ -202,7 +202,7 @@ final class WPForms_Store {
         $stored = is_object( $post ) && isset( $post->post_content ) ? \wpforms_decode( $post->post_content ) : null;
         $kept   = is_array( $stored ) ? self::fields( $stored ) : array();
         if ( ! is_array( $stored ) || array_keys( $kept ) !== array_keys( $fields ) ) {
-            throw new \RuntimeException( sprintf( 'WPForms stored form %d with fields %s, not %s as sent. Read it again with WPForms\' wpforms/get-form ability, or open it in the WPForms builder.', $form_id, implode( ', ', array_keys( $kept ) ), implode( ', ', array_keys( $fields ) ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'WPForms stored form %d with fields %s, not %s as sent. %s', $form_id, implode( ', ', array_keys( $kept ) ), implode( ', ', array_keys( $fields ) ), \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_ability_wpforms_get_form' ) ? 'Read it again with WPForms\' wpforms/get-form ability, or open it in the WPForms builder.' : 'Open it in the WPForms builder to see what it holds.' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         return array(
             'fields'       => $kept,

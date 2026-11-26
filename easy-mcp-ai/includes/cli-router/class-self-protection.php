@@ -138,7 +138,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $name, false ) ) {
             return self::LABEL . self::REASON_OPTION_BYTES;
         }
-        $lc = strtolower( $name );
+        $lc = \Easy_MCP_AI\Ascii::lower( $name );
         if ( preg_match( self::NAMESPACE_PATTERN, $lc ) || in_array( $lc, self::sdk_names( 'option' ), true ) ) {
             return self::LABEL . sprintf( self::REASON_PLUGIN_OPTION, $name );
         }
@@ -167,7 +167,7 @@ final class Self_Protection {
 
     public static function refused_before_preview( string $name ): bool {
         $trimmed = trim( $name );
-        return ( '' !== $trimmed && ! self::is_printable( $trimmed, true ) ) || isset( self::CONFIRMATION_OPTIONS[ strtolower( $trimmed ) ] );
+        return ( '' !== $trimmed && ! self::is_printable( $trimmed, true ) ) || isset( self::CONFIRMATION_OPTIONS[ \Easy_MCP_AI\Ascii::lower( $trimmed ) ] );
     }
 
     private static function core_option( string $name, string $lc, bool $write ): ?string {
@@ -200,7 +200,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $name, false ) ) {
             return self::LABEL . self::REASON_OPTION_BYTES;
         }
-        $match = self::transient_match( strtolower( $name ), $write );
+        $match = self::transient_match( \Easy_MCP_AI\Ascii::lower( $name ), $write );
         if ( null === $match ) {
             return null;
         }
@@ -218,7 +218,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $group, false ) ) {
             return self::LABEL . self::REASON_CACHE_BYTES;
         }
-        foreach ( explode( ':', strtolower( $group ) ) as $segment ) {
+        foreach ( explode( ':', \Easy_MCP_AI\Ascii::lower( $group ) ) as $segment ) {
             if ( isset( self::CACHE_GROUPS[ $segment ] ) ) {
                 return self::LABEL . sprintf( self::REASON_CACHE_GROUP, $group, self::CACHE_GROUPS[ $segment ] );
             }
@@ -234,7 +234,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $hook, true ) ) {
             return self::LABEL . self::REASON_CRON_BYTES;
         }
-        $lc = strtolower( $hook );
+        $lc = \Easy_MCP_AI\Ascii::lower( $hook );
         if ( preg_match( self::NAMESPACE_PATTERN, $lc ) || in_array( $lc, self::sdk_names( 'cron' ), true ) ) {
             return self::LABEL . sprintf( self::REASON_CRON_HOOK, $hook );
         }
@@ -281,7 +281,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $key, false ) ) {
             return self::LABEL . self::REASON_USER_META_BYTES;
         }
-        $lc = strtolower( $key );
+        $lc = \Easy_MCP_AI\Ascii::lower( $key );
         if ( preg_match( self::NAMESPACE_PATTERN, $lc ) ) {
             return self::LABEL . sprintf( self::REASON_PLUGIN_USER_META, $key );
         }
@@ -299,7 +299,7 @@ final class Self_Protection {
         if ( ! self::is_printable( $cap, true ) ) {
             return self::LABEL . self::REASON_CAPABILITY_BYTES;
         }
-        $lc = strtolower( $cap );
+        $lc = \Easy_MCP_AI\Ascii::lower( $cap );
         if ( self::HISTORY_CAPABILITY === $lc ) {
             return self::LABEL . sprintf( self::REASON_HISTORY_CAPABILITY, $cap );
         }
@@ -317,13 +317,13 @@ final class Self_Protection {
         if ( ! is_array( $words ) || ! $words ) {
             return null;
         }
-        if ( 'wp' === strtolower( $words[0] ) ) {
+        if ( 'wp' === \Easy_MCP_AI\Ascii::lower( $words[0] ) ) {
             array_shift( $words );
         }
-        if ( ! $words || self::OWN_COMMAND !== strtolower( $words[0] ) ) {
+        if ( ! $words || self::OWN_COMMAND !== \Easy_MCP_AI\Ascii::lower( $words[0] ) ) {
             return null;
         }
-        $sub = strtolower( implode( ' ', array_slice( $words, 1, 2 ) ) );
+        $sub = \Easy_MCP_AI\Ascii::lower( implode( ' ', array_slice( $words, 1, 2 ) ) );
         if ( isset( self::OWN_SUBCOMMANDS[ $sub ] ) ) {
             return self::LABEL . self::OWN_SUBCOMMANDS[ $sub ];
         }
@@ -331,7 +331,7 @@ final class Self_Protection {
     }
 
     public static function is_plugin_name( string $name ): bool {
-        $lc = strtolower( trim( $name ) );
+        $lc = \Easy_MCP_AI\Ascii::lower( trim( $name ) );
         if ( '' === $lc ) {
             return false;
         }
@@ -423,7 +423,7 @@ final class Self_Protection {
             return 'user_roles' === substr( $lc, -strlen( 'user_roles' ) );
         }
         foreach ( $prefixes as $prefix ) {
-            if ( strtolower( $prefix ) . 'user_roles' === $lc ) {
+            if ( \Easy_MCP_AI\Ascii::lower( $prefix ) . 'user_roles' === $lc ) {
                 return true;
             }
         }
@@ -436,7 +436,7 @@ final class Self_Protection {
         if ( false === $slash ) {
             return array();
         }
-        $slug = strtolower( trim( substr( $basename, 0, $slash ) ) );
+        $slug = \Easy_MCP_AI\Ascii::lower( trim( substr( $basename, 0, $slash ) ) );
         $key  = str_replace( '-', '_', $slug );
         if ( '' === $slug || preg_match( self::NAMESPACE_PATTERN, $key ) ) {
             return array();
@@ -509,6 +509,6 @@ final class Self_Protection {
     }
 
     private static function normalise_path( string $path ): string {
-        return (string) preg_replace( '#/+#', '/', strtolower( str_replace( '\\', '/', $path ) ) );
+        return (string) preg_replace( '#/+#', '/', \Easy_MCP_AI\Ascii::lower( str_replace( '\\', '/', $path ) ) );
     }
 }

@@ -171,7 +171,11 @@ class Token_Endpoint {
             return $row;
         }
 
-        if ( Device_Authorization::STATUS_APPROVED !== $row->status || ! Device_Authorization::claim_approved( (int) $row->id ) ) {
+        $claimed = Device_Authorization::STATUS_APPROVED === $row->status ? Device_Authorization::claim_approved( (int) $row->id ) : false;
+        if ( null === $claimed ) {
+            return $this->token_error( 'server_error', __( 'The device code was not redeemed: the database refused the change. Please try again.', 'easy-mcp-ai' ), 500 );
+        }
+        if ( ! $claimed ) {
             return $this->token_error( 'invalid_grant', __( 'The device code has already been redeemed.', 'easy-mcp-ai' ) );
         }
 
@@ -212,7 +216,11 @@ class Token_Endpoint {
     }
 
     private function scope_backed_by_consent( string $grant_type, $grant ) {
+        global $wpdb;
         $consent = self::live_consent( (int) $grant->wp_user_id, (string) $grant->client_id );
+        if ( null === $consent && ! empty( $wpdb->last_error ) ) {
+            return $this->grant_unreadable();
+        }
         if ( ! self::consent_backs( $consent, self::bound_consent_id( $grant_type, $grant ) ) ) {
             return $this->consent_refusal( $grant_type, 'revoked' );
         }
@@ -224,8 +232,13 @@ class Token_Endpoint {
     }
 
     private function settle_against_consent( OAuth_Token_Manager $token_manager, array $tokens, string $grant_type, $grant, string $minted_scope ) {
+        global $wpdb;
         $post_consent = self::live_consent( (int) $grant->wp_user_id, (string) $grant->client_id );
         $token_id     = isset( $tokens['token_id'] ) ? (int) $tokens['token_id'] : 0;
+        if ( null === $post_consent && ! empty( $wpdb->last_error ) ) {
+            $token_manager->revoke_chain( $token_id );
+            return $this->grant_unreadable();
+        }
         if ( ! self::consent_backs( $post_consent, self::bound_consent_id( $grant_type, $grant ) ) ) {
             $token_manager->revoke_chain( $token_id );
             return $this->consent_refusal( $grant_type, 'revoked' );
@@ -239,11 +252,10 @@ class Token_Endpoint {
             return $tokens;
         }
 
-        global $wpdb;
         $tokens_table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; the conditional UPDATE and the read-back are the point.
         if ( $settled_scope !== $minted_scope ) {
-            $wpdb->query(
+            $narrowed = $wpdb->query(
                 $wpdb->prepare(
                     "UPDATE {$tokens_table} SET scope = %s WHERE id = %d AND scope = %s",
                     $settled_scope,
@@ -251,11 +263,19 @@ class Token_Endpoint {
                     $minted_scope
                 )
             );
+            if ( false === $narrowed ) {
+                $token_manager->revoke_chain( $token_id );
+                return $this->token_error( 'server_error', __( 'The token was not issued: the database refused narrowing it to the permissions the connection now has. Please authorize again.', 'easy-mcp-ai' ), 500 );
+            }
         }
         $final = $wpdb->get_row(
             $wpdb->prepare( "SELECT scope, is_active FROM {$tokens_table} WHERE id = %d LIMIT 1", $token_id )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        if ( null === $final && ! empty( $wpdb->last_error ) ) {
+            $token_manager->revoke_chain( $token_id );
+            return $this->grant_unreadable();
+        }
         if ( ! is_object( $final ) || empty( $final->is_active ) || '' === trim( (string) $final->scope ) ) {
             $token_manager->revoke_chain( $token_id );
             return $this->consent_refusal( $grant_type, 'empty' );
@@ -280,6 +300,10 @@ class Token_Endpoint {
         return null !== $consent
             && '' !== trim( (string) $consent->scope )
             && ( null === $consent_id || ( $consent_id > 0 && (int) $consent->id === $consent_id ) );
+    }
+
+    private function grant_unreadable(): \WP_REST_Response {
+        return $this->token_error( 'server_error', __( 'No token was issued: the database refused reading the grant. Please authorize again.', 'easy-mcp-ai' ), 500 );
     }
 
     private function consent_refusal( string $grant_type, string $reason ): \WP_REST_Response {
@@ -406,8 +430,7 @@ class Token_Endpoint {
         $codes_table = $wpdb->prefix . 'easy_mcp_ai_oauth_codes';
 
         if ( $is_reuse ) {
-            $this->revoke_tokens_for_code( $code_row );
-            return $this->token_error( 'invalid_grant', __( 'Authorization code has already been used. Any tokens issued from it have been revoked.', 'easy-mcp-ai' ) );
+            return $this->refuse_spent_code( $code_row, __( 'Authorization code has already been used.', 'easy-mcp-ai' ) );
         }
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; atomic redemption must hit DB.
@@ -421,9 +444,11 @@ class Token_Endpoint {
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
+        if ( false === $affected ) {
+            return $this->token_error( 'server_error', __( 'The authorization code was not redeemed: the database refused the change. Please try again.', 'easy-mcp-ai' ), 500 );
+        }
         if ( 1 !== (int) $affected ) {
-            $this->revoke_tokens_for_code( $code_row );
-            return $this->token_error( 'invalid_grant', __( 'Authorization code already redeemed or expired. Tokens revoked.', 'easy-mcp-ai' ) );
+            return $this->refuse_spent_code( $code_row, __( 'Authorization code already redeemed or expired.', 'easy-mcp-ai' ) );
         }
 
         $scope = $this->scope_backed_by_consent( 'authorization_code', $code_row );
@@ -444,15 +469,20 @@ class Token_Endpoint {
         }
 
         $minted_token_id = isset( $tokens['token_id'] ) ? (int) $tokens['token_id'] : 0;
+        $linked          = false;
         if ( $minted_token_id > 0 ) {
             // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Plugin-owned table write.
-            $wpdb->update(
+            $linked = 1 === $wpdb->update(
                 $codes_table,
                 array( 'minted_token_id' => $minted_token_id ),
                 array( 'code_hash' => $code_hash ),
                 array( '%d' ),
                 array( '%s' )
             );
+        }
+        if ( ! $linked ) {
+            $token_manager->revoke_token( (string) OAuth_Token_Manager::hash_presented( $tokens['access_token'] ) );
+            return $this->token_error( 'server_error', __( 'Failed to issue access token: the database refused recording it. Please authorize again.', 'easy-mcp-ai' ), 500 );
         }
 
         $tokens = $this->settle_against_consent( $token_manager, $tokens, 'authorization_code', $code_row, $scope );
@@ -524,6 +554,9 @@ class Token_Endpoint {
         $token_manager    = new OAuth_Token_Manager();
         $result           = $token_manager->refresh( $checked['refresh_token'], $stored_client_id, $checked['resource'] );
 
+        if ( null === $result ) {
+            return $this->token_error( 'server_error', __( 'The token was not refreshed: the database refused the change. Please try again, or authorize again if the refresh token is no longer accepted.', 'easy-mcp-ai' ), 500 );
+        }
         if ( false === $result ) {
             return $this->token_error( 'invalid_grant', __( 'Refresh token is invalid, expired, or revoked.', 'easy-mcp-ai' ) );
         }
@@ -625,13 +658,23 @@ class Token_Endpoint {
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
             if ( ! empty( $fresh_id ) ) {
                 $code_row->minted_token_id = (int) $fresh_id;
+            } elseif ( ! empty( $wpdb->last_error ) ) {
+                return null;
             }
         }
 
-        if ( ! empty( $code_row->minted_token_id ) ) {
-            $token_manager = new OAuth_Token_Manager();
-            $token_manager->revoke_chain( (int) $code_row->minted_token_id );
+        if ( empty( $code_row->minted_token_id ) ) {
+            return false;
         }
+        return ( new OAuth_Token_Manager() )->revoke_chain( (int) $code_row->minted_token_id ) ? true : null;
+    }
+
+    private function refuse_spent_code( $code_row, string $refusal ): \WP_REST_Response {
+        $revoked = $this->revoke_tokens_for_code( $code_row );
+        if ( null === $revoked ) {
+            return $this->token_error( 'server_error', $refusal . ' ' . __( 'The tokens issued from it were not revoked: the database refused the change.', 'easy-mcp-ai' ), 500 );
+        }
+        return $this->token_error( 'invalid_grant', true === $revoked ? $refusal . ' ' . __( 'The tokens issued from it have been revoked.', 'easy-mcp-ai' ) : $refusal );
     }
 
     private function add_token_headers( \WP_REST_Response $response ) {
@@ -704,7 +747,7 @@ class Token_Endpoint {
 
     public static function read_basic_credentials( \WP_REST_Request $request ) {
         $raw = $request->get_header( 'authorization' );
-        if ( is_string( $raw ) && 0 === stripos( $raw, 'Basic ' ) ) {
+        if ( is_string( $raw ) && 0 === strncasecmp( $raw, 'Basic ', 6 ) ) {
             return self::decode_basic( substr( $raw, 6 ) );
         }
 
@@ -804,8 +847,8 @@ class Token_Endpoint {
             return '';
         }
 
-        $scheme = strtolower( $parts['scheme'] );
-        $host   = strtolower( $parts['host'] );
+        $scheme = \Easy_MCP_AI\Ascii::lower( $parts['scheme'] );
+        $host   = \Easy_MCP_AI\Ascii::lower( $parts['host'] );
 
         $port = '';
         if ( isset( $parts['port'] ) ) {

@@ -94,7 +94,7 @@ class Get_CPT_Item extends Base_Tool {
             'title'    => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
             'content'  => $data['content']['raw'] ?? wp_strip_all_tags( $data['content']['rendered'] ?? '' ),
             'excerpt'  => $data['excerpt']['raw'] ?? wp_strip_all_tags( $data['excerpt']['rendered'] ?? '' ),
-            'status'   => $data['status'],
+            'status'   => Status_Taxonomy::status_of( $data ),
             'date'     => $data['date'],
             'modified' => $data['modified'] ?? '',
             'slug'     => $data['slug'] ?? '',

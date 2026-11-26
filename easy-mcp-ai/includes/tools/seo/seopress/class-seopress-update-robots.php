@@ -25,7 +25,7 @@ class Seopress_Update_Robots extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the SEOPress robots / indexing settings for a post or page via the seopress/v1 REST API (noindex, nofollow, no image index, no snippet, canonical URL, primary category and breadcrumbs). Only the fields you provide are changed. A field SEOPress does not offer for the post is refused and nothing is changed: free SEOPress 10.4 offers no breadcrumbs title.';
+		return 'Updates the SEOPress robots / indexing settings for a post or page via the seopress/v1 REST API (noindex, nofollow, no image index, no snippet, canonical URL, primary category and breadcrumbs). Only the fields you provide are changed. A field SEOPress does not offer for the post is refused and nothing is changed: free SEOPress 10.4 offers no breadcrumbs title. A value SEOPress would delete instead of storing (primary_cat that is not a category ID, breadcrumbs "0") is refused too, and canonical must be an http or https URL or a path starting with "/". Returns { post_id, updated }; updated is false, with a reason, when no field was sent or SEOPress already stored these values.';
 	}
 
 	public function get_category() {
@@ -107,7 +107,7 @@ class Seopress_Update_Robots extends Base_Tool {
 		}
 
 		if ( isset( $arguments['canonical'] ) ) {
-			$body[ self::META_KEYS['canonical'] ] = esc_url_raw( (string) $arguments['canonical'] );
+			$body[ self::META_KEYS['canonical'] ] = Seo_Url::to_send( 'canonical', $arguments['canonical'] );
 		}
 		if ( isset( $arguments['primary_cat'] ) ) {
 			$body[ self::META_KEYS['primary_cat'] ] = sanitize_text_field( (string) $arguments['primary_cat'] );
@@ -117,16 +117,23 @@ class Seopress_Update_Robots extends Base_Tool {
 		}
 
 		self::refuse_fields_seopress_drops( $post_id, array_keys( $body ) );
+		Seopress_Stored_Meta::refuse_values_stored_as_nothing(
+			array(
+				'primary_cat' => 'term_id',
+				'breadcrumbs' => 'text',
+			),
+			self::META_KEYS,
+			$body,
+			$arguments
+		);
+		$before = Seopress_Stored_Meta::read( $post_id, array_keys( $body ) );
 
 		$this->rest_request( 'PUT', '/seopress/v1/posts/' . $post_id . '/meta-robot-settings', $body );
 		if ( array() !== $body ) {
 			$this->clear_page_cache( array( $post_id ) );
 		}
 
-		return array(
-			'post_id' => $post_id,
-			'updated' => true,
-		);
+		return Seopress_Stored_Meta::reply( $post_id, $before );
 	}
 
 	private static function refuse_fields_seopress_drops( int $post_id, array $keys ): void {

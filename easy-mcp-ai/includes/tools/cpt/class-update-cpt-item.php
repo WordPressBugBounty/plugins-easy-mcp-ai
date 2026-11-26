@@ -19,7 +19,7 @@ class Update_CPT_Item extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates an existing custom post type (CPT) item, also of a type hidden from the REST API that these tools open. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private/future or a custom status registered on this site; "trash" is not accepted — use `wp_delete_cpt_item`), `slug`, `excerpt`, `meta` (only keys registered with `show_in_rest=true` persist; dropped keys are reported back as `meta_ignored` with a `notice`; refused when the CPT does not support "custom-fields"). Also: `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (hierarchical types only, 0 = top level), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (an empty string removes it), `featured_media` (attachment ID, 0 removes it), `template`, `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms) and `clear` (list of title/content/excerpt to set to an empty string, the same as sending them empty here). Each of those added fields is refused, naming the missing support, when the CPT does not accept it, and needs `rest_base` to name a post type these tools reach. Status transitions follow normal WordPress rules. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title`, `content`, or `excerpt` here DOES blank the field rather than preserving the existing value. Discover the CPT\'s `rest_base` via `wp_get_post_types`. Returns { id, title, status, link, ' . Content_Hash::WRITE_FIELDS . ' }, plus `meta_ignored` and `notice` when sent meta keys were dropped. WordPress enforces the CPT\'s own write capability (edit_posts, or a custom one such as WooCommerce\'s edit_products), so a caller may see a permission error although the tool is listed.' . Translation_Write::description();
+        return 'Updates an existing custom post type (CPT) item, also of a type hidden from the REST API that these tools open. Required: `rest_base` (the CPT\'s rest_base, or its post_type slug; a hidden type by its slug) + `item_id`. Only fields you provide are changed (PATCH semantics). Common: `title`, `content`, `status` (publish/draft/pending/private/future or a custom status registered on this site; "trash" is not accepted' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_cpt_item' ) ? ' — use `wp_delete_cpt_item`' : '' ) . '), `slug`, `excerpt`, `meta` (only keys registered with `show_in_rest=true` persist; dropped keys are reported back as `meta_ignored` with a `notice`; refused when the CPT does not support "custom-fields"). Also: `date` (site time, ISO 8601) or `date_gmt` (UTC) — never both, `author` (user ID), `parent` (hierarchical types only, 0 = top level), `menu_order`, `comment_status` / `ping_status` (open/closed), `password` (an empty string removes it), `featured_media` (attachment ID, 0 removes it), `template`, `tax_input` ({ taxonomy slug: [term IDs] }, replacing that taxonomy\'s terms) and `clear` (list of title/content/excerpt to set to an empty string, the same as sending them empty here). Each of those added fields is refused, naming the missing support, when the CPT does not accept it, and needs `rest_base` to name a post type these tools reach. Status transitions follow normal WordPress rules. Note: unlike `wp_update_post`/`wp_update_page`, passing an empty string for `title`, `content`, or `excerpt` here DOES blank the field rather than preserving the existing value. Menu items (`menu-items`) are refused, since their route would refill or refuse the fields a call does not send. Discover the CPT\'s `rest_base` via `wp_get_post_types`. Returns { id, title, status, link, ' . Content_Hash::WRITE_FIELDS . ' }, plus `meta_ignored` and `notice` when sent meta keys were dropped. WordPress enforces the CPT\'s own write capability (edit_posts, or a custom one such as WooCommerce\'s edit_products), so a caller may see a permission error although the tool is listed.' . Translation_Write::description();
     }
 
     public function get_category() {
@@ -65,7 +65,7 @@ class Update_CPT_Item extends Base_Tool {
                 ),
                 'status'    => array(
                     'type'        => 'string',
-                    'description' => 'New status for the item: any status the REST API accepts on this site (core: publish, draft, pending, private, future; plus custom statuses plugins registered). To move an item to trash, use wp_delete_cpt_item instead.',
+                    'description' => 'New status for the item: any status the REST API accepts on this site (core: publish, draft, pending, private, future; plus custom statuses plugins registered).' . ( Post_Type_Tool_Hint::may_describe( 'wp_delete_cpt_item' ) ? ' To move an item to trash, use wp_delete_cpt_item instead.' : '' ),
                     'enum'        => Create_CPT_Item::status_enum(),
                 ),
                 'excerpt'   => array(
@@ -148,14 +148,19 @@ class Update_CPT_Item extends Base_Tool {
             function () use ( $arguments ): void {
                 if ( isset( $arguments['rest_base'] ) && '' !== $arguments['rest_base'] ) {
                     $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+                    self::refuse_menu_item( $rest_base, $arguments['item_id'] ?? null );
                     $this->refuse_switched_off_dedicated_tool( $rest_base );
                     $params = array();
                     if ( $this->apply_meta_argument( $arguments, $params ) ) {
                         self::refuse_meta_without_support( $rest_base );
                     }
                 }
-                $this->refuse_switched_off_dedicated_tool( $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'POST' ) );
+                $rest_base = $this->precheck_post_type_route( $arguments, 'rest_base', '', 'item_id', 'POST' );
+                $this->refuse_switched_off_dedicated_tool( $rest_base );
                 $this->precheck_featured_media( $arguments );
+                if ( null !== $rest_base && isset( $arguments['status'] ) ) {
+                    $this->precheck_kept_status( $arguments, $rest_base );
+                }
                 if ( isset( $arguments['rest_base'], $arguments['item_id'] ) && Translation_Write::asked( $arguments ) ) {
                     $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
                     Translation_Write::plan( $arguments, Create_CPT_Item::post_type_for_rest_base( $rest_base )[0], $this->parse_required_id( $arguments['item_id'], 'item_id' ) );
@@ -190,6 +195,7 @@ class Update_CPT_Item extends Base_Tool {
         $this->validate_title_length( isset( $arguments['title'] ) ? $arguments['title'] : null );
 
         $rest_base = $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' );
+        self::refuse_menu_item( $rest_base, $arguments['item_id'] );
         $this->refuse_switched_off_dedicated_tool( $rest_base );
         $item_id   = $this->parse_required_id( $arguments['item_id'], 'item_id' );
         $params         = self::content_params( $arguments );
@@ -198,6 +204,7 @@ class Update_CPT_Item extends Base_Tool {
         $this->refuse_other_post_type_base( $item_id, $rest_base, 'rest_base' );
 
         $post_type      = Create_CPT_Item::post_type_for_rest_base( $rest_base )[0];
+        self::take_kept_status( $params, $post_type, $item_id );
         $translation    = Translation_Write::plan( $arguments, $post_type, $item_id, true );
         $this->apply_post_type_fields( $arguments, $rest_base, $params );
         $this->refuse_builder_owned_write( $item_id, array_key_exists( 'content', $params ), (array) ( $params['meta'] ?? array() ) );
@@ -209,7 +216,7 @@ class Update_CPT_Item extends Base_Tool {
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status' => $data['status'],
+            'status' => Status_Taxonomy::status_of( $data ),
             'link'   => $data['link'] ?? '',
         ) + Content_Hash::of_post( $item_id, true );
         if ( $meta_sent ) {
@@ -217,6 +224,40 @@ class Update_CPT_Item extends Base_Tool {
         }
 
         return array_merge( $result, $translation->finish( $item_id ) );
+    }
+
+    private function precheck_kept_status( array $arguments, string $rest_base ): void {
+        try {
+            $item_id = $this->parse_required_id( $arguments['item_id'] ?? null, 'item_id' );
+        } catch ( \InvalidArgumentException $e ) {
+            return;
+        }
+        $params = self::content_params( $arguments );
+        self::take_kept_status( $params, Create_CPT_Item::post_type_for_rest_base( $rest_base )[0], $item_id );
+    }
+
+    private static function take_kept_status( array &$params, string $post_type, int $item_id ): string {
+        $post  = get_post( $item_id );
+        $known = is_object( $post ) && $post_type === $post->post_type && current_user_can( 'edit_post', $item_id );
+        $kept  = $known ? (string) $post->post_status : (string) ( $params['status'] ?? '' );
+        return Status_Taxonomy::take_status( $params, $post_type, $kept, sprintf( 'Item %1$d keeps its status "%2$s"', $item_id, $kept ), 'Send no status. Nothing was changed.' );
+    }
+
+    private static function refuse_menu_item( string $rest_base, $item_id ): void {
+        if ( 'nav_menu_item' !== Create_CPT_Item::post_type_for_rest_base( $rest_base )[0] ) {
+            return;
+        }
+        $id   = is_numeric( $item_id ) ? (int) $item_id : 0;
+        $next = array();
+        if ( Post_Type_Tool_Hint::may_reach( 'wp_update_menu_item' ) ) {
+            $next[] = 'wp_update_menu_item' . ( $id > 0 ? ' (item_id ' . $id . ')' : '' ) . ' to edit it';
+        }
+        if ( Post_Type_Tool_Hint::may_reach( 'wp_reorder_menu_items' ) ) {
+            $next[] = 'wp_reorder_menu_items to move it among the others';
+        }
+        throw new \InvalidArgumentException(
+            'Nothing was changed: wp_update_cpt_item does not update menu items.' . ( array() === $next ? '' : ' Use ' . implode( ', or ', $next ) . '.' ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        );
     }
 
     private static function refuse_meta_without_support( string $rest_base ): string {

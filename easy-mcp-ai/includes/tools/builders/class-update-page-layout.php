@@ -2,12 +2,14 @@
 namespace Easy_MCP_AI\Tools\Builders;
 
 use Easy_MCP_AI\Builders\Builder_Registry;
+use Easy_MCP_AI\Builders\Elementor_Adapter;
 use Easy_MCP_AI\Builders\Elementor_Editor;
 use Easy_MCP_AI\Builders\Layout_Adapter;
 use Easy_MCP_AI\Builders\Layout_Lock;
 use Easy_MCP_AI\Builders\Shortcode_Editor;
 use Easy_MCP_AI\Builders\Shortcode_Structure;
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -15,12 +17,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class Update_Page_Layout extends Base_Tool {
 
+    const START_ELEMENTOR = 'elementor';
+
     public function get_name() {
         return 'wp_update_page_layout';
     }
 
     public function get_description() {
-        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with wp_get_page_layout first: required `post_id`, `version` (from that read; refused if stale) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default field: the element\'s main text); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor and Breakdance: `replace_text` { element, search, replace, field?, expected_count? } replaces exact stored text in one field without resending the field, if found `expected_count` times (default 1). Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, value?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: sections and columns too, sized as its editor sizes them). Addresses mean the layout as read, before any op; `ref` names a new element for later ops. Any op may carry `expect` (its required element type). `dry_run: true` saves nothing. Returns { changed, saved, version (send it with the next edit), results (one per op and per field written), parents?, revision_id?, warnings? }. Elementor V4 elements (flag `atomic`) are edited with Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities insert, move and remove elements. Breakdance, WPBakery, Flatsome and Divi are edited only on supported versions; the read says `editable` and why not. Requires edit access to the item.';
+        $read = Post_Type_Tool_Hint::may_describe( 'wp_get_page_layout' ) ? 'wp_get_page_layout' : 'the layout read';
+        return 'Changes elements of a page built with Elementor, Breakdance, WPBakery, Flatsome\'s UX Builder or Divi (4 or 5), saved the way the builder saves, keeping a revision. Read the layout with ' . $read . ' first: required `post_id`, `version` (from that read; stale is refused) and `ops`, applied in order, all or none. Ops: `set_text` { element, value, field? } (default: the main text); `set_link` { element, url, new_tab?, nofollow?, field? }; `set_image` { element, attachment_id, field? }; `set_fields` { element, fields: { name: value } } for other fields wp_list_layout_elements lists. Elementor and Breakdance: `replace_text` { element, search, replace, field?, expected_count? } replaces exact stored text in one field, if found `expected_count` times (default 1). Elementor only: `list` and `item` (from the read\'s `lists`) aim a field op at one list row, and `add_item`, `remove_item` and `move_item` { element, list, item?, index? or after?, copy_of?, fields? } change the list. Elementor, Flatsome and Divi also take `insert` { element_type, fields?, value?, ref? }, `remove` { element }, `move` { element } and `duplicate` { element, ref? }, placed by `parent`/`index`, `after` or `before` as each property says; the builder\'s own rules decide what may go where (Elementor: also sections, columns). Addresses (`element`, from ' . $read . ') mean the layout as read, before any op; `ref` names a new one for later ops. Any op may carry `expect`. `dry_run: true` saves nothing. `start: "elementor"` makes a draft no builder owns an Elementor page from its read\'s `start` layout, as Elementor\'s first open does (blocks kept as markup in a Text Editor). Returns { changed, saved, version (for the next edit), results, started?, parents?, revision_id?, warnings? }. Elementor V4 (`atomic`) elements: Elementor\'s own abilities. Breakdance: no code, dynamic data or `nofollow`; its own abilities change structure. Breakdance, WPBakery, Flatsome and Divi: supported versions only (the read\'s `editable`). Requires edit access to the item.';
     }
 
     public function get_category() {
@@ -41,6 +46,7 @@ class Update_Page_Layout extends Base_Tool {
     }
 
     public function get_input_schema() {
+        $read = Post_Type_Tool_Hint::may_describe( 'wp_get_page_layout' );
         return array(
             'type'       => 'object',
             'properties' => array(
@@ -50,7 +56,7 @@ class Update_Page_Layout extends Base_Tool {
                 ),
                 'version' => array(
                     'type'        => 'string',
-                    'description' => 'The `version` wp_get_page_layout (or the previous edit) returned. The call is refused when the layout changed since.',
+                    'description' => 'The `version` ' . ( $read ? 'wp_get_page_layout' : 'the layout read' ) . ' (or the previous edit) returned. The call is refused when the layout changed since.',
                 ),
                 'ops'     => array(
                     'type'        => 'array',
@@ -64,7 +70,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'element'       => array(
                                 'type'        => 'string',
-                                'description' => 'The element\'s address from wp_get_page_layout: an Elementor id such as "a1b2c3d", a Breakdance id such as "102", or a path such as "0.1.2" for the other builders, as read with `version`; or the `ref` of an element added earlier in the call. Not for insert.',
+                                'description' => 'The element\'s address from ' . ( $read ? 'wp_get_page_layout' : 'the layout read' ) . ': an Elementor id such as "a1b2c3d", a Breakdance id such as "102", or a path such as "0.1.2" for the other builders, as read with `version`; or the `ref` of an element added earlier in the call. Not for insert.',
                             ),
                             'list'          => array(
                                 'type'        => 'string',
@@ -126,7 +132,7 @@ class Update_Page_Layout extends Base_Tool {
                             ),
                             'search'        => array(
                                 'type'        => 'string',
-                                'description' => 'replace_text (Elementor, Breakdance): the exact text to replace, as stored (HTML included, as wp_get_page_layout with `include_settings` shows it); case, spaces and entities must match.',
+                                'description' => 'replace_text (Elementor, Breakdance): the exact text to replace, as stored (HTML included' . ( $read ? ', as wp_get_page_layout with `include_settings` shows it' : '' ) . '); case, spaces and entities must match.',
                             ),
                             'replace'       => array(
                                 'type'        => 'string',
@@ -165,6 +171,11 @@ class Update_Page_Layout extends Base_Tool {
                         'required'   => array( 'op' ),
                     ),
                 ),
+                'start'   => array(
+                    'type'        => 'string',
+                    'enum'        => array( self::START_ELEMENTOR ),
+                    'description' => 'Make a draft, auto-draft or pending post no page builder owns an Elementor page, starting from the layout ' . ( $read ? 'wp_get_page_layout' : 'the layout read' ) . ' shows under `start`: the post content in one Text Editor widget, as Elementor\'s own first open makes it. Block markup, dynamic blocks and synced patterns included, is stored as saved there; Elementor renders the page\'s blocks when it prints it. Only for such a post.',
+                ),
                 'dry_run' => array(
                     'type'        => 'boolean',
                     'description' => 'Check the ops and return the result without saving. Default false.',
@@ -195,7 +206,8 @@ class Update_Page_Layout extends Base_Tool {
         if ( count( $ops ) > 5 ) {
             $parts[] = sprintf( '%d more', count( $ops ) - 5 );
         }
-        return sprintf( 'Edit the page builder layout of post #%s: %s', $post_id, array() === $parts ? 'no operations' : implode( ', ', $parts ) );
+        $what = self::START_ELEMENTOR === ( $arguments['start'] ?? null ) ? 'Start an Elementor layout on post #%s and edit it: %s' : 'Edit the page builder layout of post #%s: %s';
+        return sprintf( $what, $post_id, array() === $parts ? 'no operations' : implode( ', ', $parts ) );
     }
 
     private static function describe_op( array $op ): string {
@@ -218,8 +230,9 @@ class Update_Page_Layout extends Base_Tool {
 
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'post_id', 'version', 'ops' ) );
-        $post_id = $this->parse_required_id( $arguments['post_id'], 'post_id' );
-        $dry_run = self::is_dry_run( $arguments );
+        $post_id  = $this->parse_required_id( $arguments['post_id'], 'post_id' );
+        $dry_run  = self::is_dry_run( $arguments );
+        $starting = self::is_start( $arguments );
 
         $post = get_post( $post_id );
         if ( ! is_object( $post ) || empty( $post->ID ) || 'revision' === ( $post->post_type ?? '' ) ) {
@@ -232,36 +245,43 @@ class Update_Page_Layout extends Base_Tool {
         if ( ! is_array( $ops ) || array() === $ops ) {
             throw new \InvalidArgumentException( '`ops` must be a non-empty array of operations.' );
         }
-        $adapter = Builder_Registry::for_post( $post );
+        $adapter = $starting ? self::starter( $post ) : Builder_Registry::for_post( $post );
         if ( null === $adapter ) {
             $blocks = function_exists( 'has_blocks' ) && has_blocks( $post->post_content );
-            throw new \InvalidArgumentException( sprintf( 'Post %d is not built with a supported page builder; edit it with %s.', $post_id, $blocks ? 'wp_update_post_blocks' : 'wp_update_post' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            $tool = $blocks ? 'wp_update_post_blocks' : 'wp_update_post';
+            $ways = array_filter( array( Post_Type_Tool_Hint::may_reach( $tool ) ? 'edit it with ' . $tool : '', self::start_hint( $post ) ) );
+            throw new \InvalidArgumentException( sprintf( 'Post %1$d is not built with a supported page builder%2$s.', $post_id, array() === $ways ? '' : '; ' . implode( ', or ', $ways ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        $refusal = $adapter->edit_refusal( $post );
+        $refusal = $starting ? null : $adapter->edit_refusal( $post );
         if ( null !== $refusal ) {
             throw Layout_Adapter::refusal( array( $refusal ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $lock = $dry_run ? '' : Layout_Lock::acquire( $post_id );
         if ( ! $dry_run && '' === $lock ) {
-            throw new \RuntimeException( sprintf( 'Another edit of post %d is being saved. Read the layout again with wp_get_page_layout, then redo the edit.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'Another edit of post %d is being saved. Read the layout again%s, then redo the edit.', $post_id, Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         try {
             if ( ! $dry_run ) {
                 $post = self::fresh_post( $post_id, $post );
             }
             $version = is_scalar( $arguments['version'] ) ? trim( (string) $arguments['version'] ) : '';
-            $current = $adapter->version_token( $post );
+            $current = $adapter instanceof Elementor_Adapter && $starting ? self::start_version( $adapter, $post ) : $adapter->version_token( $post );
             if ( $version !== $current ) {
-                throw new \RuntimeException( sprintf( 'The layout of post %d changed since it was read (version "%s", now "%s"). Read it again with wp_get_page_layout and redo the edit.', $post_id, $version, $current ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                throw new \RuntimeException( sprintf( 'The layout of post %d changed since it was read (version "%s", now "%s"). Read it again%s and redo the edit.', $post_id, $version, $current, Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             $revision = self::latest_revision( $post_id );
-            $outcome  = $adapter->edit( $post, array_values( $ops ), $dry_run, '' === $lock ? null : self::fence( $post_id, $lock ) );
+            $before   = (string) $post->post_content;
+            $fence    = '' === $lock ? null : self::fence( $post_id, $lock );
+            $outcome  = $adapter instanceof Elementor_Adapter && $starting
+                ? $adapter->start( $post, array_values( $ops ), $dry_run, $fence )
+                : $adapter->edit( $post, array_values( $ops ), $dry_run, $fence );
         } finally {
             if ( '' !== $lock ) {
                 Layout_Lock::release( $post_id, $lock );
             }
         }
         $after = $outcome['saved'] ? get_post( $post_id ) : $post;
+        $after = is_object( $after ) ? $after : $post;
 
         $reply = array(
             'post_id' => $post_id,
@@ -269,9 +289,16 @@ class Update_Page_Layout extends Base_Tool {
             'dry_run' => $dry_run,
             'changed' => $outcome['saved'],
             'saved'   => $outcome['saved'],
-            'version' => $adapter->version_token( is_object( $after ) ? $after : $post ),
+            'version' => $adapter instanceof Elementor_Adapter && $starting && ! $outcome['saved'] ? $adapter->start_version( $after ) : $adapter->version_token( $after ),
             'results' => $outcome['results'],
         );
+        if ( $starting ) {
+            $reply['started'] = $outcome['saved'];
+            $content          = self::content_warning( $before, $outcome['saved'], (int) ( $outcome['kept_revision'] ?? 0 ) );
+            if ( null !== $content ) {
+                $outcome['warnings'][] = $content;
+            }
+        }
         if ( $dry_run ) {
             $reply['would_change'] = $outcome['changed'];
             $reply['note']         = $outcome['changed']
@@ -281,7 +308,7 @@ class Update_Page_Layout extends Base_Tool {
             $reply['note'] = 'The operations leave the layout as it was; nothing was saved.';
         }
         $latest = $outcome['saved'] ? self::latest_revision( $post_id ) : 0;
-        if ( $latest > 0 && $latest !== $revision ) {
+        if ( $latest > 0 && $latest !== $revision && $latest !== (int) ( $outcome['kept_revision'] ?? 0 ) ) {
             $reply['revision_id'] = $latest;
         }
         if ( isset( $outcome['parents'] ) ) {
@@ -293,10 +320,53 @@ class Update_Page_Layout extends Base_Tool {
         return $reply;
     }
 
+    private static function starter( object $post ): Elementor_Adapter {
+        $owner = Builder_Registry::for_post( $post );
+        if ( null !== $owner && 'elementor' !== $owner->id() ) {
+            throw Layout_Adapter::refusal( array( sprintf( 'Post %1$d is built with %2$s, so an Elementor layout cannot be started on it. Send the call without `start` to edit its %2$s layout.', (int) $post->ID, $owner->label() ) ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        $elementor = Builder_Registry::get( 'elementor' );
+        if ( ! $elementor instanceof Elementor_Adapter ) {
+            throw Layout_Adapter::refusal( array( 'Elementor is not active, so no Elementor layout can be started.' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        $refusal = $elementor->start_refusal( $post );
+        if ( null !== $refusal ) {
+            throw Layout_Adapter::refusal( array( $refusal ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        return $elementor;
+    }
+
+    private static function start_version( Elementor_Adapter $elementor, object $post ): string {
+        $owner = Builder_Registry::for_post( $post );
+        return null === $owner ? $elementor->start_version( $post ) : $owner->version_token( $post );
+    }
+
+    private static function start_hint( object $post ): string {
+        $elementor = Builder_Registry::get( 'elementor' );
+        if ( ! $elementor instanceof Elementor_Adapter || null !== $elementor->start_refusal( $post ) || ! Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ) {
+            return '';
+        }
+        return 'make it an Elementor page with `start: "elementor"` and the version wp_get_page_layout returns';
+    }
+
+    private static function content_warning( string $before, bool $saved, int $revision ): ?string {
+        if ( '' === trim( $before ) ) {
+            return null;
+        }
+        if ( ! $saved ) {
+            return 'Saving replaces the post content with the layout\'s plain text, as Elementor\'s editor does; the page then shows the Elementor layout.';
+        }
+        $kept  = $revision > 0 ? get_post( $revision ) : null;
+        $where = is_object( $kept ) && isset( $kept->post_content ) && (string) $kept->post_content === $before
+            ? sprintf( 'the content before is kept in revision %d', $revision )
+            : 'no revision of the post holds the content before';
+        return sprintf( 'Elementor replaced the post content with the layout\'s plain text, as its editor does; %s.', $where );
+    }
+
     private static function fence( int $post_id, string $lock ): callable {
         return static function () use ( $post_id, $lock ): void {
             if ( ! Layout_Lock::holds( $post_id, $lock ) ) {
-                throw new \RuntimeException( sprintf( 'This edit of post %d ran longer than %d seconds and another edit took over, so nothing was saved. Read the layout again with wp_get_page_layout and redo the edit.', $post_id, Layout_Lock::TTL ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                throw new \RuntimeException( sprintf( 'This edit of post %d ran longer than %d seconds and another edit took over, so nothing was saved. Read the layout again%s and redo the edit.', $post_id, Layout_Lock::TTL, Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
         };
     }
@@ -322,5 +392,15 @@ class Update_Page_Layout extends Base_Tool {
 
     private static function is_dry_run( array $arguments ): bool {
         return isset( $arguments['dry_run'] ) && rest_sanitize_boolean( $arguments['dry_run'] );
+    }
+
+    private static function is_start( array $arguments ): bool {
+        if ( ! isset( $arguments['start'] ) ) {
+            return false;
+        }
+        if ( self::START_ELEMENTOR !== $arguments['start'] ) {
+            throw new \InvalidArgumentException( '`start` must be "elementor", the one builder a layout can be started for.' );
+        }
+        return true;
     }
 }

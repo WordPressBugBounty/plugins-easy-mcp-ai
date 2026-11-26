@@ -44,6 +44,10 @@ class Self_Service_Connections {
         if ( null === $client_id ) {
             return new \WP_Error( 'forbidden', __( 'You can only revoke your own connections.', 'easy-mcp-ai' ) );
         }
+        if ( \is_wp_error( $client_id ) ) {
+            OAuth_Audit_Log::write( self::AUDIT_EVENT, array( 'consent_id' => $consent_id, 'stage' => 'profile', 'reason' => $client_id->get_error_code() ), 'error', '', \get_current_user_id() );
+            return $client_id;
+        }
         OAuth_Audit_Log::write( self::AUDIT_EVENT, array( 'consent_id' => $consent_id, 'stage' => 'profile' ), 'success', $client_id, \get_current_user_id() );
         return true;
     }
@@ -59,7 +63,8 @@ class Self_Service_Connections {
         }
         $result = $this->revoke( $id );
         if ( \is_wp_error( $result ) ) {
-            \wp_die( \esc_html( $result->get_error_message() ), '', array( 'response' => 403 ) );
+            $data = $result->get_error_data();
+            \wp_die( \esc_html( $result->get_error_message() ), '', array( 'response' => is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 403 ) );
         }
         \wp_safe_redirect( \admin_url( 'profile.php#easy-mcp-connections' ) );
         exit;
@@ -71,8 +76,9 @@ class Self_Service_Connections {
         }
         $page   = isset( $_GET['easy_mcp_connections_page'] ) && is_scalar( $_GET['easy_mcp_connections_page'] ) ? max( 1, min( self::last_page(), (int) $_GET['easy_mcp_connections_page'] ) ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- A page number for a read.
         $result = $this->grants( $page );
-        $grants = $result['grants'];
+        $grants = self::mark_usable( $result['grants'], \Easy_MCP_AI\Auth\Usable_Credentials::grants() );
         $more   = $result['more'];
+        $oauth_on = \Easy_MCP_AI\Auth\Usable_Credentials::oauth_enabled();
         if ( ! $grants && ! Connect_Policy::current_user_can_connect( Connect_Policy::CHANNEL_OAUTH ) ) {
             return;
         }
@@ -88,6 +94,14 @@ class Self_Service_Connections {
 
     private static function last_page(): int {
         return intdiv( PHP_INT_MAX, self::PER_PAGE ) + 1;
+    }
+
+    public static function mark_usable( array $grants, ?array $usable ): array {
+        foreach ( $grants as $i => $grant ) {
+            $key                       = \Easy_MCP_AI\Auth\Usable_Credentials::pair_key( (string) ( $grant['client']['clientId'] ?? '' ), (int) ( $grant['user']['id'] ?? 0 ) );
+            $grants[ $i ]['connected'] = null === $usable ? null : isset( $usable[ $key ] );
+        }
+        return $grants;
     }
 
     public function render_forms(): void {

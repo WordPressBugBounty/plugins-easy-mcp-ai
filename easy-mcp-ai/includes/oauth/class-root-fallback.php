@@ -113,7 +113,7 @@ class Root_Fallback {
         if ( is_string( $basic_user ) && '' !== $basic_user ) {
             return rawurldecode( $basic_user );
         }
-        if ( is_string( $auth_header ) && 0 === stripos( $auth_header, 'Basic ' ) ) {
+        if ( is_string( $auth_header ) && 0 === strncasecmp( $auth_header, 'Basic ', 6 ) ) {
             $decoded = base64_decode( substr( $auth_header, 6 ), true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode -- RFC 6749 §2.3.1 client credentials.
             if ( is_string( $decoded ) && false !== strpos( $decoded, ':' ) ) {
                 return rawurldecode( explode( ':', $decoded, 2 )[0] );

@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Menus;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -117,7 +118,7 @@ class List_Menus extends Base_Tool {
             $menus[] = array(
                 'id'     => (int) $menu['id'],
                 'title'  => (string) ( $menu['title']['raw'] ?? '' ),
-                'status' => (string) $menu['status'],
+                'status' => (string) Status_Taxonomy::status_of( $menu ),
             );
         }
         return $menus;

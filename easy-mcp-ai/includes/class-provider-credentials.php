@@ -22,7 +22,7 @@ final class Provider_Credentials {
     const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token';
 
     public static function constant_name( string $option ): string {
-        return 'EASY_MCP_AI_' . strtoupper( preg_replace( '/^easy_mcp_ai_/', '', $option ) );
+        return 'EASY_MCP_AI_' . Ascii::upper( (string) preg_replace( '/^easy_mcp_ai_/', '', $option ) );
     }
 
     public static function provider_of( string $option ): ?string {
@@ -120,16 +120,14 @@ final class Provider_Credentials {
 
     public static function report(): array {
         $deployed = array();
-        $invalid  = array();
+        $reasons  = array();
         foreach ( array_keys( self::SECRETS ) as $provider ) {
             foreach ( self::deployed_constants( $provider ) as $name => $source ) {
                 $deployed[ $name ] = $source;
             }
-            foreach ( array_keys( self::problems( $provider ) ) as $name ) {
-                $invalid[] = $name;
-            }
+            $reasons += self::problems( $provider );
         }
-        return array( 'deployed' => $deployed, 'invalid' => $invalid );
+        return array( 'deployed' => $deployed, 'invalid' => array_keys( $reasons ), 'reasons' => $reasons );
     }
 
     private static function problems( string $provider ): array {
@@ -207,24 +205,10 @@ final class Provider_Credentials {
                 sprintf( '%1$s contains an unexpected token_uri. Only %2$s is accepted.', $name, self::GOOGLE_TOKEN_URI ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
-        if ( ! function_exists( 'openssl_pkey_get_private' ) ) {
+        $problem = Google_Private_Key::problem( $key['private_key'] );
+        if ( null !== $problem ) {
             throw new \RuntimeException(
-                sprintf( '%s cannot be used: the PHP OpenSSL extension, which signs Google requests, is not available on this server.', $name ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
-            );
-        }
-        $readable = 0 === strpos( ltrim( $key['private_key'] ), '-----BEGIN ' );
-        if ( $readable ) {
-            try {
-                $readable = false !== openssl_pkey_get_private( $key['private_key'] );
-            } catch ( \Throwable $e ) {
-                $readable = false;
-            }
-        }
-        if ( ! $readable ) {
-            while ( openssl_error_string() ) {
-            }
-            throw new \RuntimeException(
-                sprintf( '%s has a private_key OpenSSL cannot read. Use the service account key file downloaded from Google Cloud Console, unedited.', $name ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                sprintf( '%1$s cannot be used. %2$s', $name, $problem ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             );
         }
         return $key;

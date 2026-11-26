@@ -152,10 +152,11 @@ trait Wordfence_Tool {
 
     protected static function is_secret_parameter( string $name ): bool {
         foreach ( (array) preg_split( '/[\[\]]+/', $name, -1, PREG_SPLIT_NO_EMPTY ) as $part ) {
-            if ( in_array( strtolower( (string) $part ), array( 'code', 'sig', 'otp', 'newuseremail' ), true )
-                || 1 === preg_match( '/(?:key|hash)$/i', (string) $part )
-                || 1 === preg_match( Text_Redactor::SENSITIVE_KEY_PATTERN, (string) $part )
-                || 1 === preg_match( '/signature|nonce|session|cookie/i', (string) $part ) ) {
+            $part = \Easy_MCP_AI\Ascii::lower( (string) $part );
+            if ( in_array( $part, array( 'code', 'sig', 'otp', 'newuseremail' ), true )
+                || 1 === preg_match( '/(?:key|hash)$/', $part )
+                || Text_Redactor::is_sensitive_key( $part )
+                || 1 === preg_match( '/signature|nonce|session|cookie/', $part ) ) {
                 return true;
             }
         }

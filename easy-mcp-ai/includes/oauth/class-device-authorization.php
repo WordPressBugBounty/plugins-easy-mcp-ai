@@ -300,7 +300,7 @@ class Device_Authorization {
             )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
-        return 1 === (int) $affected;
+        return false === $affected ? null : 1 === (int) $affected;
     }
 
     public static function device_error( $error, $description, $status = 400 ) {

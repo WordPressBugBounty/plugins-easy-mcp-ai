@@ -156,7 +156,7 @@ final class Divi5_Adapter extends Layout_Adapter {
                         'address' => $node['address'],
                         'type'    => $node['type'],
                         'ref'     => 'post:' . (string) $id,
-                        'note'    => 'A global Divi element: the page renders Divi Library item ' . (string) $id . ', so edit that item with wp_get_page_layout and wp_update_page_layout.',
+                        'note'    => 'A global Divi element: the page renders Divi Library item ' . (string) $id . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) && \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_update_page_layout' ) ? ', so edit that item with wp_get_page_layout and wp_update_page_layout.' : ', so it is edited in that item.' ),
                     );
                 }
                 continue;
@@ -203,6 +203,10 @@ final class Divi5_Adapter extends Layout_Adapter {
             }
         }
         return $fields;
+    }
+
+    public function writes_here(): bool {
+        return null === $this->version_refusal( self::TESTED_VERSIONS );
     }
 
     public function edit_refusal( object $post ): ?string {
@@ -266,7 +270,7 @@ final class Divi5_Adapter extends Layout_Adapter {
             $fence();
         }
         if ( self::stored_content( $post_id ) !== $original ) {
-            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again with wp_get_page_layout and redo the edit.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again%s and redo the edit.', $post_id, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         $saved = wp_update_post(
             wp_slash(

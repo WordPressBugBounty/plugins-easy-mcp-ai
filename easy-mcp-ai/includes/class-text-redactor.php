@@ -10,20 +10,46 @@ class Text_Redactor {
 
     const MASK = '[REDACTED]';
 
-    const SENSITIVE_KEY_PATTERN = '/pass(word|wd)?|pwd|secret|token|api[_\-]?key|apikey|salt|auth[_\-]?key|private[_\-]?key|credential/i';
+    private const SENSITIVE_KEY_PATTERN = '/pass(word|wd)?|pwd|secret|token|api[_\-]?key|apikey|salt|auth[_\-]?key|private[_\-]?key|credential/';
+
+    public static function is_sensitive_key( string $key ): bool {
+        return Ascii::matches( self::SENSITIVE_KEY_PATTERN, $key );
+    }
+
+    public static function sensitive_key_words(): string {
+        return substr( self::SENSITIVE_KEY_PATTERN, 1, -1 );
+    }
 
     public static function redact( $text, bool $heuristic = true ) {
         if ( ! is_string( $text ) || '' === $text ) {
             return is_string( $text ) ? $text : '';
         }
 
-        $text = preg_replace( '#\b([a-z][a-z0-9+.\-]*://)[^/\s:@]+:[^/\s@]*@#i', '$1' . self::MASK . '@', $text );
+        $text = Ascii::replace_callback(
+            '#(?<![a-z0-9_])([a-z][a-z0-9+.\-]*://)[^/\s:@]+:[^/\s@]*@#',
+            static function ( array $m ): string {
+                return $m[1] . self::MASK . '@';
+            },
+            $text
+        );
+        if ( null === $text ) {
+            return '';
+        }
 
-        $text = preg_replace( '/\b(Bearer|Basic)\s+[A-Za-z0-9._~+\/=\-]{8,}/i', '$1 ' . self::MASK, $text );
+        $text = Ascii::replace_callback(
+            '/(?<![a-z0-9_])(bearer|basic)\s+[a-z0-9._~+\/=\-]{8,}/',
+            static function ( array $m ): string {
+                return $m[1] . ' ' . self::MASK;
+            },
+            $text
+        );
+        if ( null === $text ) {
+            return '';
+        }
 
-        $text = preg_replace( '/\b(wpmcp_|emcps_)[A-Za-z0-9_]{8,}/', '$1' . self::MASK, $text );
+        $text = preg_replace( '/(?<![A-Za-z0-9_])(wpmcp_|emcps_)[A-Za-z0-9_]{8,}/', '$1' . self::MASK, $text );
 
-        $text = preg_replace( '/\beyJ[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}/', self::MASK, $text );
+        $text = preg_replace( '/(?<![A-Za-z0-9_])eyJ[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}/', self::MASK, $text );
 
         $text = preg_replace(
             '/(define\s*\(\s*[\'"][A-Z0-9_]*(?:KEY|SALT|PASSWORD|SECRET|TOKEN)[A-Z0-9_]*[\'"]\s*,\s*)([\'"])(?:(?!\2).)*\2/',
@@ -31,11 +57,16 @@ class Text_Redactor {
             $text
         );
 
-        $text = preg_replace(
-            '/(?<![A-Za-z0-9])((?:password|passwd|pass|pwd|secret|client_secret|token|access_token|refresh_token|api[_\-]?key|apikey|auth_key|private_key)["\'\]]?\s*(?:=>|[=:])\s*["\']?)([^\s"\'&,;<>]+)/i',
-            '$1' . self::MASK,
-            $text
+        $text = Ascii::replace_callback(
+            '/(?<![a-z0-9])((?:password|passwd|pass|pwd|secret|client_secret|token|access_token|refresh_token|api[_\-]?key|apikey|auth_key|private_key)["\'\]]?\s*(?:=>|[=:])\s*["\']?)([^\s"\'&,;<>]+)/',
+            static function ( array $m ): string {
+                return $m[1] . self::MASK;
+            },
+            (string) $text
         );
+        if ( null === $text ) {
+            return '';
+        }
 
         if ( ! $heuristic ) {
             return $text;
@@ -61,7 +92,7 @@ class Text_Redactor {
     }
 
     public static function redact_value( $value, $key = '', $depth = 0 ) {
-        if ( '' !== (string) $key && ! is_int( $key ) && preg_match( self::SENSITIVE_KEY_PATTERN, (string) $key ) ) {
+        if ( '' !== (string) $key && ! is_int( $key ) && self::is_sensitive_key( (string) $key ) ) {
             return self::MASK;
         }
         if ( is_array( $value ) ) {

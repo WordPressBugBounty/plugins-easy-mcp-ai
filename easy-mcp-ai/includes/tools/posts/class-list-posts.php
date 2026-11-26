@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Tools\Posts;
 use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\CPT\List_CPT_Items;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -219,6 +220,10 @@ class List_Posts extends Base_Tool {
         );
         $schema['properties'] += Translation_Read::properties();
         return $schema;
+    }
+
+    public function precheck( array $arguments ): void {
+        Status_Taxonomy::refuse_unlistable( 'post', $this->status_and_paging_params( $arguments )['status'] ?? null );
     }
 
     public function execute( array $arguments ) {
@@ -496,7 +501,7 @@ class List_Posts extends Base_Tool {
             $item        = array(
                 'id'             => $post['id'],
                 'title'          => wp_strip_all_tags( $post['title']['rendered'] ),
-                'status'         => $post['status'],
+                'status'         => Status_Taxonomy::status_of( $post ),
                 'date'           => $post['date'],
                 'modified'       => $post['modified'],
                 'slug'           => $post['slug'],

@@ -17,7 +17,7 @@ final class Consent_Sections {
         'design'       => array( 'menus', 'blocks', 'appearance', 'widgets' ),
         'site'         => array( 'settings', 'plugins', 'plugin_files', 'themes', 'theme_files', 'site_health', 'core_update', 'cache', 'history', 'audit' ),
         'integrations' => array(
-            'woocommerce', 'wc_webhooks', 'wc_store', 'acf', 'acf_posts', 'buddypress', 'events', 'redirection', 'sitekit', 'divi', 'cf7', 'smartslider', 'wpforms', 'loco', 'wordfence',
+            'woocommerce', 'wc_webhooks', 'wc_store', 'acf', 'acf_posts', 'buddypress', 'events', 'redirection', 'sitekit', 'divi', 'cf7', 'smartslider', 'wpforms', 'loco', 'mailsmtp', 'wordfence',
             'yoast', 'aioseo', 'rankmath', 'seopress', 'slimseo', 'tsf',
             'gsc', 'ga', 'dfs', 'semrush', 'ahrefs', 'seranking',
         ),

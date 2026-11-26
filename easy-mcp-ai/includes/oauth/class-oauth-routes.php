@@ -183,16 +183,30 @@ class OAuth_Routes {
 
         $looks_like_access = ( 0 === strpos( $token, 'wpmcp_oat_' ) );
 
+        $revoked = false;
         if ( null !== $token_hash ) {
-            if ( 'refresh_token' === $hint || ! $looks_like_access ) {
-                if ( ! $manager->revoke_by_refresh_hash( $token_hash, $client_id ) ) {
-                    $manager->revoke_token( $token_hash, $client_id );
-                }
-            } else {
-                if ( ! $manager->revoke_token( $token_hash, $client_id ) ) {
-                    $manager->revoke_by_refresh_hash( $token_hash, $client_id );
-                }
+            $refresh_first = 'refresh_token' === $hint || ! $looks_like_access;
+            $revoked       = $refresh_first
+                ? $manager->revoke_by_refresh_hash( $token_hash, $client_id )
+                : $manager->revoke_token( $token_hash, $client_id );
+            if ( false === $revoked ) {
+                $revoked = $refresh_first
+                    ? $manager->revoke_token( $token_hash, $client_id )
+                    : $manager->revoke_by_refresh_hash( $token_hash, $client_id );
             }
+        }
+        if ( null === $revoked ) {
+            $response = new \WP_REST_Response(
+                array(
+                    'error'             => 'temporarily_unavailable',
+                    'error_description' => __( 'The token was not revoked: the database refused the change. Please try again.', 'easy-mcp-ai' ),
+                ),
+                503
+            );
+            $response->header( 'Referrer-Policy', 'no-referrer' );
+            $response->header( 'X-Content-Type-Options', 'nosniff' );
+            $response->header( 'Cache-Control', 'no-store' );
+            return $response;
         }
 
         $response = new \WP_REST_Response( '', 200 );

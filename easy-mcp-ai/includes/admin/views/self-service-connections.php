@@ -50,8 +50,14 @@ $headings = array(
                     ?>
                 </span>
                 <?php endif; ?>
-                <?php if ( $grant['issuedElsewhere'] ) : ?>
+                <?php if ( ! $oauth_on ) : ?>
+                <br><span class="description"><?php esc_html_e( 'Not connected now: AI app sign-in (OAuth) is switched off on this site.', 'easy-mcp-ai' ); ?></span>
+                <?php elseif ( $grant['issuedElsewhere'] ) : ?>
                 <br><span class="description"><?php esc_html_e( 'Issued for a previous site address. Connect the app again to use it.', 'easy-mcp-ai' ); ?></span>
+                <?php elseif ( false === $grant['connected'] && null === $grant['lastUsedAt'] ) : ?>
+                <br><span class="description"><?php esc_html_e( 'Not finished connecting: you approved the app, but it has not signed in yet.', 'easy-mcp-ai' ); ?></span>
+                <?php elseif ( false === $grant['connected'] ) : ?>
+                <br><span class="description"><?php esc_html_e( 'Not connected now: the app\'s sign-in has ended. Connect the app again to use it.', 'easy-mcp-ai' ); ?></span>
                 <?php endif; ?>
             </td>
             <td><?php echo esc_html( \Easy_MCP_AI\Admin\Self_Service_Connections::access_label( $grant ) ); ?></td>

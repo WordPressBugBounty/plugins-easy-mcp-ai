@@ -39,7 +39,7 @@ class Yoast_Update_Term_Seo extends Base_Tool {
 	}
 
 	public function get_description() {
-		return 'Updates the Yoast SEO values of a category, tag or other term — the fields of Yoast\'s SEO box on the term edit screen. Pass term_id and only the fields to change; the others keep their value, "" clears a text field. Use this, not wp_update_term_meta: Yoast keeps term SEO in its own settings and never reads _yoast_wpseo_* term meta. Requires permission to edit the term; noindex, canonical and breadcrumb_title also need Yoast\'s advanced-settings permission (Editors and Administrators by default). A refused field changes nothing. Returns { updated_fields, stored_differently, fields } — stored_differently lists fields Yoast\'s sanitiser changed or dropped.';
+		return 'Updates the Yoast SEO values of a category, tag or other term — the fields of Yoast\'s SEO box on the term edit screen. Pass term_id and only the fields to change; the others keep their value, "" clears a text field. Use this, not wp_update_term_meta: Yoast keeps term SEO in its own settings and never reads _yoast_wpseo_* term meta. Requires permission to edit the term; noindex, canonical and breadcrumb_title also need Yoast\'s advanced-settings permission (Editors and Administrators by default). A refused field changes nothing. Returns { updated_fields, stored_differently, fields } — updated_fields lists the fields whose stored value changed (a value sent again is left out), stored_differently the fields Yoast\'s sanitiser changed or dropped.';
 	}
 
 	public function get_category() {
@@ -86,6 +86,7 @@ class Yoast_Update_Term_Seo extends Base_Tool {
 	public function execute( array $arguments ) {
 		$term    = self::resolve_term( $this->parse_required_id( $arguments['term_id'] ?? null, 'term_id' ) );
 		$changes = $this->validated_changes( $arguments );
+		$before  = self::stored( $term );
 
 		$this->write_and_refresh( $term, $this->merged_values( $term, $changes ) );
 
@@ -93,7 +94,7 @@ class Yoast_Update_Term_Seo extends Base_Tool {
 		return array(
 			'term_id'            => (int) $term->term_id,
 			'taxonomy'           => $term->taxonomy,
-			'updated_fields'     => array_keys( $changes ),
+			'updated_fields'     => self::changed_fields( $changes, $before, self::stored( $term ) ),
 			'stored_differently' => $this->altered_fields( $changes, $after ),
 			'fields'             => $after,
 		);
@@ -148,6 +149,23 @@ class Yoast_Update_Term_Seo extends Base_Tool {
 			\Easy_MCP_AI\History\Change_Context::expect_refresh_only( 'term', (int) $term->term_id );
 		}
 		do_action( 'edited_term', (int) $term->term_id, (int) $term->term_taxonomy_id, $term->taxonomy, array() );
+	}
+
+	private static function changed_fields( array $changes, array $before, array $after ) {
+		$changed = array();
+		foreach ( array_keys( $changes ) as $field ) {
+			$keys = array( self::FIELDS[ $field ] );
+			if ( array_key_exists( $field, self::IMAGE_IDS ) ) {
+				$keys[] = self::IMAGE_IDS[ $field ];
+			}
+			foreach ( $keys as $key ) {
+				if ( (string) ( $before[ $key ] ?? '' ) !== (string) ( $after[ $key ] ?? '' ) ) {
+					$changed[] = $field;
+					break;
+				}
+			}
+		}
+		return $changed;
 	}
 
 	private function altered_fields( array $changes, array $after ) {

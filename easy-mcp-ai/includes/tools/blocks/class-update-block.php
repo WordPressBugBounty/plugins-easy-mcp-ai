@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -60,6 +61,10 @@ class Update_Block extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        Status_Taxonomy::refuse_unwritable( 'wp_block', $arguments['block_id'] ?? 0, isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : null );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'block_id' ) );
         $this->validate_title_length( isset( $arguments['title'] ) ? $arguments['title'] : null );
@@ -84,7 +89,7 @@ class Update_Block extends Base_Tool {
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status' => $data['status'],
+            'status' => Status_Taxonomy::status_of( $data ),
         );
 
         if ( isset( $arguments['content'] ) ) {

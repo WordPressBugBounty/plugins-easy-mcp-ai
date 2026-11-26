@@ -759,6 +759,7 @@ class Media_Handler extends Command_Handler {
             __FUNCTION__,
             array( $fullsizepath, $is_pdf, $metadata, $att_id ),
             static function () use ( $fullsizepath, $is_pdf, $metadata, $att_id ) {
+                \Easy_MCP_AI\Tools\Image_Editor_State::refresh();
                 $editor = \wp_get_image_editor( $fullsizepath );
                 if ( \is_wp_error( $editor ) ) {
                     return array(
@@ -850,6 +851,7 @@ class Media_Handler extends Command_Handler {
     }
 
     private static function would_auto_rotate( string $path ): bool {
+        \Easy_MCP_AI\Tools\Image_Editor_State::refresh();
         $editor = \wp_get_image_editor( $path );
         if ( \is_wp_error( $editor ) || 'image/jpeg' !== \wp_get_image_mime( $path ) || ! is_callable( 'exif_read_data' ) ) {
             return false;
@@ -867,6 +869,7 @@ class Media_Handler extends Command_Handler {
             array( $id, $full_size_path, $orientation ),
             static function () use ( $id, $full_size_path, $orientation ) {
                 self::admin_includes();
+                \Easy_MCP_AI\Tools\Image_Editor_State::refresh();
                 $editor = \wp_get_image_editor( $full_size_path );
                 if ( \is_wp_error( $editor ) ) {
                     return array(

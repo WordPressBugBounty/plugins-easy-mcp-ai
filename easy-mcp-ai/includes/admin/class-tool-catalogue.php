@@ -312,6 +312,7 @@ class Tool_Catalogue {
         $registry = new \Easy_MCP_AI\Tools\Tool_Registry();
         $registry->auto_discover( true, array_merge(
             \Easy_MCP_AI\Tools\Tool_Directories::ALWAYS_ON,
+            array( \Easy_MCP_AI\Tools\Tool_Directories::TEMPLATES ),
             array_values( \Easy_MCP_AI\Tools\Tool_Directories::PLUGIN_GROUPS ),
             \Easy_MCP_AI\Tools\Tool_Directories::EXTERNAL_DATA,
             array( \Easy_MCP_AI\Tools\Tool_Directories::BUILDERS, \Easy_MCP_AI\Tools\Tool_Directories::TRANSLATIONS )

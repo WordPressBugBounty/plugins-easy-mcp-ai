@@ -42,7 +42,6 @@ class Admin_Routes {
         $dashboard = new Dashboard_Controller(
             $wpdb,
             new \Easy_MCP_AI\History\Change_Log_Repository(),
-            new \Easy_MCP_AI\Auth\Token_Manager(),
             $this->tool_registry
         );
         $dashboard->register_routes();
@@ -135,8 +134,8 @@ class Admin_Routes {
         }
         if ( 'a10' === $result->id() ) {
             $documents = array();
-            foreach ( \Easy_MCP_AI\Diagnostics\Check_Discovery::mirror_urls() as $name => $url ) {
-                $documents[] = array( 'name' => (string) $name, 'url' => (string) $url );
+            foreach ( array_keys( \Easy_MCP_AI\Diagnostics\Check_Discovery::mirror_urls() ) as $name ) {
+                $documents[] = array( 'name' => (string) $name, 'url' => \Easy_MCP_AI\Diagnostics\Check_Discovery::copy_url( (string) $name, $result->evidence() ) );
             }
             return array( 'kind' => 'well_known', 'documents' => $documents );
         }
@@ -174,9 +173,11 @@ class Admin_Routes {
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name, no user input
         $oauth_clients = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->prefix}easy_mcp_ai_oauth_clients WHERE is_active = 1" );
 
+        $keys = \Easy_MCP_AI\Auth\Usable_Credentials::api_keys();
+
         return Support_Text::system_info(
             array(
-                'token_count'        => ( new \Easy_MCP_AI\Auth\Token_Manager() )->count_tokens(),
+                'token_count'        => null === $keys ? null : count( $keys ),
                 'oauth_client_count' => $oauth_clients,
                 'tool_count'         => $tools,
                 'external'           => array(

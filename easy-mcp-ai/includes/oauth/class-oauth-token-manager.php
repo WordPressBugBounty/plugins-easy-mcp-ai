@@ -113,7 +113,7 @@ class OAuth_Token_Manager {
             return false;
         }
 
-        if ( strtotime( $row['expires_at'] . ' UTC' ) < time() ) {
+        if ( ! self::access_is_live( $row, time() ) ) {
             return false;
         }
 
@@ -133,6 +133,17 @@ class OAuth_Token_Manager {
         return $row;
     }
 
+    public static function access_is_live( array $row, int $now ): bool {
+        return ! ( strtotime( $row['expires_at'] . ' UTC' ) < $now );
+    }
+
+    public static function refresh_is_live( array $row, int $now ): bool {
+        if ( empty( $row['refresh_hash'] ) ) {
+            return false;
+        }
+        return empty( $row['refresh_expires_at'] ) || ! ( strtotime( $row['refresh_expires_at'] . ' UTC' ) < $now );
+    }
+
     public function refresh_token_is_live( string $raw_refresh_token, string $client_id ): bool {
         global $wpdb;
 
@@ -143,14 +154,14 @@ class OAuth_Token_Manager {
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; the answer must be fresh, as refresh() reads it.
         $row = $wpdb->get_row(
-            $wpdb->prepare( "SELECT is_active, client_id, refresh_expires_at FROM {$table} WHERE refresh_hash = %s LIMIT 1", $refresh_hash ),
+            $wpdb->prepare( "SELECT is_active, client_id, refresh_hash, refresh_expires_at FROM {$table} WHERE refresh_hash = %s LIMIT 1", $refresh_hash ),
             ARRAY_A
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
         if ( ! is_array( $row ) || ! (int) $row['is_active'] || $client_id !== $row['client_id'] ) {
             return false;
         }
-        return empty( $row['refresh_expires_at'] ) || strtotime( $row['refresh_expires_at'] . ' UTC' ) >= time();
+        return self::refresh_is_live( $row, time() );
     }
 
     public function refresh( string $raw_refresh_token, string $client_id, string $resource ) {
@@ -166,7 +177,7 @@ class OAuth_Token_Manager {
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; refresh lookup must be fresh.
         $row = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT id, is_active, client_id, wp_user_id, resource, scope, refresh_expires_at, refresh_parent_id, token_hash FROM {$table} WHERE refresh_hash = %s LIMIT 1",
+                "SELECT id, is_active, client_id, wp_user_id, resource, scope, refresh_hash, refresh_expires_at, refresh_parent_id, token_hash FROM {$table} WHERE refresh_hash = %s LIMIT 1",
                 $refresh_hash
             ),
             ARRAY_A
@@ -174,7 +185,7 @@ class OAuth_Token_Manager {
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
         if ( ! $row ) {
-            return false;
+            return empty( $wpdb->last_error ) ? false : null;
         }
 
         $row['scope'] = implode( ' ', \Easy_MCP_AI\OAuth\Scope_Map::apply_legacy_scope_upgrades(
@@ -186,12 +197,15 @@ class OAuth_Token_Manager {
                 return false;
             }
             $chain_id = ! empty( $row['refresh_parent_id'] ) ? (int) $row['refresh_parent_id'] : (int) $row['id'];
-            if ( $this->successor_settles( $chain_id ) ) {
+            $settled  = $this->successor_settles( $chain_id );
+            if ( null === $settled ) {
+                return null;
+            }
+            if ( $settled ) {
                 $this->log_refresh_event( 'race_refused', $chain_id, $client_id );
                 return false;
             }
-            $this->log_refresh_event( 'reuse_revoked', $chain_id, $client_id );
-            $this->revoke_chain( $chain_id );
+            $this->revoke_reused_chain( $chain_id, $client_id );
             return false;
         }
 
@@ -199,7 +213,7 @@ class OAuth_Token_Manager {
             return false;
         }
 
-        if ( ! empty( $row['refresh_expires_at'] ) && strtotime( $row['refresh_expires_at'] . ' UTC' ) < time() ) {
+        if ( ! self::refresh_is_live( $row, time() ) ) {
             return false;
         }
 
@@ -214,13 +228,19 @@ class OAuth_Token_Manager {
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
+        if ( false === $claimed ) {
+            return null;
+        }
         if ( 1 !== (int) $claimed ) {
-            if ( $this->successor_settles( $parent_id ) ) {
+            $settled = $this->successor_settles( $parent_id );
+            if ( null === $settled ) {
+                return null;
+            }
+            if ( $settled ) {
                 $this->log_refresh_event( 'race_refused', $parent_id, $client_id );
                 return false;
             }
-            $this->log_refresh_event( 'reuse_revoked', $parent_id, $client_id );
-            $this->revoke_chain( $parent_id );
+            $this->revoke_reused_chain( $parent_id, $client_id );
             return false;
         }
 
@@ -233,14 +253,14 @@ class OAuth_Token_Manager {
         );
 
         if ( null === $new_pair ) {
-            return false;
+            return null;
         }
 
         $new_pair['wp_user_id'] = (int) $row['wp_user_id'];
         return $new_pair;
     }
 
-    public function revoke_token( string $token_hash, string $client_id = '' ): bool {
+    public function revoke_token( string $token_hash, string $client_id = '' ): ?bool {
         global $wpdb;
 
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
@@ -251,6 +271,9 @@ class OAuth_Token_Manager {
                 $wpdb->prepare( "SELECT client_id FROM {$table} WHERE token_hash = %s LIMIT 1", $token_hash )
             );
             // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+            if ( null === $stored && ! empty( $wpdb->last_error ) ) {
+                return null;
+            }
             if ( null === $stored || $stored !== $client_id ) {
                 return false;
             }
@@ -265,10 +288,10 @@ class OAuth_Token_Manager {
             array( '%s' )
         );
 
-        return false !== $result;
+        return false === $result ? null : true;
     }
 
-    public function revoke_by_refresh_hash( string $refresh_hash, string $client_id = '' ): bool {
+    public function revoke_by_refresh_hash( string $refresh_hash, string $client_id = '' ): ?bool {
         global $wpdb;
 
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
@@ -282,30 +305,25 @@ class OAuth_Token_Manager {
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
         if ( ! $row ) {
-            return false;
+            return empty( $wpdb->last_error ) ? false : null;
         }
         if ( '' !== $client_id && $row['client_id'] !== $client_id ) {
             return false;
         }
         $chain_id = ! empty( $row['refresh_parent_id'] ) ? (int) $row['refresh_parent_id'] : (int) $row['id'];
-        $this->revoke_chain( $chain_id );
-        return true;
+        return $this->revoke_chain( $chain_id ) ? true : null;
     }
 
-    private function successor_settles( int $chain_id ): bool {
-        if ( $this->chain_has_live_successor( $chain_id ) ) {
-            return true;
-        }
-        for ( $waited = 0; $waited < self::ROTATION_SETTLE_MS; $waited += self::ROTATION_POLL_MS ) {
+    private function successor_settles( int $chain_id ): ?bool {
+        $live = $this->chain_has_live_successor( $chain_id );
+        for ( $waited = 0; false === $live && $waited < self::ROTATION_SETTLE_MS; $waited += self::ROTATION_POLL_MS ) {
             usleep( self::ROTATION_POLL_MS * 1000 );
-            if ( $this->chain_has_live_successor( $chain_id ) ) {
-                return true;
-            }
+            $live = $this->chain_has_live_successor( $chain_id );
         }
-        return false;
+        return $live;
     }
 
-    private function chain_has_live_successor( int $chain_id ): bool {
+    private function chain_has_live_successor( int $chain_id ): ?bool {
         global $wpdb;
 
         if ( $chain_id <= 0 ) {
@@ -315,15 +333,21 @@ class OAuth_Token_Manager {
         $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
 
         // phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Plugin-owned table prefixed by $wpdb->prefix; freshness required.
-        $count = (int) $wpdb->get_var(
+        $count = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$table} WHERE refresh_parent_id = %d AND is_active = 1",
                 $chain_id
             )
         );
         // phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
+        if ( null === $count && ! empty( $wpdb->last_error ) ) {
+            return null;
+        }
+        return (int) $count >= 1;
+    }
 
-        return $count >= 1;
+    private function revoke_reused_chain( int $chain_id, string $client_id ): void {
+        $this->log_refresh_event( $this->revoke_chain( $chain_id ) ? 'reuse_revoked' : 'reuse_revoke_failed', $chain_id, $client_id );
     }
 
     private function log_refresh_event( string $event, int $chain_id, string $client_id ): void {

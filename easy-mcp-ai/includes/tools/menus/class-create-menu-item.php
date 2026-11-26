@@ -10,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Create_Menu_Item extends Base_Tool {
 
     use Menu_Item_Refusal;
+    use Menu_Item_Update;
 
     const IDS_IN_MESSAGE = 8;
 
@@ -226,11 +227,7 @@ class Create_Menu_Item extends Base_Tool {
         $shifted = array();
         foreach ( $to_shift as $index => $row ) {
             try {
-                Menu_Item_Stored_Fields::around(
-                    function () use ( $row ) {
-                        return $this->rest_request( 'POST', '/wp/v2/menu-items/' . $row['id'], array( 'menu_order' => $row['menu_order'] + 1 ), array( 'id' ) );
-                    }
-                );
+                $this->update_menu_item( $row['id'], $row['item'], array( 'menu_order' => $row['menu_order'] + 1 ) );
                 $shifted[] = $row['id'];
             } catch ( \RuntimeException $e ) {
                 return $this->partial_shift_report( $result, $shifted, $row['id'], $e->getMessage(), array_slice( $to_shift, $index + 1 ), $position );
@@ -297,6 +294,7 @@ class Create_Menu_Item extends Base_Tool {
             $rows[] = array(
                 'id'         => $id,
                 'menu_order' => $order,
+                'item'       => $items[ $id ] ?? array(),
             );
         }
         if ( $denied ) {
@@ -317,7 +315,7 @@ class Create_Menu_Item extends Base_Tool {
             $this->refuse(
                 'item(s) %s must move down, but WordPress will not re-save them as stored.',
                 $unsaveable,
-                'WordPress refuses to re-save a custom link with an empty title or URL, or an archive link to a post type that is no longer registered. Fix those items with wp_update_menu_item first, omit position to add the item at the end, or send shift_following: false to set only its own order.'
+                'WordPress refuses to re-save an archive link to a post type that is no longer registered. Fix those items with wp_update_menu_item first, omit position to add the item at the end, or send shift_following: false to set only its own order.'
             );
         }
         usort(

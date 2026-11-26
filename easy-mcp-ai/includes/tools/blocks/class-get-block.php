@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -57,7 +58,7 @@ class Get_Block extends Base_Tool {
             'id'       => $data['id'],
             'title'    => $data['title']['raw'] ?? wp_strip_all_tags( $data['title']['rendered'] ?? '' ),
             'content'  => $data['content']['raw'] ?? $data['content']['rendered'] ?? '',
-            'status'   => $data['status'],
+            'status'   => Status_Taxonomy::status_of( $data ),
             'date'     => $data['date'],
             'modified' => $data['modified'] ?? '',
             'slug'     => $data['slug'] ?? '',

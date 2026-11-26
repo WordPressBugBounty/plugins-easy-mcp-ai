@@ -22,7 +22,11 @@ class Server {
 
     const PRIVILEGED_RATE_LIMIT_MESSAGE = 'Privileged tool rate limit exceeded. Please try again in a minute.';
 
-    const SENSITIVE_ARG_PATTERN = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|download_url|file_id|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/i';
+    private const SENSITIVE_ARG_PATTERN = '/^(password|pass|secret|token|api[_\-]?key|authorization|content_base64|download_url|file_id|private[_\-]?key|access[_\-]?token|client[_\-]?secret|credential)$/';
+
+    const INNER_TOOLS_META = \Easy_MCP_AI\Approvals\Approval_Gate::INNER_TOOLS_META;
+
+    const RECEIPT_WITHHELD = 'this user no longer holds a capability the same call that ran needed, so its result is not sent again. Nothing was changed.';
 
     const STEP_UP_MESSAGE = 'Token does not have permission to use this tool. It needs the OAuth scope %s: ask the user to reconnect this app to the site and approve it.';
 
@@ -76,6 +80,8 @@ class Server {
     private $feedback_queue      = null;
 
     private static $active_call = null;
+
+    private static $ran_tools = array();
 
     private static $active_listing = null;
 
@@ -835,6 +841,9 @@ class Server {
             if ( null !== self::required_tool_off( $registry, $tool ) ) {
                 return false;
             }
+            if ( null !== self::privileged_group( $name ) && null !== self::privileged_trail_refusal( (bool) \Easy_MCP_AI\Config::get( 'easy_mcp_ai_audit_log_enabled', true ) ) ) {
+                return false;
+            }
             $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
             return ! $cap || \current_user_can( $cap );
         } ) );
@@ -888,9 +897,11 @@ class Server {
 
     private function handle_tools_call( $id, $params, $token_id, ?array $allowed_tools = null ): array {
         Inner_Request_Method::open();
+        Status_Field_Guard::open();
         try {
             return $this->run_tools_call( $id, $params, $token_id, $allowed_tools );
         } finally {
+            Status_Field_Guard::close();
             Inner_Request_Method::close();
         }
     }
@@ -930,7 +941,7 @@ class Server {
                 }
                 $refused = self::ability_refusal( $this->tool_registry->get_tool( $tool_name ), $arguments );
                 if ( null !== $refused ) {
-                    return JSON_RPC::success_response( $id, self::error_result( new \RuntimeException( $refused ) ) );
+                    return JSON_RPC::success_response( $id, self::error_result( new \RuntimeException( $refused ), $this->masked_values_of( $tool_name, $arguments ) ) );
                 }
                 if ( null === self::$active_call && 'skip' !== $this->approval_mode ) {
                     $this->scope_challenge = $this->scope_challenge_for( $step_up );
@@ -955,6 +966,24 @@ class Server {
             $off = self::switched_off_ability( $tool_name );
             if ( null !== $off ) {
                 return $this->policy_refusal( $id, $off );
+            }
+            $hidden   = \Easy_MCP_AI\Tools\Tool_Directories::hidden_tool( $tool_name );
+            $inactive = null !== $hidden ? self::hidden_tool_status( $hidden, $tool_name, true ) : self::missing_prerequisite_status( $tool_name );
+            if ( null !== $inactive && in_array( $inactive['status'], array( 'capability', 'privileged' ), true ) ) {
+                return $this->policy_refusal( $id, self::INSUFFICIENT_PERMISSIONS );
+            }
+            if ( null !== $inactive ) {
+                $message = 'This tool ' . $this->with_call_caller(
+                    $token_id,
+                    $allowed_tools,
+                    $id,
+                    static function () use ( $inactive ): string {
+                        return Tool_Status::predicate( $inactive );
+                    }
+                );
+                return in_array( $inactive['status'], array( 'blocked', 'off', 'off_locked', 'pattern' ), true )
+                    ? $this->policy_refusal( $id, $message )
+                    : JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, $message );
             }
             return JSON_RPC::error_response( $id, Error_Codes::INVALID_PARAMS, 'Unknown tool' );
         }
@@ -998,7 +1027,7 @@ class Server {
         try {
             $tool->refuse_undeclared_arguments( $arguments );
         } catch ( \InvalidArgumentException $e ) {
-            $refused = self::error_result( $e );
+            $refused = self::error_result( $e, $this->masked_values_of( $tool_name, $arguments ) );
             $this->note_audit_error( $this->log_tool_call( $token_id, $tool_name, $arguments, 'error' ), $refused );
             return JSON_RPC::success_response( $id, $refused );
         } catch ( \Throwable $e ) {
@@ -1014,7 +1043,7 @@ class Server {
         $off_schema = Off_Schema_Refusal::classify( $tool, $arguments, $off_schema );
         $refusable  = Off_Schema_Refusal::refused( $tool_name, $off_schema );
         if ( array() !== $refusable ) {
-            $refused        = self::error_result( Off_Schema_Refusal::refusal( $tool, $refusable, $arguments ) );
+            $refused        = self::error_result( Off_Schema_Refusal::refusal( $tool, $refusable, $arguments, (array) $this->redact_for_tool( $tool_name, $arguments ) ), $this->masked_values_of( $tool_name, $arguments ) );
             $refusal_row_id = $this->log_tool_call( $token_id, $tool_name, $sent_arguments, 'error' );
             $this->note_audit_error( $refusal_row_id, $refused );
             self::observe_off_schema( $off_schema, $observed_id, $tool_name, $refusal_row_id );
@@ -1025,22 +1054,21 @@ class Server {
             return $this->rate_limited( $id );
         }
 
+        $stored_replay = null;
         if ( 'skip' !== $this->approval_mode && method_exists( $tool, 'precheck' ) ) {
             if ( \Easy_MCP_AI\Approvals\Approval_Gate::requires_approval( $tool, $approval_subject ) ) {
-                $caller_before     = self::$active_call;
-                self::$active_call = array(
-                    'server'        => $this,
-                    'token_id'      => $token_id,
-                    'allowed_tools' => $allowed_tools,
-                    'approval_kind' => null,
-                    'rpc_id'        => $observed_id,
+                $thrown  = null;
+                $refused = $this->as_planned(
+                    $tool,
+                    $token_id,
+                    $allowed_tools,
+                    $observed_id,
+                    function () use ( $tool, $tool_name, $arguments, &$thrown ) {
+                        return self::precheck_refusal( $tool, $arguments, $this->masked_values_of( $tool_name, $arguments ), $thrown );
+                    }
                 );
-                try {
-                    $refused = self::precheck_refusal( $tool, $arguments );
-                } finally {
-                    self::$active_call = $caller_before;
-                }
-                if ( null !== $refused ) {
+                $stored_replay = $thrown instanceof Plan_Refusal ? $this->stored_replay( $tool, $approval_subject, $token_id, $params ) : null;
+                if ( null !== $refused && null === $stored_replay ) {
                     $refused_audit_id = $this->log_tool_call( $token_id, $tool_name, $sent_arguments, 'error' );
                     self::observe_off_schema( $off_schema, $observed_id, $tool_name, $refused_audit_id );
                     return JSON_RPC::success_response( $id, $refused );
@@ -1053,8 +1081,34 @@ class Server {
         $this->last_approval = array( 'kind' => 'run', 'approval_id' => null );
         if ( 'skip' === $this->approval_mode ) {
             $approval = array( 'kind' => 'run' );
+        } elseif ( null !== $stored_replay ) {
+            $approval = $stored_replay;
+        } elseif ( $tool->previews_as_caller() ) {
+            $approval = $this->as_planned(
+                $tool,
+                $token_id,
+                $allowed_tools,
+                $observed_id,
+                function () use ( $tool, $approval_subject, $token_id, $params ) {
+                    return $this->evaluate_approval( $tool, $approval_subject, $token_id, $params );
+                }
+            );
         } else {
             $approval = $this->evaluate_approval( $tool, $approval_subject, $token_id, $params );
+        }
+        if ( 'replay' === $approval['kind'] ) {
+            $result = $approval['result'];
+            $lost   = $this->as_caller(
+                $token_id,
+                $allowed_tools,
+                $observed_id,
+                static function () use ( $result ) {
+                    return self::receipt_capability_lost( $result );
+                }
+            );
+            if ( $lost ) {
+                $approval = array( 'kind' => 'refused', 'reason' => 'receipt', 'message' => self::RECEIPT_WITHHELD );
+            }
         }
         if ( 'redeem' === $approval['kind'] ) {
             if ( $this->get_approval_gate()->claim( $approval['row'] ) ) {
@@ -1074,7 +1128,7 @@ class Server {
             $this->last_approval = array( 'kind' => 'replay', 'approval_id' => $approval['row']['approval_id'] );
             $replayed_audit_id   = $this->log_tool_call( $token_id, $tool_name, $sent_arguments, 'approval_replayed' );
             self::observe_off_schema( $off_schema, $observed_id, $tool_name, $replayed_audit_id );
-            return JSON_RPC::success_response( $id, $approval['result'] );
+            return JSON_RPC::success_response( $id, self::without_inner_tools( $approval['result'] ) );
         }
         if ( 'ask_form' === $approval['kind'] || 'ask' === $approval['kind'] ) {
             $this->last_approval = array( 'kind' => 'paused', 'approval_id' => $approval['row']['approval_id'] );
@@ -1111,6 +1165,7 @@ class Server {
         $call_context       = array();
         $rows_written       = null;
 
+        self::$ran_tools[] = array();
         try {
         if ( ! $composite && class_exists( '\\Easy_MCP_AI\\History\\Change_Context' ) ) {
             \Easy_MCP_AI\History\Change_Context::set( array(
@@ -1191,7 +1246,7 @@ class Server {
                 $result     = $result->get_data();
             }
             if ( is_array( $result ) && isset( $result['error'] ) && is_string( $result['error'] ) && '' !== trim( $result['error'] ) ) {
-                $result['error'] = self::sanitize_error_message( $result['error'] );
+                $result['error'] = self::sanitize_error_message( self::written_over( $result['error'], $this->masked_values_of( $tool_name, $arguments ) ) );
             }
             $output_schema  = method_exists( $tool, 'get_output_schema' ) ? $tool->get_output_schema() : null;
             $has_structured = null !== $output_schema && is_array( $result );
@@ -1227,7 +1282,7 @@ class Server {
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG && ! self::is_argument_refusal( $e ) ) {
                 error_log( sprintf( 'WP MCP Server tool exception [%s]: %s in %s:%d', $tool_name, $e->getMessage(), $e->getFile(), $e->getLine() ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug logging
             }
-            $approval_outcome = self::error_result( $e );
+            $approval_outcome = self::error_result( $e, $this->masked_values_of( $tool_name, $arguments ) );
             return JSON_RPC::success_response( $id, $approval_outcome );
         } catch ( \Error $e ) {
             $final_status = 'error';
@@ -1240,6 +1295,16 @@ class Server {
             );
             return JSON_RPC::success_response( $id, $approval_outcome );
         } finally {
+            $inner_tools = array_keys( (array) array_pop( self::$ran_tools ) );
+            if ( array() !== self::$ran_tools ) {
+                $caller = count( self::$ran_tools ) - 1;
+                if ( null !== $exec_started ) {
+                    self::$ran_tools[ $caller ][ $tool_name ] = true;
+                }
+                foreach ( $inner_tools as $inner_tool ) {
+                    self::$ran_tools[ $caller ][ $inner_tool ] = true;
+                }
+            }
             if ( $option_guard_armed ) {
                 Option_Guard::release();
             }
@@ -1263,7 +1328,7 @@ class Server {
                 array_pop( $this->in_flight );
                 if ( $approval_row ) {
                     try {
-                        $this->get_approval_gate()->finish( $approval_row, $approval_outcome, null === $final_status ? 'error' : $final_status, $audit_id );
+                        $this->get_approval_gate()->finish( $approval_row, self::with_inner_tools( $approval_outcome, $inner_tools ), null === $final_status ? 'error' : $final_status, $audit_id );
                     } catch ( \Throwable $ignored ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
                     }
                 }
@@ -1425,7 +1490,11 @@ class Server {
         if ( ! \Easy_MCP_AI\Privileged\Privileged_Groups::is_enabled( $group ) ) {
             return 'This privileged tool is not enabled on this site.';
         }
-        if ( ! $this->audit_log_enabled ) {
+        return self::privileged_trail_refusal( $this->audit_log_enabled );
+    }
+
+    private static function privileged_trail_refusal( bool $audit_log_enabled ): ?string {
+        if ( ! $audit_log_enabled ) {
             return 'Privileged tools run only while the audit log is on. Ask the site administrator to turn it on.';
         }
         if ( ! \Easy_MCP_AI\Config::get( 'easy_mcp_ai_change_log_enabled', true ) ) {
@@ -1496,6 +1565,46 @@ class Server {
         }
     }
 
+    public static function current_call_holds_capability_of( string $tool_name ): ?bool {
+        if ( null === self::$active_call ) {
+            return null;
+        }
+        $tool = self::$active_call['server']->tool_registry->get_tool( $tool_name );
+        if ( null === $tool ) {
+            return null;
+        }
+        $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
+        return ! $cap || \current_user_can( $cap );
+    }
+
+    private static function receipt_capability_lost( array $result ): bool {
+        foreach ( (array) ( $result['_meta'][ self::INNER_TOOLS_META ] ?? array() ) as $tool ) {
+            if ( is_string( $tool ) && false === self::current_call_holds_capability_of( $tool ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function with_inner_tools( $result, array $tools ) {
+        if ( array() === $tools || ! is_array( $result ) ) {
+            return $result;
+        }
+        $result['_meta']                           = isset( $result['_meta'] ) && is_array( $result['_meta'] ) ? $result['_meta'] : array();
+        $result['_meta'][ self::INNER_TOOLS_META ] = $tools;
+        return $result;
+    }
+
+    private static function without_inner_tools( array $result ): array {
+        if ( isset( $result['_meta'] ) && is_array( $result['_meta'] ) && array_key_exists( self::INNER_TOOLS_META, $result['_meta'] ) ) {
+            unset( $result['_meta'][ self::INNER_TOOLS_META ] );
+            if ( array() === $result['_meta'] ) {
+                unset( $result['_meta'] );
+            }
+        }
+        return $result;
+    }
+
     public static function current_call_may_use( string $tool_name ): ?bool {
         if ( null === self::$active_call ) {
             return null;
@@ -1505,6 +1614,13 @@ class Server {
             self::$active_call['allowed_tools'],
             $tool_name
         );
+    }
+
+    public static function current_caller_key(): string {
+        if ( null === self::$active_call ) {
+            return '';
+        }
+        return (string) wp_json_encode( array( self::$active_call['token_id'], self::$active_call['allowed_tools'] ) );
     }
 
     public static function current_caller_may_reach( string $tool_name ): ?bool {
@@ -1530,15 +1646,50 @@ class Server {
         if ( null === self::$active_call ) {
             return null;
         }
-        $tool = self::$active_call['server']->tool_registry->get_tool( $tool_name );
+        $tool = self::$active_call['server']->tool_registry->get_tool( $tool_name ) ?? \Easy_MCP_AI\Tools\Tool_Directories::hidden_tool( $tool_name );
         return null === $tool ? null : self::site_switch_status( $tool, $tool_name );
     }
 
-    private static function precheck_refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments ): ?array {
+    private function as_caller( $token_id, ?array $allowed_tools, $rpc_id, callable $run ) {
+        $caller_before     = self::$active_call;
+        self::$active_call = array(
+            'server'        => $this,
+            'token_id'      => $token_id,
+            'allowed_tools' => $allowed_tools,
+            'approval_kind' => null,
+            'rpc_id'        => $rpc_id,
+        );
+        try {
+            return $run();
+        } finally {
+            self::$active_call = $caller_before;
+        }
+    }
+
+    private function as_planned( \Easy_MCP_AI\Tools\Base_Tool $tool, $token_id, ?array $allowed_tools, $rpc_id, callable $run ) {
+        if ( $tool->previews_as_caller() && class_exists( '\\Easy_MCP_AI\\Meta\\Meta_Exposure' ) ) {
+            $inner = $run;
+            $run   = static function () use ( $inner ) {
+                return \Easy_MCP_AI\Meta\Meta_Exposure::while_registered( $inner );
+            };
+        }
+        return $this->as_caller( $token_id, $allowed_tools, $rpc_id, $run );
+    }
+
+    private function stored_replay( \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments, $token_id, array $params ): ?array {
+        try {
+            return $this->get_approval_gate()->stored_replay( $tool, $arguments, $this->request_identity( $token_id ), $params );
+        } catch ( \Throwable $e ) {
+            return null;
+        }
+    }
+
+    private static function precheck_refusal( \Easy_MCP_AI\Tools\Base_Tool $tool, array $arguments, array $masked, ?\Exception &$thrown = null ): ?array {
         try {
             $tool->precheck( Gemini_Safe_Schema::coerce( $arguments, Gemini_Safe_Schema::sanitize( $tool->get_input_schema() )['map'] ) );
         } catch ( \Exception $e ) {
-            return self::error_result( $e );
+            $thrown = $e;
+            return self::error_result( $e, $masked );
         } catch ( \Error $e ) {
             return null;
         }
@@ -1564,17 +1715,33 @@ class Server {
         );
     }
 
+    private function with_call_caller( $token_id, ?array $allowed_tools, $rpc_id, callable $fn ) {
+        $caller_before     = self::$active_call;
+        self::$active_call = array(
+            'server'        => $this,
+            'token_id'      => $token_id,
+            'allowed_tools' => $allowed_tools,
+            'approval_kind' => null,
+            'rpc_id'        => $rpc_id,
+        );
+        try {
+            return $fn();
+        } finally {
+            self::$active_call = $caller_before;
+        }
+    }
+
     private function allowlist_refusal( $id, string $tool_name, string $message ): array {
-        if ( ! $this->tool_registry->has_tool( $tool_name ) ) {
+        if ( ! $this->tool_registry->has_tool( $tool_name ) && null === self::missing_prerequisite_status( $tool_name ) ) {
             return JSON_RPC::error_response( $id, Error_Codes::FORBIDDEN, $message );
         }
         return $this->policy_refusal( $id, $message );
     }
 
-    private static function error_result( \Exception $e ): array {
-        $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( $e->getMessage() ) ) );
+    private static function error_result( \Exception $e, array $masked = array() ): array {
+        $content = array( array( 'type' => 'text', 'text' => 'Error: ' . self::sanitize_error_message( self::written_over( $e->getMessage(), $masked ) ) ) );
         if ( ( $e instanceof Detailed_Tool_Error || $e instanceof Detailed_Runtime_Error ) && '' !== trim( $e->get_details() ) ) {
-            $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( $e->get_details(), Detailed_Tool_Error::MAX_DETAILS ) );
+            $content[] = array( 'type' => 'text', 'text' => self::sanitize_error_message( self::written_over( $e->get_details(), $masked ), Detailed_Tool_Error::MAX_DETAILS ) );
         }
         if ( $e instanceof Detailed_Tool_Error && '' !== $e->get_approve_url() ) {
             $content[] = array( 'type' => 'text', 'text' => 'Approval link: ' . $e->get_approve_url() );
@@ -1624,7 +1791,24 @@ class Server {
                 'where'       => Tool_Status::switch_path(),
             );
         }
-        return array( 'status' => 'not_registered' );
+        return self::missing_prerequisite_status( $tool_name ) ?? array( 'status' => 'not_registered' );
+    }
+
+    private static function missing_prerequisite_status( string $tool_name ): ?array {
+        $integration = \Easy_MCP_AI\Tools\Tool_Directories::inactive_integration_of( $tool_name );
+        $requirement = null === $integration ? \Easy_MCP_AI\Tools\Tool_Directories::missing_requirement( $tool_name ) : null;
+        if ( null === $integration && null === $requirement ) {
+            return null;
+        }
+        if ( false === Tool_State::override_of( $tool_name ) ) {
+            return array( 'status' => 'off_locked' );
+        }
+        return null !== $integration
+            ? array(
+                'status'      => 'integration_inactive',
+                'integration' => $integration,
+            )
+            : array( 'status' => 'needs_' . ( \Easy_MCP_AI\Tools\Tool_Directories::REQUIREMENT_STATUS[ $requirement ] ?? $requirement ) );
     }
 
     private function token_may_reach( $token_id, ?array $allowed_tools, string $tool_name ): bool {
@@ -1653,7 +1837,8 @@ class Server {
         }
         $tool = $this->tool_registry->get_tool( $tool_name );
         if ( null === $tool ) {
-            return self::unregistered_status( $tool_name );
+            $hidden = \Easy_MCP_AI\Tools\Tool_Directories::hidden_tool( $tool_name );
+            return null === $hidden ? self::unregistered_status( $tool_name ) : self::hidden_tool_status( $hidden, $tool_name );
         }
         $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
         if ( $cap && ! \current_user_can( $cap ) ) {
@@ -1665,6 +1850,14 @@ class Server {
         }
         $refusal = $this->late_call_refusal( $tool, $tool_name );
         return null !== $refusal ? $refusal : array( 'status' => 'available' );
+    }
+
+    private static function hidden_tool_status( \Easy_MCP_AI\Tools\Base_Tool $tool, string $tool_name, bool $admission = false ): array {
+        $cap = self::effective_required_capability( $tool->get_category(), $tool->get_required_capability() );
+        if ( $cap && ! ( $admission ? \Easy_MCP_AI\Drafts\Strict_Ceiling::user_can( $cap ) : \current_user_can( $cap ) ) ) {
+            return self::capability_refusal( $tool, $tool_name, (string) $cap );
+        }
+        return self::site_switch_status( $tool, $tool_name ) ?? self::missing_prerequisite_status( $tool_name ) ?? array( 'status' => 'not_registered' );
     }
 
     private static function site_switch_status( \Easy_MCP_AI\Tools\Base_Tool $tool, string $tool_name ): ?array {
@@ -1726,10 +1919,10 @@ class Server {
 
         $message = preg_replace( '/\s+in\s+\S+\.php(?:\(\d+\)|:\d+| on line \d+)/', '', $message );
 
-        $message = preg_replace( '#(?<![\w.\-/\\\\])(?:\\\\?/|[A-Z]:\\\\)(?:(?:[^\s\'"<>/\\\\]+(?: +[^\s\'"<>/\\\\]+)*)?[/\\\\])*[^\s\'"<>/\\\\]*\.(?:php|inc|tpl|phtml)\b#', '[file]', $message );
+        $message = preg_replace( '#(?<![A-Za-z0-9_.\-/\\\\])(?:\\\\?/|[A-Z]:\\\\)(?:(?:[^\s\'"<>/\\\\]+(?: +[^\s\'"<>/\\\\]+)*)?[/\\\\])*[^\s\'"<>/\\\\]*\.(?:php|inc|tpl|phtml)(?![A-Za-z0-9_])#', '[file]', $message );
 
         $message = preg_replace_callback(
-            '/\b(?:\d{1,3}\.){3}\d{1,3}\b/',
+            '/(?<![A-Za-z0-9_])(?:\d{1,3}\.){3}\d{1,3}(?![A-Za-z0-9_])/',
             function ( $m ) {
                 $ip = $m[0];
                 $parts = array_map( 'intval', explode( '.', $ip ) );
@@ -1742,7 +1935,7 @@ class Server {
             },
             $message
         );
-        $message = preg_replace( '/\[?::1\]?|\blocalhost\b/i', '[internal]', $message );
+        $message = \Easy_MCP_AI\Ascii::replace( '/\[?::1\]?|(?<![a-z0-9_])localhost(?![a-z0-9_])/', '[internal]', (string) $message );
 
         $message    = trim( $message );
         $max_length = max( 1, $max_length );
@@ -2041,17 +2234,7 @@ class Server {
         if ( ! \wp_using_ext_object_cache() ) {
             return \Easy_MCP_AI\Fixed_Window_Counter::hit( $key, self::RATE_WINDOW_SECONDS );
         }
-        $ends = time() + self::RATE_WINDOW_SECONDS;
-        if ( \wp_cache_add( $key, 0, 'easy_mcp_ai', self::RATE_WINDOW_SECONDS ) ) {
-            \wp_cache_set( $key . '_ends', $ends, 'easy_mcp_ai', self::RATE_WINDOW_SECONDS );
-        } else {
-            $stored = (int) \wp_cache_get( $key . '_ends', 'easy_mcp_ai' );
-            $ends   = $stored > time() ? $stored : $ends;
-        }
-        return array(
-            'count' => (int) \wp_cache_incr( $key, 1, 'easy_mcp_ai' ),
-            'ends'  => $ends,
-        );
+        return \Easy_MCP_AI\Cache_Window_Counter::hit( $key, self::RATE_WINDOW_SECONDS );
     }
 
     private function within_rate_limit( array $hit, int $limit, string $message ): bool {
@@ -2195,14 +2378,647 @@ class Server {
         return $all;
     }
 
+    public static function is_sensitive_argument( string $name ): bool {
+        return \Easy_MCP_AI\Ascii::matches( self::SENSITIVE_ARG_PATTERN, $name );
+    }
+
+    const SHORTEST_MASKED_VALUE = 4;
+
+    const SHORTEST_MASKED_FRAGMENT = 8;
+
+    const MASKED_FRAGMENT_SCAN = 4096;
+
+    const MASKED_FRAGMENT_CHARACTERS = 2000000;
+
+    const FEW_MASKED_WINDOWS = 256;
+
+    const MASKED_STANDALONE_PLACES = 20000;
+
+    const MANY_MASKED_VALUES = 64;
+
+    const MASKED_SEARCH_COST = 134217728;
+
+    private static $search_spent = 0;
+
+    const QUOTED_JSON_FLAGS = array(
+        0,
+        JSON_UNESCAPED_SLASHES,
+        JSON_UNESCAPED_UNICODE,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_APOS,
+    );
+
+    private function masked_values_of( $tool_name, $arguments ): array {
+        $recorded = $this->redact_for_tool( $tool_name, $arguments );
+        $pairs    = array( array( $arguments, $recorded ) );
+        $tool     = is_string( $tool_name ) && $this->tool_registry ? $this->tool_registry->get_tool( $tool_name ) : null;
+        if ( $tool instanceof \Easy_MCP_AI\Tools\Base_Tool && is_array( $arguments ) && is_array( $recorded ) ) {
+            try {
+                $pairs = $tool->masked_comparisons( $arguments, $recorded );
+            } catch ( \Throwable $e ) {
+                $pairs = array( array( $arguments, $recorded ) );
+            }
+        }
+        $all = array(
+            'values'     => array(),
+            'words'      => array(),
+            'standalone' => array(),
+            'pieces'     => array(),
+        );
+        foreach ( $pairs as $pair ) {
+            if ( ! is_array( $pair ) || ! array_key_exists( 0, $pair ) || ! array_key_exists( 1, $pair ) ) {
+                continue;
+            }
+            foreach ( self::masked_values( $pair[0], $pair[1] ) as $list => $values ) {
+                $all[ $list ] = array_merge( $all[ $list ], $values );
+            }
+        }
+        foreach ( $all as $list => $values ) {
+            $all[ $list ] = self::longest_first( array_values( array_unique( $values ) ) );
+        }
+        return $all;
+    }
+
+    private static function longest_first( array $list ): array {
+        usort(
+            $list,
+            static function ( string $a, string $b ): int {
+                return strlen( $b ) - strlen( $a );
+            }
+        );
+        return $list;
+    }
+
+    private static function written_over( string $text, array $masked ): string {
+        if ( '' === $text ) {
+            return $text;
+        }
+        self::$search_spent = 0;
+        $pieces = isset( $masked['pieces'] ) ? $masked['pieces'] : array();
+        $chars  = array();
+        $limit  = strlen( $text );
+        if ( array() !== $pieces ) {
+            $chars = array_slice( self::characters( $text ), 0, self::MASKED_FRAGMENT_SCAN + self::SHORTEST_MASKED_FRAGMENT - 1 );
+            $limit = strlen( implode( '', array_slice( $chars, 0, self::MASKED_FRAGMENT_SCAN ) ) );
+        }
+        $marked = str_repeat( "\0", strlen( $text ) );
+        $many   = 0;
+        foreach ( array( 'values', 'words', 'standalone' ) as $list ) {
+            $many += isset( $masked[ $list ] ) ? count( $masked[ $list ] ) : 0;
+        }
+        $grams = $many > self::MANY_MASKED_VALUES ? array() : null;
+        foreach ( array( 'values', 'words', 'standalone' ) as $list ) {
+            if ( ! isset( $masked[ $list ] ) ) {
+                continue;
+            }
+            $kept = array();
+            foreach ( $masked[ $list ] as $value ) {
+                if ( null === $grams || self::may_appear( $text, $value, $grams ) ) {
+                    $kept[] = $value;
+                }
+            }
+            $masked[ $list ] = $kept;
+        }
+        foreach ( array( 'values', 'words' ) as $list ) {
+            foreach ( isset( $masked[ $list ] ) ? $masked[ $list ] : array() as $value ) {
+                self::mark_matches( $text, $value, $marked );
+            }
+        }
+        if ( self::$search_spent > self::MASKED_SEARCH_COST ) {
+            return \Easy_MCP_AI\Text_Redactor::MASK;
+        }
+        if ( array() !== $pieces && ! self::mark_fragments( $chars, $pieces, $marked ) ) {
+            return \Easy_MCP_AI\Text_Redactor::MASK;
+        }
+        if ( ! empty( $masked['standalone'] ) && ( ! self::mark_standalone( $text, $masked['standalone'], $marked ) || self::$search_spent > self::MASKED_SEARCH_COST ) ) {
+            return \Easy_MCP_AI\Text_Redactor::MASK;
+        }
+        $out  = '';
+        $from = 0;
+        if ( 0 < (int) preg_match_all( '/\x01+/', $marked, $runs, PREG_OFFSET_CAPTURE ) ) {
+            foreach ( $runs[0] as $run ) {
+                list( $start, $end ) = self::whole_characters( $text, array( $run[1], $run[1] + strlen( $run[0] ) ) );
+                $start               = max( $start, $from );
+                if ( $start >= $limit ) {
+                    break;
+                }
+                $out .= substr( $text, $from, $start - $from ) . \Easy_MCP_AI\Text_Redactor::MASK;
+                $from = max( $from, $end );
+            }
+        }
+        return $from < $limit ? $out . substr( $text, $from, $limit - $from ) : $out;
+    }
+
+    private static function mark_standalone( string $text, array $values, string &$marked ): bool {
+        $places   = array();
+        $by_start = array();
+        $by_end   = array();
+        $first = strpos( $marked, "\0" );
+        $last  = strrpos( $marked, "\0" );
+        if ( false === $first || false === $last ) {
+            return true;
+        }
+        foreach ( $values as $value ) {
+            $from = max( 0, $first - strlen( $value ) + 1 );
+            for ( $at = self::search( $text, $value, $from ); false !== $at && $at <= $last; $at = self::search( $text, $value, $at + 1 ) ) {
+                if ( count( $places ) >= self::MASKED_STANDALONE_PLACES ) {
+                    return false;
+                }
+                $index                                  = count( $places );
+                $places[]                               = array( $at, $at + strlen( $value ) );
+                $by_start[ $at ][]                      = $index;
+                $by_end[ $at + strlen( $value ) ][]     = $index;
+            }
+        }
+        $queue = array_keys( $places );
+        $done  = array();
+        while ( array() !== $queue ) {
+            $index = array_pop( $queue );
+            if ( isset( $done[ $index ] ) ) {
+                continue;
+            }
+            list( $start, $end ) = $places[ $index ];
+            if ( false === strpos( substr( $marked, $start, $end - $start ), "\0" ) ) {
+                $done[ $index ] = true;
+                continue;
+            }
+            if ( ! self::stands_alone( $text, $marked, $start, $end - $start ) ) {
+                continue;
+            }
+            self::mark( $marked, $start, $end );
+            $done[ $index ] = true;
+            for ( $at = $start; $at <= $end; $at++ ) {
+                foreach ( isset( $by_start[ $at ] ) && $at > $start ? $by_start[ $at ] : array() as $next ) {
+                    $queue[] = $next;
+                }
+                foreach ( isset( $by_end[ $at ] ) && $at < $end ? $by_end[ $at ] : array() as $next ) {
+                    $queue[] = $next;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static function may_appear( string $text, string $value, array &$grams ): bool {
+        $width = min( 4, strlen( $value ) );
+        if ( ! isset( $grams[ $width ] ) ) {
+            $grams[ $width ] = array();
+            for ( $at = 0, $last = strlen( $text ) - $width; $at <= $last; $at++ ) {
+                $grams[ $width ][ substr( $text, $at, $width ) ] = true;
+            }
+        }
+        for ( $at = 0, $last = strlen( $value ) - $width; $at <= $last; $at++ ) {
+            if ( ! isset( $grams[ $width ][ substr( $value, $at, $width ) ] ) ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static function mark_matches( string $text, string $value, string &$marked ): void {
+        $length = strlen( $value );
+        $at     = self::first_place( $text, $value, $marked, 0 );
+        while ( false !== $at ) {
+            self::mark( $marked, $at, $at + $length );
+            $hole = strpos( $marked, "\0", $at + 1 );
+            if ( false === $hole ) {
+                return;
+            }
+            $from                = max( $at + 1, $hole - $length + 1 );
+            $window              = substr( $text, $from, $hole - $from + $length );
+            $back                = strlen( $window ) >= $length && self::charge( ( strlen( $window ) - $length + 1 ) * $length ) ? strrpos( $window, $value ) : false;
+            $at   = false !== $back ? $from + $back : self::first_place( $text, $value, $marked, $hole + 1 );
+        }
+    }
+
+    private static function first_place( string $text, string $value, string $marked, int $from ) {
+        if ( $from >= strlen( $text ) ) {
+            return false;
+        }
+        $hole = strpos( $marked, "\0", $from );
+        if ( false === $hole ) {
+            return false;
+        }
+        return self::search( $text, $value, max( $from, $hole - strlen( $value ) + 1 ) );
+    }
+
+    private static function search( string $text, string $value, int $from ) {
+        $length = strlen( $value );
+        $places = strlen( $text ) - $from - $length + 1;
+        if ( $places <= 0 ) {
+            return false;
+        }
+        if ( ! self::charge( $places * $length ) ) {
+            return false;
+        }
+        $at = strpos( $text, $value, $from );
+        if ( false !== $at ) {
+            self::$search_spent -= (int) ( ( $places - ( $at - $from + 1 ) ) * $length );
+        }
+        return $at;
+    }
+
+    private static function charge( $cost ): bool {
+        if ( self::$search_spent + $cost > self::MASKED_SEARCH_COST ) {
+            self::$search_spent = self::MASKED_SEARCH_COST + 1;
+            return false;
+        }
+        self::$search_spent += (int) $cost;
+        return true;
+    }
+
+    private static function mark( string &$marked, int $start, int $end ): void {
+        for ( $at = $start; $at < $end; $at++ ) {
+            $marked[ $at ] = "\1";
+        }
+    }
+
+    private static function characters( string $text ): array {
+        $chars = preg_split( '//u', $text, -1, PREG_SPLIT_NO_EMPTY );
+        if ( is_array( $chars ) ) {
+            return $chars;
+        }
+        return '' === $text ? array() : str_split( $text );
+    }
+
+    private static function stands_alone( string $text, string $marked, int $at, int $length ): bool {
+        $size = strlen( $text );
+        if ( $at > 0 && "\1" !== $marked[ $at - 1 ] ) {
+            $start = $at - 1;
+            while ( $start > 0 && 0x80 === ( ord( $text[ $start ] ) & 0xC0 ) ) {
+                --$start;
+            }
+            if ( self::is_word_character( substr( $text, $start, $at - $start ) ) ) {
+                return false;
+            }
+        }
+        $end = $at + $length;
+        if ( $end < $size && "\1" !== $marked[ $end ] ) {
+            $stop = $end + 1;
+            while ( $stop < $size && 0x80 === ( ord( $text[ $stop ] ) & 0xC0 ) ) {
+                ++$stop;
+            }
+            if ( self::is_word_character( substr( $text, $end, $stop - $end ) ) ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static function is_word_character( string $char ): bool {
+        return 1 === preg_match( '/^[\p{L}\p{N}_-]$/u', $char );
+    }
+
+    private static function whole_characters( string $text, array $span ): array {
+        list( $start, $end ) = $span;
+        $size = strlen( $text );
+        while ( $start > 0 && 0x80 === ( ord( $text[ $start ] ) & 0xC0 ) ) {
+            --$start;
+        }
+        while ( $end < $size && 0x80 === ( ord( $text[ $end ] ) & 0xC0 ) ) {
+            ++$end;
+        }
+        return array( $start, $end );
+    }
+
+    private static function mark_fragments( array $chars, array $values, string &$marked ): bool {
+        $width = self::SHORTEST_MASKED_FRAGMENT;
+        $count = count( $chars );
+        if ( $count < $width ) {
+            return true;
+        }
+        $offsets = self::offsets( $chars );
+        $text    = implode( '', $chars );
+        $windows = array();
+        for ( $at = 0; $at + $width <= $count; $at++ ) {
+            $windows[ substr( $text, $offsets[ $at ], $offsets[ $at + $width ] - $offsets[ $at ] ) ][] = $at;
+        }
+        $budget = self::MASKED_FRAGMENT_CHARACTERS;
+        foreach ( $values as $value ) {
+            if ( count( $windows ) <= self::FEW_MASKED_WINDOWS ) {
+                $budget -= strlen( $value );
+                if ( $budget < 0 ) {
+                    return false;
+                }
+                foreach ( $windows as $window => $starts ) {
+                    $found = self::search( $value, (string) $window, 0 );
+                    if ( self::$search_spent > self::MASKED_SEARCH_COST ) {
+                        return false;
+                    }
+                    if ( false !== $found ) {
+                        $reach = 0;
+                        foreach ( $starts as $start ) {
+                            self::mark( $marked, max( $offsets[ $start ], $reach ), $offsets[ $start + $width ] );
+                            $reach = $offsets[ $start + $width ];
+                        }
+                        unset( $windows[ $window ] );
+                    }
+                }
+                if ( array() === $windows ) {
+                    break;
+                }
+                continue;
+            }
+            $value_chars = self::characters( $value );
+            $length      = count( $value_chars );
+            $budget     -= $length;
+            if ( $budget < 0 ) {
+                return false;
+            }
+            $value_offsets = self::offsets( $value_chars );
+            for ( $at = 0; $at + $width <= $length; $at++ ) {
+                $window = substr( $value, $value_offsets[ $at ], $value_offsets[ $at + $width ] - $value_offsets[ $at ] );
+                if ( isset( $windows[ $window ] ) ) {
+                    $reach = 0;
+                    foreach ( $windows[ $window ] as $start ) {
+                        self::mark( $marked, max( $offsets[ $start ], $reach ), $offsets[ $start + $width ] );
+                        $reach = $offsets[ $start + $width ];
+                    }
+                    unset( $windows[ $window ] );
+                }
+            }
+            if ( array() === $windows ) {
+                break;
+            }
+        }
+        return true;
+    }
+
+    private static function offsets( array $chars ): array {
+        $offsets = array( 0 );
+        $at      = 0;
+        foreach ( $chars as $char ) {
+            $at       += strlen( $char );
+            $offsets[] = $at;
+        }
+        return $offsets;
+    }
+
+    private static function masked_values( $sent, $recorded ): array {
+        $values     = array();
+        $words      = array();
+        $standalone = array();
+        $pieces     = array();
+        $whole      = array();
+        $known      = self::masked_parts( $sent, $recorded, $whole );
+        $add        = static function ( string $piece ) use ( &$values, &$standalone ): void {
+            $trimmed = trim( $piece );
+            if ( ! self::is_secret_text( $trimmed ) ) {
+                return;
+            }
+            $into = strlen( $trimmed ) >= self::SHORTEST_MASKED_VALUE;
+            foreach ( self::quoted_forms( $trimmed ) as $form ) {
+                if ( $into ) {
+                    $values[ $form ] = true;
+                } else {
+                    $standalone[ $form ] = true;
+                }
+            }
+            if ( $trimmed !== $piece ) {
+                foreach ( self::quoted_forms( $piece ) as $form ) {
+                    if ( $form === $piece ) {
+                        continue;
+                    }
+                    if ( $into ) {
+                        $values[ $form ] = true;
+                    } else {
+                        $standalone[ $form ] = true;
+                    }
+                }
+            }
+        };
+        foreach ( $whole as $value ) {
+            $add( (string) $value );
+        }
+        foreach ( $known as $part ) {
+            $part = (string) $part;
+            $add( $part );
+            $lines = preg_split( '/\R/u', $part );
+            foreach ( is_array( $lines ) ? $lines : explode( "\n", $part ) as $line ) {
+                $add( (string) $line );
+            }
+            $split = preg_split( '/\s+/u', $part, -1, PREG_SPLIT_NO_EMPTY );
+            foreach ( is_array( $split ) ? $split : preg_split( '/[ \t\r\n]+/', $part, -1, PREG_SPLIT_NO_EMPTY ) as $word ) {
+                if ( self::is_secret_text( (string) $word ) ) {
+                    foreach ( self::quoted_forms( (string) $word ) as $form ) {
+                        if ( strlen( (string) $word ) >= self::SHORTEST_MASKED_FRAGMENT ) {
+                            $words[ $form ] = true;
+                        } else {
+                            $standalone[ $form ] = true;
+                        }
+                    }
+                }
+            }
+            if ( strlen( trim( $part ) ) >= self::SHORTEST_MASKED_FRAGMENT && self::is_secret_text( $part ) ) {
+                foreach ( self::quoted_forms( $part ) as $form ) {
+                    $pieces[ $form ] = true;
+                }
+            }
+        }
+        return array(
+            'values'     => self::longest_first( array_map( 'strval', array_keys( $values ) ) ),
+            'words'      => self::longest_first( array_map( 'strval', array_keys( $words ) ) ),
+            'standalone' => self::longest_first( array_map( 'strval', array_keys( $standalone ) ) ),
+            'pieces'     => self::longest_first( array_map( 'strval', array_keys( $pieces ) ) ),
+        );
+    }
+
+    private static function quoted_forms( string $text ): array {
+        $forms = array( $text => true );
+        foreach ( self::QUOTED_JSON_FLAGS as $flags ) {
+            $json = wp_json_encode( $text, $flags );
+            if ( is_string( $json ) && strlen( $json ) > 2 ) {
+                $forms[ substr( $json, 1, -1 ) ] = true;
+            }
+        }
+        // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_var_export -- the form an error quotes the value in.
+        $forms[ substr( var_export( $text, true ), 1, -1 ) ] = true;
+        $printable = preg_replace_callback(
+            '/[\x00-\x1F\x7F]/',
+            static function ( array $byte ): string {
+                $named = array(
+                    "\n" => '\\n',
+                    "\r" => '\\r',
+                    "\t" => '\\t',
+                    "\0" => '\\0',
+                );
+                return isset( $named[ $byte[0] ] ) ? $named[ $byte[0] ] : sprintf( '\\x%02X', ord( $byte[0] ) );
+            },
+            $text
+        );
+        if ( is_string( $printable ) ) {
+            $forms[ $printable ] = true;
+        }
+        return array_map( 'strval', array_keys( $forms ) );
+    }
+
+    private static function is_secret_text( string $text ): bool {
+        $text  = str_replace( \Easy_MCP_AI\Text_Redactor::MASK, '', $text );
+        $found = preg_match( '/[\p{L}\p{N}]/u', $text );
+        return false === $found ? 1 === preg_match( '/[A-Za-z0-9\x80-\xff]/', $text ) : 1 === $found;
+    }
+
+    private static function masked_parts( $sent, $recorded, array &$whole ): array {
+        if ( $sent === $recorded ) {
+            return array();
+        }
+        if ( is_array( $sent ) ) {
+            $parts = array();
+            foreach ( $sent as $key => $value ) {
+                $parts = array_merge( $parts, self::masked_parts( $value, is_array( $recorded ) && array_key_exists( $key, $recorded ) ? $recorded[ $key ] : null, $whole ) );
+            }
+            return $parts;
+        }
+        if ( is_string( $sent ) && is_array( $recorded ) ) {
+            $decoded = json_decode( $sent, true );
+            if ( is_array( $decoded ) ) {
+                return self::masked_parts( $decoded, $recorded, $whole );
+            }
+        }
+        if ( ! is_scalar( $sent ) ) {
+            return array();
+        }
+        if ( \Easy_MCP_AI\Text_Redactor::MASK === $recorded ) {
+            return array( (string) $sent );
+        }
+        if ( is_string( $sent ) && is_string( $recorded ) ) {
+            $words = self::masked_words( $sent, $recorded );
+            $words = null === $words ? self::masked_word_run( self::shell_words( $sent ), self::shell_words( $recorded ) ) : $words;
+            $spans = false === strpos( $recorded, \Easy_MCP_AI\Text_Redactor::MASK ) ? null : self::masked_spans( $sent, $recorded );
+            if ( null !== $words || null !== $spans ) {
+                return array_merge( null === $spans ? array() : $spans, null === $words ? array() : $words );
+            }
+        }
+        $whole[] = (string) $sent;
+        return array();
+    }
+
+    private static function masked_words( string $sent, string $recorded ): ?array {
+        $sent_words     = self::shell_words( $sent );
+        $recorded_words = self::shell_words( $recorded );
+        if ( count( $sent_words ) !== count( $recorded_words ) ) {
+            return null;
+        }
+        $parts = array();
+        foreach ( $sent_words as $index => $word ) {
+            if ( $word !== $recorded_words[ $index ] ) {
+                $spans = self::masked_spans( $word, $recorded_words[ $index ] );
+                $parts = array_merge( $parts, null === $spans ? array( $word ) : $spans );
+            }
+        }
+        return $parts;
+    }
+
+    private static function masked_word_run( array $sent, array $recorded ): ?array {
+        $at = array_search( \Easy_MCP_AI\Text_Redactor::MASK, $recorded, true );
+        if ( false === $at ) {
+            return null;
+        }
+        $before = array_slice( $recorded, 0, (int) $at );
+        $after  = array_slice( $recorded, (int) $at + 1 );
+        if ( in_array( \Easy_MCP_AI\Text_Redactor::MASK, $after, true ) ) {
+            return null;
+        }
+        $end = count( $sent ) - count( $after );
+        if ( array_slice( $sent, max( 0, $end ) ) !== $after ) {
+            return null;
+        }
+        for ( $start = 0; $start + count( $before ) <= $end; $start++ ) {
+            if ( array_slice( $sent, $start, count( $before ) ) === $before ) {
+                $from = $start + count( $before );
+                return $from < $end ? array( implode( ' ', array_slice( $sent, $from, $end - $from ) ) ) : array();
+            }
+        }
+        return null;
+    }
+
+    private static function shell_words( string $text ): array {
+        $words  = array();
+        $word   = '';
+        $inside = false;
+        $quote  = '';
+        $length = strlen( $text );
+        for ( $i = 0; $i < $length; $i++ ) {
+            $char = $text[ $i ];
+            if ( "'" === $quote ) {
+                if ( "'" === $char ) {
+                    $quote = '';
+                } else {
+                    $word .= $char;
+                }
+                continue;
+            }
+            if ( '"' === $quote ) {
+                if ( '\\' === $char && $i + 1 < $length && "\n" === $text[ $i + 1 ] ) {
+                    ++$i;
+                } elseif ( '\\' === $char && $i + 1 < $length && false !== strpos( '"\\$`', $text[ $i + 1 ] ) ) {
+                    $word .= $text[ ++$i ];
+                } elseif ( '"' === $char ) {
+                    $quote = '';
+                } else {
+                    $word .= $char;
+                }
+                continue;
+            }
+            if ( '\\' === $char && $i + 1 < $length && "\n" === $text[ $i + 1 ] ) {
+                ++$i;
+            } elseif ( '\\' === $char && $i + 1 < $length ) {
+                $word  .= $text[ ++$i ];
+                $inside = true;
+            } elseif ( "'" === $char || '"' === $char ) {
+                $quote  = $char;
+                $inside = true;
+            } elseif ( ctype_space( $char ) ) {
+                if ( $inside ) {
+                    $words[] = $word;
+                    $word    = '';
+                    $inside  = false;
+                }
+            } else {
+                $word  .= $char;
+                $inside = true;
+            }
+        }
+        if ( $inside ) {
+            $words[] = $word;
+        }
+        return $words;
+    }
+
+    private static function masked_spans( string $sent, string $recorded ): ?array {
+        $pieces = explode( \Easy_MCP_AI\Text_Redactor::MASK, $recorded );
+        $last   = count( $pieces ) - 1;
+        if ( 0 === $last || 0 !== strncmp( $sent, $pieces[0], strlen( $pieces[0] ) ) ) {
+            return null;
+        }
+        $spans = array();
+        $at    = strlen( $pieces[0] );
+        for ( $i = 1; $i <= $last; $i++ ) {
+            $after = $pieces[ $i ];
+            if ( $i === $last ) {
+                $end = strlen( $sent ) - strlen( $after );
+                if ( $end < $at || substr( $sent, $end ) !== $after ) {
+                    return null;
+                }
+            } else {
+                $end = '' === $after ? false : strpos( $sent, $after, $at );
+                if ( false === $end ) {
+                    return null;
+                }
+            }
+            $spans[] = substr( $sent, $at, $end - $at );
+            $at      = $end + strlen( $after );
+        }
+        return $spans;
+    }
+
     private static function redact_sensitive_args( $args ) {
         if ( ! is_array( $args ) ) {
             return $args;
         }
-        $sensitive_pattern = self::SENSITIVE_ARG_PATTERN;
         $result = array();
         foreach ( $args as $key => $value ) {
-            if ( preg_match( $sensitive_pattern, $key ) ) {
+            if ( self::is_sensitive_argument( (string) $key ) ) {
                 $result[ $key ] = '[REDACTED]';
             } elseif ( is_array( $value ) ) {
                 $result[ $key ] = self::redact_sensitive_args( $value );

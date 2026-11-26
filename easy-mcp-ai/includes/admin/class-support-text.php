@@ -196,7 +196,7 @@ class Support_Text {
             'PHP Version:      ' . PHP_VERSION,
             'Database:         ' . $db_display,
             'Protocol:         2025-11-25 / 2025-06-18 / 2025-03-26',
-            'Active Tokens:    ' . (int) ( $facts['token_count'] ?? 0 ),
+            'Active Tokens:    ' . ( array_key_exists( 'token_count', $facts ) && null === $facts['token_count'] ? 'unknown' : (int) ( $facts['token_count'] ?? 0 ) ),
             'Active Clients:   ' . (int) ( $facts['oauth_client_count'] ?? 0 ),
             'Registered Tools: ' . (int) ( $facts['tool_count'] ?? 0 ),
             'External Data:    ' . $ext_count . '/' . $ext_total,

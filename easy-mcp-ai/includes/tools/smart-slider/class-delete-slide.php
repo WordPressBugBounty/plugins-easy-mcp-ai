@@ -3,6 +3,7 @@
 namespace Easy_MCP_AI\Tools\Smart_Slider;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -17,7 +18,10 @@ class Delete_Slide extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Permanently deletes a Smart Slider 3 slide, as Delete in its slide list does: Smart Slider keeps no trash for slides, and a dynamic slide\'s generator is deleted with its last slide. Required: `slide_id` (from wp_smartslider_get_slider). To hide a slide instead, set `published` false with wp_smartslider_update_slide. Returns { deleted, slide_id, slider_id, title }. Requires Smart Slider\'s own permissions to edit sliders and to delete, which also need unfiltered_html.';
+        return 'Permanently deletes a Smart Slider 3 slide, as Delete in its slide list does: Smart Slider keeps no trash for slides, and a dynamic slide\'s generator is deleted with its last slide. Required: `slide_id`'
+            . ( Post_Type_Tool_Hint::may_describe( 'wp_smartslider_get_slider' ) ? ' (from wp_smartslider_get_slider)' : '' ) . '.'
+            . ( Post_Type_Tool_Hint::may_describe( 'wp_smartslider_update_slide' ) ? ' To hide a slide instead, set `published` false with wp_smartslider_update_slide.' : '' )
+            . ' Returns { deleted, slide_id, slider_id, title }. Requires Smart Slider\'s own permissions to edit sliders and to delete, which also need unfiltered_html.';
     }
 
     public function get_required_capability() {
@@ -40,7 +44,7 @@ class Delete_Slide extends Base_Tool {
             'properties' => array(
                 'slide_id' => array(
                     'type'        => 'integer',
-                    'description' => 'The slide to delete, from wp_smartslider_get_slider.',
+                    'description' => Post_Type_Tool_Hint::may_describe( 'wp_smartslider_get_slider' ) ? 'The slide to delete, from wp_smartslider_get_slider.' : 'The slide to delete.',
                 ),
             ),
             'required'   => array( 'slide_id' ),
@@ -61,7 +65,7 @@ class Delete_Slide extends Base_Tool {
         $slide = Smart_Slider_Store::require_slide( $this->slide_id_argument( $arguments ) );
         Smart_Slider_Store::delete( (int) $slide['id'] );
         if ( null !== Smart_Slider_Store::slide( (int) $slide['id'] ) ) {
-            throw new \RuntimeException( 'Smart Slider 3 did not delete the slide. Read the slider again with wp_smartslider_get_slider.' );
+            throw new \RuntimeException( 'Smart Slider 3 did not delete the slide.' . ( Post_Type_Tool_Hint::may_reach( 'wp_smartslider_get_slider' ) ? ' Read the slider again with wp_smartslider_get_slider.' : '' ) );
         }
         return array(
             'deleted'   => true,

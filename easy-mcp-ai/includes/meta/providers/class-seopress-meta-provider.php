@@ -5,6 +5,7 @@ namespace Easy_MCP_AI\Meta\Providers;
 use Easy_MCP_AI\Meta\Meta_Field_Provider;
 use Easy_MCP_AI\Tools\SEO\Image_Attachment_Id;
 use Easy_MCP_AI\Tools\SEO\Seopress_Update_Social;
+use Easy_MCP_AI\Tools\SEO\Seopress_Update_Title_Desc;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -30,6 +31,10 @@ class Seopress_Meta_Provider extends Meta_Field_Provider {
 
     public function get_dedicated_tool() {
         return 'wp_seopress_update_post_title_desc';
+    }
+
+    public function get_dedicated_tool_class(): string {
+        return Seopress_Update_Title_Desc::class;
     }
 
     public function after_write( $post_id, array $keys ) {

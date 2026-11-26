@@ -157,6 +157,18 @@ final class Switched_Off_Inventory {
                 $entries[] = self::tool_entry( $tool, $name, self::PATTERN, Tool_Status::CONFIGURATION_PLACE );
             }
         }
+        $registered = array_map( 'strval', (array) $registry->get_all_tool_names() );
+        foreach ( Tool_Directories::hidden_tools() as $name => $tool ) {
+            if ( in_array( $name, $registered, true ) ) {
+                continue;
+            }
+            if ( ! Tool_State::is_enabled( $tool ) ) {
+                $status    = Tool_Status::off( $name, (bool) $tool->is_disabled_by_default() );
+                $entries[] = self::tool_entry( $tool, $name, self::OFF, 'off' === $status['status'] ? Tool_Status::in_admin( $status['where'] ) : Tool_Status::CONFIGURATION_PLACE );
+            } elseif ( ! Server::matches_tool_patterns( $name, $patterns ) ) {
+                $entries[] = self::tool_entry( $tool, $name, self::PATTERN, Tool_Status::CONFIGURATION_PLACE );
+            }
+        }
         usort( $entries, static function ( array $a, array $b ): int {
             return strcmp( $a['group'] . ' ' . $a['name'], $b['group'] . ' ' . $b['name'] );
         } );

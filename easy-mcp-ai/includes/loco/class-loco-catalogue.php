@@ -19,16 +19,28 @@ final class Loco_Catalogue {
         if ( ! function_exists( 'loco_plugin_version' ) ) {
             throw new \RuntimeException( 'Loco Translate is not active on this site.' );
         }
+        $class = self::missing_class();
+        if ( null !== $class ) {
+            throw new \RuntimeException( sprintf( 'This version of Loco Translate (%1$s) has no %2$s class, which these tools use. Update Easy MCP AI, or edit the file in Loco Translate.', \loco_plugin_version(), $class ) );
+        }
+    }
+
+    public static function missing_class(): ?string {
         foreach ( self::CLASSES as $class ) {
             if ( ! class_exists( $class ) ) {
-                throw new \RuntimeException( sprintf( 'This version of Loco Translate (%1$s) has no %2$s class, which these tools use. Update Easy MCP AI, or edit the file in Loco Translate.', \loco_plugin_version(), $class ) );
+                return $class;
             }
         }
+        return null;
+    }
+
+    public static function writes_here(): bool {
+        return Layout_Adapter::writes_on( (string) \loco_plugin_version(), self::TESTED_VERSIONS, array() );
     }
 
     public static function require_tested_version(): void {
         $version = (string) \loco_plugin_version();
-        if ( ! Layout_Adapter::writes_on( $version, self::TESTED_VERSIONS, array() ) ) {
+        if ( ! self::writes_here() ) {
             throw new \RuntimeException( sprintf( 'Writing translations is tested with Loco Translate %1$s and its later patch releases, and this site runs %2$s, whose file format may differ. Nothing was changed. Edit the file in Loco Translate, or update Easy MCP AI.', implode( ', ', self::TESTED_VERSIONS ), $version ) );
         }
     }

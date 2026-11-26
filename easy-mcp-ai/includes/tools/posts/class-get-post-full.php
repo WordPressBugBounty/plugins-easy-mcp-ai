@@ -4,7 +4,9 @@ namespace Easy_MCP_AI\Tools\Posts;
 use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Content_Hash;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 use Easy_MCP_AI\Tools\Post_Type_Rest_Base;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -24,7 +26,7 @@ class Get_Post_Full extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap), `raw_post` (boolean, edit context only: adds `raw_post`, every database column of the post as stored), `meta_keys` (array: return only these meta keys, so the key cap cannot hide one), `meta_all_values` (boolean: each meta key maps to the list of all its stored values instead of the first), `terms_taxonomies` (array: only these taxonomies in `terms`), `full_terms` (boolean: more fields per term). Meta values are the stored strings (serialized values are not unserialized). A page builder\'s layout meta (Elementor\'s `_elementor_data`) is left out of both meta maps unless `meta_keys` names it, and named in `meta_left_out`; `wp_get_page_layout` reads it. For a password-protected post you cannot edit, `meta` is left out and `meta_withheld` says why. Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit. SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) is omitted from `post`: saved Yoast fields are in `meta` (context=edit), and AIOSEO\'s stay in post.aioseo_meta_data. For the rendered head, use the Yoast SEO or AIOSEO tool for a post when one is listed. `content_sha256` and `content_bytes` (beside `post`, also with `exclude: ["content"]`; null if you cannot edit the post) are post_content\'s SHA-256 and byte length as stored.';
+        return 'Returns the complete view of a post in ONE call: post fields + all meta + all taxonomy terms grouped by taxonomy + featured image data + author data. Replaces 4–20 separate calls. Required: `id` (the post ID — called `post_id` on some sibling tools). Optional: `post_type` (REST base, default `posts`; same concept as `rest_base` on the CPT tools), `include` (subset of [meta, terms, thumbnail, author] — omit for all), `exclude` (e.g. ["content"] to drop large post_content), `context` (view|edit, default view; edit exposes protected fields/meta and requires edit_post cap), `raw_post` (boolean, edit context only: adds `raw_post`, every database column of the post as stored), `meta_keys` (array: return only these meta keys, so the key cap cannot hide one), `meta_all_values` (boolean: each meta key maps to the list of all its stored values instead of the first), `terms_taxonomies` (array: only these taxonomies in `terms`), `full_terms` (boolean: more fields per term). Meta values are the stored strings (serialized values are not unserialized). A page builder\'s layout meta (Elementor\'s `_elementor_data`) is left out of both meta maps unless `meta_keys` names it, and named in `meta_left_out`' . ( Post_Type_Tool_Hint::may_describe( 'wp_get_page_layout' ) ? '; `wp_get_page_layout` reads it' : '' ) . '. For a password-protected post you cannot edit, `meta` is left out and `meta_withheld` says why. Caps: 100 terms per taxonomy (filter: easy_mcp_ai_post_full_max_terms_per_taxonomy), 200 meta keys (filter: easy_mcp_ai_post_full_max_meta_keys). Response includes terms_truncated / meta_truncated / taxonomies_truncated flags when the respective caps are hit. SEO head markup (yoast_head*, aioseo_head*, aioseo_breadcrumb*) is omitted from `post`: saved Yoast fields are in `meta` (context=edit), and AIOSEO\'s stay in post.aioseo_meta_data. For the rendered head, use the Yoast SEO or AIOSEO tool for a post when one is listed. `content_sha256` and `content_bytes` (beside `post`, also with `exclude: ["content"]`; null if you cannot edit the post) are post_content\'s SHA-256 and byte length as stored.';
     }
 
     public function get_category() {
@@ -126,6 +128,10 @@ class Get_Post_Full extends Base_Tool {
             )
         );
 
+        if ( isset( $post['status'] ) ) {
+            $post['status'] = Status_Taxonomy::status_of( $post + array( 'id' => $post_id ) );
+        }
+
         foreach ( $exclude as $key ) {
             unset( $post[ $key ] );
         }
@@ -163,7 +169,8 @@ class Get_Post_Full extends Base_Tool {
         }
         if ( array() !== $left_out ) {
             $result['meta_left_out']      = array_values( array_unique( $left_out ) );
-            $result['meta_left_out_note'] = sprintf( 'Left out of meta: %s, the page builder\'s stored layout. Read the layout with wp_get_page_layout, or the raw value by naming the key in meta_keys (context edit).', implode( ', ', $result['meta_left_out'] ) );
+            $read                         = Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? 'Read the layout with wp_get_page_layout, or the raw value' : 'Read the raw value';
+            $result['meta_left_out_note'] = sprintf( 'Left out of meta: %1$s, the page builder\'s stored layout. %2$s by naming the key in meta_keys (context edit).', implode( ', ', $result['meta_left_out'] ), $read );
         }
 
         if ( in_array( 'terms', $include, true ) ) {

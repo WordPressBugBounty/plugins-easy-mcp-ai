@@ -40,6 +40,10 @@ abstract class Meta_Field_Provider {
         return '';
     }
 
+    public function get_dedicated_tool_class(): string {
+        return '';
+    }
+
     public function read_tool_for( $key ) {
         return '';
     }

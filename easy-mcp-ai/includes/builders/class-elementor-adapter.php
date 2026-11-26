@@ -38,6 +38,14 @@ final class Elementor_Adapter extends Layout_Adapter {
 
     const TABS = array( 'content', 'layout', 'style', 'advanced' );
 
+    const START_STATUSES = array( 'draft', 'auto-draft', 'pending' );
+
+    const CONTENT_KEPT     = 'kept';
+    const CONTENT_RESTORED = 'restored';
+    const CONTENT_LEFT     = 'left';
+    const CONTENT_LOST     = 'lost';
+    const CONTENT_UNSURE   = 'unsure';
+
     const ALL_FIELDS = '*';
 
     const FRONT_END_REFUSAL = 'Elementor is treating this request as a front-end page view, where it labels every widget control (the CSS ID too) as Content, so the fields cannot be told apart. Nothing was changed.';
@@ -77,6 +85,8 @@ final class Elementor_Adapter extends Layout_Adapter {
     private $elements_manager;
 
     private $devices;
+
+    private $save_rows = null;
 
     public function __construct( ?callable $widgets_manager = null, ?callable $documents = null, ?callable $elements_manager = null, ?callable $devices = null ) {
         $this->widgets_manager  = $widgets_manager;
@@ -123,7 +133,11 @@ final class Elementor_Adapter extends Layout_Adapter {
     }
 
     public function source( object $post ): string {
-        $raw = get_post_meta( $post->ID, self::DATA_KEY, true );
+        return self::stored_source( (int) $post->ID );
+    }
+
+    private static function stored_source( int $post_id ): string {
+        $raw = get_post_meta( $post_id, self::DATA_KEY, true );
         return is_string( $raw ) ? $raw : (string) wp_json_encode( $raw );
     }
 
@@ -340,7 +354,7 @@ final class Elementor_Adapter extends Layout_Adapter {
 
     private static function condition_text( array $control ): string {
         if ( empty( $control['condition'] ) || ! is_array( $control['condition'] ) ) {
-            return 'only under the conditions `condition` lists for it in wp_list_layout_elements';
+            return 'only under the conditions `condition` lists for it' . ( \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? ' in wp_list_layout_elements' : '' );
         }
         $clauses = array();
         foreach ( $control['condition'] as $key => $value ) {
@@ -610,7 +624,8 @@ final class Elementor_Adapter extends Layout_Adapter {
     }
 
     public function edit( object $post, array $ops, bool $dry_run, ?callable $fence = null ): array {
-        $post_id = (int) $post->ID;
+        $this->save_rows = null;
+        $post_id         = (int) $post->ID;
         $refusal = $this->edit_refusal( $post );
         if ( null !== $refusal ) {
             throw self::refusal( array( $refusal ) );
@@ -620,7 +635,369 @@ final class Elementor_Adapter extends Layout_Adapter {
             throw self::refusal( array( sprintf( 'Elementor cannot open post %d as an Elementor document.', $post_id ) ) );
         }
         $original = array_values( self::tree( $post_id ) );
-        $editor   = new Elementor_Editor(
+        $encoded  = wp_json_encode( $original );
+        $kept     = 0;
+        list( $keep_copy, $release ) = self::copy_before_save( $post_id, (string) $post->post_type, $kept );
+        try {
+            $outcome = $this->save_plan(
+                $post_id,
+                $document,
+                $original,
+                $ops,
+                $dry_run,
+                $fence,
+                false,
+                static function ( bool $before_save = false ) use ( $post_id, $encoded ): bool {
+                    unset( $before_save );
+                    wp_cache_delete( $post_id, 'post_meta' );
+                    return wp_json_encode( array_values( self::tree( $post_id ) ) ) === $encoded;
+                },
+                $keep_copy
+            );
+            $outcome['kept_revision'] = $kept;
+            return $outcome;
+        } catch ( \Throwable $e ) {
+            $content = $this->content_after_save();
+            if ( self::CONTENT_KEPT === $content ) {
+                throw $e;
+            }
+            throw self::failed_save( sprintf( 'The layout of post %d was not saved.', $post_id ), $post_id, $content, $kept, (string) ( $this->save_rows['before']['content'] ?? '' ), $e->getMessage() );
+        } finally {
+            $release();
+        }
+    }
+
+    public function start_refusal( object $post ): ?string {
+        $post_id = (int) $post->ID;
+        if ( ! $this->is_present() ) {
+            return 'Elementor is not active, so no Elementor layout can be started.';
+        }
+        if ( $this->owns( $post ) ) {
+            return sprintf( 'Post %d is already built with Elementor; send the call without `start`.', $post_id );
+        }
+        $type = (string) $post->post_type;
+        if ( ! post_type_supports( $type, 'elementor' ) ) {
+            return sprintf( 'Elementor is not enabled for the post type "%1$s" (Elementor › Settings › Post Types), so no Elementor layout can be started on post %2$d.', $type, $post_id );
+        }
+        $status = (string) ( $post->post_status ?? '' );
+        if ( ! in_array( $status, self::START_STATUSES, true ) ) {
+            $route = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_duplicate_post' ) && \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_republish_post' )
+                ? ' Copy it with wp_duplicate_post, start the layout on the copy, then put it live with wp_republish_post.'
+                : '';
+            return sprintf( 'Post %1$d is %2$s; an Elementor layout is started only on a draft, an auto-draft or a pending post, so visitors never see the page change in one call.%3$s', $post_id, '' === $status ? 'of no status' : $status, $route );
+        }
+        $document = $this->document( $post_id );
+        if ( null === $document ) {
+            return sprintf( 'Elementor cannot open post %d as an Elementor document, so no layout can be started on it.', $post_id );
+        }
+        if ( ! $document->is_editable_by_current_user() ) {
+            return 'Elementor does not let this account edit this item. Elementor refuses a trashed item, the Posts page, the WooCommerce Shop page, a post type not enabled under Elementor › Settings, and a role excluded under Elementor › Role Manager.';
+        }
+        $seed = Elementor_Tree::elements( $this->seed( $post ) );
+        foreach ( $seed as $element ) {
+            if ( 'widget' === $element['elType'] && null === $this->widget( (string) $element['widgetType'] ) ) {
+                return sprintf( 'Elementor has no %s widget registered, which would hold the post content in the new layout.', (string) $element['widgetType'] );
+            }
+        }
+        return null;
+    }
+
+    public function seed( object $post ): array {
+        $content = (string) $post->post_content;
+        if ( '' === $content || '0' === $content ) {
+            return array();
+        }
+        $widget = array(
+            'elType'     => 'widget',
+            'widgetType' => 'text-editor',
+            'settings'   => array( 'editor' => $content ),
+            'elements'   => array(),
+        );
+        if ( null !== $this->widget( 'shortcode' ) && preg_match_all( '/' . get_shortcode_regex() . '/', $content, $matches, PREG_SET_ORDER ) ) {
+            foreach ( $matches as $shortcode ) {
+                if ( trim( $content ) === $shortcode[0] ) {
+                    $widget['widgetType'] = 'shortcode';
+                    $widget['settings']   = array( 'shortcode' => $content );
+                    break;
+                }
+            }
+        }
+        $containers = self::containers_active();
+        $ids        = self::seed_ids( $post, $containers ? 2 : 3 );
+        $widget     = array( 'id' => $ids[0] ) + $widget;
+        if ( $containers ) {
+            return array(
+                array( 'id' => $ids[1], 'elType' => 'container', 'settings' => array(), 'elements' => array( $widget ), 'isInner' => false ),
+            );
+        }
+        $column = array( 'id' => $ids[2], 'elType' => 'column', 'settings' => array(), 'elements' => array( $widget ) );
+        return array(
+            array( 'id' => $ids[1], 'elType' => 'section', 'settings' => array(), 'elements' => array( $column ), 'isInner' => false ),
+        );
+    }
+
+    public function start_version( object $post ): string {
+        return self::unbuilt_version( $post, (string) wp_json_encode( self::shape( $this->seed( $post ) ) ) );
+    }
+
+    private static function shape( array $elements ): array {
+        $shape = array();
+        foreach ( $elements as $element ) {
+            $shape[] = array(
+                'type'     => (string) ( $element['widgetType'] ?? $element['elType'] ),
+                'children' => self::shape( $element['elements'] ),
+            );
+        }
+        return $shape;
+    }
+
+    public function seed_nodes( object $post ): array {
+        return $this->build( $this->seed( $post ) );
+    }
+
+    private static function seed_ids( object $post, int $count ): array {
+        $seed = 'elementor-start|' . (int) $post->ID . '|' . self::unbuilt_version( $post ) . '|';
+        $ids  = array();
+        for ( $n = 0; count( $ids ) < $count; ++$n ) {
+            $id = substr( sha1( $seed . $n ), 0, 7 );
+            if ( 1 === preg_match( '/[a-f]/', $id ) && ! in_array( $id, $ids, true ) ) {
+                $ids[] = $id;
+            }
+        }
+        return $ids;
+    }
+
+    public function start( object $post, array $ops, bool $dry_run, ?callable $fence = null ): array {
+        $this->save_rows = null;
+        $post_id         = (int) $post->ID;
+        $refusal = $this->start_refusal( $post );
+        if ( null !== $refusal ) {
+            throw self::refusal( array( $refusal ) );
+        }
+        $document = $this->document( $post_id );
+        if ( null === $document ) {
+            throw self::refusal( array( sprintf( 'Elementor cannot open post %d as an Elementor document.', $post_id ) ) );
+        }
+        $before   = self::stored_source( $post_id );
+        $content  = (string) $post->post_content;
+        $modified = (string) $post->post_modified_gmt;
+        $kept     = 0;
+        list( $keep_copy, $release ) = self::copy_before_save( $post_id, (string) $post->post_type, $kept );
+        try {
+            try {
+                $outcome = $this->save_plan(
+                    $post_id,
+                    $document,
+                    $this->seed( $post ),
+                    $ops,
+                    $dry_run,
+                    $fence,
+                    true,
+                    static function ( bool $before_save = false ) use ( $post_id, $before, $content, $modified ): bool {
+                        wp_cache_delete( $post_id, 'post_meta' );
+                        return self::stored_source( $post_id ) === $before
+                            && ( ! $before_save || self::post_row( $post_id ) === array( 'content' => $content, 'modified' => $modified ) );
+                    },
+                    $keep_copy
+                );
+            } catch ( \Throwable $e ) {
+                $state = $this->content_after_save();
+                if ( null === $this->save_rows ) {
+                    throw $e;
+                }
+                throw self::failed_start( $post_id, $state, $kept, $content, $e->getMessage() );
+            }
+            if ( '' !== $before && '[]' !== $before ) {
+                $outcome['warnings'][] = sprintf( 'Post %d still held an earlier Elementor layout, which Elementor keeps when a page is switched back to the WordPress editor; the new layout %s it.', $post_id, $outcome['saved'] ? 'replaced' : 'would replace' );
+            }
+            $outcome['kept_revision'] = $kept;
+            if ( ! $outcome['saved'] ) {
+                return $outcome;
+            }
+            if ( null !== $fence ) {
+                try {
+                    $fence();
+                } catch ( \RuntimeException $e ) {
+                    throw self::failed_start( $post_id, $this->content_after_save(), $kept, $content, sprintf( 'Elementor saved the new layout, but this call then ran longer than %d seconds and another edit took the post over, so the post was not marked as built with Elementor. Read it again%2$s.', Layout_Lock::TTL, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' ) );
+                }
+            }
+            try {
+                $document->set_is_built_with_elementor( true );
+            } catch ( \Throwable $e ) {
+                throw self::failed_start( $post_id, $this->content_after_save(), $kept, $content, 'Elementor saved the new layout, but marking the post as built with Elementor failed: ' . $e->getMessage() );
+            }
+            wp_cache_delete( $post_id, 'post_meta' );
+            if ( 'builder' !== get_post_meta( $post_id, self::EDIT_MODE_KEY, true ) ) {
+                throw self::failed_start( $post_id, $this->content_after_save(), $kept, $content, sprintf( 'Elementor saved the new layout, but the post is not marked as built with Elementor: something stopped the write of %s (a plugin filter or a database error), so the page shows its post content.', self::EDIT_MODE_KEY ) );
+            }
+            return $outcome;
+        } finally {
+            $release();
+        }
+    }
+
+    private static function copy_before_save( int $post_id, string $type, int &$kept ): array {
+        $limit = static function ( $count, $revised ) use ( $post_id ) {
+            return is_object( $revised ) && (int) $revised->ID === $post_id && (int) $count > 0 ? (int) $count + 1 : $count;
+        };
+        $hook  = 'wp_' . $type . '_revisions_to_keep';
+        return array(
+            static function () use ( $post_id, &$kept, $limit, $hook ): void {
+                $kept = self::keep_revision( $post_id, self::post_row( $post_id )['content'] );
+                add_filter( $hook, $limit, PHP_INT_MAX, 2 );
+            },
+            static function () use ( $limit, $hook ): void {
+                remove_filter( $hook, $limit, PHP_INT_MAX );
+            },
+        );
+    }
+
+    public static function revision_holding( int $post_id, string $content ): int {
+        foreach ( wp_get_post_revisions( $post_id, array( 'check_enabled' => false ) ) as $revision ) {
+            if ( is_object( $revision ) && isset( $revision->ID ) && self::holds( (int) $revision->ID, $content ) ) {
+                return (int) $revision->ID;
+            }
+        }
+        return 0;
+    }
+
+    private static function holds( int $revision_id, string $content ): bool {
+        $revision = $revision_id > 0 ? get_post( $revision_id ) : null;
+        return is_object( $revision ) && isset( $revision->post_content ) && (string) $revision->post_content === $content;
+    }
+
+    public static function keep_revision( int $post_id, string $content ): int {
+        $kept = self::revision_holding( $post_id, $content );
+        return $kept > 0 ? $kept : self::put_revision( $post_id, $content );
+    }
+
+    public static function put_revision( int $post_id, string $content ): int {
+        $made = _wp_put_post_revision( get_post( $post_id ) );
+        if ( is_wp_error( $made ) || ! is_numeric( $made ) || ! self::holds( (int) $made, $content ) ) {
+            throw self::refusal( array( sprintf( 'WordPress did not save a revision of post %d to keep its content before Elementor replaces it, so nothing was changed.', $post_id ) ) );
+        }
+        return (int) $made;
+    }
+
+    private static function revision_of( int $post_id, string $content ): int {
+        $post = get_post( $post_id );
+        if ( ! is_object( $post ) ) {
+            return 0;
+        }
+        $copy               = clone $post;
+        $copy->post_content = $content;
+        $made               = _wp_put_post_revision( $copy );
+        return is_numeric( $made ) && self::holds( (int) $made, $content ) ? (int) $made : 0;
+    }
+
+    private static function post_row( int $post_id ): array {
+        wp_cache_delete( $post_id, 'posts' );
+        return self::row_of( get_post( $post_id ) );
+    }
+
+    private static function row_of( $post ): array {
+        return array(
+            'content'  => is_object( $post ) && isset( $post->post_content ) ? (string) $post->post_content : '',
+            'modified' => is_object( $post ) && isset( $post->post_modified_gmt ) ? (string) $post->post_modified_gmt : '',
+        );
+    }
+
+    private function content_after_save(): string {
+        if ( null === $this->save_rows ) {
+            return self::CONTENT_KEPT;
+        }
+        return self::put_content_back( $this->save_rows['before'], $this->save_rows['written'], $this->save_rows['known'], (int) $this->save_rows['post_id'] );
+    }
+
+    private static function recording_writes( int $post_id, callable $save, array $before, ?array &$written, bool &$known ) {
+        $written = null;
+        $known   = true;
+        $staged  = array();
+        $stage   = static function ( $data, $postarr ) use ( $post_id, &$staged ) {
+            if ( is_array( $data ) && is_array( $postarr ) && (int) ( $postarr['ID'] ?? 0 ) === $post_id ) {
+                $staged[] = array(
+                    'content'  => isset( $data['post_content'] ) ? (string) wp_unslash( $data['post_content'] ) : '',
+                    'modified' => isset( $data['post_modified_gmt'] ) ? (string) $data['post_modified_gmt'] : '',
+                );
+            }
+            return $data;
+        };
+        $confirm = static function ( $updated, $after ) use ( $post_id, &$staged, &$written, &$known ): void {
+            if ( (int) $updated !== $post_id ) {
+                return;
+            }
+            $row     = array_pop( $staged );
+            $written = self::row_of( $after );
+            $known   = null !== $row && $row === $written;
+        };
+        add_filter( 'wp_insert_post_data', $stage, PHP_INT_MAX, 2 );
+        add_action( 'post_updated', $confirm, PHP_INT_MIN, 2 );
+        try {
+            return $save();
+        } finally {
+            remove_filter( 'wp_insert_post_data', $stage, PHP_INT_MAX );
+            remove_action( 'post_updated', $confirm, PHP_INT_MIN );
+            if ( array() !== $staged ) {
+                $now = self::post_row( $post_id );
+                if ( $now !== ( $written ?? $before ) ) {
+                    $written = $now;
+                    $known   = false;
+                }
+            }
+        }
+    }
+
+    private static function put_content_back( array $before, ?array $written, bool $known, int $post_id ): string {
+        if ( null === $written ) {
+            return self::post_row( $post_id ) === $before ? self::CONTENT_KEPT : self::CONTENT_LEFT;
+        }
+        if ( ! $known ) {
+            return self::CONTENT_UNSURE;
+        }
+        if ( $written['content'] === $before['content'] ) {
+            return self::post_row( $post_id ) === $written ? self::CONTENT_KEPT : self::CONTENT_LEFT;
+        }
+        global $wpdb;
+        $rows = $wpdb->query( $wpdb->prepare( "UPDATE {$wpdb->posts} SET post_content = %s WHERE ID = %d AND post_modified_gmt = %s AND MD5( post_content ) = %s", $before['content'], $post_id, $written['modified'], md5( $written['content'] ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one conditional write, then the post's caches are cleaned.
+        clean_post_cache( $post_id );
+        if ( false === $rows ) {
+            return self::CONTENT_LOST;
+        }
+        if ( 1 === (int) $rows ) {
+            return self::CONTENT_RESTORED;
+        }
+        return self::post_row( $post_id ) === $written ? self::CONTENT_LOST : self::CONTENT_LEFT;
+    }
+
+    private static function content_state( string $content, int $revision ): string {
+        $kept = $revision > 0 ? sprintf( '; revision %d holds the content before', $revision ) : '';
+        $copy = $revision > 0 ? sprintf( ', and revision %d holds a copy', $revision ) : '';
+        $text = array(
+            self::CONTENT_KEPT     => 'Its content is as it was' . $copy . '.',
+            self::CONTENT_RESTORED => 'Elementor had replaced its content with the layout\'s plain text; it was put back as it was' . $copy . '.',
+            self::CONTENT_LEFT     => 'Another edit saved it during this call, so its content was left as that edit saved it' . $kept . '.',
+            self::CONTENT_LOST     => 'Elementor replaced its content with the layout\'s plain text and it could not be put back' . $kept . '.',
+            self::CONTENT_UNSURE   => 'Its content changed during the save in a way this call cannot tell apart from another edit, so it was not put back' . $kept . '.',
+        );
+        return $text[ $content ];
+    }
+
+    private static function failed_save( string $lead, int $post_id, string $state, int $revision, string $content, string $why ): \Easy_MCP_AI\MCP\Detailed_Tool_Error {
+        $at_risk = in_array( $state, array( self::CONTENT_LEFT, self::CONTENT_LOST, self::CONTENT_UNSURE ), true );
+        $kept    = self::holds( $revision, $content ) ? $revision : ( $at_risk || $revision > 0 ? self::revision_of( $post_id, $content ) : 0 );
+        if ( 0 === $kept && $at_risk ) {
+            $why .= ' No revision holds the content before, and none could be saved; it was (possibly cut at the reply limit): ' . $content;
+        }
+        return new \Easy_MCP_AI\MCP\Detailed_Tool_Error( $lead . ' ' . self::content_state( $state, $kept ), $why );
+    }
+
+    private static function failed_start( int $post_id, string $state, int $revision, string $content, string $why ): \Easy_MCP_AI\MCP\Detailed_Tool_Error {
+        return self::failed_save( sprintf( 'Post %d was not made an Elementor page.', $post_id ), $post_id, $state, $revision, $content, $why );
+    }
+
+    private function save_plan( int $post_id, object $document, array $base, array $ops, bool $dry_run, ?callable $fence, bool $starting, callable $unchanged, ?callable $before_save = null ): array {
+        $this->save_rows = null;
+        $editor = new Elementor_Editor(
             function ( string $type ): ?array {
                 return $this->tab_fields( $type, 'all' );
             },
@@ -632,7 +1009,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             array( $this, 'hidden_fields' ),
             array( __CLASS__, 'v4_unavailable' )
         );
-        $plan     = $editor->plan( $original, $ops );
+        $plan   = $editor->plan( $base, $ops );
         if ( array() !== $plan['errors'] ) {
             throw self::refusal( $plan['errors'] );
         }
@@ -641,7 +1018,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             throw self::refusal( array( 'The edited layout cannot be stored as JSON (a value is not a finite number or not valid UTF-8), so nothing was saved.' ) );
         }
         $warnings = array();
-        $problems = self::save_problems( $document, $original, $plan['data'], $plan['results'], current_user_can( 'unfiltered_html' ), $warnings );
+        $problems = self::save_problems( $document, $base, $plan['data'], $plan['results'], current_user_can( 'unfiltered_html' ), $warnings );
         if ( array() !== $problems ) {
             throw self::refusal( $problems );
         }
@@ -656,7 +1033,7 @@ final class Elementor_Adapter extends Layout_Adapter {
             $warnings[] = $open;
         }
 
-        $changed = wp_json_encode( $original ) !== $encoded;
+        $changed = $starting || wp_json_encode( $base ) !== $encoded;
         if ( $dry_run || ! $changed ) {
             return array(
                 'changed'  => $changed,
@@ -669,16 +1046,46 @@ final class Elementor_Adapter extends Layout_Adapter {
         if ( null !== $fence ) {
             $fence();
         }
-        wp_cache_delete( $post_id, 'post_meta' );
-        if ( wp_json_encode( array_values( self::tree( $post_id ) ) ) !== wp_json_encode( $original ) ) {
-            throw new \RuntimeException( sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again with wp_get_page_layout and redo the edit.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        $changed_meanwhile = sprintf( 'The layout of post %d changed while this edit was being prepared, so nothing was saved. Read it again%s and redo the edit.', $post_id, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' with wp_get_page_layout' : '' );
+        if ( ! $unchanged( true ) ) {
+            throw new \RuntimeException( $changed_meanwhile ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
-        if ( true !== $document->save( array( 'elements' => $plan['data'] ) ) ) {
-            throw new \RuntimeException( sprintf( 'Elementor did not save post %d: Document::save() refused it.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        if ( null !== $before_save ) {
+            $before_save();
+            if ( ! $unchanged( true ) ) {
+                throw new \RuntimeException( $changed_meanwhile ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
         }
-        $stored = array_values( self::tree( $post_id ) );
-        if ( wp_json_encode( $stored ) === wp_json_encode( $original ) ) {
-            throw new \RuntimeException( sprintf( 'Elementor reported post %d saved, but its stored layout did not change: something stopped the write of %s (a plugin filter or a database error).', $post_id, self::DATA_KEY ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        $this->save_rows = array(
+            'post_id' => $post_id,
+            'before'  => self::post_row( $post_id ),
+            'written' => null,
+            'known'   => true,
+        );
+        $written = &$this->save_rows['written'];
+        $known   = &$this->save_rows['known'];
+        try {
+            $saved = self::recording_writes(
+                $post_id,
+                static function () use ( $document, $plan ) {
+                    return $document->save( array( 'elements' => $plan['data'] ) );
+                },
+                $this->save_rows['before'],
+                $written,
+                $known
+            );
+            if ( true !== $saved ) {
+                throw new \RuntimeException( sprintf( 'Elementor did not save post %d: Document::save() refused it.', $post_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+            if ( $unchanged( false ) ) {
+                throw new \RuntimeException( sprintf( 'Elementor reported post %d saved, but its stored layout did not change: something stopped the write of %s (a plugin filter or a database error).', $post_id, self::DATA_KEY ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+            $stored = array_values( self::tree( $post_id ) );
+            if ( $starting && array() === $stored ) {
+                throw new \RuntimeException( sprintf( 'Elementor reported post %d saved, but its stored layout is empty: something emptied the write of %s (a plugin filter or a database error), so the post was not marked as built with Elementor.', $post_id, self::DATA_KEY ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            }
+        } finally {
+            unset( $written, $known );
         }
         $results = self::read_back( $plan['results'], $stored, $plan['data'], $warnings );
         return array(
@@ -721,15 +1128,42 @@ final class Elementor_Adapter extends Layout_Adapter {
         $layout   = array_values( self::tree( (int) $copy->ID ) );
         $expected = self::predicted_save( $document, $layout, current_user_can( 'unfiltered_html' ) );
         $before   = wp_json_encode( array_values( self::tree( $original_id ) ) );
-        if ( true !== $document->save( array( 'elements' => $layout ) ) ) {
-            throw new \RuntimeException( sprintf( 'Elementor did not save the copy\'s layout onto post %d: Document::save() refused it.', $original_id ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        $row      = self::post_row( $original_id );
+        $written  = null;
+        $known    = true;
+        try {
+            $saved = self::recording_writes(
+                $original_id,
+                static function () use ( $document, $layout ) {
+                    return $document->save( array( 'elements' => $layout ) );
+                },
+                $row,
+                $written,
+                $known
+            );
+        } catch ( \Throwable $e ) {
+            throw new \RuntimeException( sprintf( 'Elementor\'s save of the copy\'s layout onto post %d failed: %s', $original_id, $e->getMessage() ) . self::replaced_content( $original_id, $row, $written, $known ), 0, $e ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
+        if ( true !== $saved ) {
+            throw new \RuntimeException( sprintf( 'Elementor did not save the copy\'s layout onto post %d: Document::save() refused it.', $original_id ) . self::replaced_content( $original_id, $row, $written, $known ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
         wp_cache_delete( $original_id, 'post_meta' );
         $after = wp_json_encode( array_values( self::tree( $original_id ) ) );
         $emptied = array() !== $layout && '[]' === $after;
         if ( $emptied || ( $after === $before && ( ! is_array( $expected ) || wp_json_encode( array_values( $expected['stored'] ) ) !== $before ) ) ) {
-            throw new \RuntimeException( sprintf( 'Elementor reported post %1$d saved, but its stored layout %2$s: something stopped the write of %3$s (a plugin filter or a database error).', $original_id, $emptied ? 'is empty' : 'did not change', self::DATA_KEY ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+            throw new \RuntimeException( sprintf( 'Elementor reported post %1$d saved, but its stored layout %2$s: something stopped the write of %3$s (a plugin filter or a database error).', $original_id, $emptied ? 'is empty' : 'did not change', self::DATA_KEY ) . self::replaced_content( $original_id, $row, $written, $known ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
+    }
+
+    private static function replaced_content( int $post_id, array $before, ?array $written, bool $known ): string {
+        $sentences = array(
+            self::CONTENT_KEPT     => '',
+            self::CONTENT_RESTORED => ' Elementor had replaced the post content with the layout\'s plain text; it was put back as it was.',
+            self::CONTENT_LEFT     => ' Another edit saved the post during this call, so its content was left as that edit saved it.',
+            self::CONTENT_LOST     => ' Elementor replaced the post content with the layout\'s plain text, and it could not be put back.',
+            self::CONTENT_UNSURE   => ' The post content changed during the save in a way this call cannot tell apart from another edit, so it was not put back.',
+        );
+        return $sentences[ self::put_content_back( $before, $written, $known, $post_id ) ];
     }
 
     public function release( object $post ): void {
@@ -1249,21 +1683,12 @@ final class Elementor_Adapter extends Layout_Adapter {
             $off[] = 'Elementor’s abilities are not switched on in Easy MCP AI › Tools';
         }
         if ( array() === $off ) {
-            $caller = self::v4_caller_reason();
+            $caller = self::caller_reason( self::V4_TOOL );
             if ( null !== $caller ) {
                 $off[] = $caller;
             }
         }
         return $off;
-    }
-
-    private static function v4_caller_reason(): ?string {
-        if ( ! class_exists( '\\Easy_MCP_AI\\MCP\\Server' ) || false !== \Easy_MCP_AI\MCP\Server::current_caller_may_reach( self::V4_TOOL ) ) {
-            return null;
-        }
-        $status = \Easy_MCP_AI\MCP\Server::current_call_tool_status( self::V4_TOOL );
-        $why    = null === $status ? '' : \Easy_MCP_AI\MCP\Tool_Status::predicate( $status );
-        return '' === $why ? 'this connection cannot call it' : 'it ' . rtrim( $why, '.' );
     }
 
     private static function ability_registered( string $name ): bool {

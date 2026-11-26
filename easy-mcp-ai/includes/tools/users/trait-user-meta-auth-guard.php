@@ -8,11 +8,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 trait User_Meta_Auth_Guard {
 
     private static function auth_protected_pattern(): string {
-        return '/(_session|_token|_password|_app(lication)?_password|_reset|_login_attempts|_2fa|_totp|_otp|_recovery|_new_email|_passkey|_webauthn)/i';
+        return '/(_session|_token|_password|_app(lication)?_password|_reset|_login_attempts|_2fa|_totp|_otp|_recovery|_new_email|_passkey|_webauthn)/';
     }
 
     private static function two_factor_secret_pattern(): string {
-        return '/(priv_key|_secret|backup_codes|emergency_codes|trusted_devices|two_?factor_?nonce|two_factor_app_pass|gauth_key|auth_rnd_string|ga_qrcode|kba_challenge)/i';
+        return '/(priv_key|_secret|backup_codes|emergency_codes|trusted_devices|two_?factor_?nonce|two_factor_app_pass|gauth_key|auth_rnd_string|ga_qrcode|kba_challenge)/';
     }
 
     private static function auth_protected_keys(): array {
@@ -28,8 +28,8 @@ trait User_Meta_Auth_Guard {
         if ( in_array( $key, self::auth_protected_keys(), true ) ) {
             return true;
         }
-        return (bool) preg_match( self::auth_protected_pattern(), $key )
-            || (bool) preg_match( self::two_factor_secret_pattern(), $key );
+        return \Easy_MCP_AI\Ascii::matches( self::auth_protected_pattern(), $key )
+            || \Easy_MCP_AI\Ascii::matches( self::two_factor_secret_pattern(), $key );
     }
 
     protected static function is_blocked_by_filter( string $key ): bool {
@@ -69,15 +69,15 @@ trait User_Meta_Auth_Guard {
         }
         $prefixes = array_unique( $prefixes );
         foreach ( $prefixes as $prefix ) {
-            $pattern = '/^' . preg_quote( $prefix, '/' ) . '(\d+_)?(capabilities|user_level)$/i';
-            if ( (bool) preg_match( $pattern, $key ) ) {
+            $pattern = '/^' . preg_quote( \Easy_MCP_AI\Ascii::lower( $prefix ), '/' ) . '(\d+_)?(capabilities|user_level)$/';
+            if ( \Easy_MCP_AI\Ascii::matches( $pattern, $key ) ) {
                 return true;
             }
         }
         if ( preg_match( '/[^\x21-\x7E]/', $key ) ) {
             $folded = self::fold_for_collation( $key );
             foreach ( $prefixes as $prefix ) {
-                $loose = str_replace( '_', '_?', preg_quote( strtolower( $prefix ), '/' ) );
+                $loose = str_replace( '_', '_?', preg_quote( \Easy_MCP_AI\Ascii::lower( $prefix ), '/' ) );
                 if ( preg_match( '/^' . $loose . '(\d+_?)?(capabilities|user_?level)\z/', $folded ) ) {
                     return true;
                 }
@@ -89,13 +89,13 @@ trait User_Meta_Auth_Guard {
     private static function fold_for_collation( string $key ): string {
         $chars = preg_split( '//u', $key, -1, PREG_SPLIT_NO_EMPTY );
         if ( false === $chars ) {
-            return strtolower( (string) preg_replace( '/[^\x21-\x7E]/', '', $key ) );
+            return \Easy_MCP_AI\Ascii::lower( (string) preg_replace( '/[^\x21-\x7E]/', '', $key ) );
         }
         $out = '';
         foreach ( $chars as $char ) {
             $out .= self::fold_character( $char );
         }
-        return strtolower( $out );
+        return \Easy_MCP_AI\Ascii::lower( $out );
     }
 
     private static function fold_character( string $char ): string {

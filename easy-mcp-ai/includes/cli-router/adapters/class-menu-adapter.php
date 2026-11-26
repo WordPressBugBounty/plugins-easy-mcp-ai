@@ -471,7 +471,8 @@ final class Menu_Adapter extends Command_Handler {
         switch ( $flag ) {
             case 'target':
                 if ( ! in_array( $value, self::TARGETS, true ) ) {
-                    $ctx->out->error( sprintf( self::BAD_TARGET, $value, $inv->command, $add ? 'wp_create_menu_item' : 'wp_update_menu_item' ) );
+                    $tool = $add ? 'wp_create_menu_item' : 'wp_update_menu_item';
+                    $ctx->out->error( sprintf( self::BAD_TARGET, $value, $inv->command, $ctx->may_use( $tool ) ? $tool : 'the menu item tool' ) );
                 }
                 return array( 'target' => $value );
             case 'classes':

@@ -381,7 +381,7 @@ class WC_Logs {
     }
 
     private static function redact_structure( $value, $key = '', int $depth = 0 ) {
-        if ( '' !== (string) $key && ! is_int( $key ) && preg_match( Text_Redactor::SENSITIVE_KEY_PATTERN, (string) $key ) ) {
+        if ( '' !== (string) $key && ! is_int( $key ) && Text_Redactor::is_sensitive_key( (string) $key ) ) {
             return Text_Redactor::MASK;
         }
         if ( $depth >= self::MAX_DEPTH ) {
@@ -426,9 +426,15 @@ class WC_Logs {
     }
 
     private static function net( string $text ): string {
-        $keys  = (string) preg_replace( '~^/(.*)/[a-z]*$~s', '$1', Text_Redactor::SENSITIVE_KEY_PATTERN );
+        $keys  = Text_Redactor::sensitive_key_words();
         $value = '(?:\[[^\]]*(?:\]|$)|\{[^}]*(?:\}|$)|"(?:[^"\\\\]|\\\\.)*(?:"|$)|[^,}\]\s"]+)';
-        $out = preg_replace( '/((?<!\\\\)"(?=[^"\\\\]*(?:' . $keys . '))[^"\\\\]*+"\s*+:\s*+)' . $value . '/i', '$1"' . Text_Redactor::MASK . '"', $text );
+        $out = \Easy_MCP_AI\Ascii::replace_callback(
+            '/((?<!\\\\)"(?=[^"\\\\]*(?:' . $keys . '))[^"\\\\]*+"\s*+:\s*+)' . $value . '/',
+            static function ( array $m ): string {
+                return $m[1] . '"' . Text_Redactor::MASK . '"';
+            },
+            $text
+        );
         return null === $out ? Text_Redactor::MASK : $out;
     }
 

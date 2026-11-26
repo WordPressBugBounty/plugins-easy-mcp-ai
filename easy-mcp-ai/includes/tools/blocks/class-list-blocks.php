@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -64,13 +65,17 @@ class List_Blocks extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        Status_Taxonomy::refuse_unlistable( 'wp_block', self::sent_status( $arguments ) );
+    }
+
     public function execute( array $arguments ) {
         $per_page = isset( $arguments['per_page'] ) ? min( 100, max( 1, absint( $arguments['per_page'] ) ) ) : 10;
         $page     = isset( $arguments['page'] ) ? absint( $arguments['page'] ) : 1;
         $request = new \WP_REST_Request( 'GET', '/wp/v2/blocks' );
         $request->set_param( 'per_page', $per_page );
         $request->set_param( 'page', $page );
-        $request->set_param( 'status', isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish' );
+        $request->set_param( 'status', self::sent_status( $arguments ) );
         $request->set_param( 'context', 'edit' );
 
         if ( ! empty( $arguments['search'] ) ) {
@@ -98,7 +103,7 @@ class List_Blocks extends Base_Tool {
                 'id'      => $block['id'],
                 'title'   => $block['title']['raw'] ?? wp_strip_all_tags( $block['title']['rendered'] ?? '' ),
                 'content' => $block['content']['raw'] ?? $block['content']['rendered'] ?? '',
-                'status'  => $block['status'],
+                'status'  => Status_Taxonomy::status_of( $block ),
                 'date'    => $block['date'],
             );
         }
@@ -107,5 +112,9 @@ class List_Blocks extends Base_Tool {
             array( 'blocks' => $result ),
             $this->pagination_meta( $response, $page, $per_page, count( $blocks ) )
         );
+    }
+
+    private static function sent_status( array $arguments ): string {
+        return isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish';
     }
 }

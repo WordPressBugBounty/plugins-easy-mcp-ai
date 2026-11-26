@@ -108,6 +108,77 @@ final class Redactor {
         'plugin install'       => 0,
     );
 
+    public static function readable_parts( string $command ): ?array {
+        try {
+            Shell_Lexer::split( $command );
+            return null;
+        } catch ( Cli_Parse_Error $e ) {
+            unset( $e );
+        }
+        $parts = array();
+        $rest  = $command;
+        for ( $round = 0; '' !== trim( $rest ) && $round < 64; $round++ ) {
+            $at = null;
+            try {
+                Shell_Lexer::split( $rest );
+            } catch ( Cli_Parse_Error $e ) {
+                $at = $e->get_offset();
+                if ( null === $at || $at < 0 || $at > strlen( $rest ) ) {
+                    break;
+                }
+            }
+            $part = null === $at ? $rest : substr( $rest, 0, $at );
+            if ( '' !== trim( $part ) ) {
+                list( $masked, $names ) = self::mask_command( $part );
+                if ( ! in_array( 'unparseable', $names, true ) ) {
+                    $parts[] = array( $part, $masked );
+                    if ( null !== $at && ! in_array( substr( $part, -1 ), array( '"', "'" ), true ) && self::cut_word_is_secret( $part ) ) {
+                        $parts[] = array( substr( $rest, self::cut_word_start( $part ) ), self::MASK );
+                        break;
+                    }
+                }
+            }
+            if ( null === $at ) {
+                break;
+            }
+            $rest = (string) substr( $rest, $at + 1 );
+        }
+        return $parts;
+    }
+
+    private static function cut_word_is_secret( string $part ): bool {
+        $probes = ctype_space( substr( $part, -1 ) ) ? array( $part . 'x' ) : array( $part, $part . 'x' );
+        foreach ( $probes as $probe ) {
+            try {
+                Shell_Lexer::split( $probe );
+            } catch ( Cli_Parse_Error $e ) {
+                continue;
+            }
+            $masked = self::mask_command( $probe )[0];
+            $space  = strrpos( $masked, ' ' );
+            $last   = false === $space ? $masked : substr( $masked, $space + 1 );
+            if ( self::MASK === substr( $last, -strlen( self::MASK ) ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function cut_word_start( string $part ): int {
+        if ( ctype_space( substr( $part, -1 ) ) ) {
+            return strlen( $part );
+        }
+        $start = 0;
+        foreach ( array( ' ', "\t", "\n" ) as $space ) {
+            $found = strrpos( $part, $space );
+            if ( false !== $found && $found + 1 > $start ) {
+                $start = $found + 1;
+            }
+        }
+        $equals = strpos( $part, '=', $start );
+        return '-' === substr( $part, $start, 1 ) && false !== $equals ? $equals + 1 : $start;
+    }
+
     public static function mask_command( string $command ): array {
         try {
             $words = Shell_Lexer::split( $command );
@@ -310,7 +381,7 @@ final class Redactor {
     }
 
     private static function strip_url_secrets( string $value ): ?string {
-        if ( ! preg_match( '#^[a-z][a-z0-9+.\-]*://#i', $value ) ) {
+        if ( ! \Easy_MCP_AI\Ascii::matches( '#^[a-z][a-z0-9+.\-]*://#', $value ) ) {
             return null;
         }
         $cut = strcspn( $value, '?#' );

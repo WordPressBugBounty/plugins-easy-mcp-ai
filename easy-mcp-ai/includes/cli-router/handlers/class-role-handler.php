@@ -429,7 +429,7 @@ class Role_Handler extends Command_Handler {
     }
 
     protected static function is_plugin_capability( string $cap ): bool {
-        return 1 === preg_match( Self_Protection::NAMESPACE_PATTERN, strtolower( trim( $cap ) ) );
+        return 1 === preg_match( Self_Protection::NAMESPACE_PATTERN, \Easy_MCP_AI\Ascii::lower( trim( $cap ) ) );
     }
 
     protected static function grant_refusal( string $cap, Context $ctx ): ?string {

@@ -144,11 +144,16 @@ class Rebuild_Planner {
         }
         if ( 'create' === $action ) {
             $delete = self::delete_tool_for( $row );
+            if ( null !== $delete && ! \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( $delete ) ) {
+                $delete = null;
+            }
+            $apply = self::tool_or( 'wp_history_apply', __( 'the history restore', 'easy-mcp-ai' ) );
             return self::skip(
                 null === $delete
-                    ? __( 'this entry records a creation; wp_history_apply never deletes', 'easy-mcp-ai' )
-                    /* translators: %s: a delete tool name */
-                    : sprintf( __( 'this entry records a creation; wp_history_apply never deletes — %s removes it', 'easy-mcp-ai' ), $delete )
+                    /* translators: %s: wp_history_apply, or "the history restore" */
+                    ? sprintf( __( 'this entry records a creation; %s never deletes', 'easy-mcp-ai' ), $apply )
+                    /* translators: 1: wp_history_apply, or "the history restore", 2: a delete tool name */
+                    : sprintf( __( 'this entry records a creation; %1$s never deletes — %2$s removes it', 'easy-mcp-ai' ), $apply, $delete )
             );
         }
 
@@ -184,15 +189,16 @@ class Rebuild_Planner {
                 return self::refuse( __( 'no tool writes network options', 'easy-mcp-ai' ) );
             case 'wc_product':
             case 'wc_order':
-                return self::refuse( __( 'WooCommerce objects are not rebuilt by wp_history_apply yet', 'easy-mcp-ai' ) );
+                /* translators: %s: a tool name, or the words that stand for it */
+                return self::refuse( sprintf( __( 'WooCommerce objects are not rebuilt by %s yet', 'easy-mcp-ai' ), self::tool_or( 'wp_history_apply', __( 'the history restore', 'easy-mcp-ai' ) ) ) );
             case 'db_row':
             case 'db_sql':
                 return self::refuse( __( 'raw database entries are a record, not something a tool can write back', 'easy-mcp-ai' ) );
             case 'external':
                 return self::refuse( __( 'the change happened in another service; nothing local can put it back', 'easy-mcp-ai' ) );
         }
-        /* translators: %s: object type */
-        return self::refuse( sprintf( __( 'wp_history_apply does not rebuild %s entries', 'easy-mcp-ai' ), $type ) );
+        /* translators: 1: wp_history_apply, or "the history restore", 2: object type */
+        return self::refuse( sprintf( __( '%1$s does not rebuild %2$s entries', 'easy-mcp-ai' ), self::tool_or( 'wp_history_apply', __( 'the history restore', 'easy-mcp-ai' ) ), $type ) );
     }
 
     public function meta_not_restored( int $post_id, string $key, array $before, array $after ): ?string {
@@ -301,8 +307,8 @@ class Rebuild_Planner {
             if ( ! isset( $map[ $field ] ) ) {
                 $not_restored[ $field ] = 'post_password' === $field
                     ? __( 'redacted: the log never keeps a password', 'easy-mcp-ai' )
-                    /* translators: %s: tool name */
-                    : sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), $tools['update'] );
+                    /* translators: %s: a tool name, or the words that stand for it */
+                    : sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( $tools['update'], __( 'the post update tool', 'easy-mcp-ai' ) ) );
                 continue;
             }
             $value   = $before[ $field ] ?? null;
@@ -314,7 +320,8 @@ class Rebuild_Planner {
             if ( 'post_status' === $field ) {
                 $allowed = 'cpt' === $kind ? array( 'publish', 'draft', 'pending', 'private' ) : array( 'publish', 'draft', 'pending', 'private', 'future' );
                 if ( 'trash' === $value ) {
-                    $not_restored[ $field ] = __( 'putting a post back in the trash is not a rebuild; wp_history_apply never trashes', 'easy-mcp-ai' );
+                    /* translators: %s: a tool name, or the words that stand for it */
+                    $not_restored[ $field ] = sprintf( __( 'putting a post back in the trash is not a rebuild; %s never trashes', 'easy-mcp-ai' ), self::tool_or( 'wp_history_apply', __( 'the history restore', 'easy-mcp-ai' ) ) );
                     continue;
                 }
                 if ( ! in_array( $value, $allowed, true ) ) {
@@ -457,7 +464,8 @@ class Rebuild_Planner {
         } else {
             foreach ( array( 'post_date', 'post_author', 'comment_status', 'ping_status' ) as $field ) {
                 if ( isset( $before[ $field ] ) ) {
-                    $not_restored[ $field ] = __( 'wp_create_cpt_item has no argument for it', 'easy-mcp-ai' );
+                    /* translators: %s: a tool name, or the words that stand for it */
+                    $not_restored[ $field ] = sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( 'wp_create_cpt_item', __( 'the item create tool', 'easy-mcp-ai' ) ) );
                 }
             }
         }
@@ -469,8 +477,8 @@ class Rebuild_Planner {
                 $args['menu_order'] = (int) $before['menu_order'];
             }
         } elseif ( ! empty( $before['post_parent'] ) || ! empty( $before['menu_order'] ) ) {
-            /* translators: %s: tool name */
-            $not_restored['post_parent'] = sprintf( __( '%s has no argument for the parent or menu order', 'easy-mcp-ai' ), $tools['create'] );
+            /* translators: %s: a tool name, or the words that stand for it */
+            $not_restored['post_parent'] = sprintf( __( '%s has no argument for the parent or menu order', 'easy-mcp-ai' ), self::tool_or( (string) $tools['create'], __( 'the create tool', 'easy-mcp-ai' ) ) );
         }
         if ( 'post' === $kind && ! empty( $before['sticky'] ) ) {
             $args['sticky'] = true;
@@ -536,8 +544,12 @@ class Rebuild_Planner {
     }
 
     private static function unsupported_post_type( array $row ) {
-        /* translators: %s: post type */
-        return self::refuse( sprintf( __( 'wp_history_apply does not rebuild "%s" posts', 'easy-mcp-ai' ), (string) ( $row['object_subtype'] ?? '' ) ) );
+        /* translators: 1: wp_history_apply, or "the history restore", 2: post type */
+        return self::refuse( sprintf( __( '%1$s does not rebuild "%2$s" posts', 'easy-mcp-ai' ), self::tool_or( 'wp_history_apply', __( 'the history restore', 'easy-mcp-ai' ) ), (string) ( $row['object_subtype'] ?? '' ) ) );
+    }
+
+    private static function tool_or( string $tool, string $otherwise ): string {
+        return \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( $tool ) ? $tool : $otherwise;
     }
 
     private function plan_meta( array $row ) {
@@ -551,10 +563,11 @@ class Rebuild_Planner {
         if ( 'user_meta' === $type && self::is_role_key( $key ) ) {
             $chain = $this->role_rows[ (int) $parts[0] ] ?? null;
             if ( null !== $chain ) {
-                /* translators: %d: change-history entry id */
-                return self::incidental( sprintf( __( 'WordPress\'s storage of the user\'s roles, which wp_update_user rewrites; entry %d puts the roles back', 'easy-mcp-ai' ), $chain['newest'] ) );
+                /* translators: 1: wp_update_user, or "a user update", 2: change-history entry id */
+                return self::incidental( sprintf( __( 'WordPress\'s storage of the user\'s roles, which %1$s rewrites; entry %2$d puts the roles back', 'easy-mcp-ai' ), self::tool_or( 'wp_update_user', __( 'a user update', 'easy-mcp-ai' ) ), $chain['newest'] ) );
             }
-            return self::refuse( __( 'WordPress\'s storage of the user\'s roles, which wp_update_user_meta never writes; apply the user entry that changed the roles', 'easy-mcp-ai' ) );
+            /* translators: %s: a tool name, or the words that stand for it */
+            return self::refuse( sprintf( __( 'WordPress\'s storage of the user\'s roles, which %s never writes; apply the user entry that changed the roles', 'easy-mcp-ai' ), self::tool_or( 'wp_update_user_meta', __( 'the user meta tool', 'easy-mcp-ai' ) ) ) );
         }
         if ( ! empty( $before['multiple'] ) ) {
             return self::refuse( __( 'the key held several values; the meta tools write one', 'easy-mcp-ai' ) );
@@ -578,7 +591,8 @@ class Rebuild_Planner {
         }
         if ( 'user_meta' === $type ) {
             if ( ! is_scalar( $value ) ) {
-                return self::refuse( __( 'wp_update_user_meta writes a string, and the previous value was not one', 'easy-mcp-ai' ) );
+                /* translators: %s: a tool name, or the words that stand for it */
+                return self::refuse( sprintf( __( '%s writes a string, and the previous value was not one', 'easy-mcp-ai' ), self::tool_or( 'wp_update_user_meta', __( 'the user meta tool', 'easy-mcp-ai' ) ) ) );
             }
             return self::restore( array( array( 'tool' => 'wp_update_user_meta', 'arguments' => array( 'user_id' => (int) $parts[0], 'key' => $key, 'value' => (string) $value ) ) ), array(), array( 'value' ) );
         }
@@ -595,8 +609,8 @@ class Rebuild_Planner {
         }
         if ( '_thumbnail_id' === $key || '_wp_page_template' === $key ) {
             if ( ! in_array( $tools['kind'], array( 'post', 'page' ), true ) ) {
-                /* translators: %s: tool name */
-                return self::refuse( sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), $tools['update'] ) );
+                /* translators: %s: a tool name, or the words that stand for it */
+                return self::refuse( sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( $tools['update'], __( 'the post update tool', 'easy-mcp-ai' ) ) ) );
             }
             $template = ( ! $value || 'default' === (string) $value ) ? '' : (string) $value;
             if ( '_wp_page_template' === $key && ! self::template_accepted( $template, $post, $type ) ) {
@@ -612,12 +626,14 @@ class Rebuild_Planner {
                 return self::refuse( __( 'the previous image URL was not text', 'easy-mcp-ai' ) );
             }
             if ( false === \Easy_MCP_AI\MCP\Server::current_call_may_use( 'wp_yoast_update_post_seo' ) ) {
-                return self::refuse( __( 'Yoast\'s image URL goes back through wp_yoast_update_post_seo, which this connection cannot use on this site', 'easy-mcp-ai' ) );
+                /* translators: %s: a tool name, or the words that stand for it */
+                return self::refuse( sprintf( __( 'Yoast\'s image URL goes back through %s, which this connection cannot use on this site', 'easy-mcp-ai' ), self::tool_or( 'wp_yoast_update_post_seo', __( 'Yoast\'s SEO tool', 'easy-mcp-ai' ) ) ) );
             }
             return self::restore( array( array( 'tool' => 'wp_yoast_update_post_seo', 'arguments' => array( 'post_id' => $post_id, $image_field => $value ) ) ), array(), array( 'value' ) );
         }
         if ( ! $this->rest_writes_meta( $type, $key ) ) {
-            $direct = \array_key_exists( $key, \Easy_MCP_AI\Meta\Unregistered_Meta::plan( $post_id, array( $key => $value ) )['open'] );
+            $direct = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_update_post_meta' )
+                && \array_key_exists( $key, \Easy_MCP_AI\Meta\Unregistered_Meta::plan( $post_id, array( $key => $value ) )['open'] );
             return self::refuse(
                 $direct
                     ? __( 'the key is not registered for the REST API on this post type, so a history restore does not write it; write it with wp_update_post_meta', 'easy-mcp-ai' )
@@ -676,7 +692,8 @@ class Rebuild_Planner {
             if ( 'category' === $taxonomy ) {
                 return self::refuse( __( 'WordPress always gives a post a category, so an empty category list cannot be restored', 'easy-mcp-ai' ) );
             }
-            return self::refuse( __( 'wp_add_post_terms cannot empty a taxonomy', 'easy-mcp-ai' ) );
+            /* translators: %s: a tool name, or the words that stand for it */
+            return self::refuse( sprintf( __( '%s cannot empty a taxonomy', 'easy-mcp-ai' ), self::tool_or( 'wp_add_post_terms', __( 'the post terms tool', 'easy-mcp-ai' ) ) ) );
         }
         return self::restore(
             array( array( 'tool' => 'wp_add_post_terms', 'arguments' => array( 'post_id' => $post_id, 'taxonomy' => $taxonomy, 'terms' => $ids, 'append' => false ) ) ),
@@ -707,7 +724,8 @@ class Rebuild_Planner {
         foreach ( self::changed( $row ) as $field ) {
             if ( ! in_array( $field, array( 'name', 'slug', 'description', 'parent' ), true ) ) {
                 if ( ! in_array( $field, array( 'count', 'filter', 'term_taxonomy_id' ), true ) ) {
-                    $not_restored[ $field ] = __( 'wp_update_term has no argument for it', 'easy-mcp-ai' );
+                    /* translators: %s: a tool name, or the words that stand for it */
+                    $not_restored[ $field ] = sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( 'wp_update_term', __( 'the term update tool', 'easy-mcp-ai' ) ) );
                 }
                 continue;
             }
@@ -747,7 +765,8 @@ class Rebuild_Planner {
             'term_id' => __( 'the recreated term gets a new id; entries after it in this call use the new one', 'easy-mcp-ai' ),
         );
         if ( ! empty( $before['term_group'] ) ) {
-            $not_restored['term_group'] = __( 'wp_create_term has no argument for it', 'easy-mcp-ai' );
+            /* translators: %s: a tool name, or the words that stand for it */
+            $not_restored['term_group'] = sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( 'wp_create_term', __( 'the term create tool', 'easy-mcp-ai' ) ) );
         }
 
         $calls    = array( array( 'tool' => 'wp_create_term', 'arguments' => $args ) );
@@ -759,7 +778,8 @@ class Rebuild_Planner {
                 continue;
             }
             if ( ! $post_tax ) {
-                $not_restored['object_ids'] = __( 'this taxonomy is not for posts; wp_add_post_terms cannot re-attach its objects', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored['object_ids'] = sprintf( __( 'this taxonomy is not for posts; %s cannot re-attach its objects', 'easy-mcp-ai' ), self::tool_or( 'wp_add_post_terms', __( 'the post terms tool', 'easy-mcp-ai' ) ) );
                 break;
             }
             $post_id = $this->id( 'post', $object_id );
@@ -814,7 +834,8 @@ class Rebuild_Planner {
                 }
                 $roles = null !== $chain ? $chain['roles'] : self::roles_of( $before );
                 if ( ! $roles ) {
-                    $not_restored['roles'] = __( 'the user had no role, and wp_update_user cannot remove every role', 'easy-mcp-ai' );
+                    /* translators: %s: a tool name, or the words that stand for it */
+                    $not_restored['roles'] = sprintf( __( 'the user had no role, and %s cannot remove every role', 'easy-mcp-ai' ), self::tool_or( 'wp_update_user', __( 'the user update tool', 'easy-mcp-ai' ) ) );
                     continue;
                 }
                 $args['roles'] = $roles;
@@ -822,7 +843,8 @@ class Rebuild_Planner {
             } elseif ( 'user_email' === $field ) {
                 $not_restored['user_email'] = __( 'redacted: the log never keeps an email address', 'easy-mcp-ai' );
             } else {
-                $not_restored[ $field ] = __( 'wp_update_user has no argument for it', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored[ $field ] = sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( 'wp_update_user', __( 'the user update tool', 'easy-mcp-ai' ) ) );
             }
         }
         if ( ! $restore ) {
@@ -876,13 +898,16 @@ class Rebuild_Planner {
                 'author_email' => __( 'never recorded', 'easy-mcp-ai' ),
             );
             if ( ! empty( $before['comment_parent'] ) ) {
-                $not_restored['comment_parent'] = __( 'wp_create_comment cannot set a parent, so the reply is recreated outside its thread', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored['comment_parent'] = sprintf( __( '%s cannot set a parent, so the reply is recreated outside its thread', 'easy-mcp-ai' ), self::tool_or( 'wp_create_comment', __( 'the comment create tool', 'easy-mcp-ai' ) ) );
             }
             if ( ! empty( $before['comment_date_gmt'] ) ) {
-                $not_restored['comment_date_gmt'] = __( 'wp_create_comment cannot set the date', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored['comment_date_gmt'] = sprintf( __( '%s cannot set the date', 'easy-mcp-ai' ), self::tool_or( 'wp_create_comment', __( 'the comment create tool', 'easy-mcp-ai' ) ) );
             }
             if ( ! empty( $before['user_id'] ) ) {
-                $not_restored['user_id'] = __( 'wp_create_comment cannot set the registered author', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored['user_id'] = sprintf( __( '%s cannot set the registered author', 'easy-mcp-ai' ), self::tool_or( 'wp_create_comment', __( 'the comment create tool', 'easy-mcp-ai' ) ) );
             }
             return self::restore( array( array( 'tool' => 'wp_create_comment', 'arguments' => $args ) ), $not_restored, array( '*' ), 'comment' );
         }
@@ -910,7 +935,8 @@ class Rebuild_Planner {
                 $args['status'] = $status;
                 $restore[]      = $field;
             } else {
-                $not_restored[ $field ] = __( 'wp_update_comment has no argument for it', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $not_restored[ $field ] = sprintf( __( '%s has no argument for it', 'easy-mcp-ai' ), self::tool_or( 'wp_update_comment', __( 'the comment update tool', 'easy-mcp-ai' ) ) );
             }
         }
         if ( ! $restore ) {
@@ -963,8 +989,12 @@ class Rebuild_Planner {
         if ( 'site_logo' === $name ) {
             $theme_logo = (int) ( \get_theme_mods()['custom_logo'] ?? 0 );
             if ( 0 !== $theme_logo ) {
-                /* translators: %d: attachment id */
-                return self::refuse( sprintf( __( 'site_logo did not exist before this entry, so WordPress showed the theme\'s own custom_logo then; it names attachment %d now, and writing 0 would hide it. wp_update_theme_mod sets custom_logo', 'easy-mcp-ai' ), $theme_logo ) );
+                $reason = \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_update_theme_mod' )
+                    /* translators: %d: attachment id */
+                    ? __( 'site_logo did not exist before this entry, so WordPress showed the theme\'s own custom_logo then; it names attachment %d now, and writing 0 would hide it. wp_update_theme_mod sets custom_logo', 'easy-mcp-ai' )
+                    /* translators: %d: attachment id */
+                    : __( 'site_logo did not exist before this entry, so WordPress showed the theme\'s own custom_logo then; it names attachment %d now, and writing 0 would hide it', 'easy-mcp-ai' );
+                return self::refuse( sprintf( $reason, $theme_logo ) );
             }
         }
         return self::restore( array( array( 'tool' => 'wp_update_site_settings', 'arguments' => array( $name => 0 ) ) ), array(), array( 'value' ) );
@@ -1012,7 +1042,8 @@ class Rebuild_Planner {
         $kept_off = array();
         foreach ( self::PAGE_OPTIONS as $option ) {
             if ( array_key_exists( $option, $before ) && 0 !== (int) $before[ $option ] ) {
-                $kept_off[ $option ] = __( 'a page ID the site kept while its homepage showed the latest posts; it had no effect there, and wp_update_site_settings refuses one sent with show_on_front "posts"', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                $kept_off[ $option ] = sprintf( __( 'a page ID the site kept while its homepage showed the latest posts; it had no effect there, and %s refuses one sent with show_on_front "posts"', 'easy-mcp-ai' ), self::tool_or( 'wp_update_site_settings', __( 'the site settings tool', 'easy-mcp-ai' ) ) );
             }
         }
         return $kept_off;
@@ -1100,7 +1131,8 @@ class Rebuild_Planner {
                 return __( 'WordPress\'s own record of a trash, not content of the post', 'easy-mcp-ai' );
             }
             if ( in_array( $key, \Easy_MCP_AI\Tools\SEO\Yoast_Update_Post_Seo::IMAGE_IDS, true ) ) {
-                return __( 'Yoast\'s attachment id for a social image, which wp_yoast_update_post_seo sets from the image URL each time it writes one; applying the URL\'s entry sets it again, and an id repaired on its own is not put back', 'easy-mcp-ai' );
+                /* translators: %s: a tool name, or the words that stand for it */
+                return sprintf( __( 'Yoast\'s attachment id for a social image, which %s sets from the image URL each time it writes one; applying the URL\'s entry sets it again, and an id repaired on its own is not put back', 'easy-mcp-ai' ), self::tool_or( 'wp_yoast_update_post_seo', __( 'Yoast\'s SEO tool', 'easy-mcp-ai' ) ) );
             }
             if ( in_array( $key, array_column( \Easy_MCP_AI\Tools\SEO\Rankmath_Update_Post_Seo::SOCIAL_IMAGES, 'id' ), true ) ) {
                 return __( 'Rank Math\'s attachment id for a social image, which is set from the image URL each time the URL is written; applying the URL\'s entry sets it again', 'easy-mcp-ai' );

@@ -16,7 +16,7 @@ final class Breakdance_Editor {
 
     const FIELD_KINDS = array( 'text', 'html', 'select', 'number', 'boolean', 'color' );
 
-    const DYNAMIC_PATTERN = '/\[\s*breakdance_dynamic/i';
+    private const DYNAMIC_PATTERN = '/\[\s*breakdance_dynamic/';
 
     const DYNAMIC_META_SUFFIX = '_dynamic_meta';
 
@@ -78,7 +78,7 @@ final class Breakdance_Editor {
         $address = isset( $op['element'] ) && is_scalar( $op['element'] ) ? trim( (string) $op['element'] ) : '';
         $path    = '' === $address ? null : self::find( isset( $tree['root'] ) && is_array( $tree['root'] ) ? $tree['root'] : array(), $address );
         if ( null === $path ) {
-            return sprintf( 'no element "%s" in this layout; use an address from wp_get_page_layout.', $address );
+            return sprintf( 'no element "%s" in this layout%s.', $address, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '; use an address from wp_get_page_layout' : '' );
         }
         $node = self::node_at( $tree, $path );
         $type = (string) ( $node['data']['type'] ?? '' );
@@ -255,7 +255,7 @@ final class Breakdance_Editor {
         foreach ( $op['fields'] as $name => $value ) {
             $field = self::named( $fields, (string) $name, null );
             if ( null === $field ) {
-                return sprintf( '%s is not a content field of this element; wp_list_layout_elements lists them.', (string) $name );
+                return sprintf( '%s is not a content field of this element%s.', (string) $name, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? '; wp_list_layout_elements lists them' : '' );
             }
             if ( ! in_array( $field['kind'], self::FIELD_KINDS, true ) ) {
                 return sprintf( '%s is a %s field, which set_fields does not write%s.', $field['name'], $field['kind'], 'link' === $field['kind'] ? '; use set_link' : ( 'image' === $field['kind'] ? '; use set_image' : '' ) );
@@ -293,7 +293,7 @@ final class Breakdance_Editor {
         if ( isset( $op['field'] ) && is_string( $op['field'] ) && '' !== $op['field'] ) {
             $field = self::named( $fields, $op['field'], null );
             if ( null === $field ) {
-                return sprintf( '%s is not a content field of element %s; wp_list_layout_elements lists them.', $op['field'], $address );
+                return sprintf( '%s is not a content field of element %s%s.', $op['field'], $address, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? '; wp_list_layout_elements lists them' : '' );
             }
             return in_array( $field['kind'], $kinds, true ) ? $field : sprintf( '%s is a %s field, not a %s field.', $field['name'], $field['kind'], $what );
         }
@@ -312,7 +312,7 @@ final class Breakdance_Editor {
         if ( self::bound( $properties, $field['name'] ) ) {
             return sprintf( '%s is filled from dynamic data, so a value written here would not show; change the binding in Breakdance.', $field['name'] );
         }
-        if ( null !== $value && 1 === preg_match( self::DYNAMIC_PATTERN, $value ) ) {
+        if ( null !== $value && \Easy_MCP_AI\Ascii::matches( self::DYNAMIC_PATTERN, $value ) ) {
             return sprintf( 'the value for %s holds Breakdance\'s dynamic-data shortcode, which runs when the page renders; it is never written here.', $field['name'] );
         }
         if ( null !== $value && ! $this->unfiltered && ( $this->kses )( $value ) !== $value ) {
@@ -339,7 +339,7 @@ final class Breakdance_Editor {
 
     private static function unsafe_string( $value, bool $unfiltered, callable $kses, string $path = '' ): ?array {
         if ( is_string( $value ) ) {
-            if ( 1 === preg_match( self::DYNAMIC_PATTERN, $value ) ) {
+            if ( \Easy_MCP_AI\Ascii::matches( self::DYNAMIC_PATTERN, $value ) ) {
                 return array(
                     'path' => $path,
                     'why'  => 'dynamic',
@@ -390,9 +390,9 @@ final class Breakdance_Editor {
         }
         $value = self::value_at( $properties, $name );
         if ( is_array( $value ) ) {
-            return ! empty( $value['dynamicMeta'] ) || ( isset( $value['url'] ) && is_string( $value['url'] ) && 1 === preg_match( self::DYNAMIC_PATTERN, $value['url'] ) );
+            return ! empty( $value['dynamicMeta'] ) || ( isset( $value['url'] ) && is_string( $value['url'] ) && \Easy_MCP_AI\Ascii::matches( self::DYNAMIC_PATTERN, $value['url'] ) );
         }
-        return is_string( $value ) && 1 === preg_match( self::DYNAMIC_PATTERN, $value );
+        return is_string( $value ) && \Easy_MCP_AI\Ascii::matches( self::DYNAMIC_PATTERN, $value );
     }
 
     private static function named( array $fields, string $name, ?array $kinds ): ?array {

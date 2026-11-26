@@ -6,6 +6,7 @@ use Easy_MCP_AI\Ahrefs\Ahrefs_Client;
 use Easy_MCP_AI\Config;
 use Easy_MCP_AI\DFS\DataforSEO_Client;
 use Easy_MCP_AI\GA\GA_Client;
+use Easy_MCP_AI\Google_Private_Key;
 use Easy_MCP_AI\GSC\GSC_Client;
 use Easy_MCP_AI\Provider_Credentials;
 use Easy_MCP_AI\Semrush\Semrush_Client;
@@ -38,6 +39,15 @@ class External_Data_Service {
         $this->gateway     = $gateway ? $gateway : new External_Data_Gateway();
         $this->definitions = $definitions ? $definitions : array( $this, 'load_definitions' );
     }
+
+    const CLIENTS = array(
+        'ga'        => GA_Client::class,
+        'gsc'       => GSC_Client::class,
+        'dfs'       => DataforSEO_Client::class,
+        'semrush'   => Semrush_Client::class,
+        'seranking' => SeRanking_Client::class,
+        'ahrefs'    => Ahrefs_Client::class,
+    );
 
     public static function is_provider( $key ) {
         return in_array( $key, self::PROVIDERS, true );
@@ -114,6 +124,7 @@ class External_Data_Service {
             'enabled'       => $this->is_enabled( $key, $items ),
             'credentials'   => $credentials,
             'deployed'      => self::deployed( $key ),
+            'storedError'   => self::stored_error( $key ),
             'settings'      => $settings,
             'lockedSettings' => self::locked_settings( $key ),
             'balance'       => $this->stored_balance( $key ),
@@ -143,6 +154,25 @@ class External_Data_Service {
             'constants' => $constants,
             'error'     => Config::brand( Provider_Credentials::deployed_error( $key ) ),
         );
+    }
+
+    public static function stored_error( string $key ): string {
+        if ( ! isset( self::CLIENTS[ $key ] ) || Provider_Credentials::is_deployed( $key ) || ! Provider_Credentials::is_configured( $key ) ) {
+            return '';
+        }
+        foreach ( Provider_Credentials::SECRETS[ $key ] as $option ) {
+            if ( null === self::decrypt_option( self::CLIENTS[ $key ], $option ) ) {
+                return __( 'The saved credentials can\'t be decrypted on this site, so every call fails. This happens when WordPress\'s security keys change. Enter them again and save.', 'easy-mcp-ai' );
+            }
+        }
+        if ( in_array( $key, array( 'ga', 'gsc' ), true ) ) {
+            $client  = self::CLIENTS[ $key ];
+            $account = json_decode( (string) self::decrypt_option( $client, $client::OPTION_JSON ), true );
+            if ( is_array( $account ) ) {
+                return (string) Google_Private_Key::problem( is_string( $account['private_key'] ?? null ) ? $account['private_key'] : '' );
+            }
+        }
+        return '';
     }
 
     private static function locked_settings( string $key ): \stdClass {
@@ -485,6 +515,10 @@ class External_Data_Service {
             if ( empty( $decoded[ $field ] ) ) {
                 return self::invalid( 'serviceAccountJson', \__( 'The service account JSON is missing one of the required fields (private_key, client_email, token_uri).', 'easy-mcp-ai' ) );
             }
+        }
+        $problem = Google_Private_Key::problem( is_string( $decoded['private_key'] ) ? $decoded['private_key'] : '' );
+        if ( null !== $problem ) {
+            return self::invalid( 'serviceAccountJson', $problem );
         }
         return true;
     }

@@ -53,7 +53,7 @@ class Delete_Activity extends Base_Tool {
             throw new \RuntimeException( 'BuddyPress is not active on this site. Please install and activate BuddyPress to use this tool.' );
         }
 
-        if ( function_exists( 'bp_is_active' ) && ! bp_is_active( 'activity' ) ) {
+        if ( \Easy_MCP_AI\Tools\Integration_State::buddypress_component_off( 'activity' ) ) {
             throw new \RuntimeException( 'The BuddyPress Activity component is not enabled. Go to Settings → BuddyPress → Components and enable it.' );
         }
 

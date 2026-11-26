@@ -88,7 +88,9 @@ trait Package_Source {
         $page = self::wporg_page( $url );
         if ( null !== $page ) {
             if ( $page['kind'] !== $kind ) {
-                throw new \InvalidArgumentException( sprintf( 'That is a wordpress.org %1$s page: install it with %2$s.', $page['kind'], 'theme' === $page['kind'] ? 'wp_install_theme' : 'wp_install_plugin' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+                $theme = 'theme' === $page['kind'];
+                $reach = $theme ? Post_Type_Tool_Hint::may_reach( 'wp_install_theme' ) : Post_Type_Tool_Hint::may_reach( 'wp_install_plugin' );
+                throw new \InvalidArgumentException( sprintf( 'That is a wordpress.org %1$s page%2$s.', $page['kind'], $reach ? ': install it with ' . ( $theme ? 'wp_install_theme' : 'wp_install_plugin' ) : ', and this tool installs ' . $kind . 's only' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
             }
             return self::slug_source( $this->parse_wporg_slug( array( 'slug' => $page['slug'] ), $kind ) );
         }

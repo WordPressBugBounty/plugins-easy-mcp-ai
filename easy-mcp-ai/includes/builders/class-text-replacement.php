@@ -151,7 +151,7 @@ final class Text_Replacement {
         if ( array() !== $near ) {
             return sprintf( '%s Stored text that nearly matches, quoted as JSON exactly as stored (send it as `search` if it is the text meant): %s.', $refusal, implode( '; ', $near ) );
         }
-        return sprintf( '%s Read the stored value with wp_get_page_layout (`element` and `include_settings: true`) and send `search` exactly as stored, HTML included.', $refusal );
+        return sprintf( '%s %s', $refusal, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? 'Read the stored value with wp_get_page_layout (`element` and `include_settings: true`) and send `search` exactly as stored, HTML included.' : 'Send `search` exactly as stored, HTML included.' );
     }
 
     private static function near_pattern( string $search ): ?array {
@@ -203,7 +203,7 @@ final class Text_Replacement {
             return self::json( $text );
         }
         $cut = substr( $text, 0, self::char_start( $text, self::NEAR_QUOTE_MAX ) );
-        return sprintf( '%s (its first %d bytes of %d; read the rest with wp_get_page_layout)', self::json( $cut ), strlen( $cut ), strlen( $text ) );
+        return sprintf( '%s (its first %d bytes of %d%s)', self::json( $cut ), strlen( $cut ), strlen( $text ), \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? '; read the rest with wp_get_page_layout' : '' );
     }
 
     private static function char_start( string $text, int $at ): int {

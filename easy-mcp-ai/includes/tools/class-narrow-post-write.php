@@ -1,6 +1,8 @@
 <?php
 namespace Easy_MCP_AI\Tools;
 
+use Easy_MCP_AI\MCP\Status_Field_Guard;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
@@ -37,7 +39,7 @@ final class Narrow_Post_Write {
             }
             $matched = true;
             $given = array_merge( (array) $request->get_query_params(), (array) $request->get_body_params(), (array) $request->get_json_params() );
-            $sent  = array_values( array_diff( array_keys( $given ), self::NOT_FIELDS ) );
+            $sent = array_values( array_unique( array_merge( array_diff( array_keys( $given ), self::NOT_FIELDS ), Status_Field_Guard::taken_fields( $request ) ) ) );
             if ( ! self::changes_no_column( $prepared, $post_id ) ) {
                 return $full( $prepared );
             }
@@ -64,6 +66,7 @@ final class Narrow_Post_Write {
             return array( 'response' => $response, 'wrote' => false );
         }
 
+        Status_Field_Guard::give_back( $request );
         $written = $writer->write( $request, $post_id );
         if ( is_wp_error( $written ) ) {
             return array( 'response' => rest_convert_error_to_response( $written ), 'wrote' => true );

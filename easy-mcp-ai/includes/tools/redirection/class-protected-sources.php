@@ -99,7 +99,7 @@ final class Protected_Sources {
             $own[] = \Redirection_Request::get_server_name();
         }
         foreach ( $own as $candidate ) {
-            if ( is_string( $candidate ) && '' !== $candidate && strtolower( $candidate ) === strtolower( $host ) ) {
+            if ( is_string( $candidate ) && '' !== $candidate && \Easy_MCP_AI\Ascii::lower( $candidate ) === \Easy_MCP_AI\Ascii::lower( $host ) ) {
                 return true;
             }
         }
@@ -207,7 +207,7 @@ final class Protected_Sources {
     }
 
     private static function lower( string $text ): string {
-        return function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : strtolower( $text );
+        return function_exists( 'mb_strtolower' ) ? mb_strtolower( $text, 'UTF-8' ) : \Easy_MCP_AI\Ascii::lower( $text );
     }
 
     private static function missing(): ?string {

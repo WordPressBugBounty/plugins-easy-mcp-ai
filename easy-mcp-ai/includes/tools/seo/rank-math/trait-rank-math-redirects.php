@@ -27,7 +27,7 @@ trait Rank_Math_Redirects {
 
 	protected function require_rank_math_redirects(): void {
 		$this->require_rank_math_ready( 'manage its redirects' );
-		if ( ! \RankMath\Helper::is_module_active( 'redirections' ) || ! class_exists( '\\RankMath\\Redirections\\Redirection' ) || ! class_exists( '\\RankMath\\Redirections\\DB' ) ) {
+		if ( \Easy_MCP_AI\Tools\Integration_State::rank_math_redirections_off() ) {
 			throw new \RuntimeException( 'Rank Math\'s Redirections module is switched off. Switch it on under Rank Math › Dashboard › Modules in wp-admin.' );
 		}
 		if ( ! current_user_can( self::$rm_redirect_cap ) ) {

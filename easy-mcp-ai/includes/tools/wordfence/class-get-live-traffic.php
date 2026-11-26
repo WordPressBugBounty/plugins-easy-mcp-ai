@@ -290,10 +290,10 @@ class Get_Live_Traffic extends Base_Tool {
     }
 
     private static function is_secret_source( string $key ): bool {
-        if ( 1 !== preg_match( '/^([a-z0-9_]+\.[a-z0-9_]+)((?:\[[^\]]*\])*)/i', $key, $m ) ) {
+        if ( 1 !== preg_match( '/^([a-z0-9_]+\.[a-z0-9_]+)((?:\[[^\]]*\])*)/', \Easy_MCP_AI\Ascii::lower( $key ), $m ) ) {
             return '' !== $key;
         }
-        $source = strtolower( $m[1] );
+        $source = $m[1];
         if ( in_array( $source, array( 'request.cookies', 'request.cookie', 'request.headers', 'request.rawbody' ), true ) ) {
             return true;
         }

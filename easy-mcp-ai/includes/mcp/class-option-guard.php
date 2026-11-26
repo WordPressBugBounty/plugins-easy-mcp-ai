@@ -139,7 +139,7 @@ final class Option_Guard {
     }
 
     public static function is_protected( string $option ): bool {
-        $option = strtolower( trim( $option ) );
+        $option = \Easy_MCP_AI\Ascii::lower( trim( $option ) );
         if ( 0 !== strpos( $option, self::PREFIX ) ) {
             return false;
         }

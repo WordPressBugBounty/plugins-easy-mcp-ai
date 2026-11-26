@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Tools\Posts;
 use Easy_MCP_AI\Multilingual\Translation_Read;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\Content_Hash;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -63,7 +64,7 @@ class Get_Post extends Base_Tool {
                 'title'          => $data['title']['raw'],
                 'content'        => $data['content']['raw'],
                 'excerpt'        => $data['excerpt']['raw'],
-                'status'         => $data['status'],
+                'status'         => Status_Taxonomy::status_of( $data ),
                 'date'           => $data['date'],
                 'modified'       => $data['modified'],
                 'slug'           => $data['slug'],

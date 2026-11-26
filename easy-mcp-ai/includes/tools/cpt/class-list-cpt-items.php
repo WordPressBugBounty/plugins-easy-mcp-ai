@@ -140,6 +140,23 @@ class List_CPT_Items extends Base_Tool {
         return $schema;
     }
 
+    public function precheck( array $arguments ): void {
+        if ( empty( $arguments['rest_base'] ) || ! is_string( $arguments['rest_base'] ) ) {
+            return;
+        }
+        Hidden_Post_Types::run_for(
+            $arguments['rest_base'],
+            function () use ( $arguments ): void {
+                try {
+                    $post_type = Create_CPT_Item::post_type_for_rest_base( $this->resolve_post_type_rest_base( $arguments['rest_base'], 'rest_base' ) )[0];
+                } catch ( \InvalidArgumentException $e ) {
+                    return;
+                }
+                Status_Taxonomy::refuse_unlistable( $post_type, self::sent_status( $arguments ) );
+            }
+        );
+    }
+
     public function execute( array $arguments ) {
         return Hidden_Post_Types::run_for(
             $arguments['rest_base'] ?? null,
@@ -213,9 +230,13 @@ class List_CPT_Items extends Base_Tool {
         return ! empty( $arguments['orderby'] ) ? sanitize_text_field( $arguments['orderby'] ) : '';
     }
 
+    private static function sent_status( array $arguments ): string {
+        return isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish';
+    }
+
     private static function collection_request( string $rest_base, array $arguments, int $per_page, int $page, string $context, string $orderby ): \WP_REST_Request {
         $request = new \WP_REST_Request( 'GET', self::post_type_route( $rest_base, null, 'GET' ) );
-        $request->set_param( 'status', isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish' );
+        $request->set_param( 'status', self::sent_status( $arguments ) );
         $request->set_param( 'per_page', $per_page );
         $request->set_param( 'page', $page );
         $request->set_param( 'context', $context );
@@ -271,7 +292,7 @@ class List_CPT_Items extends Base_Tool {
         $row = array(
             'id'       => $item['id'],
             'title'    => $item['title']['raw'] ?? wp_strip_all_tags( $item['title']['rendered'] ?? '' ),
-            'status'   => $item['status'],
+            'status'   => Status_Taxonomy::status_of( $item ),
             'date'     => $item['date'],
             'modified' => $item['modified'] ?? '',
             'link'     => $item['link'] ?? '',

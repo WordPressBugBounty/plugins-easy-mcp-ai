@@ -11,8 +11,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 final class Acf_Options_Page {
 
-    const LAYOUT_KEYS = array( 'acf_fc_layout', 'acf_fc_layout_disabled', 'acf_fc_layout_custom_label' );
-
     public static function listing(): array {
         if ( ! function_exists( 'acf_get_options_pages' ) ) {
             return array();
@@ -52,6 +50,7 @@ final class Acf_Options_Page {
         if ( empty( $fields ) ) {
             throw new \InvalidArgumentException( 'Nothing was saved: no ACF field group is assigned to this options page.' );
         }
+        Acf_Sent_Fields::refuse_duplicates( $sent, Acf_Sent_Fields::resolver( $fields ) );
         $input = self::to_input( $sent, $fields );
         if ( empty( $input['values'] ) ) {
             throw new Detailed_Tool_Error(
@@ -201,7 +200,7 @@ final class Acf_Options_Page {
         if ( ! is_array( $value ) ) {
             return $value;
         }
-        $sub_fields = self::sub_fields( $field );
+        $sub_fields = Acf_Sent_Fields::sub_fields( $field );
         switch ( $field['type'] ?? '' ) {
             case 'group':
                 return self::keyed_row( $value, $sub_fields, $path, $ignored );
@@ -209,7 +208,7 @@ final class Acf_Options_Page {
             case 'flexible_content':
                 $rows = array();
                 foreach ( $value as $i => $row ) {
-                    $layout = 'repeater' === $field['type'] ? $sub_fields : ( is_array( $row ) ? self::layout( $field, $row['acf_fc_layout'] ?? null ) : null );
+                    $layout = Acf_Sent_Fields::row_fields( $field, $row );
                     if ( ! is_array( $row ) || null === $layout ) {
                         $ignored[] = $path . '.' . $i;
                         continue;
@@ -225,7 +224,7 @@ final class Acf_Options_Page {
         $keyed = array();
         foreach ( $row as $name => $value ) {
             $name = (string) $name;
-            if ( $layout_row && in_array( $name, self::LAYOUT_KEYS, true ) ) {
+            if ( $layout_row && in_array( $name, Acf_Sent_Fields::LAYOUT_KEYS, true ) ) {
                 $keyed[ $name ] = $value;
                 continue;
             }
@@ -239,31 +238,14 @@ final class Acf_Options_Page {
         return $keyed;
     }
 
-    private static function layout( array $field, $name ): ?array {
-        foreach ( self::layouts( $field ) as $layout ) {
-            if ( is_array( $layout ) && is_string( $name ) && ( $layout['name'] ?? null ) === $name ) {
-                return self::sub_fields( $layout );
-            }
-        }
-        return null;
-    }
-
     private static function clone_key( array $field ): ?string {
         return isset( $field['prefix'] ) && is_string( $field['prefix'] ) && preg_match( '/^acf\[([^\]]+)\]$/', $field['prefix'], $clone ) ? $clone[1] : null;
     }
 
-    private static function sub_fields( array $field ): array {
-        return isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
-    }
-
-    private static function layouts( array $field ): array {
-        return isset( $field['layouts'] ) && is_array( $field['layouts'] ) ? $field['layouts'] : array();
-    }
-
     private static function nested_fields( array $field ): array {
-        $nested = self::sub_fields( $field );
-        foreach ( self::layouts( $field ) as $layout ) {
-            $nested = array_merge( $nested, is_array( $layout ) ? self::sub_fields( $layout ) : array() );
+        $nested = Acf_Sent_Fields::sub_fields( $field );
+        foreach ( Acf_Sent_Fields::layouts( $field ) as $layout ) {
+            $nested = array_merge( $nested, is_array( $layout ) ? Acf_Sent_Fields::sub_fields( $layout ) : array() );
         }
         return $nested;
     }
@@ -302,7 +284,7 @@ final class Acf_Options_Page {
         $type = $field['type'] ?? '';
         $name = (string) $field['name'];
         if ( 'group' === $type ) {
-            return is_array( $value ) ? self::screen_row( $value, self::sub_fields( $field ), $name . '_', $post_id, $fresh ) : $value;
+            return is_array( $value ) ? self::screen_row( $value, Acf_Sent_Fields::sub_fields( $field ), $name . '_', $post_id, $fresh ) : $value;
         }
         if ( 'repeater' !== $type && 'flexible_content' !== $type ) {
             return $value;
@@ -310,7 +292,7 @@ final class Acf_Options_Page {
         $rows    = is_array( $value ) ? $value : array();
         $layouts = 'flexible_content' === $type && ! $fresh ? acf_get_metadata( $post_id, $name ) : null;
         foreach ( $rows as $i => $row ) {
-            $sub_fields = 'repeater' === $type ? self::sub_fields( $field ) : (array) self::layout( $field, $row['acf_fc_layout'] ?? null );
+            $sub_fields = (array) Acf_Sent_Fields::row_fields( $field, $row );
             $replaced   = is_array( $layouts ) && isset( $layouts[ $i ] ) && $layouts[ $i ] !== ( $row['acf_fc_layout'] ?? null );
             $rows[ $i ] = self::screen_row( $row, $sub_fields, $name . '_' . $i . '_', $post_id, $fresh || $replaced );
         }

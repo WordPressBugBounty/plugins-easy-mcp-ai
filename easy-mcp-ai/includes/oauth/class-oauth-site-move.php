@@ -54,7 +54,7 @@ class OAuth_Site_Move {
         $table = self::tables()['tokens'];
         $where = 'is_active = 1' . ( $idle_only ? ' AND ' . self::idle_predicate() : '' );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- plugin-owned table; bounded by the active token count; the predicate is built from class constants.
-        $rows = $wpdb->get_results( "SELECT id, client_id, wp_user_id, resource FROM `{$table}` WHERE {$where}", ARRAY_A );
+        $rows = $wpdb->get_results( "SELECT id, client_id, wp_user_id, resource, expires_at, refresh_expires_at, refresh_hash FROM `{$table}` WHERE {$where}", ARRAY_A );
         if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) {
             return null;
         }
@@ -66,11 +66,14 @@ class OAuth_Site_Move {
                 $verdict[ $resource ] = self::is_foreign( $resource, $current );
             }
             $out[] = array(
-                'id'         => (int) $row['id'],
-                'client_id'  => (string) $row['client_id'],
-                'wp_user_id' => (int) $row['wp_user_id'],
-                'resource'   => $resource,
-                'foreign'    => $verdict[ $resource ],
+                'id'                 => (int) $row['id'],
+                'client_id'          => (string) $row['client_id'],
+                'wp_user_id'         => (int) $row['wp_user_id'],
+                'resource'           => $resource,
+                'expires_at'         => (string) ( $row['expires_at'] ?? '' ),
+                'refresh_expires_at' => isset( $row['refresh_expires_at'] ) ? (string) $row['refresh_expires_at'] : null,
+                'refresh_hash'       => isset( $row['refresh_hash'] ) ? (string) $row['refresh_hash'] : null,
+                'foreign'            => $verdict[ $resource ],
             );
         }
         return $out;

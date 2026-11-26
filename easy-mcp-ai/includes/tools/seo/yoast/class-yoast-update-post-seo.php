@@ -156,6 +156,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 		self::robots_values( $arguments );
 		self::advanced_robots( $arguments );
 		$this->primary_term( $arguments );
+		self::urls( $arguments );
 	}
 
 	public function execute( array $arguments ) {
@@ -176,6 +177,7 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 		$robots       = self::robots_values( $arguments );
 		$advanced     = self::advanced_robots( $arguments );
 		$primary_term = $this->primary_term( $arguments );
+		$urls         = self::urls( $arguments );
 
 		$meta_map = array(
 			'seo_title'           => '_yoast_wpseo_title',
@@ -191,61 +193,50 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 
 		foreach ( $meta_map as $arg_key => $meta_key ) {
 			if ( isset( $arguments[ $arg_key ] ) ) {
-				if ( false !== update_post_meta( $post_id, $meta_key, wp_slash( Seo_Text::clean( $arguments[ $arg_key ] ) ) ) ) {
+				if ( Seo_Post_Meta::update( $post_id, $meta_key, wp_slash( Seo_Text::clean( $arguments[ $arg_key ] ) ) ) ) {
 					$updated[] = $arg_key;
 				}
 			}
 		}
 
 		foreach ( self::IMAGE_URLS as $arg_key => $meta_key ) {
-			if ( isset( $arguments[ $arg_key ] ) ) {
-				$url         = esc_url_raw( $arguments[ $arg_key ] );
-				$url_changed = false !== update_post_meta( $post_id, $meta_key, $url );
-				$id_changed  = Image_Attachment_Id::store_for_post( $post_id, self::IMAGE_IDS[ $arg_key ], $url );
+			if ( isset( $urls[ $arg_key ] ) ) {
+				$url_changed = Seo_Post_Meta::update( $post_id, $meta_key, $urls[ $arg_key ] );
+				$id_changed  = Image_Attachment_Id::store_for_post( $post_id, self::IMAGE_IDS[ $arg_key ], $urls[ $arg_key ] );
 				if ( $url_changed || $id_changed ) {
 					$updated[] = $arg_key;
 				}
 			}
 		}
 
+		$writes = array();
 		if ( isset( $arguments['is_cornerstone'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_is_cornerstone', (bool) $arguments['is_cornerstone'] ? '1' : '' );
-			$updated[] = 'is_cornerstone';
+			$writes['is_cornerstone'] = array( '_yoast_wpseo_is_cornerstone', (bool) $arguments['is_cornerstone'] ? '1' : '' );
 		}
-
 		foreach ( $robots as $field => $value ) {
-			update_post_meta( $post_id, self::ROBOTS[ $field ]['key'], $value );
-			$updated[] = $field;
+			$writes[ $field ] = array( self::ROBOTS[ $field ]['key'], $value );
 		}
-
 		if ( null !== $advanced ) {
-			update_post_meta( $post_id, '_yoast_wpseo_meta-robots-adv', $advanced );
-			$updated[] = 'advanced_robots';
+			$writes['advanced_robots'] = array( '_yoast_wpseo_meta-robots-adv', $advanced );
 		}
-
-		if ( isset( $arguments['canonical'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_canonical', esc_url_raw( $arguments['canonical'] ) );
-			$updated[] = 'canonical';
+		if ( isset( $urls['canonical'] ) ) {
+			$writes['canonical'] = array( '_yoast_wpseo_canonical', $urls['canonical'] );
 		}
-
 		if ( isset( $arguments['breadcrumb_title'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_bctitle', wp_slash( Seo_Text::clean( $arguments['breadcrumb_title'] ) ) );
-			$updated[] = 'breadcrumb_title';
+			$writes['breadcrumb_title'] = array( '_yoast_wpseo_bctitle', wp_slash( Seo_Text::clean( $arguments['breadcrumb_title'] ) ) );
 		}
-
-		if ( isset( $arguments['schema_page_type'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_schema_page_type', wp_slash( sanitize_text_field( $arguments['schema_page_type'] ) ) );
-			$updated[] = 'schema_page_type';
+		foreach ( array( 'schema_page_type', 'schema_article_type' ) as $field ) {
+			if ( isset( $arguments[ $field ] ) ) {
+				$writes[ $field ] = array( '_yoast_wpseo_' . $field, wp_slash( sanitize_text_field( $arguments[ $field ] ) ) );
+			}
 		}
-
-		if ( isset( $arguments['schema_article_type'] ) ) {
-			update_post_meta( $post_id, '_yoast_wpseo_schema_article_type', wp_slash( sanitize_text_field( $arguments['schema_article_type'] ) ) );
-			$updated[] = 'schema_article_type';
-		}
-
 		if ( null !== $primary_term ) {
-			update_post_meta( $post_id, '_yoast_wpseo_primary_' . $primary_term['taxonomy'], (string) $primary_term['term'] );
-			$updated[] = 'primary_term';
+			$writes['primary_term'] = array( '_yoast_wpseo_primary_' . $primary_term['taxonomy'], (string) $primary_term['term'] );
+		}
+		foreach ( $writes as $field => $write ) {
+			if ( Seo_Post_Meta::update( $post_id, $write[0], $write[1] ) ) {
+				$updated[] = $field;
+			}
 		}
 
 		if ( array() !== $updated ) {
@@ -275,6 +266,16 @@ class Yoast_Update_Post_Seo extends Base_Tool {
 			$values[ $field ] = $value;
 		}
 		return $values;
+	}
+
+	private static function urls( array $arguments ): array {
+		$urls = array();
+		foreach ( array_merge( array_keys( self::IMAGE_URLS ), array( 'canonical' ) ) as $field ) {
+			if ( isset( $arguments[ $field ] ) ) {
+				$urls[ $field ] = Seo_Url::to_send( $field, $arguments[ $field ] );
+			}
+		}
+		return $urls;
 	}
 
 	private static function advanced_robots( array $arguments ): ?string {

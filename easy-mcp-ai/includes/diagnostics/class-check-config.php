@@ -106,12 +106,16 @@ class Check_Config {
         $credentials = \Easy_MCP_AI\Provider_Credentials::report();
         $label = __( 'Deployment-controlled settings', 'easy-mcp-ai' );
         if ( $credentials['invalid'] ) {
+            $detail = $credentials['reasons'];
+            if ( $invalid ) {
+                array_unshift( $detail, implode( ', ', $invalid ) . '.' );
+            }
             return Diagnostic_Result::warn(
                 'f11', Diagnostic_Result::TIER_INFO, $label,
-                implode( ', ', array_merge( $invalid, $credentials['invalid'] ) ),
+                implode( ' ', $detail ),
                 $invalid
                     ? __( 'Correct the invalid deployment settings. Safe fallback values are in use for settings, and External Data tools refuse every call while their credential constant is invalid.', 'easy-mcp-ai' )
-                    : __( 'Correct the External Data credential constants named above. Their tools refuse every call until then; the reason is shown under Tools › Connections.', 'easy-mcp-ai' ),
+                    : __( 'Correct the External Data credential constants named above, as each reason says. Their tools refuse every call until then; Tools › Connections shows the same reasons.', 'easy-mcp-ai' ),
                 array( 'controlled' => $controlled, 'invalid' => $invalid, 'credentials' => $credentials['deployed'], 'invalid_credentials' => $credentials['invalid'] )
             );
         }
@@ -428,7 +432,7 @@ class Check_Config {
             'f8',
             Diagnostic_Result::TIER_BLOCKER,
             $label,
-            __( 'Every API token and OAuth grant on this site has expired or been revoked, so no AI client can connect.', 'easy-mcp-ai' ),
+            __( 'No AI client can connect: every API token and OAuth grant on this site has expired, been revoked or was issued for a previous site address, or a client was approved but never finished connecting.', 'easy-mcp-ai' ),
             __( 'Create a new API token under Easy MCP AI → Connections → API tokens, or reconnect your AI client to issue a fresh OAuth grant.', 'easy-mcp-ai' ),
             $evidence
         );
@@ -506,21 +510,19 @@ class Check_Config {
     }
 
     private static function count_active_tokens() {
-        $wpdb = self::wpdb();
-        if ( null === $wpdb ) {
+        if ( null === self::wpdb( 'get_results' ) || ! class_exists( '\Easy_MCP_AI\Auth\Usable_Credentials' ) ) {
             return null;
         }
-        $table = $wpdb->prefix . 'easy_mcp_ai_tokens';
-        return self::count_or_null( $wpdb, "SELECT COUNT(*) FROM `{$table}` WHERE is_active = 1 AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())" );
+        $keys = \Easy_MCP_AI\Auth\Usable_Credentials::api_keys();
+        return null === $keys ? null : count( $keys );
     }
 
     private static function count_active_grants() {
-        $wpdb = self::wpdb();
-        if ( null === $wpdb ) {
+        if ( null === self::wpdb( 'get_results' ) || ! class_exists( '\Easy_MCP_AI\Auth\Usable_Credentials' ) ) {
             return null;
         }
-        $table = $wpdb->prefix . 'easy_mcp_ai_oauth_access_tokens';
-        return self::count_or_null( $wpdb, "SELECT COUNT(*) FROM `{$table}` WHERE is_active = 1 AND COALESCE(refresh_expires_at, expires_at) > UTC_TIMESTAMP()" );
+        $grants = \Easy_MCP_AI\Auth\Usable_Credentials::grants();
+        return null === $grants ? null : count( $grants );
     }
 
     private static function auth_ever_existed() {

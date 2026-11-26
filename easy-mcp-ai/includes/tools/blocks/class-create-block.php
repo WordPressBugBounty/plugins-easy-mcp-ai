@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Blocks;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -65,6 +66,12 @@ class Create_Block extends Base_Tool {
         );
     }
 
+    public function precheck( array $arguments ): void {
+        $params = isset( $arguments['status'] ) ? array( 'status' => sanitize_text_field( $arguments['status'] ) ) : array();
+        $this->maybe_force_draft( $params );
+        Status_Taxonomy::refuse_unwritable( 'wp_block', null, $params['status'] ?? null );
+    }
+
     public function execute( array $arguments ) {
         $this->validate_required( $arguments, array( 'title', 'content' ) );
         $this->validate_title_length( $arguments['title'] );
@@ -72,8 +79,10 @@ class Create_Block extends Base_Tool {
         $params = array(
             'title'   => sanitize_text_field( $arguments['title'] ),
             'content' => $arguments['content'],
-            'status'  => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish',
         );
+        if ( isset( $arguments['status'] ) || '' === Status_Taxonomy::of( 'wp_block' ) ) {
+            $params['status'] = isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'publish';
+        }
 
         if ( isset( $arguments['slug'] ) ) {
             $params['slug'] = sanitize_title( $arguments['slug'] );
@@ -93,7 +102,7 @@ class Create_Block extends Base_Tool {
         return array(
             'id'             => $data['id'],
             'title'          => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status'         => $data['status'],
+            'status'         => Status_Taxonomy::status_of( $data ),
             'content_format' => 'block_markup',
             'content_hint'   => 'Content should be valid block markup (e.g. <!-- wp:paragraph --><p>Text</p><!-- /wp:paragraph -->). Plain HTML will render as a Classic block.',
         );

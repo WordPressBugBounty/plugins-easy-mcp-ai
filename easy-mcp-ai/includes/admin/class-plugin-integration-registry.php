@@ -230,6 +230,18 @@ class Plugin_Integration_Registry {
                 ),
             ),
             array(
+                'slug'        => 'wp-mail-smtp',
+                'name'        => 'WP Mail SMTP',
+                'description' => 'Read and change WP Mail SMTP\'s mailer, sender and mailer settings and see how far its setup has got, through WP Mail SMTP\'s own settings store. Passwords and API keys are write-only: never returned or logged.',
+                'status'      => 'stable',
+                'requires'    => 'WP Mail SMTP 4.9 or later must be active. Gmail, Outlook, Zoho and Amazon SES sign in through wp-admin and cannot be set up here.',
+                'detector'    => 'function:wp_mail_smtp',
+                'tools'       => array(
+                    array( 'name' => 'wp_mailsmtp_get_settings',    'description' => 'Read the mailer, sender and mailer settings (secrets only as set or not) and the setup state.', 'type' => 'read',  'api' => 'php' ),
+                    array( 'name' => 'wp_mailsmtp_update_settings', 'description' => 'Change the mailer, sender or mailer settings; passwords and API keys are write-only.',            'type' => 'write', 'api' => 'php' ),
+                ),
+            ),
+            array(
                 'slug'        => 'wordfence',
                 'name'        => 'Wordfence Security',
                 'description' => 'Read Wordfence\'s scan results and its Live Traffic log (visits, login attempts, lockouts and firewall blocks) through Wordfence\'s own code, without a Wordfence Central connection. Read only: scans, blocks and settings stay in Wordfence.',

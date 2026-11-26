@@ -105,7 +105,12 @@ abstract class Abstract_Google_Client {
         if ( ! empty( $cached ) ) {
             $plain = static::decrypt( $cached );
             if ( false !== $plain && '' !== $plain ) {
-                return $plain;
+                $problem = Google_Private_Key::problem( is_string( $creds['private_key'] ) ? $creds['private_key'] : '' );
+                if ( null === $problem ) {
+                    return $plain;
+                }
+                \delete_transient( $transient_key );
+                throw new \RuntimeException( 'Failed to sign JWT. ' . $problem );
             }
             \delete_transient( $transient_key );
         }
@@ -123,14 +128,7 @@ abstract class Abstract_Google_Client {
         ) ) );
         $signing_input = $header . '.' . $payload;
 
-        $signature = '';
-        $ok = openssl_sign( $signing_input, $signature, $creds['private_key'], OPENSSL_ALGO_SHA256 );
-        if ( ! $ok ) {
-            throw new \RuntimeException(
-                'Failed to sign JWT. Check that the private_key in your service account JSON is valid.'
-            );
-        }
-        $jwt = $signing_input . '.' . static::base64url_encode( $signature );
+        $jwt = $signing_input . '.' . static::base64url_encode( Google_Private_Key::sign( $signing_input, is_string( $creds['private_key'] ) ? $creds['private_key'] : '' ) );
 
         $response = \wp_remote_post( $creds['token_uri'], array(
             'body'    => array(
@@ -272,10 +270,10 @@ abstract class Abstract_Google_Client {
             return null;
         }
         $rules = array(
-            '/\?project=[^\s&#"\'<>?]*+&/i'      => '?',
-            '/[?&]project=[^\s&#"\'<>?]*+/i'      => '',
-            '#\bprojects/(?:[\p{L}\p{N}\-]++(?:\.[\p{L}\p{N}\-]++)++:)?+[\p{L}\p{N}_\-]++#iu' => 'projects/' . self::HIDDEN,
-            '/\b(projects?(?:[\s_-]++(?:number|id))?[\s#:=(\[{"\'`]++)\d{3,}/i' => '${1}' . self::HIDDEN,
+            '/\?project=[^\s&#"\'<>?]*+&/'      => '?',
+            '/[?&]project=[^\s&#"\'<>?]*+/'      => '',
+            '#(?<![a-z0-9_])projects/(?:[\p{L}\p{N}\-]++(?:\.[\p{L}\p{N}\-]++)++:)?+[\p{L}\p{N}_\-]++#u' => 'projects/' . self::HIDDEN,
+            '/(?<![a-z0-9_])(projects?(?:[\s_-]++(?:number|id))?[\s#:=(\[{"\'`]++)\d{3,}/' => '$1' . self::HIDDEN,
         );
         try {
             $creds = static::get_credentials();
@@ -284,10 +282,22 @@ abstract class Abstract_Google_Client {
         }
         foreach ( array( 'project_id', 'client_id', 'private_key_id' ) as $field ) {
             if ( isset( $creds[ $field ] ) && is_string( $creds[ $field ] ) && strlen( $creds[ $field ] ) >= 3 ) {
-                $rules[ '/(?<![\p{L}\p{N}_-])' . preg_quote( $creds[ $field ], '/' ) . '(?![\p{L}\p{N}_-])/iu' ] = self::HIDDEN;
+                $rules[ '/(?<![\p{L}\p{N}_-])' . Ascii::lower( preg_quote( $creds[ $field ], '/' ) ) . '(?![\p{L}\p{N}_-])/u' ] = self::HIDDEN;
             }
         }
-        return preg_replace( array_keys( $rules ), array_values( $rules ), $text );
+        foreach ( $rules as $pattern => $replacement ) {
+            $text = Ascii::replace_callback(
+                $pattern,
+                static function ( array $m ) use ( $replacement ): string {
+                    return str_replace( '$1', $m[1] ?? '', $replacement );
+                },
+                $text
+            );
+            if ( null === $text ) {
+                return null;
+            }
+        }
+        return $text;
     }
 
     protected static function hide_emails( string $text ): ?string {

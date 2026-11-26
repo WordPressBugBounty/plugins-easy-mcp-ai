@@ -80,7 +80,7 @@ final class Shortcode_Structure {
             return 'insert takes no `element`; say where the new element goes with `before`, `after` or `parent`.';
         }
         if ( 'insert' !== $name && '' === $element ) {
-            return sprintf( '%s needs `element`, an address from wp_get_page_layout such as "0.1.2".', $name );
+            return sprintf( '%s needs `element`, an address%s such as "0.1.2".', $name, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_get_page_layout' ) ? ' from wp_get_page_layout' : '' );
         }
         if ( isset( $op['ref'] ) && ! in_array( $name, array( 'insert', 'duplicate' ), true ) ) {
             return '`ref` names a new element; only insert and duplicate take it.';
@@ -223,7 +223,7 @@ final class Shortcode_Structure {
     private function insert( string $content, array $op, Shortcode_Marks $marks, int $number ) {
         $type = isset( $op['element_type'] ) && is_string( $op['element_type'] ) ? trim( $op['element_type'] ) : '';
         if ( '' === $type || $this->rules->base_tag( $type ) !== $type || null === $this->adapter->element_fields( $type ) || ! $this->rules->insertable( $type ) ) {
-            return sprintf( '`element_type` "%s" is not an element insert writes; give a type wp_list_layout_elements lists%s.', $type, 'ux_text' === $type ? ' (not ux_text: UX Builder stores text as plain HTML)' : '' );
+            return sprintf( '`element_type` "%s" is not an element insert writes; give a type%s%s.', $type, \Easy_MCP_AI\Tools\Post_Type_Tool_Hint::may_reach( 'wp_list_layout_elements' ) ? ' wp_list_layout_elements lists' : '', 'ux_text' === $type ? ' (not ux_text: UX Builder stores text as plain HTML)' : '' );
         }
         if ( null !== $this->adapter->element_refusal( $type ) ) {
             return sprintf( 'a %s holds code (HTML or script), which insert never creates; add it in the builder.', $type );
@@ -275,7 +275,11 @@ final class Shortcode_Structure {
         if ( isset( $op['fields'] ) && ! is_array( $op['fields'] ) ) {
             return '`fields` must be an object of field name to value.';
         }
-        $asked  = isset( $op['fields'] ) ? $op['fields'] : array();
+        $asked = isset( $op['fields'] ) ? $op['fields'] : array();
+        $text  = $this->adapter->element_roles( $type )['text'] ?? '';
+        if ( isset( $op['value'] ) && '' !== $text && array_key_exists( $text, $asked ) ) {
+            return sprintf( 'the text of the new %s is sent twice, in `value` and in `fields` as "%s"; send it once.', $type, $text );
+        }
         $follow = array();
         $group  = array();
         foreach ( self::field_order( (array) $this->adapter->element_fields( $type ), array_map( 'strval', array_keys( $asked ) ) ) as $field => $kind ) {

@@ -11,6 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Delete_Menu_Item extends Base_Tool {
 
     use Menu_Item_Refusal;
+    use Menu_Item_Update;
 
     const IDS_IN_MESSAGE = 8;
 
@@ -89,11 +90,7 @@ class Delete_Menu_Item extends Base_Tool {
         $moved = array();
         foreach ( $plan['children'] as $index => $child ) {
             try {
-                Menu_Item_Stored_Fields::around(
-                    function () use ( $child, $plan ) {
-                        return $this->rest_request( 'POST', '/wp/v2/menu-items/' . $child, array( 'parent' => $plan['parent'] ), array( 'id' ) );
-                    }
-                );
+                $this->update_menu_item( $child, $plan['items'][ $child ], array( 'parent' => $plan['parent'] ) );
                 $moved[] = $child;
             } catch ( \RuntimeException $e ) {
                 return array_merge(
@@ -137,10 +134,11 @@ class Delete_Menu_Item extends Base_Tool {
             return array(
                 'parent'   => $parent,
                 'children' => array(),
+                'items'    => array(),
             );
         }
 
-        list( $children, $denied, $unread, $unsaveable ) = self::children_of( $menu_id, $item_id );
+        list( $children, $denied, $unread, $unsaveable, $items ) = self::children_of( $menu_id, $item_id );
         if ( $denied ) {
             $this->refuse( 'you may not edit child item(s) %s, which must move.', $denied, 'To delete the item anyway, send reparent_children: false; its children then keep pointing at the deleted id.' );
         }
@@ -151,12 +149,13 @@ class Delete_Menu_Item extends Base_Tool {
             $this->refuse(
                 'child item(s) %s must move, but WordPress will not re-save them as stored.',
                 $unsaveable,
-                'WordPress refuses to re-save a custom link with an empty title or URL, or an archive link to a post type that is no longer registered. Fix those items with wp_update_menu_item first, or delete without reparent_children.'
+                'WordPress refuses to re-save an archive link to a post type that is no longer registered. Fix those items with wp_update_menu_item first, or delete without reparent_children.'
             );
         }
         return array(
             'parent'   => $parent,
             'children' => $children,
+            'items'    => $items,
         );
     }
 
@@ -171,7 +170,7 @@ class Delete_Menu_Item extends Base_Tool {
             }
         }
         if ( ! $found ) {
-            return array( array(), array(), array(), array() );
+            return array( array(), array(), array(), array(), array() );
         }
         usort( $found, array( List_Menu_Items::class, 'by_menu_order_then_id' ) );
 
@@ -191,7 +190,7 @@ class Delete_Menu_Item extends Base_Tool {
             }
             $children[] = $id;
         }
-        return array( $children, $denied, $unread, $unsaveable );
+        return array( $children, $denied, $unread, $unsaveable, array_intersect_key( $items, array_flip( $children ) ) );
     }
 
     private static function throw_rest_error( \WP_REST_Response $response ): void {

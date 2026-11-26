@@ -4,6 +4,7 @@ namespace Easy_MCP_AI\Tools\Pages;
 use Easy_MCP_AI\Multilingual\Translation_Write;
 use Easy_MCP_AI\Tools\Base_Tool;
 use Easy_MCP_AI\Tools\CPT\Create_CPT_Item;
+use Easy_MCP_AI\Tools\CPT\Status_Taxonomy;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -127,6 +128,11 @@ class Create_Page extends Base_Tool {
         return $schema;
     }
 
+    public function precheck( array $arguments ): void {
+        $params = array( 'status' => self::sent_status( $arguments ) );
+        self::take_new_status( $params );
+    }
+
     public function execute( array $arguments ) {
         if ( Create_CPT_Item::allows_empty_title( $arguments ) ) {
             Create_CPT_Item::require_title_content_or_excerpt( $arguments );
@@ -142,6 +148,8 @@ class Create_Page extends Base_Tool {
             self::cli_params( $arguments )
         );
 
+        $taxonomy = self::take_new_status( $params );
+
         $meta_sent = $this->apply_meta_argument( $arguments, $params );
 
         if ( isset( $arguments['tax_input'] ) ) {
@@ -150,7 +158,9 @@ class Create_Page extends Base_Tool {
 
         self::refuse_future_without_date( $params );
 
-        $this->maybe_force_draft( $params );
+        if ( '' === $taxonomy ) {
+            $this->maybe_force_draft( $params );
+        }
 
         $params += $translation->create_params();
         $data    = $translation->save(
@@ -162,7 +172,7 @@ class Create_Page extends Base_Tool {
         $result = array(
             'id'     => $data['id'],
             'title'  => $data['title']['raw'] ?? $data['title']['rendered'],
-            'status' => $data['status'],
+            'status' => Status_Taxonomy::status_of( $data ),
             'link'   => $data['link'],
         );
         if ( $meta_sent ) {
@@ -172,9 +182,17 @@ class Create_Page extends Base_Tool {
         return $result + $translation->finish( (int) $data['id'] );
     }
 
+    private static function sent_status( array $arguments ): string {
+        return isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'draft';
+    }
+
+    private static function take_new_status( array &$params ): string {
+        return Status_Taxonomy::take_status( $params, 'page', 'draft', 'New page items are saved as drafts', 'Send no status, or draft. Nothing was written.' );
+    }
+
     private function content_params( array $arguments ): array {
         $params = array(
-            'status' => isset( $arguments['status'] ) ? sanitize_text_field( $arguments['status'] ) : 'draft',
+            'status' => self::sent_status( $arguments ),
         );
         if ( Create_CPT_Item::has_text( $arguments, 'title' ) ) {
             $this->validate_title_length( $arguments['title'] );

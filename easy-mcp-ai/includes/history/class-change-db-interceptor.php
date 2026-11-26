@@ -237,10 +237,10 @@ class Change_DB_Interceptor {
         if ( null === $table ) {
             return false;
         }
-        $stripped = strtolower( $this->strip_prefix( self::unqualify( $table ) ) );
+        $stripped = \Easy_MCP_AI\Ascii::lower( $this->strip_prefix( self::unqualify( $table ) ) );
         $deny     = (array) \apply_filters( 'easy_mcp_ai_change_log_db_table_denylist', self::$table_denylist );
         foreach ( $deny as $entry ) {
-            $entry = strtolower( (string) $entry );
+            $entry = \Easy_MCP_AI\Ascii::lower( (string) $entry );
             if ( '' === $entry ) {
                 continue;
             }
@@ -274,7 +274,7 @@ class Change_DB_Interceptor {
             return strlen( $b ) - strlen( $a );
         } );
         foreach ( $prefixes as $prefix ) {
-            if ( '' !== $prefix && 0 === stripos( $table, $prefix ) ) {
+            if ( '' !== $prefix && 0 === strpos( \Easy_MCP_AI\Ascii::lower( $table ), \Easy_MCP_AI\Ascii::lower( $prefix ) ) ) {
                 return substr( $table, strlen( $prefix ) );
             }
         }
@@ -743,14 +743,17 @@ class Change_DB_Interceptor {
     private function redact_sql( $sql ) {
         $sql = (string) $sql;
 
-        $sql = preg_replace(
-            '/(`?\w*(?:pass|secret|token|api_?key|_hash|private)\w*`?\s*=\s*)(\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*")/i',
-            '$1\'[REDACTED]\'',
+        $sql = (string) \Easy_MCP_AI\Ascii::replace_callback(
+            '/(`?[a-z0-9_]*(?:pass|secret|token|api_?key|_hash|private)[a-z0-9_]*`?\s*=\s*)(\'(?:[^\'\\\\]|\\\\.)*\'|"(?:[^"\\\\]|\\\\.)*")/',
+            static function ( array $m ): string {
+                return $m[1] . "'[REDACTED]'";
+            },
             $sql
         );
 
-        if ( preg_match( '/^\s*(?:INSERT|REPLACE)\b/i', $sql )
-            && preg_match( '/\(([^)]*)\)\s*VALUES/i', $sql, $m ) ) {
+        $lower = \Easy_MCP_AI\Ascii::lower( $sql );
+        if ( preg_match( '/^\s*(?:insert|replace)(?![a-z0-9_])/', $lower )
+            && preg_match( '/\(([^)]*)\)\s*values/', $lower, $m ) ) {
             foreach ( preg_split( '/\s*,\s*/', trim( $m[1] ) ) as $col ) {
                 if ( self::column_is_sensitive( trim( (string) $col, " `\t\r\n" ) ) ) {
                     $sql = preg_replace(

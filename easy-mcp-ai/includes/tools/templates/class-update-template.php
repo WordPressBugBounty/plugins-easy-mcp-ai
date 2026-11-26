@@ -2,6 +2,7 @@
 namespace Easy_MCP_AI\Tools\Templates;
 
 use Easy_MCP_AI\Tools\Base_Tool;
+use Easy_MCP_AI\Tools\Post_Type_Tool_Hint;
 
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -14,7 +15,9 @@ class Update_Template extends Base_Tool {
     }
 
     public function get_description() {
-        return 'Updates the content of a block template or template part. `type` selects `template` (default) or `template_part` (header, footer and other reusable areas); the ID format is `theme-slug//slug` for both. Read the current content with wp_get_template first — the new content replaces it entirely. Requires an active block theme (Full Site Editing).';
+        return 'Updates the content of a block template or template part. `type` selects `template` (default) or `template_part` (header, footer and other reusable areas); the ID format is `theme-slug//slug` for both. '
+            . ( Post_Type_Tool_Hint::may_describe( 'wp_get_template' ) ? 'Read the current content with wp_get_template first — the new content replaces it entirely.' : 'The new content replaces the current content entirely.' )
+            . ' Requires an active block theme (Full Site Editing).';
     }
 
     public function get_category() {
@@ -65,14 +68,27 @@ class Update_Template extends Base_Tool {
             throw new \RuntimeException( sprintf( '%s are not available. This requires an active block theme (Full Site Editing). The current theme is a classic theme.', $label ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
         }
 
-        $this->validate_required( $arguments, array( 'template_id', 'content' ) );
+        $this->validate_required( $arguments, array( 'template_id' ) );
+        if ( ! isset( $arguments['content'] ) ) {
+            throw new \InvalidArgumentException( 'Missing required parameters: content' );
+        }
 
         $template_id = Template_Id::validate( $arguments['template_id'] );
 
         $request = new \WP_REST_Request( 'POST', '/wp/v2/' . Template_Type::rest_base( $type ) . '/' . $template_id );
         $request->set_param( 'content', $arguments['content'] );
 
-        $response = rest_do_request( $request );
+        $saved     = array();
+        $post_type = Template_Type::TEMPLATE_PART === $type ? 'wp_template_part' : 'wp_template';
+        $record    = static function ( $post_id ) use ( &$saved ) {
+            $saved[] = (int) $post_id;
+        };
+        add_action( 'save_post_' . $post_type, $record, PHP_INT_MAX, 1 );
+        try {
+            $response = rest_do_request( $request );
+        } finally {
+            remove_action( 'save_post_' . $post_type, $record, PHP_INT_MAX );
+        }
 
         if ( $response->is_error() ) {
             $wp_error          = $response->as_error();
@@ -86,6 +102,9 @@ class Update_Template extends Base_Tool {
         }
 
         $data = $response->get_data();
+        if ( empty( $data['wp_id'] ) || ! in_array( (int) $data['wp_id'], $saved, true ) ) {
+            throw new \RuntimeException( sprintf( 'WordPress did not save this %s, so its content is unchanged. It keeps no template whose title, description and content are all empty after cleaning; otherwise the save failed.', Template_Type::TEMPLATE_PART === $type ? 'template part' : 'template' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
+        }
 
         return array(
             'id'     => $data['id'],
